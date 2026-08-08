@@ -41,6 +41,10 @@ export interface Product {
   created_at: string;
 }
 
+/** Fixed set — the spec calls out exactly these three delivery zones.
+ * Fixing the id (rather than free-text names) is what lets the label
+ * translate correctly when the buyer switches language; only the fee
+ * and quote-on-request toggle are configurable per zone. */
 export type ZoneId = "dili_center" | "dili_outskirts" | "other_municipality";
 export interface Zone {
   id: ZoneId;
@@ -94,6 +98,9 @@ export interface Order {
   quote_requested: boolean;
   subtotal: number;
   total: number;
+  // Central Dili orders use a simple street address (address_line);
+  // outskirts/other-municipality orders use the full hierarchy below.
+  address_line: string | null;
   municipality: string | null;
   post: string | null;
   suku: string | null;

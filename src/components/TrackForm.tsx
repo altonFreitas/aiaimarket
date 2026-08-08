@@ -71,6 +71,7 @@ function Dashboard({
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [addr, setAddr] = useState({
+    address_line: o.address_line || "",
     municipality: o.municipality || "", post: o.post || "", suku: o.suku || "",
     aldeia: o.aldeia || "", landmark: o.landmark || "",
   });
@@ -206,30 +207,50 @@ function Dashboard({
           </div>
         ) : editing ? (
           <>
-            <div className="two">
-              <div className="field"><label>{t("municipality", lang)}</label>
-                <input value={addr.municipality} onChange={(e) => setAddr({ ...addr, municipality: e.target.value })} /></div>
-              <div className="field"><label>{t("post", lang)}</label>
-                <input value={addr.post} onChange={(e) => setAddr({ ...addr, post: e.target.value })} /></div>
-            </div>
-            <div className="two">
-              <div className="field"><label>{t("suku", lang)}</label>
-                <input value={addr.suku} onChange={(e) => setAddr({ ...addr, suku: e.target.value })} /></div>
-              <div className="field"><label>{t("aldeia", lang)}</label>
-                <input value={addr.aldeia} onChange={(e) => setAddr({ ...addr, aldeia: e.target.value })} /></div>
-            </div>
-            <div className="field"><label>{t("landmark", lang)}</label>
-              <input value={addr.landmark} onChange={(e) => setAddr({ ...addr, landmark: e.target.value })} /></div>
+            {o.address_line !== null ? (
+              <>
+                <div className="field"><label>{t("address", lang)}</label>
+                  <input value={addr.address_line} onChange={(e) => setAddr({ ...addr, address_line: e.target.value })} /></div>
+                <div className="field"><label>{t("landmark", lang)}</label>
+                  <input value={addr.landmark} onChange={(e) => setAddr({ ...addr, landmark: e.target.value })} /></div>
+              </>
+            ) : (
+              <>
+                <div className="two">
+                  <div className="field"><label>{t("municipality", lang)}</label>
+                    <input value={addr.municipality} onChange={(e) => setAddr({ ...addr, municipality: e.target.value })} /></div>
+                  <div className="field"><label>{t("post", lang)}</label>
+                    <input value={addr.post} onChange={(e) => setAddr({ ...addr, post: e.target.value })} /></div>
+                </div>
+                <div className="two">
+                  <div className="field"><label>{t("suku", lang)}</label>
+                    <input value={addr.suku} onChange={(e) => setAddr({ ...addr, suku: e.target.value })} /></div>
+                  <div className="field"><label>{t("aldeia", lang)}</label>
+                    <input value={addr.aldeia} onChange={(e) => setAddr({ ...addr, aldeia: e.target.value })} /></div>
+                </div>
+                <div className="field"><label>{t("landmark", lang)}</label>
+                  <input value={addr.landmark} onChange={(e) => setAddr({ ...addr, landmark: e.target.value })} /></div>
+              </>
+            )}
             <button className="btn btn-sm" type="button" onClick={saveAddr}>{t("save", lang)}</button>
           </>
         ) : (
           <>
             <div className="rows">
-              <div className="kv"><span>{t("municipality", lang)}</span><b>{o.municipality}</b></div>
-              <div className="kv"><span>{t("post", lang)}</span><b>{o.post}</b></div>
-              <div className="kv"><span>{t("suku", lang)}</span><b>{o.suku}</b></div>
-              {o.aldeia && <div className="kv"><span>{t("aldeia", lang)}</span><b>{o.aldeia}</b></div>}
-              <div className="kv"><span>{t("landmark", lang)}</span><b>{o.landmark}</b></div>
+              {o.address_line ? (
+                <>
+                  <div className="kv"><span>{t("address", lang)}</span><b>{o.address_line}</b></div>
+                  <div className="kv"><span>{t("landmark", lang)}</span><b>{o.landmark}</b></div>
+                </>
+              ) : (
+                <>
+                  <div className="kv"><span>{t("municipality", lang)}</span><b>{o.municipality}</b></div>
+                  <div className="kv"><span>{t("post", lang)}</span><b>{o.post}</b></div>
+                  <div className="kv"><span>{t("suku", lang)}</span><b>{o.suku}</b></div>
+                  {o.aldeia && <div className="kv"><span>{t("aldeia", lang)}</span><b>{o.aldeia}</b></div>}
+                  <div className="kv"><span>{t("landmark", lang)}</span><b>{o.landmark}</b></div>
+                </>
+              )}
             </div>
             {locked ? (
               <p className="note" style={{ marginTop: 8 }}>{t("addressLocked", lang)}</p>

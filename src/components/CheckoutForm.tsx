@@ -3,10 +3,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
-import { placeOrder } from "@/lib/actions/orders";
-import { money, phoneOk } from "@/lib/utils";
-import { t } from "@/lib/i18n";
 import CopyButton from "@/components/CopyButton";
+import { placeOrder } from "@/lib/actions/orders";
+import { COUNTRIES } from "@/lib/countries";
+import { money } from "@/lib/utils";
+import { t } from "@/lib/i18n";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
 
 const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "fiar"];
@@ -21,14 +22,23 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
   const [pay, setPay] = useState<PayMethod>("cod");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+
+  // Phone: country selector + local number, combined on submit — Central
+  // Dili has street addressing, so it gets a simple address field instead
+  // of the full Municipality → Post → Suku → Aldeia hierarchy.
+  const [countryCode, setCountryCode] = useState(COUNTRIES[0].code);
+  const [localPhone, setLocalPhone] = useState("");
+
   const [f, setF] = useState({
-    name: "", phone: "", municipality: "", post: "", suku: "", aldeia: "", landmark: "", note: "",
+    name: "", address: "", municipality: "", post: "", suku: "", aldeia: "", landmark: "", note: "",
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
 
   const zone = useMemo(() => settings.zones.find((z) => z.id === zoneId), [zoneId, settings.zones]);
   const fee = mode === "delivery" && zone && !zone.quote ? Number(zone.fee) : 0;
   const total = subtotal + fee;
+  const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
+  const needsFullAddress = mode === "delivery" && !isDiliCenter;
 
   if (!lines.length) {
     return (
@@ -46,9 +56,15 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!f.name.trim()) errs.name = t("required", lang);
-    if (!f.phone.trim()) errs.phone = t("required", lang);
-    else if (!phoneOk(f.phone)) errs.phone = t("badPhone", lang);
-    if (mode === "delivery") {
+
+    const localDigits = localPhone.replace(/[^\d]/g, "");
+    if (!localDigits) errs.phone = t("required", lang);
+    else if (localDigits.length < 6 || localDigits.length > 12) errs.phone = t("badPhone", lang);
+
+    if (isDiliCenter) {
+      if (!f.address.trim()) errs.address = t("required", lang);
+      if (!f.landmark.trim()) errs.landmark = t("required", lang);
+    } else if (needsFullAddress) {
       (["municipality", "post", "suku", "landmark"] as const).forEach((k) => {
         if (!f[k].trim()) errs[k] = t("required", lang);
       });
@@ -59,24 +75,30 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
       return;
     }
 
+    const fullPhone = "+" + countryCode + localDigits;
+
     setBusy(true);
     try {
       const ref = await placeOrder({
         name: f.name,
-        phone: f.phone,
+        phone: fullPhone,
         items: lines.map((l) => ({
           product_id: l.id, name: l.name, size: l.size, price: l.price, qty: l.qty,
         })),
         mode,
         zoneId: mode === "delivery" ? zoneId : undefined,
-        municipality: f.municipality, post: f.post, suku: f.suku,
-        aldeia: f.aldeia, landmark: f.landmark,
+        addressLine: isDiliCenter ? f.address : undefined,
+        municipality: needsFullAddress ? f.municipality : undefined,
+        post: needsFullAddress ? f.post : undefined,
+        suku: needsFullAddress ? f.suku : undefined,
+        aldeia: needsFullAddress ? f.aldeia : undefined,
+        landmark: mode === "delivery" ? f.landmark : undefined,
         payMethod: pay,
         note: f.note,
       });
       clear();
       toast(t("orderPlaced", lang));
-      router.push(`/o/${ref}?phone=${encodeURIComponent(f.phone)}`);
+      router.push(`/o/${ref}?phone=${encodeURIComponent(fullPhone)}`);
     } catch (err) {
       console.error(err);
       toast(String((err as Error).message || "Error"), true);
@@ -105,7 +127,37 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
         <div className="panel">
           <h3>{t("yourDetails", lang)}</h3>
           {field("name", t("name", lang))}
-          {field("phone", t("phone", lang), "tel", t("phoneHint", lang), "+670 7712 3456")}
+
+          {/* Country + local number — the select shows the calling code,
+              the buyer only has to type their own local digits. */}
+          <div className={"field" + (errors.phone ? " err" : "")}>
+            <label htmlFor="localPhone">{t("phone", lang)} *</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              <select
+                id="phoneCountry"
+                aria-label={t("country", lang)}
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                style={{ flex: "0 0 auto", width: 108 }}
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} +{c.code}
+                  </option>
+                ))}
+              </select>
+              <input
+                id="localPhone"
+                type="tel"
+                placeholder="7712 3456"
+                value={localPhone}
+                style={{ flex: 1 }}
+                onChange={(e) => setLocalPhone(e.target.value)}
+              />
+            </div>
+            <p className="hint">{t("phoneHint", lang)}</p>
+            <p className="msg">{errors.phone}</p>
+          </div>
         </div>
 
         <div className="panel">
@@ -140,18 +192,30 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
                 ))}
               </select>
             </div>
-            <div className="two">
-              {field("municipality", t("municipality", lang))}
-              {field("post", t("post", lang))}
-            </div>
-            <div className="two">
-              {field("suku", t("suku", lang))}
-              <div className="field">
-                <label htmlFor="aldeia">{t("aldeia", lang)}</label>
-                <input id="aldeia" value={f.aldeia} onChange={(e) => set("aldeia", e.target.value)} />
-              </div>
-            </div>
-            {field("landmark", t("landmark", lang), "text", t("landmarkHint", lang))}
+
+            {isDiliCenter ? (
+              // Central Dili: street addressing works, so ask for a plain
+              // address line instead of the full rural-style hierarchy.
+              <>
+                {field("address", t("streetAddress", lang), "text", t("addressHint", lang), t("addressPlaceholder", lang))}
+                {field("landmark", t("landmark", lang), "text", undefined, t("landmarkExample", lang))}
+              </>
+            ) : (
+              <>
+                <div className="two">
+                  {field("municipality", t("municipality", lang))}
+                  {field("post", t("post", lang))}
+                </div>
+                <div className="two">
+                  {field("suku", t("suku", lang))}
+                  <div className="field">
+                    <label htmlFor="aldeia">{t("aldeia", lang)}</label>
+                    <input id="aldeia" value={f.aldeia} onChange={(e) => set("aldeia", e.target.value)} />
+                  </div>
+                </div>
+                {field("landmark", t("landmark", lang), "text", t("landmarkHint", lang), t("landmarkExample", lang))}
+              </>
+            )}
           </div>
         )}
 
@@ -170,7 +234,6 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
             ))}
           </div>
 
-          {/* G2 — details revealed only after the buyer picks that method */}
           {pay === "bank" && (
             <div className="note info" style={{ marginTop: 8 }}>
               <b>{t("bankDetails", lang)}</b>

@@ -17,11 +17,14 @@ export function slugify(s: string): string {
 
 export function phoneOk(v: string): boolean {
   const d = v.replace(/[^\d]/g, "");
-  return /^670\d{8}$/.test(d) || /^\d{8}$/.test(d);
+  // 8 digits alone = bare Timor local number (used by the order-lookup
+  // gate, which has no country selector). 9-15 digits = a full number
+  // that already includes a country code, from any supported country.
+  return /^\d{8}$/.test(d) || /^\d{9,15}$/.test(d);
 }
 export function phoneNorm(v: string): string {
   let d = v.replace(/[^\d]/g, "");
-  if (d.length === 8) d = "670" + d;
+  if (d.length === 8) d = "670" + d; // bare local number → assume Timor-Leste
   return "+" + d;
 }
 
@@ -35,9 +38,13 @@ export function nowIso(ts: string | number): string {
 }
 
 export function addrLine(a: {
+  address_line?: string | null;
   landmark?: string | null; aldeia?: string | null; suku?: string | null;
   post?: string | null; municipality?: string | null;
 }): string {
+  if (a.address_line) {
+    return [a.address_line, a.landmark].filter(Boolean).join(", ");
+  }
   return [a.landmark, a.aldeia, a.suku, a.post, a.municipality].filter(Boolean).join(", ");
 }
 

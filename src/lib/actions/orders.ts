@@ -18,6 +18,7 @@ export interface PlaceOrderInput {
   items: OrderItem[];
   mode: "delivery" | "pickup";
   zoneId?: string;
+  addressLine?: string; // Central Dili: a simple street address
   municipality?: string; post?: string; suku?: string; aldeia?: string; landmark?: string;
   payMethod: PayMethod;
   note?: string;
@@ -54,9 +55,10 @@ export async function placeOrder(input: PlaceOrderInput) {
       quote_requested: !!(zone && zone.quote),
       subtotal,
       total: subtotal + fee,
-      municipality: input.mode === "delivery" ? input.municipality : null,
-      post: input.mode === "delivery" ? input.post : null,
-      suku: input.mode === "delivery" ? input.suku : null,
+      address_line: input.mode === "delivery" ? input.addressLine || null : null,
+      municipality: input.mode === "delivery" ? input.municipality || null : null,
+      post: input.mode === "delivery" ? input.post || null : null,
+      suku: input.mode === "delivery" ? input.suku || null : null,
       aldeia: input.mode === "delivery" ? input.aldeia || null : null,
       landmark: input.mode === "delivery" ? input.landmark : null,
       pay_method: input.payMethod,
@@ -112,7 +114,7 @@ export async function requestCancellation(ref: string, phone: string, reason: st
 /** I4 — buyer can edit the delivery address up until "out for delivery". */
 export async function updateOrderAddress(
   ref: string, phone: string,
-  addr: { municipality: string; post: string; suku: string; aldeia?: string; landmark: string }
+  addr: { address_line?: string; municipality?: string; post?: string; suku?: string; aldeia?: string; landmark: string }
 ) {
   const order = await lookupOrder(ref, phone);
   if (!order) throw new Error("Order not found");
