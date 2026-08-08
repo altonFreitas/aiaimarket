@@ -8,8 +8,11 @@ export const STR: Record<string, [string,string,string]> = {
   list:["Ha'u nia lista","A minha lista","My list"],
   track:["Buka enkomenda","Seguir encomenda","Track order"],
   navList:["Lista","Lista","List"],
-  navTrack:["Enkomenda","Encomenda","Order"],
+  navTrack:["Ha'u nia Enkomenda","Minha Encomenda","My Order"],
   admin:["Admin","Admin","Admin"],
+  seeAllOrders:["Haree enkomenda hotu ita nia","Ver todas as minhas encomendas","See all my orders"],
+  singleOrder:["Buka ho referénsia","Procurar por referência","Find by reference"],
+  backToSingle:["Buka enkomenda seluk","Procurar outra encomenda","Look up a different order"],
   home:["Uma","Início","Home"],
   /* buyer questions — the four repeated questions (§2.2) */
   qPrice:["Folin hira?","Quanto custa?","How much is it?"],

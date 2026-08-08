@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import ProductInteractive from "@/components/ProductInteractive";
 import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
-import Footer from "@/components/Footer";
 import { getCategories, getLiveProducts, getProductBySlug, getSettings, bumpView } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
@@ -77,7 +76,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           </div>
         </>
       )}
-      <Footer settings={settings} />
     </div>
   );
 }

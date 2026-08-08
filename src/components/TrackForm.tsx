@@ -1,14 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import {
-  lookupOrder, requestCancellation, updateOrderAddress, uploadPaymentProof,
+  lookupOrder, getOrdersByPhone, requestCancellation, updateOrderAddress, uploadPaymentProof,
 } from "@/lib/actions/orders";
 import { compressImage } from "@/lib/compressImage";
 import { addrLine, money, nowIso, waLink, waOrderMsg, FLOW } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
+
+interface OrderSummary {
+  ref: string; buyer_name: string; buyer_phone: string;
+  status: string; pay_status: string; total: number; created_at: string; mode: string;
+}
 
 export default function TrackForm({
   lang, initialRef, settings,
@@ -18,6 +24,7 @@ export default function TrackForm({
   const [ref, setRef] = useState(initialRef);
   const [phone, setPhone] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
+  const [history, setHistory] = useState<OrderSummary[] | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Coming straight from checkout: the phone is passed once so the buyer
@@ -36,12 +43,27 @@ export default function TrackForm({
     try {
       const o = await lookupOrder(r, ph);
       if (!o) { toast(t("notFound", lang), true); setOrder(null); }
-      else setOrder(o as Order);
+      else { setOrder(o as Order); setHistory(null); }
     } catch { toast(t("notFound", lang), true); }
     setBusy(false);
   }
 
-  if (!order) {
+  // "See all my orders" — same phone-only trust level as guest checkout
+  // already uses (no password), just widened from one order to every one.
+  async function findAll(ph = phone) {
+    if (!ph.trim()) { toast(t("required", lang), true); return; }
+    setBusy(true);
+    try {
+      const list = await getOrdersByPhone(ph);
+      setHistory(list as OrderSummary[]);
+      setOrder(null);
+      if (!list.length) toast(t("notFound", lang), true);
+    } catch { toast(t("notFound", lang), true); }
+    setBusy(false);
+  }
+
+  // ---------------- gate screen: no order and no history loaded yet ----------------
+  if (!order && !history) {
     return (
       <div className="wrap">
         <h1>{t("trackTitle", lang)}</h1>
@@ -49,7 +71,7 @@ export default function TrackForm({
         <form className="panel" onSubmit={(e) => { e.preventDefault(); void find(); }}>
           <div className="field">
             <label htmlFor="tref">{t("ref", lang)}</label>
-            <input id="tref" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="ORD-2026-0001" autoComplete="off" />
+            <input id="tref" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="ORD-2026-0001 / CD2026…" autoComplete="off" />
           </div>
           <div className="field">
             <label htmlFor="tphone">{t("phone", lang)}</label>
@@ -57,17 +79,63 @@ export default function TrackForm({
           </div>
           <button className="btn" type="submit" disabled={busy}>{busy ? "…" : t("find", lang)}</button>
         </form>
+
+        <div className="btn-row">
+          <button className="btn btn-ghost" type="button" disabled={busy} onClick={() => findAll()}>
+            {t("seeAllOrders", lang)}
+          </button>
+        </div>
+
         <div className="note info">{t("noAccount", lang)}</div>
       </div>
     );
   }
 
-  return <Dashboard order={order} lang={lang} settings={settings} phone={phone} onRefresh={() => find(order.ref, phone)} />;
+  // ---------------- history list (phone-only, every order) ----------------
+  if (history) {
+    return (
+      <div className="wrap">
+        <h1>{t("myOrders", lang)}</h1>
+        <p className="sub mono">{phone}</p>
+        {history.length ? (
+          <div className="list">
+            {history.map((o) => (
+              <Link key={o.ref} className="item" href={`/o/${o.ref}?phone=${encodeURIComponent(phone)}`} style={{ textDecoration: "none" }}>
+                <div className="g">
+                  <b>{o.ref}</b>
+                  <span>{nowIso(o.created_at)} · {money(o.total)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
+                </div>
+                <div className="acts">
+                  <span className={"pill " + (o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : "warn")}>
+                    {t("ps_" + o.pay_status, lang)}
+                  </span>
+                  <span className={"pill " + (o.status === "completed" ? "ok" : o.status === "cancelled" ? "bad" : "warn")}>
+                    {t("st_" + o.status, lang)}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="empty"><p>{t("noResults", lang)}</p></div>
+        )}
+        <div className="btn-row">
+          <button className="btn btn-ghost" type="button" onClick={() => setHistory(null)}>
+            {t("backToSingle", lang)}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <Dashboard order={order as Order} lang={lang} settings={settings} phone={phone}
+    onRefresh={() => find((order as Order).ref, phone)}
+    onSeeAll={() => findAll(phone)} />;
 }
 
 function Dashboard({
-  order: o, lang, settings, phone, onRefresh,
-}: { order: Order; lang: Lang; settings?: Settings; phone: string; onRefresh: () => void }) {
+  order: o, lang, settings, phone, onRefresh, onSeeAll,
+}: { order: Order; lang: Lang; settings?: Settings; phone: string; onRefresh: () => void; onSeeAll: () => void }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [addr, setAddr] = useState({
@@ -79,6 +147,7 @@ function Dashboard({
   const [asking, setAsking] = useState(false);
 
   const locked = ["out", "arrived", "completed", "cancelled"].includes(o.status);
+  const cancellable = ["new", "confirmed"].includes(o.status) && !o.cancel_requested_at;
   const at = FLOW.indexOf(o.status);
   const payPill = o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : o.pay_status === "refunded" ? "bad" : "warn";
 
@@ -139,6 +208,34 @@ function Dashboard({
         )}
       </div>
 
+      {/* I7 cancellation — moved right under the timeline so self-service
+          cancel is the first thing a buyer sees, not something buried
+          below the contact-seller section. */}
+      {cancellable && (
+        asking ? (
+          <div className="panel">
+            <h3>{t("askCancel", lang)}</h3>
+            <div className="field">
+              <label>{t("cancelReason", lang)}</label>
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div className="btn-row" style={{ margin: 0 }}>
+              <button className="btn btn-danger" type="button" onClick={sendCancel}>{t("askCancel", lang)}</button>
+              <button className="btn btn-ghost" type="button" onClick={() => setAsking(false)}>{t("cancel", lang)}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="btn-row">
+            <button className="btn btn-danger btn-sm" type="button" onClick={() => setAsking(true)}>
+              {t("askCancel", lang)}
+            </button>
+          </div>
+        )
+      )}
+      {o.cancel_requested_at && (
+        <div className="note">{t("cancelSent", lang)} — “{o.cancel_reason}”</div>
+      )}
+
       {/* I2 summary */}
       <div className="panel">
         <h3>{t("orderSummary", lang)}</h3>
@@ -182,7 +279,7 @@ function Dashboard({
             ))}
           </div>
         )}
-        {["bank", "wallet", "fiar"].includes(o.pay_method) && (
+        {["bank", "wallet"].includes(o.pay_method) && (
           <div style={{ marginTop: 10 }}>
             {o.proof_url && (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -278,28 +375,12 @@ function Dashboard({
         </div>
       )}
 
-      {/* I7 cancellation */}
-      {["new", "confirmed"].includes(o.status) && !o.cancel_requested_at && (
-        asking ? (
-          <div className="panel">
-            <h3>{t("askCancel", lang)}</h3>
-            <div className="field">
-              <label>{t("cancelReason", lang)}</label>
-              <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
-            </div>
-            <button className="btn btn-danger" type="button" onClick={sendCancel}>{t("askCancel", lang)}</button>
-          </div>
-        ) : (
-          <div className="btn-row">
-            <button className="btn btn-danger" type="button" onClick={() => setAsking(true)}>
-              {t("askCancel", lang)}
-            </button>
-          </div>
-        )
-      )}
-      {o.cancel_requested_at && (
-        <div className="note">{t("cancelSent", lang)} — “{o.cancel_reason}”</div>
-      )}
+      {/* I6 — jump to full order history for this phone */}
+      <div className="btn-row">
+        <button className="btn btn-ghost" type="button" onClick={onSeeAll}>
+          {t("seeAllOrders", lang)}
+        </button>
+      </div>
     </div>
   );
 }

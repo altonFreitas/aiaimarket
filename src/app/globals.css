@@ -23,7 +23,9 @@ body{
   background:var(--paper); color:var(--ink); font-family:var(--sans);
   font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
   overflow-wrap:break-word;
+  display:flex; flex-direction:column; min-height:100vh;
 }
+#view{flex:1 0 auto}
 img{max-width:100%;display:block}
 a{color:inherit}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -255,7 +257,9 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .toast.bad{background:var(--red)}
 
 /* ---------- footer ---------- */
-.ft{border-top:1px solid var(--line);margin-top:24px;padding:16px 0 0;color:var(--muted);font-size:12px}
+.ft{border-top:1px solid var(--line);margin-top:24px;padding:16px 12px calc(78px + env(safe-area-inset-bottom));
+  color:var(--muted);font-size:12px;text-align:center;background:var(--paper);
+  max-width:1180px;margin-left:auto;margin-right:auto}
 .ft a{color:var(--muted)}
 .ft .mono{font-size:11px;color:var(--muted-2)}
 
@@ -271,6 +275,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .side{display:block;position:sticky;top:calc(var(--hd) + 12px)}
   .cat-rail{display:none}
   .nav{display:none}
+  .ft{padding-bottom:16px}
   .hd-track{display:inline-flex}
   .wrap{padding-bottom:30px}
   h1{font-size:25px}

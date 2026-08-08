@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import { ToastProvider } from "@/components/Toast";
 import { getSettings } from "@/lib/data/public";
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           )}
           <Header settings={settings} />
           <main id="view">{children}</main>
+          <Footer settings={settings} />
           <BottomNav lang={lang} />
         </ToastProvider>
       </body>

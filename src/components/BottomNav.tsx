@@ -33,13 +33,6 @@ export default function BottomNav({ lang }: { lang: Lang }) {
         </svg>
         <span>{t("navTrack", lang)}</span>
       </Link>
-      <Link href="/admin" aria-current={isAt("/admin")}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <path d="M3 9h18M8 4v5" />
-        </svg>
-        <span>{t("admin", lang)}</span>
-      </Link>
     </nav>
   );
 }
