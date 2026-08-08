@@ -75,6 +75,7 @@ export const STR: Record<string, [string,string,string]> = {
   addressHint:["Ezemplu: Rua Praia dos Coqueiros, Dili","Ex.: Rua Praia dos Coqueiros, Díli","e.g. Rua Praia dos Coqueiros, Dili"],
   addressPlaceholder:["Rua Praia dos Coqueiros, Dili","Rua Praia dos Coqueiros, Díli","Rua Praia dos Coqueiros, Dili"],
   country:["Nasaun","País","Country"],
+  otherCountry:["Seluk","Outro","Other"],
   phoneHint:["Ezemplu: +670 7712 3456 — presiza atinji husi liga ka WhatsApp","Ex.: +670 7712 3456 — deve ser possível ligar ou usar WhatsApp","e.g. +670 7712 3456 — must be reachable by call or WhatsApp"],
   copyNumber:["Kopia númeru","Copiar número","Copy number"],
   quoteOnRequest:["Presu tuir orsamentu","Preço sob consulta","Quote on request"],

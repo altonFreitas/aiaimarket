@@ -207,13 +207,12 @@ export default function ProductForm({
         <div className="panel">
           <h3>{t("paymentMethods", lang)}</h3>
           <div className="checks">
-            {(["cod", "cop", "bank", "wallet", "fiar"] as const).map((m) => (
+            {(["cod", "cop", "bank", "wallet"] as const).map((m) => (
               <label className="check" key={m} data-on={pay[m]}>
                 <input type="checkbox" checked={pay[m]}
                   onChange={(e) => setPay((s) => ({ ...s, [m]: e.target.checked }))} />
                 <span>
                   <b>{t("pm_" + m, lang)}</b>
-                  {m === "fiar" && <small>{t("pm_fiar_note", lang)}</small>}
                 </span>
               </label>
             ))}

@@ -5,11 +5,48 @@ import { phoneNorm, phoneOk } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderStatus, PayMethod, PayStatus } from "@/lib/types";
 
-async function nextOrderRef(): Promise<string> {
+/** Sequential fallback, used only for pickup orders (no delivery zone to
+ * derive a code from). Unchanged from before this feature. */
+async function nextPickupRef(): Promise<string> {
   const sb = supabaseAdmin();
   const year = new Date().getFullYear();
   const { count } = await sb.from("orders").select("*", { count: "exact", head: true });
   return `ORD-${year}-${String((count || 0) + 1).padStart(4, "0")}`;
+}
+
+/** Delivery orders get a zone-coded reference the customer can recognise
+ * at a glance, and that already carries the info a courier needs:
+ *   Central Dili         → CD + year + last4(phone) + 6 random digits
+ *   Dili outskirts        → DO + year + last4(phone) + 6 random digits
+ *   Other municipality    → OM + first 2 letters of municipality
+ *                            + year + last4(phone) + 6 random digits
+ * Collision odds are astronomically small (1 in a million per attempt
+ * before even considering phone/year), but we still check and retry —
+ * `ref` is UNIQUE in the database, so an unlucky collision must never
+ * surface as a raw insert error to the buyer. */
+async function nextDeliveryRef(zoneId: string, normalizedPhone: string, municipality?: string): Promise<string> {
+  const sb = supabaseAdmin();
+  const year = new Date().getFullYear();
+  const phoneDigits = normalizedPhone.replace(/[^\d]/g, "");
+  const last4 = phoneDigits.slice(-4).padStart(4, "0");
+
+  let prefix: string;
+  if (zoneId === "dili_center") prefix = "CD";
+  else if (zoneId === "dili_outskirts") prefix = "DO";
+  else {
+    const letters = (municipality || "")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
+      .replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2).padEnd(2, "X");
+    prefix = "OM" + letters;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const rand = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+    const ref = `${prefix}${year}${last4}${rand}`;
+    const { data } = await sb.from("orders").select("id").eq("ref", ref).maybeSingle();
+    if (!data) return ref;
+  }
+  throw new Error("Could not generate a unique order reference — please try again");
 }
 
 export interface PlaceOrderInput {
@@ -40,14 +77,17 @@ export async function placeOrder(input: PlaceOrderInput) {
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
   const fee = zone && !zone.quote ? Number(zone.fee) : 0;
   const subtotal = input.items.reduce((a, i) => a + i.price * i.qty, 0);
-  const ref = await nextOrderRef();
+  const normalizedPhone = phoneNorm(input.phone);
+  const ref = input.mode === "delivery"
+    ? await nextDeliveryRef(input.zoneId || "", normalizedPhone, input.municipality)
+    : await nextPickupRef();
 
   const { data, error } = await sb
     .from("orders")
     .insert({
       ref,
       buyer_name: input.name.trim(),
-      buyer_phone: phoneNorm(input.phone),
+      buyer_phone: normalizedPhone,
       items: input.items,
       mode: input.mode,
       zone_id: input.mode === "delivery" ? input.zoneId : null,

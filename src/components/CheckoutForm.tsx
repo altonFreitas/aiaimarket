@@ -10,7 +10,7 @@ import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
 
-const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "fiar"];
+const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet"];
 
 export default function CheckoutForm({ lang, settings }: { lang: Lang; settings: Settings }) {
   const { lines, subtotal, clear } = useBasket();
@@ -27,6 +27,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
   // Dili has street addressing, so it gets a simple address field instead
   // of the full Municipality → Post → Suku → Aldeia hierarchy.
   const [countryCode, setCountryCode] = useState(COUNTRIES[0].code);
+  const [customCode, setCustomCode] = useState("");
   const [localPhone, setLocalPhone] = useState("");
 
   const [f, setF] = useState({
@@ -58,7 +59,9 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
     if (!f.name.trim()) errs.name = t("required", lang);
 
     const localDigits = localPhone.replace(/[^\d]/g, "");
-    if (!localDigits) errs.phone = t("required", lang);
+    const effectiveCode = countryCode === "other" ? customCode : countryCode;
+    if (countryCode === "other" && !customCode) errs.phone = t("required", lang);
+    else if (!localDigits) errs.phone = t("required", lang);
     else if (localDigits.length < 6 || localDigits.length > 12) errs.phone = t("badPhone", lang);
 
     if (isDiliCenter) {
@@ -75,7 +78,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
       return;
     }
 
-    const fullPhone = "+" + countryCode + localDigits;
+    const fullPhone = "+" + effectiveCode + localDigits;
 
     setBusy(true);
     try {
@@ -129,10 +132,11 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
           {field("name", t("name", lang))}
 
           {/* Country + local number — the select shows the calling code,
-              the buyer only has to type their own local digits. */}
+              the buyer only has to type their own local digits. "Other"
+              reveals a free-text code field for a country not listed. */}
           <div className={"field" + (errors.phone ? " err" : "")}>
             <label htmlFor="localPhone">{t("phone", lang)} *</label>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <select
                 id="phoneCountry"
                 aria-label={t("country", lang)}
@@ -145,13 +149,25 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
                     {c.flag} +{c.code}
                   </option>
                 ))}
+                <option value="other">🌐 {t("otherCountry", lang)}</option>
               </select>
+              {countryCode === "other" && (
+                <input
+                  id="customCode"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="+___"
+                  value={customCode}
+                  style={{ width: 64, flex: "0 0 auto" }}
+                  onChange={(e) => setCustomCode(e.target.value.replace(/[^\d]/g, ""))}
+                  aria-label={t("otherCountry", lang)}
+                />
+              )}
               <input
                 id="localPhone"
                 type="tel"
-                placeholder="7712 3456"
                 value={localPhone}
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: 140 }}
                 onChange={(e) => setLocalPhone(e.target.value)}
               />
             </div>
