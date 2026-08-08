@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { placeOrder } from "@/lib/actions/orders";
 import { money, phoneOk } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import CopyButton from "@/components/CopyButton";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
 
 const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "fiar"];
@@ -16,7 +17,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
   const router = useRouter();
 
   const [mode, setMode] = useState<"delivery" | "pickup">("delivery");
-  const [zoneId, setZoneId] = useState(settings.zones[0]?.id || "");
+  const [zoneId, setZoneId] = useState<string>(settings.zones[0]?.id || "");
   const [pay, setPay] = useState<PayMethod>("cod");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -83,11 +84,11 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
     }
   }
 
-  const field = (key: keyof typeof f, label: string, type = "text", hint?: string) => (
+  const field = (key: keyof typeof f, label: string, type = "text", hint?: string, placeholder?: string) => (
     <div className={"field" + (errors[key] ? " err" : "")}>
       <label htmlFor={key}>{label} *</label>
       <input
-        id={key} type={type} value={f[key]}
+        id={key} type={type} value={f[key]} placeholder={placeholder}
         onChange={(e) => set(key, e.target.value)}
       />
       {hint && <p className="hint">{hint}</p>}
@@ -104,7 +105,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
         <div className="panel">
           <h3>{t("yourDetails", lang)}</h3>
           {field("name", t("name", lang))}
-          {field("phone", t("phone", lang), "tel")}
+          {field("phone", t("phone", lang), "tel", t("phoneHint", lang), "+670 7712 3456")}
         </div>
 
         <div className="panel">
@@ -134,7 +135,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
               <select id="zone" value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
                 {settings.zones.map((z) => (
                   <option key={z.id} value={z.id}>
-                    {z.name} — {z.quote ? t("quoteOnRequest", lang) : money(z.fee)}
+                    {t("zone_" + z.id, lang)} — {z.quote ? t("quoteOnRequest", lang) : money(z.fee)}
                   </option>
                 ))}
               </select>
@@ -174,8 +175,9 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
             <div className="note info" style={{ marginTop: 8 }}>
               <b>{t("bankDetails", lang)}</b>
               {settings.banks.map((b, i) => (
-                <div className="mono" style={{ marginTop: 4 }} key={i}>
+                <div className="mono" style={{ marginTop: 4, display: "flex", alignItems: "center" }} key={i}>
                   {b.label} · {b.account} · {b.holder}
+                  <CopyButton value={b.account} lang={lang} />
                 </div>
               ))}
             </div>
@@ -184,8 +186,9 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
             <div className="note info" style={{ marginTop: 8 }}>
               <b>{t("walletDetails", lang)}</b>
               {settings.wallets.map((w, i) => (
-                <div className="mono" style={{ marginTop: 4 }} key={i}>
+                <div className="mono" style={{ marginTop: 4, display: "flex", alignItems: "center" }} key={i}>
                   {w.label} · {w.number}
+                  <CopyButton value={w.number} lang={lang} />
                 </div>
               ))}
             </div>

@@ -3,7 +3,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/settings";
-import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Bank, Lang, Wallet, Zone } from "@/lib/types";
 
@@ -28,7 +27,6 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   const [zones, setZones] = useState<Zone[]>(settings.zones || []);
   const [nb, setNb] = useState({ label: "", account: "", holder: "" });
   const [nw, setNw] = useState({ label: "", number: "" });
-  const [nz, setNz] = useState({ name: "", fee: "", quote: false });
 
   const set = (k: string, v: string | boolean) => setF((s) => ({ ...s, [k]: v }));
   const refresh = () => startTransition(() => router.refresh());
@@ -132,36 +130,41 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
 
       <div className="panel">
         <h3>{t("zones", lang)}</h3>
+        <p className="hint" style={{ margin: "0 0 10px" }}>
+          {t("zone_dili_center", lang)} / {t("zone_dili_outskirts", lang)} / {t("zone_other_municipality", lang)}
+        </p>
         <div className="rows">
-          {zones.map((z, i) => (
-            <div className="kv" key={i}>
-              <span>{z.name}</span>
-              <span>
-                <b>{z.quote ? t("quoteOnRequest", lang) : money(z.fee)}</b>{" "}
-                <button className="btn btn-sm btn-ghost" disabled={busy}
-                  onClick={() => { const next = zones.filter((_, ix) => ix !== i); setZones(next); run(() => saveZones(next)); }}>
-                  {t("del", lang)}
-                </button>
-              </span>
-            </div>
-          ))}
+          {(["dili_center", "dili_outskirts", "other_municipality"] as const).map((zid) => {
+            const z = zones.find((x) => x.id === zid) || { id: zid, fee: 0, quote: false };
+            const update = (patch: Partial<Zone>) => {
+              const next = zones.some((x) => x.id === zid)
+                ? zones.map((x) => (x.id === zid ? { ...x, ...patch } : x))
+                : [...zones, { ...z, ...patch }];
+              setZones(next);
+              run(() => saveZones(next));
+            };
+            return (
+              <div className="kv" key={zid} style={{ alignItems: "center" }}>
+                <span>{t("zone_" + zid, lang)}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {!z.quote && (
+                    <input
+                      type="number" step="0.5" min="0" value={z.fee}
+                      style={{ width: 70, padding: "4px 6px" }}
+                      disabled={busy}
+                      onChange={(e) => update({ fee: Number(e.target.value) || 0 })}
+                    />
+                  )}
+                  <label className="check" style={{ padding: "4px 8px" }} data-on={z.quote}>
+                    <input type="checkbox" checked={z.quote} disabled={busy}
+                      onChange={(e) => update({ quote: e.target.checked })} />
+                    <span style={{ fontSize: 12 }}>{t("quoteOnRequest", lang)}</span>
+                  </label>
+                </span>
+              </div>
+            );
+          })}
         </div>
-        <div className="two" style={{ marginTop: 8 }}>
-          <input placeholder="Dili sentru" value={nz.name} onChange={(e) => setNz({ ...nz, name: e.target.value })} />
-          <input type="number" step="0.5" min="0" placeholder="1.00" value={nz.fee}
-            onChange={(e) => setNz({ ...nz, fee: e.target.value })} />
-        </div>
-        <label className="check" style={{ marginTop: 6 }} data-on={nz.quote}>
-          <input type="checkbox" checked={nz.quote} onChange={(e) => setNz({ ...nz, quote: e.target.checked })} />
-          <span>{t("quoteOnRequest", lang)}</span>
-        </label>
-        <button className="btn btn-sm" style={{ marginTop: 6 }} disabled={busy || !nz.name}
-          onClick={() => {
-            const next = [...zones, { id: "z" + Date.now(), name: nz.name, fee: Number(nz.fee) || 0, quote: nz.quote }];
-            setZones(next); setNz({ name: "", fee: "", quote: false }); run(() => saveZones(next));
-          }}>
-          {t("add", lang)}
-        </button>
       </div>
     </>
   );

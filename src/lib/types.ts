@@ -41,9 +41,9 @@ export interface Product {
   created_at: string;
 }
 
+export type ZoneId = "dili_center" | "dili_outskirts" | "other_municipality";
 export interface Zone {
-  id: string;
-  name: string;
+  id: ZoneId;
   fee: number;
   quote: boolean;
 }
