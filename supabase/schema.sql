@@ -1,0 +1,243 @@
+-- ============================================================
+-- Loja AIAI — schema for "Marketplace Platform for Timor-Leste v1.0"
+-- Run this once in Supabase → SQL Editor → New query → Run.
+-- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE throughout.
+-- ============================================================
+
+create extension if not exists "pgcrypto";
+
+-- ---------- settings (Epic A3, single row for the single seller) ----------
+create table if not exists settings (
+  id            int primary key default 1,
+  seller_id     uuid not null default gen_random_uuid(),   -- Decision 2: present from day one
+  store_name    text not null default 'Loja AIAI',
+  tagline_tet   text default '',
+  tagline_pt    text default '',
+  tagline_en    text default '',
+  wa_number     text not null default '',                  -- +670 format
+  hours         text default '',
+  municipality  text default '',
+  post          text default '',
+  suku          text default '',
+  landmark      text default '',
+  pickup        boolean not null default true,
+  banks         jsonb not null default '[]',   -- [{label,account,holder}]
+  wallets       jsonb not null default '[]',   -- [{label,number}]
+  zones         jsonb not null default '[]',   -- [{id,name,fee,quote}]
+  updated_at    timestamptz not null default now(),
+  constraint single_row check (id = 1)
+);
+insert into settings (id) values (1) on conflict (id) do nothing;
+
+-- Function-based default, not a raw subquery: Postgres allows a function
+-- call in DEFAULT (evaluated per-row at insert time), just not inline SELECT.
+create or replace function current_seller_id() returns uuid
+  language sql stable as $$
+  select seller_id from settings where id = 1;
+$$;
+
+-- ---------- categories (Epic C) ----------
+create table if not exists categories (
+  id          uuid primary key default gen_random_uuid(),
+  seller_id   uuid not null default current_seller_id(),
+  name        text not null,
+  slug        text not null,
+  parent_id   uuid references categories(id) on delete set null,
+  sort_order  int not null default 0,
+  created_at  timestamptz not null default now(),
+  unique (seller_id, slug)
+);
+create index if not exists idx_categories_parent on categories(parent_id);
+
+-- ---------- products (Epic B) ----------
+create table if not exists products (
+  id            uuid primary key default gen_random_uuid(),
+  seller_id     uuid not null default current_seller_id(),
+  ref           text not null unique,             -- PRD-0001
+  name          text not null,
+  slug          text not null,
+  category_id   uuid references categories(id) on delete set null,
+  price         numeric(10,2) not null check (price >= 0),
+  sizes         text[] not null default '{}',
+  tags          text[] not null default '{}',
+  stock_status  text not null default 'in' check (stock_status in ('in','low','out')),
+  qty           int not null default 0,
+  description   text default '',
+  images        text[] not null default '{}',     -- public Storage URLs
+  -- pickup location override; falls back to settings row when null
+  municipality  text,
+  post          text,
+  suku          text,
+  landmark      text,
+  -- payment methods accepted for this product (Epic G1)
+  pay_cod       boolean not null default true,
+  pay_cop       boolean not null default true,
+  pay_bank      boolean not null default false,
+  pay_wallet    boolean not null default false,
+  pay_fiar      boolean not null default false,
+  archived      boolean not null default false,    -- B3: soft delete only
+  views         int not null default 0,
+  wa_clicks     int not null default 0,
+  created_at    timestamptz not null default now(),
+  unique (seller_id, slug)
+);
+create index if not exists idx_products_category    on products(category_id);
+create index if not exists idx_products_stock       on products(stock_status);
+create index if not exists idx_products_created     on products(created_at desc);
+create index if not exists idx_products_archived    on products(archived);
+
+-- ---------- orders (Epic F) ----------
+create table if not exists orders (
+  id             uuid primary key default gen_random_uuid(),
+  seller_id      uuid not null default current_seller_id(),
+  ref            text not null unique,             -- ORD-2026-0001
+  buyer_name     text not null,
+  buyer_phone    text not null,                     -- +670XXXXXXXX, identity for the dashboard
+  items          jsonb not null,                    -- [{product_id,name,size,price,qty}]
+  mode           text not null check (mode in ('delivery','pickup')),
+  zone_id        text,
+  fee            numeric(10,2) not null default 0,
+  quote_requested boolean not null default false,
+  subtotal       numeric(10,2) not null,
+  total          numeric(10,2) not null,
+  municipality   text, post text, suku text, aldeia text, landmark text,
+  pay_method     text not null check (pay_method in ('cod','cop','bank','wallet','fiar')),
+  pay_status     text not null default 'unpaid' check (pay_status in ('unpaid','deposit','paid','refunded')),
+  proof_url      text,
+  note           text default '',
+  status         text not null default 'new'
+                 check (status in ('new','confirmed','preparing','out','arrived','completed','cancelled')),
+  cancel_reason  text,
+  cancel_requested_at timestamptz,
+  created_at     timestamptz not null default now()
+);
+create index if not exists idx_orders_phone   on orders(buyer_phone);
+create index if not exists idx_orders_status  on orders(status);
+create index if not exists idx_orders_created on orders(created_at desc);
+
+-- internal order log (Epic F6) — append-only
+create table if not exists order_log (
+  id          bigint generated always as identity primary key,
+  order_id    uuid not null references orders(id) on delete cascade,
+  text        text not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_order_log_order on order_log(order_id);
+
+-- Immutability guard (NFR: "order records are immutable once completed")
+create or replace function block_edit_completed_order() returns trigger as $$
+begin
+  if old.status = 'completed' and new.status <> 'completed' then
+    raise exception 'Order % is completed and cannot be reopened', old.ref;
+  end if;
+  if old.status = 'completed' and new.status = 'completed' then
+    -- allow pay_status/proof updates only, block item/address edits
+    if new.items is distinct from old.items
+       or new.total is distinct from old.total
+       or new.municipality is distinct from old.municipality then
+      raise exception 'Order % is completed and its contents cannot change', old.ref;
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_block_edit_completed on orders;
+create trigger trg_block_edit_completed
+  before update on orders
+  for each row execute function block_edit_completed_order();
+
+-- Stock sync on confirm (Epic F5) — decrement qty, auto-flag out of stock
+create or replace function decrement_stock_on_confirm() returns trigger as $$
+declare item jsonb;
+begin
+  if new.status = 'confirmed' and old.status = 'new' then
+    for item in select * from jsonb_array_elements(new.items) loop
+      update products
+        set qty = greatest(0, qty - (item->>'qty')::int),
+            stock_status = case
+              when greatest(0, qty - (item->>'qty')::int) = 0 then 'out'
+              when greatest(0, qty - (item->>'qty')::int) <= 2 then 'low'
+              else stock_status end
+        where id = (item->>'product_id')::uuid;
+    end loop;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_decrement_stock on orders;
+create trigger trg_decrement_stock
+  after update on orders
+  for each row execute function decrement_stock_on_confirm();
+
+-- Atomic counters for view / WhatsApp-click tracking (Epic E4).
+-- security definer: lets an anonymous visitor bump a counter without
+-- granting them general UPDATE rights on the products table.
+create or replace function increment_views(p_id uuid) returns void
+  language sql security definer set search_path = public as $$
+  update products set views = views + 1 where id = p_id;
+$$;
+
+create or replace function increment_wa_clicks(p_id uuid) returns void
+  language sql security definer set search_path = public as $$
+  update products set wa_clicks = wa_clicks + 1 where id = p_id;
+$$;
+
+revoke all on function increment_views(uuid) from public;
+revoke all on function increment_wa_clicks(uuid) from public;
+grant execute on function increment_views(uuid) to anon, authenticated;
+grant execute on function increment_wa_clicks(uuid) to anon, authenticated;
+
+-- ============================================================
+-- Row Level Security
+-- Public (anon) visitors: read live products/categories/settings,
+-- create orders and read only the order they can prove (ref + phone
+-- match, enforced in the app layer via a server route — RLS still
+-- blocks blind SELECT * by anon on orders).
+-- Admin writes go through the server using the service-role key,
+-- which bypasses RLS — never expose that key to the browser.
+-- ============================================================
+alter table settings   enable row level security;
+alter table categories enable row level security;
+alter table products   enable row level security;
+alter table orders     enable row level security;
+alter table order_log  enable row level security;
+
+drop policy if exists settings_public_read on settings;
+create policy settings_public_read on settings for select using (true);
+
+drop policy if exists categories_public_read on categories;
+create policy categories_public_read on categories for select using (true);
+
+drop policy if exists products_public_read on products;
+create policy products_public_read on products for select using (archived = false);
+
+-- Orders: no public SELECT policy at all — order lookup by ref+phone is
+-- done through a server route using the service-role key, never straight
+-- from the browser. Public may INSERT (place an order) only.
+drop policy if exists orders_public_insert on orders;
+create policy orders_public_insert on orders for insert with check (true);
+
+-- ============================================================
+-- Storage bucket for product images + payment proofs
+-- ============================================================
+insert into storage.buckets (id, name, public)
+  values ('product-images', 'product-images', true)
+  on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+  values ('payment-proofs', 'payment-proofs', false)
+  on conflict (id) do nothing;
+
+drop policy if exists "product images public read" on storage.objects;
+create policy "product images public read" on storage.objects
+  for select using (bucket_id = 'product-images');
+
+drop policy if exists "product images public upload" on storage.objects;
+create policy "product images public upload" on storage.objects
+  for insert with check (bucket_id = 'product-images');
+
+drop policy if exists "payment proofs public upload" on storage.objects;
+create policy "payment proofs public upload" on storage.objects
+  for insert with check (bucket_id = 'payment-proofs');

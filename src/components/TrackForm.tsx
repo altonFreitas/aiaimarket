@@ -1,0 +1,284 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useToast } from "@/components/Toast";
+import {
+  lookupOrder, requestCancellation, updateOrderAddress, uploadPaymentProof,
+} from "@/lib/actions/orders";
+import { compressImage } from "@/lib/compressImage";
+import { addrLine, money, nowIso, waLink, waOrderMsg, FLOW } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+import type { Lang, Order, Settings } from "@/lib/types";
+
+export default function TrackForm({
+  lang, initialRef, settings,
+}: { lang: Lang; initialRef: string; settings?: Settings }) {
+  const params = useSearchParams();
+  const { toast } = useToast();
+  const [ref, setRef] = useState(initialRef);
+  const [phone, setPhone] = useState("");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Coming straight from checkout: the phone is passed once so the buyer
+  // doesn't have to retype it to see the order they just placed.
+  useEffect(() => {
+    const p = params.get("phone");
+    if (p && initialRef) {
+      setPhone(p);
+      void find(initialRef, p);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function find(r = ref, ph = phone) {
+    setBusy(true);
+    try {
+      const o = await lookupOrder(r, ph);
+      if (!o) { toast(t("notFound", lang), true); setOrder(null); }
+      else setOrder(o as Order);
+    } catch { toast(t("notFound", lang), true); }
+    setBusy(false);
+  }
+
+  if (!order) {
+    return (
+      <div className="wrap">
+        <h1>{t("trackTitle", lang)}</h1>
+        <p className="sub">{t("trackHint", lang)}</p>
+        <form className="panel" onSubmit={(e) => { e.preventDefault(); void find(); }}>
+          <div className="field">
+            <label htmlFor="tref">{t("ref", lang)}</label>
+            <input id="tref" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="ORD-2026-0001" autoComplete="off" />
+          </div>
+          <div className="field">
+            <label htmlFor="tphone">{t("phone", lang)}</label>
+            <input id="tphone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+670 7712 3456" />
+          </div>
+          <button className="btn" type="submit" disabled={busy}>{busy ? "…" : t("find", lang)}</button>
+        </form>
+        <div className="note info">{t("noAccount", lang)}</div>
+      </div>
+    );
+  }
+
+  return <Dashboard order={order} lang={lang} settings={settings} phone={phone} onRefresh={() => find(order.ref, phone)} />;
+}
+
+function Dashboard({
+  order: o, lang, settings, phone, onRefresh,
+}: { order: Order; lang: Lang; settings?: Settings; phone: string; onRefresh: () => void }) {
+  const { toast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [addr, setAddr] = useState({
+    municipality: o.municipality || "", post: o.post || "", suku: o.suku || "",
+    aldeia: o.aldeia || "", landmark: o.landmark || "",
+  });
+  const [reason, setReason] = useState("");
+  const [asking, setAsking] = useState(false);
+
+  const locked = ["out", "arrived", "completed", "cancelled"].includes(o.status);
+  const at = FLOW.indexOf(o.status);
+  const payPill = o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : o.pay_status === "refunded" ? "bad" : "warn";
+
+  async function saveAddr() {
+    try {
+      await updateOrderAddress(o.ref, phone, addr);
+      toast(t("saved", lang));
+      setEditing(false);
+      onRefresh();
+    } catch (e) { toast(String((e as Error).message), true); }
+  }
+
+  async function sendCancel() {
+    try {
+      await requestCancellation(o.ref, phone, reason || "—");
+      toast(t("cancelSent", lang));
+      setAsking(false);
+      onRefresh();
+    } catch (e) { toast(String((e as Error).message), true); }
+  }
+
+  async function onProof(file: File | undefined) {
+    if (!file) return;
+    try {
+      const r = await compressImage(file, 900, 150);
+      await uploadPaymentProof(o.ref, phone, r.data);
+      toast(t("proofUploaded", lang));
+      onRefresh();
+    } catch (e) { toast(String((e as Error).message), true); }
+  }
+
+  return (
+    <div className="wrap">
+      <h1>{o.ref}</h1>
+      <p className="sub">
+        {o.buyer_name} · <span className="mono">{o.buyer_phone}</span> · {nowIso(o.created_at)}
+      </p>
+
+      {/* I1 status timeline */}
+      <div className="panel">
+        <h3>{t("status", lang)}</h3>
+        {o.status === "cancelled" ? (
+          <ul className="tl">
+            <li className="cancelled done"><span className="pin" /><span className="t">{t("st_cancelled", lang)}</span></li>
+          </ul>
+        ) : (
+          <ul className="tl">
+            {FLOW.map((s, i) => (
+              <li key={s} className={i < at ? "done" : i === at ? "now done" : ""}>
+                <span className="pin" />
+                <span className="t">
+                  {t("st_" + s, lang)}
+                  {i === at && s === "arrived" && settings && <small>{settings.wa_number}</small>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* I2 summary */}
+      <div className="panel">
+        <h3>{t("orderSummary", lang)}</h3>
+        <div className="rows">
+          {o.items.map((i, ix) => (
+            <div className="kv" key={ix}>
+              <span>{i.name}{i.size ? " · " + i.size : ""} × {i.qty}</span>
+              <b>{money(i.price * i.qty)}</b>
+            </div>
+          ))}
+          <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(o.subtotal)}</b></div>
+          <div className="kv">
+            <span>{t("deliveryFee", lang)}</span>
+            <b>{o.quote_requested ? t("quoteOnRequest", lang) : money(o.fee)}</b>
+          </div>
+          <div className="kv total"><span>{t("total", lang)}</span><b>{money(o.total)}</b></div>
+        </div>
+      </div>
+
+      {/* I3 payment panel */}
+      <div className="panel">
+        <h3>{t("paymentPanel", lang)}</h3>
+        <div className="kv"><span>{t("payment", lang)}</span><b>{t("pm_" + o.pay_method, lang)}</b></div>
+        <div className="kv">
+          <span>{t("paymentStatus", lang)}</span>
+          <span className={"pill " + payPill}>{t("ps_" + o.pay_status, lang)}</span>
+        </div>
+        {o.pay_method === "bank" && settings && (
+          <div className="note info" style={{ marginTop: 8 }}>
+            <b>{t("bankDetails", lang)}</b>
+            {settings.banks.map((b, i) => (
+              <div className="mono" style={{ marginTop: 4 }} key={i}>{b.label} · {b.account} · {b.holder}</div>
+            ))}
+          </div>
+        )}
+        {o.pay_method === "wallet" && settings && (
+          <div className="note info" style={{ marginTop: 8 }}>
+            <b>{t("walletDetails", lang)}</b>
+            {settings.wallets.map((w, i) => (
+              <div className="mono" style={{ marginTop: 4 }} key={i}>{w.label} · {w.number}</div>
+            ))}
+          </div>
+        )}
+        {["bank", "wallet", "fiar"].includes(o.pay_method) && (
+          <div style={{ marginTop: 10 }}>
+            {o.proof_url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={o.proof_url} alt={t("proofUploaded", lang)}
+                style={{ maxHeight: 150, borderRadius: 6, border: "1px solid var(--line)" }} />
+            )}
+            <label className="btn btn-ghost btn-sm" style={{ marginTop: 8, display: "inline-flex" }}>
+              {o.proof_url ? t("uploadProof", lang) + " ↻" : t("uploadProof", lang)}
+              <input type="file" accept="image/*" hidden onChange={(e) => onProof(e.target.files?.[0])} />
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* I4 delivery details */}
+      <div className="panel">
+        <h3>{t("deliveryDetails", lang)}</h3>
+        {o.mode === "pickup" ? (
+          <div className="kv">
+            <span>{t("pickup", lang)}</span>
+            <b>{settings ? `${settings.suku}, ${settings.municipality}` : "—"}</b>
+          </div>
+        ) : editing ? (
+          <>
+            <div className="two">
+              <div className="field"><label>{t("municipality", lang)}</label>
+                <input value={addr.municipality} onChange={(e) => setAddr({ ...addr, municipality: e.target.value })} /></div>
+              <div className="field"><label>{t("post", lang)}</label>
+                <input value={addr.post} onChange={(e) => setAddr({ ...addr, post: e.target.value })} /></div>
+            </div>
+            <div className="two">
+              <div className="field"><label>{t("suku", lang)}</label>
+                <input value={addr.suku} onChange={(e) => setAddr({ ...addr, suku: e.target.value })} /></div>
+              <div className="field"><label>{t("aldeia", lang)}</label>
+                <input value={addr.aldeia} onChange={(e) => setAddr({ ...addr, aldeia: e.target.value })} /></div>
+            </div>
+            <div className="field"><label>{t("landmark", lang)}</label>
+              <input value={addr.landmark} onChange={(e) => setAddr({ ...addr, landmark: e.target.value })} /></div>
+            <button className="btn btn-sm" type="button" onClick={saveAddr}>{t("save", lang)}</button>
+          </>
+        ) : (
+          <>
+            <div className="rows">
+              <div className="kv"><span>{t("municipality", lang)}</span><b>{o.municipality}</b></div>
+              <div className="kv"><span>{t("post", lang)}</span><b>{o.post}</b></div>
+              <div className="kv"><span>{t("suku", lang)}</span><b>{o.suku}</b></div>
+              {o.aldeia && <div className="kv"><span>{t("aldeia", lang)}</span><b>{o.aldeia}</b></div>}
+              <div className="kv"><span>{t("landmark", lang)}</span><b>{o.landmark}</b></div>
+            </div>
+            {locked ? (
+              <p className="note" style={{ marginTop: 8 }}>{t("addressLocked", lang)}</p>
+            ) : (
+              <button className="btn btn-ghost btn-sm" style={{ marginTop: 8 }} type="button"
+                onClick={() => setEditing(true)}>{t("editAddress", lang)}</button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* I5 seller contact */}
+      {settings && (
+        <div className="panel">
+          <h3>{t("contactSeller", lang)}</h3>
+          <div className="btn-row" style={{ margin: 0 }}>
+            <a className="btn btn-wa" target="_blank" rel="noopener"
+              href={waLink(settings.wa_number.replace(/[^\d]/g, ""), waOrderMsg(o, (p) => p))}>
+              WhatsApp
+            </a>
+            <a className="btn btn-ghost" href={`tel:${settings.wa_number.replace(/\s/g, "")}`}>
+              {t("call", lang)}
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* I7 cancellation */}
+      {["new", "confirmed"].includes(o.status) && !o.cancel_requested_at && (
+        asking ? (
+          <div className="panel">
+            <h3>{t("askCancel", lang)}</h3>
+            <div className="field">
+              <label>{t("cancelReason", lang)}</label>
+              <textarea value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <button className="btn btn-danger" type="button" onClick={sendCancel}>{t("askCancel", lang)}</button>
+          </div>
+        ) : (
+          <div className="btn-row">
+            <button className="btn btn-danger" type="button" onClick={() => setAsking(true)}>
+              {t("askCancel", lang)}
+            </button>
+          </div>
+        )
+      )}
+      {o.cancel_requested_at && (
+        <div className="note">{t("cancelSent", lang)} — “{o.cancel_reason}”</div>
+      )}
+    </div>
+  );
+}
