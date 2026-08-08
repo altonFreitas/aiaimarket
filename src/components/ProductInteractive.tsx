@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import { bumpWaClickAction } from "@/lib/actions/track";
@@ -40,7 +41,7 @@ export default function ProductInteractive({
 
   const payList: Array<[boolean, string]> = [
     [p.pay_cod, "pm_cod"], [p.pay_cop, "pm_cop"], [p.pay_bank, "pm_bank"],
-    [p.pay_wallet, "pm_wallet"], [p.pay_fiar, "pm_fiar"],
+    [p.pay_wallet, "pm_wallet"],
   ];
 
   function addToList() {
@@ -50,6 +51,16 @@ export default function ProductInteractive({
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty });
     toast(`${p.name} → ${t("list", lang)}`);
+  }
+
+  const router = useRouter();
+  function buyNow() {
+    if (p.sizes?.length > 1 && !size) {
+      toast(t("chooseSize", lang), true);
+      return;
+    }
+    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty });
+    router.push("/checkout");
   }
 
   async function share() {
@@ -150,6 +161,14 @@ export default function ProductInteractive({
         {p.stock_status === "out" ? (
           <button className="btn" disabled>{t("stockOut", lang)}</button>
         ) : (
+          <button className="btn btn-amber" type="button" onClick={buyNow}>
+            {t("buyNow", lang)}
+          </button>
+        )}
+      </div>
+
+      <div className="btn-row">
+        {p.stock_status === "out" ? null : (
           <>
             <a
               className="btn btn-wa"
@@ -177,11 +196,6 @@ export default function ProductInteractive({
         <button className="btn btn-ghost" type="button" onClick={share} style={{ flex: 1 }}>
           {t("share", lang)}
         </button>
-      </div>
-
-      <div className="panel">
-        <h3>{t("description", lang)}</h3>
-        <div style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
       </div>
 
       <div className="panel">

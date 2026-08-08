@@ -137,6 +137,23 @@ export async function lookupOrder(ref: string, phone: string) {
   return data;
 }
 
+/** "My Orders" — knowing the phone number alone reveals every order made
+ * with it, no code or password. This is intentionally the same trust
+ * level as guest checkout already uses (the spec's Decision 3: phone
+ * number is the identity), just widened from one order to all of them —
+ * no new accounts table, no SMS provider, no added cost. */
+export async function getOrdersByPhone(phone: string) {
+  if (!phoneOk(phone)) return [];
+  const sb = supabaseAdmin();
+  const normalized = phoneNorm(phone);
+  const { data } = await sb
+    .from("orders")
+    .select("ref, buyer_name, buyer_phone, status, pay_status, total, created_at, mode")
+    .eq("buyer_phone", normalized)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
 /** I7 — buyer-initiated cancellation request; still gated by ref+phone. */
 export async function requestCancellation(ref: string, phone: string, reason: string) {
   const order = await lookupOrder(ref, phone);

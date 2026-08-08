@@ -10,6 +10,7 @@ export default function CopyButton({ value, lang }: { value: string; lang: Lang 
     try {
       await navigator.clipboard.writeText(value);
     } catch {
+      // clipboard API unavailable (very old browser / non-HTTPS) — fall back
       const ta = document.createElement("textarea");
       ta.value = value;
       ta.style.position = "fixed";
@@ -29,10 +30,18 @@ export default function CopyButton({ value, lang }: { value: string; lang: Lang 
       aria-label={t("copyNumber", lang)}
       title={t("copyNumber", lang)}
       style={{
-        display: "inline-flex", alignItems: "center", justifyContent: "center",
-        width: 26, height: 26, marginLeft: 6, padding: 0,
-        border: "1px solid var(--line)", borderRadius: 6,
-        background: "#fff", color: "var(--muted)", cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 26,
+        height: 26,
+        marginLeft: 6,
+        padding: 0,
+        border: "1px solid var(--line)",
+        borderRadius: 6,
+        background: "#fff",
+        color: "var(--muted)",
+        cursor: "pointer",
         verticalAlign: "middle",
       }}
     >

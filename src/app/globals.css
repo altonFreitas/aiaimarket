@@ -43,6 +43,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   border-radius:var(--r-s);display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 8px;cursor:pointer;font-size:13px}
 .icon-btn:hover{background:rgba(255,255,255,.1)}
 .icon-btn .cnt{font-family:var(--mono);font-size:11px;background:var(--amber);color:#3a2b00;border-radius:20px;padding:0 5px;font-weight:700}
+.hd-track{display:none;text-decoration:none;font-weight:600;white-space:nowrap}
 .lang{display:flex;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);overflow:hidden;height:34px}
 .lang button{background:transparent;border:0;color:rgba(255,255,255,.62);padding:0 8px;font-size:11px;font-family:var(--mono);
   letter-spacing:.06em;cursor:pointer}
@@ -270,6 +271,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .side{display:block;position:sticky;top:calc(var(--hd) + 12px)}
   .cat-rail{display:none}
   .nav{display:none}
+  .hd-track{display:inline-flex}
   .wrap{padding-bottom:30px}
   h1{font-size:25px}
   .btn-row{flex-direction:row;flex-wrap:wrap}
