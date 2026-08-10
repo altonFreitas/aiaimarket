@@ -24,16 +24,18 @@ export default function TrendChart({
   const [chartType, setChartType] = useState<ChartType>("bar"); // bar is the default, per request
   const [selected, setSelected] = useState<number | null>(null);
 
-  // Only the Year button drills — clicking a specific year shows its four
-  // quarters. Day/Month/Quarter stay exactly as flat, independent views;
-  // clicking a bar there just reveals its value, same as always.
-  const [yearDrill, setYearDrill] = useState<number | null>(null);
+  // Year is a dropdown, not a bar chart of one-bar-per-year: pick a year,
+  // see that year's four quarters. Defaults to the most recent year.
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    const last = yearly[yearly.length - 1];
+    return last ? Number(last.label) : new Date().getFullYear();
+  });
 
   const source: Array<PeriodPoint | DailyPoint> =
     period === "day" ? daily :
     period === "month" ? monthly :
     period === "quarter" ? quarterly :
-    yearDrill === null ? yearly : (drillData.quartersByYear[yearDrill] || []);
+    (drillData.quartersByYear[selectedYear] || []);
 
   const firstActive = source.findIndex((p) => p.orders > 0);
   const trimmed = firstActive === -1 ? source : source.slice(firstActive);
@@ -43,6 +45,22 @@ export default function TrendChart({
     label: period === "day" ? (p as DailyPoint).date.slice(5) : (p as PeriodPoint).label,
     value: p[metric], subtotal: p.subtotal, fee: p.fee,
   }));
+
+  // Previous-period comparison badge. For day/month/quarter this compares
+  // against the equivalent prior window in the same rolling series. For
+  // year (now a dropdown into one year's quarters) it instead compares
+  // the selected year's total against the year immediately before it.
+  const prevWindowTotal = (() => {
+    if (period === "year") {
+      const prevYear = yearly.find((y) => Number(y.label) === selectedYear - 1);
+      return prevYear ? prevYear[metric] : null;
+    }
+    if (firstActive <= 0) return null;
+    const windowLen = trimmed.length;
+    const prevSlice = source.slice(Math.max(0, firstActive - windowLen), firstActive);
+    if (!prevSlice.length) return null;
+    return prevSlice.reduce((a, p) => a + p[metric], 0);
+  })();
 
   const max = Math.max(1, ...raw.map((p) => p.value));
   const periodTotal = raw.reduce((a, p) => a + p.value, 0);
@@ -60,38 +78,26 @@ export default function TrendChart({
   }
 
   const metricLabel = t(metric === "revenue" ? "revenueWord" : "unitsSoldWord", lang);
-  const title =
-    period === "year" && yearDrill !== null
-      ? `${t("period_quarter", lang)} ${metricLabel} — ${yearDrill}`
-      : `${t("period_" + period, lang)} ${metricLabel}`;
+  const title = period === "year"
+    ? `${t("period_quarter", lang)} ${metricLabel} — ${selectedYear}`
+    : `${t("period_" + period, lang)} ${metricLabel}`;
   const totalLabel = t(metric === "revenue" ? "totalRevenue" : "totalUnitsSold", lang);
-  const isYearDrilled = period === "year" && yearDrill !== null;
 
-  function changePeriod(p: Period) { setPeriod(p); setSelected(null); setYearDrill(null); }
+  function changePeriod(p: Period) { setPeriod(p); setSelected(null); }
+  function pick(i: number) { setSelected((cur) => (cur === i ? null : i)); }
 
-  function pick(i: number) {
-    if (period === "year" && yearDrill === null) {
-      setYearDrill(Number((trimmed[i] as PeriodPoint).label));
-      setSelected(null);
-      return;
-    }
-    setSelected((cur) => (cur === i ? null : i));
+  const colWidth = period === "day" ? 22 : 40;
+
+  let trendBadge: { up: boolean; pct: number } | null = null;
+  if (selected === null && prevWindowTotal !== null && prevWindowTotal > 0) {
+    const pct = Math.round(((periodTotal - prevWindowTotal) / prevWindowTotal) * 100);
+    if (pct !== 0) trendBadge = { up: pct > 0, pct: Math.abs(pct) };
   }
-  function backToYears() { setYearDrill(null); setSelected(null); }
-
-  const colWidth = period === "day" ? 22 : isYearDrilled ? 60 : 40;
 
   return (
     <div className="panel">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {isYearDrilled && (
-            <button type="button" onClick={backToYears} className="btn btn-sm btn-ghost" aria-label={t("back", lang)}>
-              ← {t("back", lang)}
-            </button>
-          )}
-          <h3 style={{ margin: 0 }}>{title}</h3>
-        </div>
+        <h3 style={{ margin: 0 }}>{title}</h3>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 4 }}>
             {(["bar", "line"] as ChartType[]).map((c) => (
@@ -112,24 +118,52 @@ export default function TrendChart({
         </div>
       </div>
 
-      {period === "year" && yearDrill === null && (
-        <p className="hint" style={{ margin: "0 0 6px" }}>{t("drillHint", lang)}</p>
+      {period === "year" && (
+        <div style={{ margin: "0 0 10px" }}>
+          <label htmlFor={`yearSelect-${metric}`} className="hint" style={{ display: "block", marginBottom: 4 }}>
+            {t("selectYear", lang)}
+          </label>
+          <select
+            id={`yearSelect-${metric}`}
+            value={selectedYear}
+            onChange={(e) => { setSelectedYear(Number(e.target.value)); setSelected(null); }}
+            style={{ maxWidth: 160 }}
+          >
+            {yearly.map((y) => (
+              <option key={y.label} value={y.label}>{y.label}</option>
+            ))}
+          </select>
+        </div>
       )}
 
-      <p className="hint" style={{ margin: "0 0 10px" }}>
-        {selected !== null ? (
-          metric === "revenue" ? (
-            breakdownOnly(raw[selected].subtotal, raw[selected].fee)
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", margin: "0 0 10px" }}>
+        <p className="hint" style={{ margin: 0 }}>
+          {selected !== null ? (
+            metric === "revenue" ? (
+              breakdownOnly(raw[selected].subtotal, raw[selected].fee)
+            ) : (
+              <>{totalLabel}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b></>
+            )
           ) : (
-            <>{totalLabel}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b></>
-          )
-        ) : (
-          <>
-            {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b>
-            {breakdown(periodSubtotal, periodFee)}
-          </>
+            <>
+              {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b>
+              {breakdown(periodSubtotal, periodFee)}
+            </>
+          )}
+        </p>
+        {trendBadge && (
+          <span
+            className="mono"
+            style={{
+              fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 20,
+              background: trendBadge.up ? "var(--green-soft, #dff2e8)" : "var(--red-soft, #fbe4e0)",
+              color: trendBadge.up ? "var(--green, #0e7a4f)" : "var(--red, #c43d2c)",
+            }}
+          >
+            {trendBadge.up ? "▲" : "▼"} {trendBadge.pct}% {t("vsPrevious", lang)}
+          </span>
         )}
-      </p>
+      </div>
 
       <div style={{ overflowX: "auto" }}>
         {!hasAnyData ? (
@@ -181,12 +215,13 @@ function BarRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
             key={i}
             type="button"
             onClick={() => onPick(i)}
-            title={`${p.label}: ${format(p.value)}${breakdownTooltip(p)}`}
+            title={`${p.label}: ${format(p.value)}`}
             aria-label={`${p.label}: ${format(p.value)}`}
             style={{
               flex: `0 0 ${colWidth}px`, height: `${Math.max(h, p.value > 0 ? 4 : 1)}%`,
               background: isSel ? "var(--ink)" : p.value > 0 ? "var(--amber)" : "var(--line-2)",
               border: 0, padding: "0 2px", cursor: "pointer",
+              transition: "height 320ms cubic-bezier(.2,.8,.2,1), background 150ms",
             }}
           >
             <span style={{
@@ -200,9 +235,6 @@ function BarRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
     </div>
   );
 }
-function breakdownTooltip(p: Pt) {
-  return p.fee > 0 ? ` (${money(p.subtotal)} + ${money(p.fee)} fee)` : "";
-}
 
 function LineRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
   const w = Math.max(1, points.length - 1) * colWidth;
@@ -212,9 +244,17 @@ function LineRow({ points, max, colWidth, selected, onPick, format }: RowProps) 
     return { x, y, ...p };
   });
   const path = xy.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+  const areaPath = `${path} L${xy[xy.length - 1]?.x || 0},${CHART_H} L${xy[0]?.x || 0},${CHART_H} Z`;
 
   return (
     <svg width={w + colWidth} height={CHART_H} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--amber)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--amber)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#trendFill)" stroke="none" />
       <path d={path} fill="none" stroke="var(--amber)" strokeWidth={2} />
       {xy.map((p, i) => (
         <g key={i} onClick={() => onPick(i)} style={{ cursor: "pointer" }}>
