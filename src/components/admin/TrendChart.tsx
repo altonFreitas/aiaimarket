@@ -87,14 +87,15 @@ export default function TrendChart({
         </div>
       </div>
 
-      {/* Total for the visible range, or the exact value for whichever
-          point was clicked — this is what makes "08-08 → $91.00" visible
-          without relying on a hover-only tooltip. Includes the products
-          vs delivery-fee split when there's a fee to show. */}
+      {/* Total for the visible range, or — when a point is clicked — that
+          single point's value in the exact same "Total revenue:" wording,
+          just without the date prefix (the date is already shown as the
+          bolded label under the chart). Includes the products vs
+          delivery-fee split when there's a fee to show. */}
       <p className="hint" style={{ margin: "0 0 10px" }}>
         {selected !== null ? (
           <>
-            {raw[selected].label}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b>
+            {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b>
             {breakdown(raw[selected].subtotal, raw[selected].fee)}
           </>
         ) : (
