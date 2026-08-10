@@ -46,11 +46,19 @@ export default function TrendChart({
   const periodFee = raw.reduce((a, p) => a + p.fee, 0);
   const format = (v: number) => (metric === "revenue" ? money(v) : String(v));
 
-  // "$46.00 = $45.00 products + $1.00 fee" — only meaningful for the
-  // revenue chart; units sold has no fee/subtotal split.
+  // "$46.00 = $45.00 products + $1.00 fee" — used for the aggregate total.
+  // Only meaningful for the revenue chart; units sold has no fee/subtotal split.
   function breakdown(subtotal: number, fee: number): string {
     if (metric !== "revenue" || fee <= 0) return "";
     return ` = ${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
+  }
+
+  // Just the parts, no "Total revenue: $X =" prefix — used when a single
+  // point is clicked, since the point's date is already shown as the
+  // bolded label under the chart, so repeating the total there is redundant.
+  function breakdownOnly(subtotal: number, fee: number) {
+    if (fee > 0) return `${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
+    return `${money(subtotal)} ${t("productsWord", lang)}`;
   }
 
   const metricLabel = t(metric === "revenue" ? "revenueWord" : "unitsSoldWord", lang);
@@ -87,17 +95,18 @@ export default function TrendChart({
         </div>
       </div>
 
-      {/* Total for the visible range, or — when a point is clicked — that
-          single point's value in the exact same "Total revenue:" wording,
-          just without the date prefix (the date is already shown as the
-          bolded label under the chart). Includes the products vs
-          delivery-fee split when there's a fee to show. */}
+      {/* Unselected: the aggregate total with its breakdown, as before.
+          Selected (a point clicked): for revenue, show ONLY the products
+          + fee breakdown — no repeated total, since the date is already
+          the bolded label under the chart. Units sold has no breakdown to
+          show, so it keeps the "Total units sold: N" wording instead. */}
       <p className="hint" style={{ margin: "0 0 10px" }}>
         {selected !== null ? (
-          <>
-            {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b>
-            {breakdown(raw[selected].subtotal, raw[selected].fee)}
-          </>
+          metric === "revenue" ? (
+            breakdownOnly(raw[selected].subtotal, raw[selected].fee)
+          ) : (
+            <>{totalLabel}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b></>
+          )
         ) : (
           <>
             {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b>
