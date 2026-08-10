@@ -1,6 +1,6 @@
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import RevenueChart from "./RevenueChart";
+import TrendChart from "./TrendChart";
 import ExportExcelButton from "./ExportExcelButton";
 import type { AdminStats } from "@/lib/stats";
 import type { Lang } from "@/lib/types";
@@ -47,8 +47,19 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
       </div>
 
       {/* revenue trend, switchable Day / Month / Quarter / Year */}
-      <RevenueChart
+      <TrendChart
         lang={lang}
+        metric="revenue"
+        daily={stats.dailyLast14}
+        monthly={stats.monthlyLast12}
+        quarterly={stats.quarterlyLast8}
+        yearly={stats.yearly}
+      />
+
+      {/* units-sold trend, same period toggle, same data shape */}
+      <TrendChart
+        lang={lang}
+        metric="qty"
         daily={stats.dailyLast14}
         monthly={stats.monthlyLast12}
         quarterly={stats.quarterlyLast8}

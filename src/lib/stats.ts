@@ -1,6 +1,6 @@
 import type { Order, Product } from "@/lib/types";
 
-export interface DailyPoint { date: string; revenue: number; orders: number }
+export interface DailyPoint { date: string; revenue: number; orders: number; qty: number }
 
 export interface AdminStats {
   // headline KPIs
@@ -37,7 +37,7 @@ export interface AdminStats {
   yearly: PeriodPoint[];
 }
 
-export interface PeriodPoint { label: string; revenue: number; orders: number }
+export interface PeriodPoint { label: string; revenue: number; orders: number; qty: number }
 
 const ORDER_STATUSES = ["new", "confirmed", "preparing", "out", "arrived", "completed", "cancelled"];
 const PAY_METHODS = ["cod", "cop", "bank", "wallet", "fiar"];
@@ -100,7 +100,7 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 5);
 
-  // Daily revenue/order-count trend, last 14 days, oldest first.
+  // Daily revenue/order-count/units trend, last 14 days, oldest first.
   const dailyLast14: DailyPoint[] = [];
   for (let i = 13; i >= 0; i--) {
     const dayStart = startOfDay(now - i * 86_400_000);
@@ -109,10 +109,12 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
       const t = new Date(o.created_at).getTime();
       return t >= dayStart && t < dayEnd;
     });
+    const dayCompleted = dayOrders.filter((o) => o.status === "completed");
     dailyLast14.push({
       date: new Date(dayStart).toISOString().slice(0, 10),
-      revenue: sum(dayOrders.filter((o) => o.status === "completed"), (o) => o.total),
+      revenue: sum(dayCompleted, (o) => o.total),
       orders: dayOrders.length,
+      qty: sumUnits(dayCompleted),
     });
   }
 
@@ -176,11 +178,25 @@ function periodPoint(orders: Order[], start: number, end: number, label: string)
     const t = new Date(o.created_at).getTime();
     return t >= start && t < end;
   });
+  const completed = inRange.filter((o) => o.status === "completed");
   return {
     label,
-    revenue: sum(inRange.filter((o) => o.status === "completed"), (o) => o.total),
+    revenue: sum(completed, (o) => o.total),
     orders: inRange.length,
+    qty: sumUnits(completed),
   };
+}
+
+/** Total units across every line item of the given orders — mirrors
+ * revenue's "completed only" convention so the two charts stay directly
+ * comparable day-for-day. (topProducts, a separate feature, deliberately
+ * uses a looser non-cancelled rule and is untouched by this.) */
+function sumUnits(orders: Order[]): number {
+  let total = 0;
+  for (const o of orders) {
+    for (const item of o.items || []) total += item.qty;
+  }
+  return total;
 }
 
 function sum<T>(arr: T[], f: (x: T) => number): number {
