@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import type { DailyPoint, PeriodPoint } from "@/lib/stats";
+import type { DailyPoint, DrillData, PeriodPoint } from "@/lib/stats";
 import type { Lang } from "@/lib/types";
 
 type Period = "day" | "month" | "quarter" | "year";
@@ -10,7 +10,7 @@ type ChartType = "bar" | "line";
 const CHART_H = 140;
 
 export default function TrendChart({
-  lang, metric, daily, monthly, quarterly, yearly,
+  lang, metric, daily, monthly, quarterly, yearly, drillData,
 }: {
   lang: Lang;
   metric: "revenue" | "qty";
@@ -18,63 +18,80 @@ export default function TrendChart({
   monthly: PeriodPoint[];
   quarterly: PeriodPoint[];
   yearly: PeriodPoint[];
+  drillData: DrillData;
 }) {
   const [period, setPeriod] = useState<Period>("day");
   const [chartType, setChartType] = useState<ChartType>("bar"); // bar is the default, per request
   const [selected, setSelected] = useState<number | null>(null);
 
-  const source =
+  // Only the Year button drills — clicking a specific year shows its four
+  // quarters. Day/Month/Quarter stay exactly as flat, independent views;
+  // clicking a bar there just reveals its value, same as always.
+  const [yearDrill, setYearDrill] = useState<number | null>(null);
+
+  const source: Array<PeriodPoint | DailyPoint> =
     period === "day" ? daily :
     period === "month" ? monthly :
     period === "quarter" ? quarterly :
-    yearly;
+    yearDrill === null ? yearly : (drillData.quartersByYear[yearDrill] || []);
 
-  // Trim leading periods with zero orders — no point showing 13 empty
-  // days before the first sale. Only trims the start; today's edge stays
-  // even if nothing has sold yet today.
   const firstActive = source.findIndex((p) => p.orders > 0);
   const trimmed = firstActive === -1 ? source : source.slice(firstActive);
-
-  const raw =
-    period === "day" ? (trimmed as typeof daily).map((d) => ({ label: d.date.slice(5), value: d[metric], subtotal: d.subtotal, fee: d.fee })) :
-    (trimmed as typeof monthly).map((m) => ({ label: period === "month" ? m.label.slice(2) : m.label, value: m[metric], subtotal: m.subtotal, fee: m.fee }));
-
   const hasAnyData = firstActive !== -1;
+
+  const raw = trimmed.map((p) => ({
+    label: period === "day" ? (p as DailyPoint).date.slice(5) : (p as PeriodPoint).label,
+    value: p[metric], subtotal: p.subtotal, fee: p.fee,
+  }));
+
   const max = Math.max(1, ...raw.map((p) => p.value));
   const periodTotal = raw.reduce((a, p) => a + p.value, 0);
   const periodSubtotal = raw.reduce((a, p) => a + p.subtotal, 0);
   const periodFee = raw.reduce((a, p) => a + p.fee, 0);
   const format = (v: number) => (metric === "revenue" ? money(v) : String(v));
 
-  // "$46.00 = $45.00 products + $1.00 fee" — used for the aggregate total.
-  // Only meaningful for the revenue chart; units sold has no fee/subtotal split.
   function breakdown(subtotal: number, fee: number): string {
     if (metric !== "revenue" || fee <= 0) return "";
     return ` = ${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
   }
-
-  // Just the parts, no "Total revenue: $X =" prefix — used when a single
-  // point is clicked, since the point's date is already shown as the
-  // bolded label under the chart, so repeating the total there is redundant.
   function breakdownOnly(subtotal: number, fee: number) {
     if (fee > 0) return `${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
     return `${money(subtotal)} ${t("productsWord", lang)}`;
   }
 
   const metricLabel = t(metric === "revenue" ? "revenueWord" : "unitsSoldWord", lang);
-  const title = `${t("period_" + period, lang)} ${metricLabel}`;
+  const title =
+    period === "year" && yearDrill !== null
+      ? `${t("period_quarter", lang)} ${metricLabel} — ${yearDrill}`
+      : `${t("period_" + period, lang)} ${metricLabel}`;
   const totalLabel = t(metric === "revenue" ? "totalRevenue" : "totalUnitsSold", lang);
+  const isYearDrilled = period === "year" && yearDrill !== null;
 
-  // Switching period/chart type invalidates whatever point was selected.
-  function changePeriod(p: Period) { setPeriod(p); setSelected(null); }
-  function pick(i: number) { setSelected((cur) => (cur === i ? null : i)); }
+  function changePeriod(p: Period) { setPeriod(p); setSelected(null); setYearDrill(null); }
 
-  const colWidth = period === "day" ? 22 : 40;
+  function pick(i: number) {
+    if (period === "year" && yearDrill === null) {
+      setYearDrill(Number((trimmed[i] as PeriodPoint).label));
+      setSelected(null);
+      return;
+    }
+    setSelected((cur) => (cur === i ? null : i));
+  }
+  function backToYears() { setYearDrill(null); setSelected(null); }
+
+  const colWidth = period === "day" ? 22 : isYearDrilled ? 60 : 40;
 
   return (
     <div className="panel">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
-        <h3 style={{ margin: 0 }}>{title}</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {isYearDrilled && (
+            <button type="button" onClick={backToYears} className="btn btn-sm btn-ghost" aria-label={t("back", lang)}>
+              ← {t("back", lang)}
+            </button>
+          )}
+          <h3 style={{ margin: 0 }}>{title}</h3>
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 4 }}>
             {(["bar", "line"] as ChartType[]).map((c) => (
@@ -95,11 +112,10 @@ export default function TrendChart({
         </div>
       </div>
 
-      {/* Unselected: the aggregate total with its breakdown, as before.
-          Selected (a point clicked): for revenue, show ONLY the products
-          + fee breakdown — no repeated total, since the date is already
-          the bolded label under the chart. Units sold has no breakdown to
-          show, so it keeps the "Total units sold: N" wording instead. */}
+      {period === "year" && yearDrill === null && (
+        <p className="hint" style={{ margin: "0 0 6px" }}>{t("drillHint", lang)}</p>
+      )}
+
       <p className="hint" style={{ margin: "0 0 10px" }}>
         {selected !== null ? (
           metric === "revenue" ? (
@@ -121,9 +137,9 @@ export default function TrendChart({
         ) : (
         <div style={{ minWidth: raw.length * colWidth }}>
           {chartType === "bar" ? (
-            <BarRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} breakdown={breakdown} />
+            <BarRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} />
           ) : (
-            <LineRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} breakdown={breakdown} />
+            <LineRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} />
           )}
           <div style={{ display: "flex", marginTop: 4 }}>
             {raw.map((p, i) => (
@@ -152,10 +168,9 @@ interface Pt { label: string; value: number; subtotal: number; fee: number }
 interface RowProps {
   points: Pt[]; max: number; colWidth: number; selected: number | null;
   onPick: (i: number) => void; format: (v: number) => string;
-  breakdown: (subtotal: number, fee: number) => string;
 }
 
-function BarRow({ points, max, colWidth, selected, onPick, format, breakdown }: RowProps) {
+function BarRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
   return (
     <div style={{ display: "flex", alignItems: "flex-end", height: CHART_H }}>
       {points.map((p, i) => {
@@ -166,8 +181,8 @@ function BarRow({ points, max, colWidth, selected, onPick, format, breakdown }: 
             key={i}
             type="button"
             onClick={() => onPick(i)}
-            title={`${p.label}: ${format(p.value)}${breakdown(p.subtotal, p.fee)}`}
-            aria-label={`${p.label}: ${format(p.value)}${breakdown(p.subtotal, p.fee)}`}
+            title={`${p.label}: ${format(p.value)}${breakdownTooltip(p)}`}
+            aria-label={`${p.label}: ${format(p.value)}`}
             style={{
               flex: `0 0 ${colWidth}px`, height: `${Math.max(h, p.value > 0 ? 4 : 1)}%`,
               background: isSel ? "var(--ink)" : p.value > 0 ? "var(--amber)" : "var(--line-2)",
@@ -185,8 +200,11 @@ function BarRow({ points, max, colWidth, selected, onPick, format, breakdown }: 
     </div>
   );
 }
+function breakdownTooltip(p: Pt) {
+  return p.fee > 0 ? ` (${money(p.subtotal)} + ${money(p.fee)} fee)` : "";
+}
 
-function LineRow({ points, max, colWidth, selected, onPick, format, breakdown }: RowProps) {
+function LineRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
   const w = Math.max(1, points.length - 1) * colWidth;
   const xy = points.map((p, i) => {
     const x = points.length > 1 ? (i / (points.length - 1)) * w : w / 2;
@@ -206,7 +224,7 @@ function LineRow({ points, max, colWidth, selected, onPick, format, breakdown }:
             fill={selected === i ? "var(--ink)" : "var(--amber)"}
             stroke="#fff" strokeWidth={1.5}
           >
-            <title>{`${p.label}: ${format(p.value)}${breakdown(p.subtotal, p.fee)}`}</title>
+            <title>{`${p.label}: ${format(p.value)}`}</title>
           </circle>
         </g>
       ))}

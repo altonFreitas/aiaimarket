@@ -228,6 +228,7 @@ export const STR: Record<string, [string,string,string]> = {
   revenueWord:["Reseita","Receita","Revenue"],
   unitsSoldWord:["Unidade Fa'an","Unidades Vendidas","Units Sold"],
   totalUnitsSold:["Unidade fa'an totál","Total de unidades vendidas","Total units sold"],
+  drillHint:["Klik ida atu haree detallu liu","Clique num para ver mais detalhe","Click one to drill into more detail"],
   exportExcel:["Download Excel","Descarregar Excel","Download Excel"],
   exporting:["Prepara hela…","A preparar…","Preparing…"],
   noDataYet:["Seidauk iha dadus. Enkomenda sei aparese iha ne'e.","Ainda sem dados. As encomendas aparecerão aqui.","No data yet. Orders will show up here."],

@@ -46,24 +46,21 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
         <div><b>{money(stats.revenueLast7Days)}</b><span>{t("last7Days", lang)}</span></div>
       </div>
 
-      {/* revenue trend, switchable Day / Month / Quarter / Year */}
+      {/* revenue trend: Day/Month/Quarter flat, Year drills into that
+          year's quarters when clicked */}
       <TrendChart
-        lang={lang}
-        metric="revenue"
-        daily={stats.dailyLast14}
-        monthly={stats.monthlyLast12}
-        quarterly={stats.quarterlyLast8}
-        yearly={stats.yearly}
+        lang={lang} metric="revenue"
+        daily={stats.dailyLast14} monthly={stats.monthlyLast12}
+        quarterly={stats.quarterlyLast8} yearly={stats.yearly}
+        drillData={stats.drillData}
       />
 
-      {/* units-sold trend, same period toggle, same data shape */}
+      {/* units-sold trend, same navigation */}
       <TrendChart
-        lang={lang}
-        metric="qty"
-        daily={stats.dailyLast14}
-        monthly={stats.monthlyLast12}
-        quarterly={stats.quarterlyLast8}
-        yearly={stats.yearly}
+        lang={lang} metric="qty"
+        daily={stats.dailyLast14} monthly={stats.monthlyLast12}
+        quarterly={stats.quarterlyLast8} yearly={stats.yearly}
+        drillData={stats.drillData}
       />
 
       <div className="two" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>

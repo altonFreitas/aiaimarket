@@ -35,6 +35,7 @@ export interface AdminStats {
   monthlyLast12: PeriodPoint[];
   quarterlyLast8: PeriodPoint[];
   yearly: PeriodPoint[];
+  drillData: DrillData;
 }
 
 export interface PeriodPoint { label: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number }
@@ -120,6 +121,8 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
     });
   }
 
+  const yearly = yearlySeries(orders);
+
   return {
     totalRevenue, pendingRevenue, totalOrders: orders.length, completedOrders: completed.length,
     avgOrderValue, cancellationRate, ordersLast7Days, revenueLast7Days,
@@ -128,7 +131,8 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
     topProducts, dailyLast14,
     monthlyLast12: monthlySeries(orders, 12),
     quarterlyLast8: quarterlySeries(orders, 8),
-    yearly: yearlySeries(orders),
+    yearly,
+    drillData: buildDrillData(orders, yearly),
   };
 }
 
@@ -188,6 +192,75 @@ function periodPoint(orders: Order[], start: number, end: number, label: string)
     qty: sumUnits(completed),
     subtotal: sum(completed, (o) => o.subtotal),
     fee: sum(completed, (o) => o.fee),
+  };
+}
+
+// ---------------------------------------------------------------------
+// Drill-down hierarchy: Year → Quarter → Month → Day. Precomputed once,
+// entirely, for every year that has data (plus the current year) — a
+// store's history is small enough that this is cheap even fully expanded,
+// and it means the chart can drill down client-side with zero extra
+// server round-trips.
+// ---------------------------------------------------------------------
+
+export interface DrillPoint extends PeriodPoint { key: number }
+export interface DrillData {
+  years: DrillPoint[];                              // key = the year itself, e.g. 2026
+  quartersByYear: Record<number, DrillPoint[]>;      // key = quarter index 0-3
+  monthsByYearQuarter: Record<string, DrillPoint[]>; // "year-quarterIndex" → key = month index 0-11
+  daysByYearMonth: Record<string, DailyPoint[]>;     // "year-monthIndex" → full day list
+}
+
+export function buildDrillData(orders: Order[], years: PeriodPoint[]): DrillData {
+  const quartersByYear: Record<number, DrillPoint[]> = {};
+  const monthsByYearQuarter: Record<string, DrillPoint[]> = {};
+  const daysByYearMonth: Record<string, DailyPoint[]> = {};
+
+  for (const y of years) {
+    const year = Number(y.label);
+    const quarters: DrillPoint[] = [];
+
+    for (let q = 0; q < 4; q++) {
+      const qStart = new Date(year, q * 3, 1).getTime();
+      const qEnd = new Date(year, q * 3 + 3, 1).getTime();
+      quarters.push({ ...periodPoint(orders, qStart, qEnd, `Q${q + 1}`), key: q });
+
+      const months: DrillPoint[] = [];
+      for (let mi = q * 3; mi < q * 3 + 3; mi++) {
+        const mStart = new Date(year, mi, 1).getTime();
+        const mEnd = new Date(year, mi + 1, 1).getTime();
+        const label = String(mi + 1).padStart(2, "0");
+        months.push({ ...periodPoint(orders, mStart, mEnd, label), key: mi });
+
+        const daysInMonth = new Date(year, mi + 1, 0).getDate();
+        const days: DailyPoint[] = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dayStart = new Date(year, mi, d).getTime();
+          const dayEnd = dayStart + 86_400_000;
+          const dayOrders = orders.filter((o) => {
+            const t = new Date(o.created_at).getTime();
+            return t >= dayStart && t < dayEnd;
+          });
+          const dayCompleted = dayOrders.filter((o) => o.status === "completed");
+          days.push({
+            date: new Date(dayStart).toISOString().slice(0, 10),
+            revenue: sum(dayCompleted, (o) => o.total),
+            orders: dayOrders.length,
+            qty: sumUnits(dayCompleted),
+            subtotal: sum(dayCompleted, (o) => o.subtotal),
+            fee: sum(dayCompleted, (o) => o.fee),
+          });
+        }
+        daysByYearMonth[`${year}-${mi}`] = days;
+      }
+      monthsByYearQuarter[`${year}-${q}`] = months;
+    }
+    quartersByYear[year] = quarters;
+  }
+
+  return {
+    years: years.map((y) => ({ ...y, key: Number(y.label) })),
+    quartersByYear, monthsByYearQuarter, daysByYearMonth,
   };
 }
 
