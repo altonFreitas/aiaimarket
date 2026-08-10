@@ -68,10 +68,6 @@ export default function TrendChart({
   const periodFee = raw.reduce((a, p) => a + p.fee, 0);
   const format = (v: number) => (metric === "revenue" ? money(v) : String(v));
 
-  function breakdown(subtotal: number, fee: number): string {
-    if (metric !== "revenue" || fee <= 0) return "";
-    return ` = ${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
-  }
   function breakdownOnly(subtotal: number, fee: number) {
     if (fee > 0) return `${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
     return `${money(subtotal)} ${t("productsWord", lang)}`;
@@ -98,43 +94,40 @@ export default function TrendChart({
     <div className="panel">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 4 }}>
         <h3 style={{ margin: 0 }}>{title}</h3>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["bar", "line"] as ChartType[]).map((c) => (
-              <button key={c} type="button" onClick={() => setChartType(c)}
-                className={"btn btn-sm " + (chartType === c ? "btn-amber" : "btn-ghost")}>
-                {t("chart_" + c, lang)}
-              </button>
-            ))}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["bar", "line"] as ChartType[]).map((c) => (
+                <button key={c} type="button" onClick={() => setChartType(c)}
+                  className={"btn btn-sm " + (chartType === c ? "btn-amber" : "btn-ghost")}>
+                  {t("chart_" + c, lang)}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["day", "month", "quarter", "year"] as Period[]).map((p) => (
+                <button key={p} type="button" onClick={() => changePeriod(p)}
+                  className={"btn btn-sm " + (period === p ? "btn-amber" : "btn-ghost")}>
+                  {t("period_" + p, lang)}
+                </button>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["day", "month", "quarter", "year"] as Period[]).map((p) => (
-              <button key={p} type="button" onClick={() => changePeriod(p)}
-                className={"btn btn-sm " + (period === p ? "btn-amber" : "btn-ghost")}>
-                {t("period_" + p, lang)}
-              </button>
-            ))}
-          </div>
+          {period === "year" && (
+            <select
+              id={`yearSelect-${metric}`}
+              aria-label={t("selectYear", lang)}
+              value={selectedYear}
+              onChange={(e) => { setSelectedYear(Number(e.target.value)); setSelected(null); }}
+              style={{ maxWidth: 160 }}
+            >
+              {yearly.map((y) => (
+                <option key={y.label} value={y.label}>{y.label}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
-
-      {period === "year" && (
-        <div style={{ margin: "0 0 10px" }}>
-          <label htmlFor={`yearSelect-${metric}`} className="hint" style={{ display: "block", marginBottom: 4 }}>
-            {t("selectYear", lang)}
-          </label>
-          <select
-            id={`yearSelect-${metric}`}
-            value={selectedYear}
-            onChange={(e) => { setSelectedYear(Number(e.target.value)); setSelected(null); }}
-            style={{ maxWidth: 160 }}
-          >
-            {yearly.map((y) => (
-              <option key={y.label} value={y.label}>{y.label}</option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", margin: "0 0 10px" }}>
         <p className="hint" style={{ margin: 0 }}>
@@ -145,10 +138,7 @@ export default function TrendChart({
               <>{totalLabel}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b></>
             )
           ) : (
-            <>
-              {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b>
-              {breakdown(periodSubtotal, periodFee)}
-            </>
+            <>{totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b></>
           )}
         </p>
         {trendBadge && (
