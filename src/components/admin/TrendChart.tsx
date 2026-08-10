@@ -23,12 +23,23 @@ export default function TrendChart({
   const [chartType, setChartType] = useState<ChartType>("bar"); // bar is the default, per request
   const [selected, setSelected] = useState<number | null>(null);
 
-  const raw =
-    period === "day" ? daily.map((d) => ({ label: d.date.slice(5), value: d[metric] })) :
-    period === "month" ? monthly.map((m) => ({ label: m.label.slice(2), value: m[metric] })) :
-    period === "quarter" ? quarterly.map((q) => ({ label: q.label, value: q[metric] })) :
-    yearly.map((y) => ({ label: y.label, value: y[metric] }));
+  const source =
+    period === "day" ? daily :
+    period === "month" ? monthly :
+    period === "quarter" ? quarterly :
+    yearly;
 
+  // Trim leading periods with zero orders — no point showing 13 empty
+  // days before the first sale. Only trims the start; today's edge stays
+  // even if nothing has sold yet today.
+  const firstActive = source.findIndex((p) => p.orders > 0);
+  const trimmed = firstActive === -1 ? source : source.slice(firstActive);
+
+  const raw =
+    period === "day" ? (trimmed as typeof daily).map((d) => ({ label: d.date.slice(5), value: d[metric] })) :
+    (trimmed as typeof monthly).map((m) => ({ label: period === "month" ? m.label.slice(2) : m.label, value: m[metric] }));
+
+  const hasAnyData = firstActive !== -1;
   const max = Math.max(1, ...raw.map((p) => p.value));
   const periodTotal = raw.reduce((a, p) => a + p.value, 0);
   const format = (v: number) => (metric === "revenue" ? money(v) : String(v));
@@ -79,6 +90,9 @@ export default function TrendChart({
       </p>
 
       <div style={{ overflowX: "auto" }}>
+        {!hasAnyData ? (
+          <p className="hint" style={{ padding: "24px 0", textAlign: "center" }}>{t("noDataYet", lang)}</p>
+        ) : (
         <div style={{ minWidth: raw.length * colWidth }}>
           {chartType === "bar" ? (
             <BarRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} />
@@ -102,6 +116,7 @@ export default function TrendChart({
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
