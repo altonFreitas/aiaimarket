@@ -33,3 +33,9 @@ export async function adminSettings() {
   const { data } = await sb.from("settings").select("*").eq("id", 1).single();
   return data;
 }
+
+export async function adminStats() {
+  const [orders, products] = await Promise.all([adminOrders(), adminProducts()]);
+  const { computeAdminStats } = await import("@/lib/stats");
+  return computeAdminStats(orders, products);
+}
