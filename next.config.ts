@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   // but this removes it locally too.
   devIndicators: false,
 
+  // Suppresses the per-request "└─ ƒ actionName(arg1, arg2) in Xms"
+  // dev-terminal trace, which otherwise prints every Server Action call
+  // with its raw arguments — including things like login passwords and
+  // TOTP codes — straight into your local terminal. Dev-only; this has
+  // no effect on production, which never logs this way regardless.
+  logging: { serverFunctions: false },
+
   // Server Actions check the request's Origin header against this list
   // as a CSRF guard. localhost covers local dev; add your real domain(s)
   // once you deploy, or admin login (and every other form) will fail
