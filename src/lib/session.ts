@@ -27,15 +27,19 @@ function verify(token: string): string | null {
   return value;
 }
 
-/** Checks email/password against ADMIN_EMAIL / ADMIN_PASSWORD and, if they
- * match, sets a signed session cookie. This is intentionally simple —
- * single owner, single role, exactly what Epic A1 asks for. */
-export async function login(identifier: string, password: string) {
+/** Pure credential check — no side effects, no cookie. Used both before
+ * showing the TOTP step and again when confirming it, so a stolen
+ * half-completed flow can't skip straight to the second factor. */
+export function checkCredentials(identifier: string, password: string): boolean {
   const okUser =
     identifier.trim().toLowerCase() === (process.env.ADMIN_EMAIL || "").toLowerCase();
   const okPass = password === process.env.ADMIN_PASSWORD;
-  if (!okUser || !okPass) return false;
+  return okUser && okPass;
+}
 
+/** Grants the actual session. Only call this after both the password and
+ * (when 2FA is enabled) the TOTP code have already been verified. */
+export async function grantSession() {
   const token = sign(`admin:${Date.now()}`);
   const jar = await cookies();
   jar.set(COOKIE, token, {
@@ -45,6 +49,14 @@ export async function login(identifier: string, password: string) {
     maxAge: MAX_AGE,
     path: "/",
   });
+}
+
+/** Checks email/password against ADMIN_EMAIL / ADMIN_PASSWORD and, if they
+ * match, sets a signed session cookie. Kept for compatibility with a plain
+ * one-step login when 2FA isn't in play. */
+export async function login(identifier: string, password: string) {
+  if (!checkCredentials(identifier, password)) return false;
+  await grantSession();
   return true;
 }
 

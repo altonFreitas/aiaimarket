@@ -23,7 +23,18 @@ create table if not exists settings (
   pickup        boolean not null default true,
   banks         jsonb not null default '[]',   -- [{label,account,holder}]
   wallets       jsonb not null default '[]',   -- [{label,number}]
-  zones         jsonb not null default '[]',   -- [{id,name,fee,quote}]
+  zones         jsonb not null default '[{"id":"dili_center","fee":1,"quote":false},{"id":"dili_outskirts","fee":2,"quote":false},{"id":"other_municipality","fee":0,"quote":true}]',
+  -- Two-factor auth (TOTP, authenticator-app based). totp_secret is only
+  -- ever read/written server-side via the service-role client — never
+  -- exposed to the browser. If you lose your authenticator device, reset
+  -- 2FA by running: update settings set totp_secret=null, totp_enabled=false where id=1;
+  totp_secret          text,
+  totp_enabled         boolean not null default false,
+  totp_failed_attempts int not null default 0,
+  totp_locked_until    timestamptz,
+                -- [{id,fee,quote}] — id is one of the 3 fixed zones; the
+                -- display name is translated client-side from id (i18n.ts),
+                -- not stored here, so it renders correctly in every language
   updated_at    timestamptz not null default now(),
   constraint single_row check (id = 1)
 );
@@ -100,6 +111,9 @@ create table if not exists orders (
   quote_requested boolean not null default false,
   subtotal       numeric(10,2) not null,
   total          numeric(10,2) not null,
+  -- Central Dili orders use address_line (a plain street address); orders
+  -- to Dili's outskirts or another municipality use the full hierarchy.
+  address_line   text,
   municipality   text, post text, suku text, aldeia text, landmark text,
   pay_method     text not null check (pay_method in ('cod','cop','bank','wallet','fiar')),
   pay_status     text not null default 'unpaid' check (pay_status in ('unpaid','deposit','paid','refunded')),
@@ -206,6 +220,20 @@ alter table order_log  enable row level security;
 
 drop policy if exists settings_public_read on settings;
 create policy settings_public_read on settings for select using (true);
+
+-- Row-level security alone is not enough here: RLS controls which ROWS
+-- are visible, not which COLUMNS. Without this, the public anon key
+-- (embedded in the browser) could read totp_secret straight off the
+-- settings row via the REST API despite the row policy above. Column
+-- privileges are a second, independent layer that Postgres also enforces.
+revoke select on settings from anon, authenticated;
+grant select (
+  id, seller_id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number,
+  hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, updated_at
+) on settings to anon, authenticated;
+-- totp_secret, totp_enabled, totp_failed_attempts, totp_locked_until are
+-- deliberately excluded — readable only via the service-role client
+-- (supabaseAdmin()), which bypasses these grants entirely.
 
 drop policy if exists categories_public_read on categories;
 create policy categories_public_read on categories for select using (true);

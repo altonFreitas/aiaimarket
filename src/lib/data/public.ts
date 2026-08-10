@@ -12,11 +12,21 @@ const DEFAULT_SETTINGS: Settings = {
 
 /** Never throws: a missing/unreachable settings row must not take the
  * whole site down. Callers check `settings.id === 0` to show the setup
- * banner (J4 — graceful degradation applies to config too). */
+ * banner (J4 — graceful degradation applies to config too).
+ *
+ * Explicit column list, not select("*") — the anon key only has grants
+ * on these specific columns (totp_secret and friends are deliberately
+ * excluded from anon, see supabase/schema.sql). A select("*") here would
+ * ask for totp_secret too, get a permission error on the whole query,
+ * and this function would wrongly report "not connected". */
 export async function getSettings(): Promise<Settings> {
   try {
     const sb = await supabaseServer();
-    const { data, error } = await sb.from("settings").select("*").eq("id", 1).single();
+    const { data, error } = await sb
+      .from("settings")
+      .select("id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number, hours, municipality, post, suku, landmark, pickup, banks, wallets, zones")
+      .eq("id", 1)
+      .single();
     if (error || !data) return DEFAULT_SETTINGS;
     return data as Settings;
   } catch {
