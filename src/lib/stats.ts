@@ -1,6 +1,6 @@
 import type { Order, Product } from "@/lib/types";
 
-export interface DailyPoint { date: string; revenue: number; orders: number; qty: number }
+export interface DailyPoint { date: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number }
 
 export interface AdminStats {
   // headline KPIs
@@ -37,7 +37,7 @@ export interface AdminStats {
   yearly: PeriodPoint[];
 }
 
-export interface PeriodPoint { label: string; revenue: number; orders: number; qty: number }
+export interface PeriodPoint { label: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number }
 
 const ORDER_STATUSES = ["new", "confirmed", "preparing", "out", "arrived", "completed", "cancelled"];
 const PAY_METHODS = ["cod", "cop", "bank", "wallet", "fiar"];
@@ -115,6 +115,8 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
       revenue: sum(dayCompleted, (o) => o.total),
       orders: dayOrders.length,
       qty: sumUnits(dayCompleted),
+      subtotal: sum(dayCompleted, (o) => o.subtotal),
+      fee: sum(dayCompleted, (o) => o.fee),
     });
   }
 
@@ -184,6 +186,8 @@ function periodPoint(orders: Order[], start: number, end: number, label: string)
     revenue: sum(completed, (o) => o.total),
     orders: inRange.length,
     qty: sumUnits(completed),
+    subtotal: sum(completed, (o) => o.subtotal),
+    fee: sum(completed, (o) => o.fee),
   };
 }
 

@@ -36,13 +36,22 @@ export default function TrendChart({
   const trimmed = firstActive === -1 ? source : source.slice(firstActive);
 
   const raw =
-    period === "day" ? (trimmed as typeof daily).map((d) => ({ label: d.date.slice(5), value: d[metric] })) :
-    (trimmed as typeof monthly).map((m) => ({ label: period === "month" ? m.label.slice(2) : m.label, value: m[metric] }));
+    period === "day" ? (trimmed as typeof daily).map((d) => ({ label: d.date.slice(5), value: d[metric], subtotal: d.subtotal, fee: d.fee })) :
+    (trimmed as typeof monthly).map((m) => ({ label: period === "month" ? m.label.slice(2) : m.label, value: m[metric], subtotal: m.subtotal, fee: m.fee }));
 
   const hasAnyData = firstActive !== -1;
   const max = Math.max(1, ...raw.map((p) => p.value));
   const periodTotal = raw.reduce((a, p) => a + p.value, 0);
+  const periodSubtotal = raw.reduce((a, p) => a + p.subtotal, 0);
+  const periodFee = raw.reduce((a, p) => a + p.fee, 0);
   const format = (v: number) => (metric === "revenue" ? money(v) : String(v));
+
+  // "$46.00 = $45.00 products + $1.00 fee" — only meaningful for the
+  // revenue chart; units sold has no fee/subtotal split.
+  function breakdown(subtotal: number, fee: number): string {
+    if (metric !== "revenue" || fee <= 0) return "";
+    return ` = ${money(subtotal)} ${t("productsWord", lang)} + ${money(fee)} ${t("feeWord", lang)}`;
+  }
 
   const metricLabel = t(metric === "revenue" ? "revenueWord" : "unitsSoldWord", lang);
   const title = `${t("period_" + period, lang)} ${metricLabel}`;
@@ -80,12 +89,19 @@ export default function TrendChart({
 
       {/* Total for the visible range, or the exact value for whichever
           point was clicked — this is what makes "08-08 → $91.00" visible
-          without relying on a hover-only tooltip. */}
+          without relying on a hover-only tooltip. Includes the products
+          vs delivery-fee split when there's a fee to show. */}
       <p className="hint" style={{ margin: "0 0 10px" }}>
         {selected !== null ? (
-          <>{raw[selected].label}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b></>
+          <>
+            {raw[selected].label}: <b style={{ color: "var(--ink)" }}>{format(raw[selected].value)}</b>
+            {breakdown(raw[selected].subtotal, raw[selected].fee)}
+          </>
         ) : (
-          <>{totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b></>
+          <>
+            {totalLabel}: <b style={{ color: "var(--ink)" }}>{format(periodTotal)}</b>
+            {breakdown(periodSubtotal, periodFee)}
+          </>
         )}
       </p>
 
@@ -95,9 +111,9 @@ export default function TrendChart({
         ) : (
         <div style={{ minWidth: raw.length * colWidth }}>
           {chartType === "bar" ? (
-            <BarRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} />
+            <BarRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} breakdown={breakdown} />
           ) : (
-            <LineRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} />
+            <LineRow points={raw} max={max} colWidth={colWidth} selected={selected} onPick={pick} format={format} breakdown={breakdown} />
           )}
           <div style={{ display: "flex", marginTop: 4 }}>
             {raw.map((p, i) => (
@@ -122,13 +138,14 @@ export default function TrendChart({
   );
 }
 
-interface Pt { label: string; value: number }
+interface Pt { label: string; value: number; subtotal: number; fee: number }
 interface RowProps {
   points: Pt[]; max: number; colWidth: number; selected: number | null;
   onPick: (i: number) => void; format: (v: number) => string;
+  breakdown: (subtotal: number, fee: number) => string;
 }
 
-function BarRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
+function BarRow({ points, max, colWidth, selected, onPick, format, breakdown }: RowProps) {
   return (
     <div style={{ display: "flex", alignItems: "flex-end", height: CHART_H }}>
       {points.map((p, i) => {
@@ -139,8 +156,8 @@ function BarRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
             key={i}
             type="button"
             onClick={() => onPick(i)}
-            title={`${p.label}: ${format(p.value)}`}
-            aria-label={`${p.label}: ${format(p.value)}`}
+            title={`${p.label}: ${format(p.value)}${breakdown(p.subtotal, p.fee)}`}
+            aria-label={`${p.label}: ${format(p.value)}${breakdown(p.subtotal, p.fee)}`}
             style={{
               flex: `0 0 ${colWidth}px`, height: `${Math.max(h, p.value > 0 ? 4 : 1)}%`,
               background: isSel ? "var(--ink)" : p.value > 0 ? "var(--amber)" : "var(--line-2)",
@@ -159,7 +176,7 @@ function BarRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
   );
 }
 
-function LineRow({ points, max, colWidth, selected, onPick, format }: RowProps) {
+function LineRow({ points, max, colWidth, selected, onPick, format, breakdown }: RowProps) {
   const w = Math.max(1, points.length - 1) * colWidth;
   const xy = points.map((p, i) => {
     const x = points.length > 1 ? (i / (points.length - 1)) * w : w / 2;
@@ -179,7 +196,7 @@ function LineRow({ points, max, colWidth, selected, onPick, format }: RowProps) 
             fill={selected === i ? "var(--ink)" : "var(--amber)"}
             stroke="#fff" strokeWidth={1.5}
           >
-            <title>{`${p.label}: ${format(p.value)}`}</title>
+            <title>{`${p.label}: ${format(p.value)}${breakdown(p.subtotal, p.fee)}`}</title>
           </circle>
         </g>
       ))}

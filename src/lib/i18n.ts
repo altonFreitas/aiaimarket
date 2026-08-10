@@ -222,6 +222,8 @@ export const STR: Record<string, [string,string,string]> = {
   period_year:["Tinan-tinan","Anual","Yearly"],
   chart_bar:["Barra","Barras","Bar"],
   chart_line:["Liña","Linha","Line"],
+  productsWord:["produtu","produtos","products"],
+  feeWord:["taxa entrega","taxa de entrega","delivery fee"],
   revenueWord:["Reseita","Receita","Revenue"],
   unitsSoldWord:["Unidade Fa'an","Unidades Vendidas","Units Sold"],
   totalUnitsSold:["Unidade fa'an totál","Total de unidades vendidas","Total units sold"],
