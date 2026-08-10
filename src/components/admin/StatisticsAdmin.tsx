@@ -1,5 +1,7 @@
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import RevenueChart from "./RevenueChart";
+import ExportExcelButton from "./ExportExcelButton";
 import type { AdminStats } from "@/lib/stats";
 import type { Lang } from "@/lib/types";
 
@@ -23,7 +25,10 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
 
   return (
     <>
-      <h1>{t("statistics", lang)}</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <h1 style={{ margin: 0 }}>{t("statistics", lang)}</h1>
+        <ExportExcelButton lang={lang} />
+      </div>
 
       {noData && <div className="note info" style={{ marginBottom: 12 }}>{t("noDataYet", lang)}</div>}
 
@@ -41,11 +46,14 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
         <div><b>{money(stats.revenueLast7Days)}</b><span>{t("last7Days", lang)}</span></div>
       </div>
 
-      {/* 14-day revenue trend */}
-      <div className="panel">
-        <h3>{t("revenueTrend", lang)} · {t("last14Days", lang)}</h3>
-        <BarTrend points={stats.dailyLast14} />
-      </div>
+      {/* revenue trend, switchable Day / Month / Quarter / Year */}
+      <RevenueChart
+        lang={lang}
+        daily={stats.dailyLast14}
+        monthly={stats.monthlyLast12}
+        quarterly={stats.quarterlyLast8}
+        yearly={stats.yearly}
+      />
 
       <div className="two" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         {/* orders by status */}
@@ -135,27 +143,3 @@ function BreakdownBars({ rows, total }: { rows: Array<{ label: string; count: nu
   );
 }
 
-function BarTrend({ points }: { points: Array<{ date: string; revenue: number; orders: number }> }) {
-  const max = Math.max(1, ...points.map((p) => p.revenue));
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 120 }}>
-      {points.map((p) => {
-        const h = Math.round((p.revenue / max) * 100);
-        const day = new Date(p.date).getDate();
-        return (
-          <div key={p.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <div
-              title={`${p.date}: ${p.revenue}`}
-              style={{
-                width: "100%", height: `${Math.max(h, p.revenue > 0 ? 4 : 1)}%`,
-                background: p.revenue > 0 ? "var(--amber)" : "var(--line-2)",
-                borderRadius: "3px 3px 0 0", minHeight: 2,
-              }}
-            />
-            <span className="mono" style={{ fontSize: 9, color: "var(--muted)" }}>{day}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}

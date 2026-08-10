@@ -30,9 +30,14 @@ export interface AdminStats {
   // top movers
   topProducts: Array<{ name: string; qty: number; revenue: number }>;
 
-  // trend
+  // trends
   dailyLast14: DailyPoint[];
+  monthlyLast12: PeriodPoint[];
+  quarterlyLast8: PeriodPoint[];
+  yearly: PeriodPoint[];
 }
+
+export interface PeriodPoint { label: string; revenue: number; orders: number }
 
 const ORDER_STATUSES = ["new", "confirmed", "preparing", "out", "arrived", "completed", "cancelled"];
 const PAY_METHODS = ["cod", "cop", "bank", "wallet", "fiar"];
@@ -117,6 +122,64 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
     byStatus, byPayMethod, byPayStatus, byZone,
     liveProducts, outOfStock, lowStock, totalViews, totalWaClicks, clickThroughRate,
     topProducts, dailyLast14,
+    monthlyLast12: monthlySeries(orders, 12),
+    quarterlyLast8: quarterlySeries(orders, 8),
+    yearly: yearlySeries(orders),
+  };
+}
+
+/** Last `count` calendar months, oldest first, labelled "2026-08" style —
+ * unambiguous and sorts correctly as plain text. */
+export function monthlySeries(orders: Order[], count: number): PeriodPoint[] {
+  const now = new Date();
+  const points: PeriodPoint[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const start = d.getTime();
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+    const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    points.push(periodPoint(orders, start, end, label));
+  }
+  return points;
+}
+
+/** Last `count` calendar quarters, oldest first, labelled "2026-Q3". */
+export function quarterlySeries(orders: Order[], count: number): PeriodPoint[] {
+  const now = new Date();
+  const currentQ = Math.floor(now.getMonth() / 3);
+  const points: PeriodPoint[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const totalQIndex = now.getFullYear() * 4 + currentQ - i;
+    const year = Math.floor(totalQIndex / 4);
+    const q = totalQIndex % 4;
+    const start = new Date(year, q * 3, 1).getTime();
+    const end = new Date(year, q * 3 + 3, 1).getTime();
+    points.push(periodPoint(orders, start, end, `${year}-Q${q + 1}`));
+  }
+  return points;
+}
+
+/** Every calendar year that has at least one order, oldest first. Falls
+ * back to the current year alone for a brand-new store with no history. */
+export function yearlySeries(orders: Order[]): PeriodPoint[] {
+  const years = new Set<number>(orders.map((o) => new Date(o.created_at).getFullYear()));
+  years.add(new Date().getFullYear());
+  return [...years].sort().map((year) => {
+    const start = new Date(year, 0, 1).getTime();
+    const end = new Date(year + 1, 0, 1).getTime();
+    return periodPoint(orders, start, end, String(year));
+  });
+}
+
+function periodPoint(orders: Order[], start: number, end: number, label: string): PeriodPoint {
+  const inRange = orders.filter((o) => {
+    const t = new Date(o.created_at).getTime();
+    return t >= start && t < end;
+  });
+  return {
+    label,
+    revenue: sum(inRange.filter((o) => o.status === "completed"), (o) => o.total),
+    orders: inRange.length,
   };
 }
 
