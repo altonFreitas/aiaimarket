@@ -157,6 +157,7 @@ export const STR: Record<string, [string,string,string]> = {
   settings:["Konfigurasaun","Definições","Settings"],
   newProduct:["Produtu foun","Novo produto","New product"],
   edit:["Edita","Editar","Edit"],
+  editingEntry:["Hein hela edita","A editar","Editing"],
   duplicate:["Kopia","Duplicar","Duplicate"],
   archive:["Arkiva","Arquivar","Archive"],
   restore:["Fila fali","Restaurar","Restore"],

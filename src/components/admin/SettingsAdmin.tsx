@@ -27,6 +27,8 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   const [zones, setZones] = useState<Zone[]>(settings.zones || []);
   const [nb, setNb] = useState({ label: "", account: "", holder: "" });
   const [nw, setNw] = useState({ label: "", number: "" });
+  const [editingBank, setEditingBank] = useState<number | null>(null);
+  const [editingWallet, setEditingWallet] = useState<number | null>(null);
 
   const set = (k: string, v: string | boolean) => setF((s) => ({ ...s, [k]: v }));
   const refresh = () => startTransition(() => router.refresh());
@@ -79,13 +81,33 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           {banks.map((b, i) => (
             <div className="kv" key={i}>
               <span>{b.label} · <span className="mono">{b.account}</span></span>
-              <button className="btn btn-sm btn-ghost" disabled={busy}
-                onClick={() => { const next = banks.filter((_, ix) => ix !== i); setBanks(next); run(() => saveBanks(next)); }}>
-                {t("del", lang)}
-              </button>
+              <span style={{ display: "flex", gap: 4 }}>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  disabled={busy}
+                  aria-label={t("edit", lang)}
+                  title={t("edit", lang)}
+                  style={{ padding: "0 8px" }}
+                  onClick={() => { setNb(b); setEditingBank(i); }}
+                >
+                  <EditIcon />
+                </button>
+                <button className="btn btn-sm btn-ghost" disabled={busy}
+                  onClick={() => {
+                    const next = banks.filter((_, ix) => ix !== i);
+                    setBanks(next);
+                    if (editingBank === i) { setEditingBank(null); setNb({ label: "", account: "", holder: "" }); }
+                    run(() => saveBanks(next));
+                  }}>
+                  {t("del", lang)}
+                </button>
+              </span>
             </div>
           ))}
         </div>
+        {editingBank !== null && (
+          <p className="hint" style={{ margin: "8px 0 0" }}>{t("editingEntry", lang)}: {banks[editingBank]?.label}</p>
+        )}
         <div className="two" style={{ marginTop: 8 }}>
           <input placeholder="BNCTL" value={nb.label} onChange={(e) => setNb({ ...nb, label: e.target.value })} />
           <input placeholder="0012 3456 7890" value={nb.account} onChange={(e) => setNb({ ...nb, account: e.target.value })} />
@@ -95,11 +117,21 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             onChange={(e) => setNb({ ...nb, holder: e.target.value })} />
           <button className="btn btn-sm" disabled={busy || !nb.label || !nb.account}
             onClick={() => {
-              const next = [...banks, { ...nb, holder: nb.holder || f.store_name }];
-              setBanks(next); setNb({ label: "", account: "", holder: "" }); run(() => saveBanks(next));
+              const entry = { ...nb, holder: nb.holder || f.store_name };
+              const next = editingBank !== null
+                ? banks.map((b, ix) => (ix === editingBank ? entry : b))
+                : [...banks, entry];
+              setBanks(next); setNb({ label: "", account: "", holder: "" }); setEditingBank(null);
+              run(() => saveBanks(next));
             }}>
-            {t("add", lang)}
+            {editingBank !== null ? t("save", lang) : t("add", lang)}
           </button>
+          {editingBank !== null && (
+            <button className="btn btn-sm btn-ghost" type="button"
+              onClick={() => { setEditingBank(null); setNb({ label: "", account: "", holder: "" }); }}>
+              {t("cancel", lang)}
+            </button>
+          )}
         </div>
       </div>
 
@@ -109,23 +141,55 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           {wallets.map((w, i) => (
             <div className="kv" key={i}>
               <span>{w.label} · <span className="mono">{w.number}</span></span>
-              <button className="btn btn-sm btn-ghost" disabled={busy}
-                onClick={() => { const next = wallets.filter((_, ix) => ix !== i); setWallets(next); run(() => saveWallets(next)); }}>
-                {t("del", lang)}
-              </button>
+              <span style={{ display: "flex", gap: 4 }}>
+                <button
+                  className="btn btn-sm btn-ghost"
+                  disabled={busy}
+                  aria-label={t("edit", lang)}
+                  title={t("edit", lang)}
+                  style={{ padding: "0 8px" }}
+                  onClick={() => { setNw(w); setEditingWallet(i); }}
+                >
+                  <EditIcon />
+                </button>
+                <button className="btn btn-sm btn-ghost" disabled={busy}
+                  onClick={() => {
+                    const next = wallets.filter((_, ix) => ix !== i);
+                    setWallets(next);
+                    if (editingWallet === i) { setEditingWallet(null); setNw({ label: "", number: "" }); }
+                    run(() => saveWallets(next));
+                  }}>
+                  {t("del", lang)}
+                </button>
+              </span>
             </div>
           ))}
         </div>
+        {editingWallet !== null && (
+          <p className="hint" style={{ margin: "8px 0 0" }}>{t("editingEntry", lang)}: {wallets[editingWallet]?.label}</p>
+        )}
         <div className="two" style={{ marginTop: 8 }}>
           <input placeholder="Telemor Mosan" value={nw.label} onChange={(e) => setNw({ ...nw, label: e.target.value })} />
           <input placeholder="+670 7712 3456" value={nw.number} onChange={(e) => setNw({ ...nw, number: e.target.value })} />
         </div>
-        <button className="btn btn-sm" style={{ marginTop: 6 }} disabled={busy || !nw.label || !nw.number}
-          onClick={() => {
-            const next = [...wallets, nw]; setWallets(next); setNw({ label: "", number: "" }); run(() => saveWallets(next));
-          }}>
-          {t("add", lang)}
-        </button>
+        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <button className="btn btn-sm" disabled={busy || !nw.label || !nw.number}
+            onClick={() => {
+              const next = editingWallet !== null
+                ? wallets.map((w, ix) => (ix === editingWallet ? nw : w))
+                : [...wallets, nw];
+              setWallets(next); setNw({ label: "", number: "" }); setEditingWallet(null);
+              run(() => saveWallets(next));
+            }}>
+            {editingWallet !== null ? t("save", lang) : t("add", lang)}
+          </button>
+          {editingWallet !== null && (
+            <button className="btn btn-sm btn-ghost" type="button"
+              onClick={() => { setEditingWallet(null); setNw({ label: "", number: "" }); }}>
+              {t("cancel", lang)}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="panel">
@@ -167,5 +231,15 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
         </div>
       </div>
     </>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }
