@@ -7,8 +7,8 @@ export const STR: Record<string, [string,string,string]> = {
   all:["Hotu","Todos","All"],
   list:["Ha'u nia lista","A minha lista","My list"],
   track:["Buka enkomenda","Seguir encomenda","Track order"],
-  navList:["Lista","Lista","List"],
-  navTrack:["Ha'u nia Enkomenda","Minha Encomenda","My Order"],
+  navList:["Hau-nia lista","O meu cesto","My cart"],
+  navTrack:["Buka tuir pedidu","Seguir encomenda","Track order"],
   admin:["Admin","Admin","Admin"],
   seeAllOrders:["Haree enkomenda hotu ita nia","Ver todas as minhas encomendas","See all my orders"],
   singleOrder:["Buka ho referénsia","Procurar por referência","Find by reference"],
@@ -124,6 +124,7 @@ export const STR: Record<string, [string,string,string]> = {
   st_out:["Iha dalan ona","A caminho","Out for delivery"],
   st_arrived:["To'o ona — bolu hela ita","Chegou — a ligar-lhe","Arrived — calling you"],
   st_completed:["Kompletu","Concluída","Completed"],
+  st_completed_pickup:["Kompletu / Prontu atu foti","Concluído / Pronto para recolha","Completed / Ready to pick up"],
   st_cancelled:["Kansela ona","Cancelada","Cancelled"],
   /* payment states (G4) + methods (G1) */
   ps_unpaid:["Seidauk selu","Por pagar","Unpaid"],

@@ -5,40 +5,18 @@ import { phoneNorm, phoneOk, FLOW } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderStatus, PayMethod, PayStatus } from "@/lib/types";
 
-/** Sequential fallback, used only for pickup orders (no delivery zone to
- * derive a code from). Unchanged from before this feature. */
-async function nextPickupRef(): Promise<string> {
-  const sb = supabaseAdmin();
-  const year = new Date().getFullYear();
-  const { count } = await sb.from("orders").select("*", { count: "exact", head: true });
-  return `ORD-${year}-${String((count || 0) + 1).padStart(4, "0")}`;
-}
-
-/** Delivery orders get a zone-coded reference the customer can recognise
- * at a glance, and that already carries the info a courier needs:
- *   Central Dili         → CD + year + last4(phone) + 6 random digits
- *   Dili outskirts        → DO + year + last4(phone) + 6 random digits
- *   Other municipality    → OM + first 2 letters of municipality
- *                            + year + last4(phone) + 6 random digits
- * Collision odds are astronomically small (1 in a million per attempt
- * before even considering phone/year), but we still check and retry —
- * `ref` is UNIQUE in the database, so an unlucky collision must never
- * surface as a raw insert error to the buyer. */
-async function nextDeliveryRef(zoneId: string, normalizedPhone: string, municipality?: string): Promise<string> {
+/** Shared collision-checked reference generator: prefix + year +
+ * last4(phone) + 6 random digits. Used for both delivery and pickup
+ * refs (they only differ in prefix). Collision odds are astronomically
+ * small (1 in a million per attempt before even considering phone/year),
+ * but we still check and retry — `ref` is UNIQUE in the database, so an
+ * unlucky collision must never surface as a raw insert error to the
+ * buyer. */
+async function nextRefWithPrefix(prefix: string, normalizedPhone: string): Promise<string> {
   const sb = supabaseAdmin();
   const year = new Date().getFullYear();
   const phoneDigits = normalizedPhone.replace(/[^\d]/g, "");
   const last4 = phoneDigits.slice(-4).padStart(4, "0");
-
-  let prefix: string;
-  if (zoneId === "dili_center") prefix = "CD";
-  else if (zoneId === "dili_outskirts") prefix = "DO";
-  else {
-    const letters = (municipality || "")
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
-      .replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2).padEnd(2, "X");
-    prefix = "OM" + letters;
-  }
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const rand = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
@@ -47,6 +25,21 @@ async function nextDeliveryRef(zoneId: string, normalizedPhone: string, municipa
     if (!data) return ref;
   }
   throw new Error("Could not generate a unique order reference — please try again");
+}
+
+/** Delivery orders get a zone-coded prefix the customer can recognise at
+ * a glance, and that already carries the info a courier needs:
+ *   Central Dili         → CD
+ *   Dili outskirts        → DO
+ *   Other municipality    → OM + first 2 letters of municipality
+ * Pickup orders (no courier, no zone) use PP instead. */
+function deliveryPrefix(zoneId: string, municipality?: string): string {
+  if (zoneId === "dili_center") return "CD";
+  if (zoneId === "dili_outskirts") return "DO";
+  const letters = (municipality || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[^a-zA-Z]/g, "").toUpperCase().slice(0, 2).padEnd(2, "X");
+  return "OM" + letters;
 }
 
 export interface PlaceOrderInput {
@@ -79,8 +72,8 @@ export async function placeOrder(input: PlaceOrderInput) {
   const subtotal = input.items.reduce((a, i) => a + i.price * i.qty, 0);
   const normalizedPhone = phoneNorm(input.phone);
   const ref = input.mode === "delivery"
-    ? await nextDeliveryRef(input.zoneId || "", normalizedPhone, input.municipality)
-    : await nextPickupRef();
+    ? await nextRefWithPrefix(deliveryPrefix(input.zoneId || "", input.municipality), normalizedPhone)
+    : await nextRefWithPrefix("PP", normalizedPhone);
 
   const { data, error } = await sb
     .from("orders")

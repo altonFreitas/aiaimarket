@@ -88,3 +88,14 @@ export function sum<T>(arr: T[], f: (x: T) => number): number {
 export const FLOW: Array<Order["status"]> = [
   "new", "confirmed", "preparing", "out", "arrived", "completed",
 ];
+
+/** Pickup orders skip the delivery-only steps ("out for delivery",
+ * "arrived — calling you") -- there's no courier, so they go straight
+ * from preparing to ready-to-pick-up. */
+export const PICKUP_FLOW: Array<Order["status"]> = FLOW.filter(
+  (s) => s !== "out" && s !== "arrived"
+);
+
+export function flowFor(mode: "delivery" | "pickup"): Array<Order["status"]> {
+  return mode === "pickup" ? PICKUP_FLOW : FLOW;
+}

@@ -8,7 +8,7 @@ import {
 } from "@/lib/actions/orders";
 import { compressImage } from "@/lib/compressImage";
 import { downloadOrderInvoice } from "@/lib/pdfInvoice";
-import { addrLine, money, nowIso, waLink, waOrderMsg, FLOW } from "@/lib/utils";
+import { addrLine, money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 
@@ -179,7 +179,10 @@ function Dashboard({
 
   const locked = ["out", "arrived", "completed", "cancelled"].includes(o.status);
   const cancellable = ["new", "confirmed"].includes(o.status) && !o.cancel_requested_at;
-  const at = FLOW.indexOf(o.status);
+  // Pickup orders skip the delivery-only steps, so they get their own
+  // shorter flow (and their own timeline positions) here.
+  const flow = flowFor(o.mode);
+  const at = flow.indexOf(o.status);
   const payPill = o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : o.pay_status === "refunded" ? "bad" : "warn";
 
   async function saveAddr() {
@@ -227,7 +230,7 @@ function Dashboard({
           </ul>
         ) : (
           <ul className="tl">
-            {FLOW.slice(0, -1).map((s, i) => (
+            {flow.slice(0, -1).map((s, i) => (
               <li key={s} className={i < at ? "done" : i === at ? (noteIsCurrent ? "done" : "now done") : ""}>
                 <span className="pin" />
                 <span className="t">
@@ -237,12 +240,12 @@ function Dashboard({
               </li>
             ))}
             {noteEntries}
-            {FLOW.slice(-1).map((s) => {
-              const i = FLOW.length - 1; // always the last FLOW step ("completed")
+            {flow.slice(-1).map((s) => {
+              const i = flow.length - 1; // always the last step (the "completed" / pickup-ready step)
               return (
                 <li key={s} className={i < at ? "done" : i === at ? (noteIsCurrent ? "done" : "now done") : ""}>
                   <span className="pin" />
-                  <span className="t">{t("st_" + s, lang)}</span>
+                  <span className="t">{o.mode === "pickup" ? t("st_completed_pickup", lang) : t("st_" + s, lang)}</span>
                 </li>
               );
             })}

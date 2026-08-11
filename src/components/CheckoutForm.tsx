@@ -41,6 +41,14 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
   const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
   const needsFullAddress = mode === "delivery" && !isDiliCenter;
 
+  // Cash on delivery only makes sense for delivery orders; cash on pickup
+  // only makes sense for pickup orders. Whichever doesn't apply to the
+  // chosen "how do you want it" option is hidden below.
+  const availablePay = useMemo(
+    () => ALL_PAY.filter((m) => (mode === "pickup" ? m !== "cod" : m !== "cop")),
+    [mode]
+  );
+
   if (!lines.length) {
     return (
       <div className="wrap">
@@ -180,12 +188,14 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
           <h3>{t("howReceive", lang)}</h3>
           <div className="checks">
             <label className="check" data-on={mode === "delivery"}>
-              <input type="radio" name="mode" checked={mode === "delivery"} onChange={() => setMode("delivery")} />
+              <input type="radio" name="mode" checked={mode === "delivery"}
+                onChange={() => { setMode("delivery"); setPay((p) => (p === "cop" ? "cod" : p)); }} />
               <span><b>{t("delivery", lang)}</b><small>{t("zone", lang)}</small></span>
             </label>
             {settings.pickup && (
               <label className="check" data-on={mode === "pickup"}>
-                <input type="radio" name="mode" checked={mode === "pickup"} onChange={() => setMode("pickup")} />
+                <input type="radio" name="mode" checked={mode === "pickup"}
+                  onChange={() => { setMode("pickup"); setPay((p) => (p === "cod" ? "cop" : p)); }} />
                 <span>
                   <b>{t("pickup", lang)}</b>
                   <small>{settings.suku}, {settings.municipality} · {settings.hours}</small>
@@ -239,7 +249,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
           <h3>{t("payment", lang)}</h3>
           <p className="sub" style={{ margin: "0 0 8px" }}>{t("choosePay", lang)}</p>
           <div className="checks">
-            {ALL_PAY.map((m) => (
+            {availablePay.map((m) => (
               <label className="check" key={m} data-on={pay === m}>
                 <input type="radio" name="pay" checked={pay === m} onChange={() => setPay(m)} />
                 <span>

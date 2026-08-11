@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { addOrderNote, editOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
-import { addrLine, money, nowIso, waLink, FLOW } from "@/lib/utils";
+import { addrLine, money, nowIso, waLink, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, OrderStatus, PayStatus } from "@/lib/types";
 
@@ -27,7 +27,11 @@ export default function OrderAdmin({
   const [note, setNote] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
-  const at = FLOW.indexOf(o.status);
+  // Pickup orders skip the delivery-only steps ("out for delivery",
+  // "arrived — calling you"), so the status buttons shown here match
+  // whatever flow the order actually follows.
+  const flow = flowFor(o.mode);
+  const at = flow.indexOf(o.status);
 
   async function run(fn: () => Promise<unknown>, msg?: string) {
     setBusy(true);
@@ -56,10 +60,10 @@ export default function OrderAdmin({
       <div className="panel">
         <h3>{t("markStatus", lang)}</h3>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {FLOW.map((s, i) => (
+          {flow.map((s, i) => (
             <button key={s} className={"btn btn-sm " + (i === at ? "btn-amber" : "btn-ghost")}
               disabled={busy || i < at} onClick={() => run(() => setOrderStatus(o.id, s), t("st_" + s, lang))}>
-              {t("st_" + s, lang)}
+              {o.mode === "pickup" && i === flow.length - 1 ? t("st_completed_pickup", lang) : t("st_" + s, lang)}
             </button>
           ))}
           <button className="btn btn-sm btn-danger" disabled={busy || ["completed", "cancelled"].includes(o.status)}
