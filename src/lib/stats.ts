@@ -8,6 +8,7 @@ export interface AdminStats {
   pendingRevenue: number;       // everything not yet completed/cancelled
   totalOrders: number;
   completedOrders: number;
+  uniqueCustomers: number;      // distinct buyer phone numbers across every order
   avgOrderValue: number;        // completed orders total / count
   cancellationRate: number;     // 0..1
   ordersLast7Days: number;
@@ -54,6 +55,13 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
   const pendingRevenue = sum(pending, (o) => o.total);
   const avgOrderValue = completed.length ? totalRevenue / completed.length : 0;
   const cancellationRate = orders.length ? cancelled.length / orders.length : 0;
+
+  // How many distinct people have actually bought something - a simple
+  // read on market reach/demand, separate from raw order count (one
+  // customer can place several orders).
+  const uniqueCustomers = new Set(
+    orders.map((o) => (o.buyer_phone || "").trim()).filter(Boolean)
+  ).size;
 
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 86_400_000;
@@ -125,6 +133,7 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
 
   return {
     totalRevenue, pendingRevenue, totalOrders: orders.length, completedOrders: completed.length,
+    uniqueCustomers,
     avgOrderValue, cancellationRate, ordersLast7Days, revenueLast7Days,
     byStatus, byPayMethod, byPayStatus, byZone,
     liveProducts, outOfStock, lowStock, totalViews, totalWaClicks, clickThroughRate,

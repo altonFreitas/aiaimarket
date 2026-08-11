@@ -44,6 +44,7 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
         <div><b>{stats.totalOrders}</b><span>{t("orders", lang)}</span></div>
         <div><b>{stats.ordersLast7Days}</b><span>{t("last7Days", lang)}</span></div>
         <div><b>{money(stats.revenueLast7Days)}</b><span>{t("last7Days", lang)}</span></div>
+        <div><b>{stats.uniqueCustomers}</b><span>{t("uniqueCustomers", lang)}</span></div>
       </div>
 
       {/* revenue trend: Day/Month/Quarter flat, Year drills into that

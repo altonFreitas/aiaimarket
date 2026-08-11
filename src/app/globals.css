@@ -106,6 +106,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .b-low{background:var(--amber-soft);color:var(--amber-ink)}
 .b-out{background:var(--red-soft);color:var(--red)}
 .card.is-out .ph img{filter:grayscale(1) opacity(.65)}
+.card .card-add{width:100%;margin-top:4px}
 
 /* ---------- product page ---------- */
 .gal{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
