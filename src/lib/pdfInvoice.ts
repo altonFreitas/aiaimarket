@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 import { money, nowIso } from "@/lib/utils";
 import type { Order, Settings } from "@/lib/types";
 
@@ -19,7 +20,7 @@ const STATUS_LABELS: Record<Order["status"], string> = {
 /** Buyer-facing bill/invoice PDF for a single order, generated entirely
  * client-side (no server round trip, no stored file). Called from the
  * "Download PDF" button on the order tracking page. */
-export function downloadOrderInvoice(o: Order, settings?: Settings) {
+export async function downloadOrderInvoice(o: Order, settings?: Settings) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 44;
@@ -125,6 +126,23 @@ export function downloadOrderInvoice(o: Order, settings?: Settings) {
   doc.setFontSize(9);
   doc.setTextColor(140);
   doc.text("Thank you for shopping with Loja AIAI.", marginX, y);
+
+  // QR code back to this order's live tracking page. This is the actual
+  // way to verify a PDF came from the site: scan it, and compare what's
+  // on screen (name, items, total, status) against what's printed here.
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const trackingUrl = `${origin}/o/${o.ref}`;
+  const qrDataUrl = await QRCode.toDataURL(trackingUrl, { width: 200, margin: 1 });
+  const qrSize = 64;
+  y += 16;
+  if (y + qrSize > 780) { doc.addPage(); y = 54; }
+  doc.addImage(qrDataUrl, "PNG", marginX, y, qrSize, qrSize);
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  doc.text("Scan to verify & track this order", marginX + qrSize + 12, y + qrSize / 2 - 5);
+  doc.text(trackingUrl, marginX + qrSize + 12, y + qrSize / 2 + 9, {
+    maxWidth: colRight - marginX - qrSize - 12,
+  });
 
   doc.save(`${o.ref}.pdf`);
 }
