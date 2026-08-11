@@ -58,11 +58,11 @@ export default function OrderAdmin({
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {FLOW.map((s, i) => (
             <button key={s} className={"btn btn-sm " + (i === at ? "btn-amber" : "btn-ghost")}
-              disabled={busy} onClick={() => run(() => setOrderStatus(o.id, s), t("st_" + s, lang))}>
+              disabled={busy || i < at} onClick={() => run(() => setOrderStatus(o.id, s), t("st_" + s, lang))}>
               {t("st_" + s, lang)}
             </button>
           ))}
-          <button className="btn btn-sm btn-danger" disabled={busy}
+          <button className="btn btn-sm btn-danger" disabled={busy || ["completed", "cancelled"].includes(o.status)}
             onClick={() => run(() => setOrderStatus(o.id, "cancelled" as OrderStatus), t("st_cancelled", lang))}>
             {t("st_cancelled", lang)}
           </button>

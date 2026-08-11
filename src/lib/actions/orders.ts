@@ -1,7 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { phoneNorm, phoneOk } from "@/lib/utils";
+import { phoneNorm, phoneOk, FLOW } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderStatus, PayMethod, PayStatus } from "@/lib/types";
 
@@ -204,11 +204,28 @@ export async function uploadPaymentProof(ref: string, phone: string, dataUrl: st
 
 // ---------------------------- admin-only ----------------------------
 
-/** F4 — status machine, including the F5 stock-decrement trigger in Postgres. */
+/** F4 — status machine, including the F5 stock-decrement trigger in Postgres.
+ * Forward-only: once an order has moved to a later step, it can't be sent
+ * back to an earlier one, and it can't be cancelled once completed (or
+ * cancelled again once already cancelled). Enforced here, not just in the
+ * UI, so a stray/replayed request can't sneak an order backwards. */
 export async function setOrderStatus(orderId: string, status: OrderStatus) {
   await requireAdmin();
   const sb = supabaseAdmin();
   const { data: before } = await sb.from("orders").select("status,ref").eq("id", orderId).single();
+  if (before) {
+    if (status === "cancelled") {
+      if (["completed", "cancelled"].includes(before.status)) {
+        throw new Error("This order can no longer be cancelled");
+      }
+    } else {
+      const beforeIdx = FLOW.indexOf(before.status as OrderStatus);
+      const nextIdx = FLOW.indexOf(status);
+      if (beforeIdx !== -1 && nextIdx !== -1 && nextIdx < beforeIdx) {
+        throw new Error("Can't move an order back to an earlier status");
+      }
+    }
+  }
   const { error } = await sb.from("orders").update({ status }).eq("id", orderId);
   if (error) throw error;
   if (before) {
