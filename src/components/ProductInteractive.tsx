@@ -90,7 +90,7 @@ export default function ProductInteractive({
           {t("answers", lang)}
         </div>
 
-        <div className="aab-row">
+        <div className="aab-row aab-row-price">
           <div className="aab-q">{t("qPrice", lang)}</div>
           <div className="aab-a">
             <span className="aab-price">{money(p.price)}</span>
@@ -117,44 +117,15 @@ export default function ProductInteractive({
 
         <div className="aab-row">
           <div className="aab-q">{t("qStock", lang)}</div>
-          <div className={"aab-a " + STOCK_CLS[p.stock_status]}>
-            {t(STOCK_KEY[p.stock_status], lang)}
+          <div className="aab-a">
+            <span className={"stock-pill " + STOCK_CLS[p.stock_status]}>
+              {t(STOCK_KEY[p.stock_status], lang)}
+            </span>
             {p.stock_status !== "out" && p.qty ? (
               <small>{p.qty} {t("unitsLeft", lang)}</small>
             ) : null}
           </div>
         </div>
-
-        <div className="aab-row">
-          <div className="aab-q">{t("qWhere", lang)}</div>
-          <div className="aab-a">
-            {loc.suku}, {loc.post}, {loc.municipality}
-            <small>{loc.landmark} · {settings.hours}</small>
-          </div>
-        </div>
-
-        <div className="aab-row">
-          <div className="aab-q">{t("qHow", lang)}</div>
-          <div className="aab-a">
-            WhatsApp {settings.wa_number}
-            <small>{t("noAccount", lang)}</small>
-          </div>
-        </div>
-
-        {p.tags?.length > 0 && (
-          <div className="aab-row">
-            <div className="aab-q">{t("qUse", lang)}</div>
-            <div className="aab-a">
-              <div className="tags">
-                {p.tags.map((g) => (
-                  <a key={g} className="tag" href={`/search?q=${encodeURIComponent(g)}`}>
-                    {g}
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </section>
 
       <div className="btn-row">

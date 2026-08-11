@@ -58,7 +58,7 @@ export function waLink(digits: string, text: string): string {
 
 /** E1/E2 — pre-filled WhatsApp message with the product, size and reference. */
 export function waProductMsg(p: Pick<Product, "name" | "ref" | "slug" | "price">, size: string | null, qty: number, siteUrl: (path: string) => string): string {
-  const lines = ["Botardi! Hau hakarak sosa:", ""];
+  const lines = ["Ola! Hau hakarak sosa:", ""];
   lines.push(
     p.name + (size ? ` — ${size}` : "") + (qty > 1 ? ` × ${qty}` : "") + ` — ${money(p.price)}`
   );

@@ -130,6 +130,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .aab-price{font-family:var(--mono);font-size:29px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .aab-price em{font-style:normal;font-size:12px;font-family:var(--sans);color:var(--muted);font-weight:400;margin-left:6px}
 .aab .stock-in{color:var(--green)} .aab .stock-low{color:var(--amber-ink)} .aab .stock-out{color:var(--red)}
+.aab-row-price{background:var(--amber-soft)}
+.stock-pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:12px;font-weight:700;
+  letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:20px}
+.stock-pill.stock-in{background:var(--green-soft);color:var(--green)}
+.stock-pill.stock-low{background:var(--amber-soft);color:var(--amber-ink)}
+.stock-pill.stock-out{background:var(--red-soft);color:var(--red)}
 
 .sizes{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0}
 .sizes button{border:1px solid var(--line);background:var(--card);border-radius:var(--r-s);padding:6px 11px;font-family:var(--mono);
