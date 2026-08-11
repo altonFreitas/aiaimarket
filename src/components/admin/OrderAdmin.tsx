@@ -3,10 +3,19 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { addOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
+import { addOrderNote, editOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
 import { addrLine, money, nowIso, waLink, FLOW } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, OrderStatus, PayStatus } from "@/lib/types";
+
+function PencilIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </svg>
+  );
+}
 
 export default function OrderAdmin({
   lang, order: o, settings,
@@ -16,6 +25,8 @@ export default function OrderAdmin({
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
   const at = FLOW.indexOf(o.status);
 
   async function run(fn: () => Promise<unknown>, msg?: string) {
@@ -106,12 +117,41 @@ export default function OrderAdmin({
       <div className="panel">
         <h3>{t("internalLog", lang)}</h3>
         <ul className="log">
-          {(o.order_log || []).slice().reverse().map((l) => (
-            <li key={l.id}>
-              <time>{nowIso(l.created_at)}</time>
-              {l.text}
-            </li>
-          ))}
+          {(o.order_log || []).slice().reverse().map((l) => {
+            const isNote = l.text.trim().startsWith("* ");
+            const isEditing = editingId === l.id;
+            return (
+              <li key={l.id}>
+                <time>{nowIso(l.created_at)}</time>
+                {isEditing ? (
+                  <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                    <input value={editText} onChange={(e) => setEditText(e.target.value)}
+                      style={{ flex: 1, border: "1px solid var(--line)", borderRadius: 6, padding: 6 }} />
+                    <button className="btn btn-sm" disabled={busy || !editText.trim()}
+                      onClick={() => run(async () => {
+                        await editOrderNote(o.id, l.id, editText);
+                        setEditingId(null);
+                      })}>
+                      {t("save", lang)}
+                    </button>
+                    <button className="btn btn-sm btn-ghost" type="button" onClick={() => setEditingId(null)}>
+                      {t("cancel", lang)}
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {l.text}
+                    {isNote && (
+                      <button type="button" className="log-edit-btn" aria-label={t("edit", lang)}
+                        onClick={() => { setEditingId(l.id); setEditText(l.text.trim().slice(2)); }}>
+                        <PencilIcon />
+                      </button>
+                    )}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
           <input value={note} onChange={(e) => setNote(e.target.value)}

@@ -101,6 +101,7 @@ export const STR: Record<string, [string,string,string]> = {
   notFound:["La hetan enkomenda ho dadus ne'e.","Encomenda não encontrada.","No order matches those details."],
   status:["Estadu","Estado","Status"],
   orderSummary:["Rezumu enkomenda","Resumo da encomenda","Order summary"],
+  downloadPdf:["Download PDF","Descarregar PDF","Download PDF"],
   paymentPanel:["Pagamentu","Pagamento","Payment"],
   paymentStatus:["Estadu pagamentu","Estado do pagamento","Payment status"],
   uploadProof:["Karga komprovante","Carregar comprovativo","Upload payment proof"],

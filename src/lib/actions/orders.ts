@@ -227,11 +227,28 @@ export async function setPayStatus(orderId: string, payStatus: PayStatus) {
   revalidatePath("/admin/orders");
 }
 
-/** F6 — free-text internal note. */
+/** F6 — free-text internal note. Stored with a leading "* " marker so it
+ * can be told apart from the automatic status/payment/system log lines
+ * (e.g. "Estadu: new → confirmed") and surfaced on the buyer's tracking
+ * page as an extra "* - ..." line on the status timeline. */
 export async function addOrderNote(orderId: string, text: string) {
   await requireAdmin();
   if (!text.trim()) return;
   const sb = supabaseAdmin();
-  await sb.from("order_log").insert({ order_id: orderId, text: text.trim() });
+  await sb.from("order_log").insert({ order_id: orderId, text: `* ${text.trim()}` });
+  revalidatePath("/admin/orders");
+}
+
+/** F6b — edit a previously added free-text note. Restricted to entries
+ * that were themselves free-text notes (the leading "* " marker) so an
+ * admin can never rewrite an automatic status/payment/system log line
+ * into something misleading. */
+export async function editOrderNote(orderId: string, logId: number, text: string) {
+  await requireAdmin();
+  if (!text.trim()) return;
+  const sb = supabaseAdmin();
+  const { data: row } = await sb.from("order_log").select("text").eq("id", logId).eq("order_id", orderId).single();
+  if (!row || !row.text.trim().startsWith("* ")) throw new Error("This entry can't be edited");
+  await sb.from("order_log").update({ text: `* ${text.trim()}` }).eq("id", logId).eq("order_id", orderId);
   revalidatePath("/admin/orders");
 }

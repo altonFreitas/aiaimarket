@@ -7,6 +7,7 @@ import {
   lookupOrder, getOrdersByPhone, requestCancellation, updateOrderAddress, uploadPaymentProof,
 } from "@/lib/actions/orders";
 import { compressImage } from "@/lib/compressImage";
+import { downloadOrderInvoice } from "@/lib/pdfInvoice";
 import { addrLine, money, nowIso, waLink, waOrderMsg, FLOW } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
@@ -146,6 +147,36 @@ function Dashboard({
   const [reason, setReason] = useState("");
   const [asking, setAsking] = useState(false);
 
+  // Admin free-text internal notes are stored with a leading "* " marker
+  // (see addOrderNote) so they can be told apart from automatic status/
+  // payment log lines. Surface them as extra timeline entries, shown
+  // plainly like any other step (no asterisk, no italics) so they blend
+  // in with the formal status steps rather than standing out as a
+  // separate kind of thing.
+  // The "current" (yellow) marker follows whichever happened most
+  // recently: the status change itself, or a note added after it. So if
+  // a note gets added after the order reached its current status, the
+  // note becomes the highlighted "now" step and the status step behind
+  // it settles back to a plain "done" circle -- and if the status is
+  // then advanced again, the highlight returns to the status step.
+  const noteLogs = (o.order_log || []).filter((l) => l.text.trim().startsWith("* "));
+  const statusChangeTimes = (o.order_log || [])
+    .filter((l) => l.text.trim().startsWith("Estadu:"))
+    .map((l) => new Date(l.created_at).getTime());
+  const lastStatusChangeAt = statusChangeTimes.length
+    ? Math.max(...statusChangeTimes)
+    : new Date(o.created_at).getTime();
+  const lastNoteAt = noteLogs.length ? Math.max(...noteLogs.map((l) => new Date(l.created_at).getTime())) : null;
+  const lastNoteId = noteLogs.length ? noteLogs[noteLogs.length - 1].id : null;
+  const noteIsCurrent = lastNoteAt !== null && lastNoteAt > lastStatusChangeAt;
+
+  const noteEntries = noteLogs.map((l) => (
+    <li key={l.id} className={noteIsCurrent && l.id === lastNoteId ? "now done" : "done"}>
+      <span className="pin" />
+      <span className="t">{l.text.trim().slice(2)}</span>
+    </li>
+  ));
+
   const locked = ["out", "arrived", "completed", "cancelled"].includes(o.status);
   const cancellable = ["new", "confirmed"].includes(o.status) && !o.cancel_requested_at;
   const at = FLOW.indexOf(o.status);
@@ -192,11 +223,12 @@ function Dashboard({
         {o.status === "cancelled" ? (
           <ul className="tl">
             <li className="cancelled done"><span className="pin" /><span className="t">{t("st_cancelled", lang)}</span></li>
+            {noteEntries}
           </ul>
         ) : (
           <ul className="tl">
-            {FLOW.map((s, i) => (
-              <li key={s} className={i < at ? "done" : i === at ? "now done" : ""}>
+            {FLOW.slice(0, -1).map((s, i) => (
+              <li key={s} className={i < at ? "done" : i === at ? (noteIsCurrent ? "done" : "now done") : ""}>
                 <span className="pin" />
                 <span className="t">
                   {t("st_" + s, lang)}
@@ -204,6 +236,16 @@ function Dashboard({
                 </span>
               </li>
             ))}
+            {noteEntries}
+            {FLOW.slice(-1).map((s) => {
+              const i = FLOW.length - 1; // always the last FLOW step ("completed")
+              return (
+                <li key={s} className={i < at ? "done" : i === at ? (noteIsCurrent ? "done" : "now done") : ""}>
+                  <span className="pin" />
+                  <span className="t">{t("st_" + s, lang)}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
@@ -253,6 +295,10 @@ function Dashboard({
           </div>
           <div className="kv total"><span>{t("total", lang)}</span><b>{money(o.total)}</b></div>
         </div>
+        <button className="btn btn-ghost btn-sm" type="button" style={{ marginTop: 10 }}
+          onClick={() => downloadOrderInvoice(o, settings)}>
+          {t("downloadPdf", lang)}
+        </button>
       </div>
 
       {/* I3 payment panel */}
