@@ -1,6 +1,6 @@
 import type { Order, Product } from "@/lib/types";
 
-export interface DailyPoint { date: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number }
+export interface DailyPoint { date: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number; customers: number }
 
 export interface AdminStats {
   // headline KPIs
@@ -39,7 +39,7 @@ export interface AdminStats {
   drillData: DrillData;
 }
 
-export interface PeriodPoint { label: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number }
+export interface PeriodPoint { label: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number; customers: number }
 
 const ORDER_STATUSES = ["new", "confirmed", "preparing", "out", "arrived", "completed", "cancelled"];
 const PAY_METHODS = ["cod", "cop", "bank", "wallet", "fiar"];
@@ -126,6 +126,7 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
       qty: sumUnits(dayCompleted),
       subtotal: sum(dayCompleted, (o) => o.subtotal),
       fee: sum(dayCompleted, (o) => o.fee),
+      customers: distinctCustomers(dayOrders),
     });
   }
 
@@ -201,6 +202,7 @@ function periodPoint(orders: Order[], start: number, end: number, label: string)
     qty: sumUnits(completed),
     subtotal: sum(completed, (o) => o.subtotal),
     fee: sum(completed, (o) => o.fee),
+    customers: distinctCustomers(inRange),
   };
 }
 
@@ -258,6 +260,7 @@ export function buildDrillData(orders: Order[], years: PeriodPoint[]): DrillData
             qty: sumUnits(dayCompleted),
             subtotal: sum(dayCompleted, (o) => o.subtotal),
             fee: sum(dayCompleted, (o) => o.fee),
+            customers: distinctCustomers(dayOrders),
           });
         }
         daysByYearMonth[`${year}-${mi}`] = days;
@@ -287,6 +290,13 @@ function sumUnits(orders: Order[]): number {
 
 function sum<T>(arr: T[], f: (x: T) => number): number {
   return arr.reduce((a, x) => a + (f(x) || 0), 0);
+}
+/** Distinct buyer phone numbers within a set of orders -- used for the
+ * per-period "customers" trend point (day/month/quarter/year all reuse
+ * this same rule, all order statuses count since it measures reach, not
+ * just completed sales). */
+function distinctCustomers(orders: Order[]): number {
+  return new Set(orders.map((o) => (o.buyer_phone || "").trim()).filter(Boolean)).size;
 }
 function startOfDay(ts: number): number {
   const d = new Date(ts);

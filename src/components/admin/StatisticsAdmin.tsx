@@ -44,7 +44,6 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
         <div><b>{stats.totalOrders}</b><span>{t("orders", lang)}</span></div>
         <div><b>{stats.ordersLast7Days}</b><span>{t("last7Days", lang)}</span></div>
         <div><b>{money(stats.revenueLast7Days)}</b><span>{t("last7Days", lang)}</span></div>
-        <div><b>{stats.uniqueCustomers}</b><span>{t("uniqueCustomers", lang)}</span></div>
       </div>
 
       {/* revenue trend: Day/Month/Quarter flat, Year drills into that
@@ -59,6 +58,15 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
       {/* units-sold trend, same navigation */}
       <TrendChart
         lang={lang} metric="qty"
+        daily={stats.dailyLast14} monthly={stats.monthlyLast12}
+        quarterly={stats.quarterlyLast8} yearly={stats.yearly}
+        drillData={stats.drillData}
+      />
+
+      {/* customers trend: distinct buyers per day/month/quarter/year,
+          same navigation as the two charts above */}
+      <TrendChart
+        lang={lang} metric="customers"
         daily={stats.dailyLast14} monthly={stats.monthlyLast12}
         quarterly={stats.quarterlyLast8} yearly={stats.yearly}
         drillData={stats.drillData}

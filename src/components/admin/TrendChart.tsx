@@ -13,7 +13,7 @@ export default function TrendChart({
   lang, metric, daily, monthly, quarterly, yearly, drillData,
 }: {
   lang: Lang;
-  metric: "revenue" | "qty";
+  metric: "revenue" | "qty" | "customers";
   daily: DailyPoint[];
   monthly: PeriodPoint[];
   quarterly: PeriodPoint[];
@@ -73,11 +73,13 @@ export default function TrendChart({
     return `${money(subtotal)} ${t("productsWord", lang)}`;
   }
 
-  const metricLabel = t(metric === "revenue" ? "revenueWord" : "unitsSoldWord", lang);
+  const METRIC_WORD_KEY = { revenue: "revenueWord", qty: "unitsSoldWord", customers: "customersWord" } as const;
+  const METRIC_TOTAL_KEY = { revenue: "totalRevenue", qty: "totalUnitsSold", customers: "totalCustomers" } as const;
+  const metricLabel = t(METRIC_WORD_KEY[metric], lang);
   const title = period === "year"
     ? `${t("period_quarter", lang)} ${metricLabel} — ${selectedYear}`
     : `${t("period_" + period, lang)} ${metricLabel}`;
-  const totalLabel = t(metric === "revenue" ? "totalRevenue" : "totalUnitsSold", lang);
+  const totalLabel = t(METRIC_TOTAL_KEY[metric], lang);
 
   function changePeriod(p: Period) { setPeriod(p); setSelected(null); }
   function pick(i: number) { setSelected((cur) => (cur === i ? null : i)); }

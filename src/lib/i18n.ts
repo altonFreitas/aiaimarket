@@ -228,6 +228,8 @@ export const STR: Record<string, [string,string,string]> = {
   revenueWord:["Reseita","Receita","Revenue"],
   unitsSoldWord:["Unidade Fa'an","Unidades Vendidas","Units Sold"],
   totalUnitsSold:["Unidade fa'an totál","Total de unidades vendidas","Total units sold"],
+  customersWord:["Kliente","Clientes","Customers"],
+  totalCustomers:["Kliente totál","Total de clientes","Total customers"],
   uniqueCustomers:["Kliente ne'ebé sosa","Clientes que compraram","Customers who bought"],
   drillHint:["Klik ida atu haree detallu liu","Clique num para ver mais detalhe","Click one to drill into more detail"],
   vsPrevious:["kompara ho tinan liu","comparado com o ano anterior","vs previous year"],
