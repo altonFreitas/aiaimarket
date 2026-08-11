@@ -2,6 +2,20 @@ import { jsPDF } from "jspdf";
 import { money, nowIso } from "@/lib/utils";
 import type { Order, Settings } from "@/lib/types";
 
+// Same hex values as --red and --amber-ink in globals.css, so the PDF's
+// "Cancelled" status line reads as the same red used everywhere else.
+const RED: [number, number, number] = [0xc4, 0x3d, 0x2c];
+
+const STATUS_LABELS: Record<Order["status"], string> = {
+  new: "New",
+  confirmed: "Confirmed",
+  preparing: "Preparing",
+  out: "Out for delivery",
+  arrived: "Arrived \u2014 calling you",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
 /** Buyer-facing bill/invoice PDF for a single order, generated entirely
  * client-side (no server round trip, no stored file). Called from the
  * "Download PDF" button on the order tracking page. */
@@ -14,6 +28,10 @@ export function downloadOrderInvoice(o: Order, settings?: Settings) {
   const colRight = pageW - marginX;
   let y = 54;
 
+  // A random per-download document ID -- not stored anywhere, just a
+  // reference printed on the PDF itself (distinct from the order ref).
+  const docId = Math.random().toString(36).slice(2, 10).toUpperCase();
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.text("Loja AIAI", marginX, y);
@@ -21,7 +39,13 @@ export function downloadOrderInvoice(o: Order, settings?: Settings) {
   doc.setFont("helvetica", "normal");
   doc.text("INVOICE", colRight, y, { align: "right" });
 
-  y += 22;
+  y += 14;
+  doc.setFontSize(8);
+  doc.setTextColor(140);
+  doc.text(`Doc ID: ${docId}`, colRight, y, { align: "right" });
+  doc.setTextColor(0);
+
+  y += 14;
   doc.setDrawColor(210);
   doc.line(marginX, y, colRight, y);
 
@@ -37,7 +61,17 @@ export function downloadOrderInvoice(o: Order, settings?: Settings) {
   y += 14;
   doc.text(o.buyer_phone, marginX, y);
 
-  y += 26;
+  y += 20;
+  doc.setFont("helvetica", "bold");
+  if (o.status === "cancelled") doc.setTextColor(...RED);
+  const statusLabel = o.status === "completed" && o.mode === "pickup"
+    ? "Completed / Ready to pick up"
+    : STATUS_LABELS[o.status];
+  doc.text(`Status: ${statusLabel}`, marginX, y);
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "normal");
+
+  y += 24;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.text("Item", marginX, y);

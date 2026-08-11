@@ -298,7 +298,7 @@ function Dashboard({
           </div>
           <div className="kv total"><span>{t("total", lang)}</span><b>{money(o.total)}</b></div>
         </div>
-        <button className="btn btn-ghost btn-sm" type="button" style={{ marginTop: 10 }}
+        <button className="btn btn-amber btn-sm" type="button" style={{ marginTop: 10 }}
           onClick={() => downloadOrderInvoice(o, settings)}>
           {t("downloadPdf", lang)}
         </button>
