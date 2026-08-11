@@ -207,8 +207,13 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   const sb = supabaseAdmin();
   const { data: before } = await sb.from("orders").select("status,ref").eq("id", orderId).single();
   if (before) {
+    if (before.status === "cancelled") {
+      // Cancelled is now a fully terminal state -- no reassigning a
+      // cancelled order back into the flow, and no cancelling it again.
+      throw new Error("This order has been cancelled and can no longer be changed");
+    }
     if (status === "cancelled") {
-      if (["completed", "cancelled"].includes(before.status)) {
+      if (before.status === "completed") {
         throw new Error("This order can no longer be cancelled");
       }
     } else {

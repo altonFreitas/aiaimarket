@@ -62,7 +62,8 @@ export default function OrderAdmin({
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {flow.map((s, i) => (
             <button key={s} className={"btn btn-sm " + (i === at ? "btn-amber" : "btn-ghost")}
-              disabled={busy || i < at} onClick={() => run(() => setOrderStatus(o.id, s), t("st_" + s, lang))}>
+              disabled={busy || i < at || o.status === "cancelled"}
+              onClick={() => run(() => setOrderStatus(o.id, s), t("st_" + s, lang))}>
               {o.mode === "pickup" && i === flow.length - 1 ? t("st_completed_pickup", lang) : t("st_" + s, lang)}
             </button>
           ))}

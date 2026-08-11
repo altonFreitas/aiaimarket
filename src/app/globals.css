@@ -254,10 +254,9 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* ---------- bottom nav ---------- */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--card);border-top:1px solid var(--line);
   display:flex;padding-bottom:env(safe-area-inset-bottom)}
-.nav a,.nav button{position:relative;flex:1;min-width:0;background:none;border:0;padding:7px 2px 8px;font-size:9.5px;color:var(--muted);text-decoration:none;
-  display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font-family:var(--mono);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden}
+.nav a,.nav button{position:relative;flex:1;min-width:0;background:none;border:0;padding:7px 2px 8px;font-size:9.5px;color:var(--ink);text-decoration:none;
+  display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font-family:var(--mono);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;font-weight:700}
 .nav svg{width:20px;height:20px}
-.nav [aria-current=true]{color:var(--ink);font-weight:700}
 .nav .bump{position:absolute;top:4px;right:calc(50% - 30px);background:var(--amber);color:#3a2b00;font-size:9px;font-weight:700;
   border-radius:20px;padding:0 4px}
 
