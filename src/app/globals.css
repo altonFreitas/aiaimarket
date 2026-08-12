@@ -279,6 +279,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .home .hero-sub{color:rgba(255,255,255,.75);font-size:14px;margin:0 0 16px;max-width:46ch}
 .home .hero-cta{display:flex;flex-direction:column;gap:8px}
 .home .hero-cta .btn{width:100%}
+.home .hero-cta .btn-ghost{color:#fff;border-color:rgba(255,255,255,.5)}
+.home .hero-cta .btn-ghost:hover{background:rgba(255,255,255,.1)}
 .home .hero-art{max-width:220px;margin:0 auto}
 
 .home-section{margin:30px 0}
