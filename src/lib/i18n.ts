@@ -52,6 +52,23 @@ export const STR: Record<string, [string,string,string]> = {
   /* basket + checkout */
   emptyList:["Ita nia lista mamuk hela.","A sua lista está vazia.","Your list is empty."],
   browse:["Haree katálogu","Ver catálogo","Browse the catalog"],
+
+  /* homepage */
+  heroTitle:["Buat hotu ita presiza, entrega iha Dili.","Tudo o que precisa, entregue em Díli.","Everything you need, delivered in Dili."],
+  heroSub:["Sasán loos, folin klaru — sosa online no simu iha Timor-Leste tomak.","Stock real, preços claros — compre online e receba em qualquer lugar de Timor-Leste.","Real stock, clear prices — shop online and get it delivered across Timor-Leste."],
+  heroShopNow:["Sosa agora","Comprar agora","Shop now"],
+  heroNewArrivals:["Haree foun sira","Ver novidades","See new arrivals"],
+  newArrivals:["Sasán Foun","Novidades","New Arrivals"],
+  newArrivalsSub:["Sasán foun, foin tama.","Stock novo, acabado de chegar.","Fresh stock, just added."],
+  viewAll:["Haree hotu","Ver tudo","View all"],
+  categoryPicks:["Eskolla populár agora.","Escolhas populares agora.","Popular picks right now."],
+  bestSellers:["Ne'ebé Fa'an Liu","Mais Vendidos","Best Sellers"],
+  bestSellersSub:["Kliente sira nia favoritu.","Favoritos dos clientes.","Customer favourites."],
+  viewAllBestSellers:["Haree hotu ne'ebé fa'an liu","Ver todos os mais vendidos","View all best sellers"],
+  bestSellerBadge:["FA'AN LIU","MAIS VENDIDO","BEST SELLER"],
+  promoTitle:["Haree katálogu tomak","Veja o catálogo completo","Shop the full catalog"],
+  promoSub:["Sasán foun tama beibeik — haree buat hotu ne'ebé iha ona.","Stock novo adicionado regularmente — veja tudo o que está disponível agora.","New stock added regularly — browse everything available right now."],
+  promoCta:["Haree katálogu","Ver catálogo","Browse catalog"],
   checkout:["Remata enkomenda","Finalizar encomenda","Place order"],
   subtotal:["Subtotál","Subtotal","Subtotal"],
   deliveryFee:["Taxa entrega","Taxa de entrega","Delivery fee"],

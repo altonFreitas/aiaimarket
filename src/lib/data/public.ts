@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/supabase/server";
-import type { Category, Product, Settings } from "@/lib/types";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Category, OrderItem, Product, Settings } from "@/lib/types";
 
 const DEFAULT_SETTINGS: Settings = {
   id: 0, // 0 signals "not configured yet"
@@ -69,6 +70,46 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   const sb = await supabaseServer();
   const { data } = await sb.from("categories").select("*").eq("slug", slug).maybeSingle();
   return (data as Category) || null;
+}
+
+/** Homepage "Best Sellers" — ranked by real units sold across completed
+ * orders (never invented numbers). `orders` has no public SELECT policy
+ * (buyer PII lives there), so this reads through the admin client, but
+ * only ever returns plain Product rows — no order/buyer data leaves this
+ * function. If a store is too new to have completed orders yet, or has
+ * fewer than `limit` products with real sales, the list is topped up
+ * with the most-viewed products (also a real, tracked signal — see
+ * bumpView) so the section still has something to show; those top-up
+ * items just aren't "confirmed" sellers for badge purposes. */
+export async function getBestSellingProducts(
+  limit = 6
+): Promise<{ products: Product[]; confirmedIds: Set<string> }> {
+  try {
+    const [admin, products] = [supabaseAdmin(), await getLiveProducts()];
+    const { data: orders } = await admin.from("orders").select("items").eq("status", "completed");
+
+    const qtySold = new Map<string, number>();
+    for (const o of orders || []) {
+      for (const item of (o.items as OrderItem[]) || []) {
+        qtySold.set(item.product_id, (qtySold.get(item.product_id) || 0) + item.qty);
+      }
+    }
+
+    const ranked = products
+      .filter((p) => qtySold.has(p.id))
+      .sort((a, b) => (qtySold.get(b.id) || 0) - (qtySold.get(a.id) || 0));
+    const confirmedIds = new Set(ranked.map((p) => p.id));
+
+    if (ranked.length >= limit) return { products: ranked.slice(0, limit), confirmedIds };
+
+    const fillerIds = new Set(ranked.map((p) => p.id));
+    const filler = products
+      .filter((p) => !fillerIds.has(p.id))
+      .sort((a, b) => (b.views || 0) - (a.views || 0));
+    return { products: [...ranked, ...filler].slice(0, limit), confirmedIds };
+  } catch {
+    return { products: [], confirmedIds: new Set() };
+  }
 }
 
 /** Fire-and-forget counters (Epic E4). These call SECURITY DEFINER
