@@ -60,6 +60,19 @@ create table if not exists categories (
 );
 create index if not exists idx_categories_parent on categories(parent_id);
 
+-- ---------- hero_slides (homepage carousel) ----------
+create table if not exists hero_slides (
+  id          uuid primary key default gen_random_uuid(),
+  seller_id   uuid not null default current_seller_id(),
+  image_url   text not null,
+  headline    text not null default '',
+  subtext     text not null default '',
+  cta_label   text not null default '',
+  cta_href    text not null default '',
+  sort_order  int not null default 0,
+  created_at  timestamptz not null default now()
+);
+
 -- ---------- products (Epic B) ----------
 create table if not exists products (
   id            uuid primary key default gen_random_uuid(),
@@ -214,6 +227,7 @@ grant execute on function increment_wa_clicks(uuid) to anon, authenticated;
 -- ============================================================
 alter table settings   enable row level security;
 alter table categories enable row level security;
+alter table hero_slides enable row level security;
 alter table products   enable row level security;
 alter table orders     enable row level security;
 alter table order_log  enable row level security;
@@ -237,6 +251,12 @@ grant select (
 
 drop policy if exists categories_public_read on categories;
 create policy categories_public_read on categories for select using (true);
+
+-- No public insert/update/delete policy on hero_slides -- same as
+-- categories and products, all writes go through the server using the
+-- service-role key (supabaseAdmin()), which bypasses RLS entirely.
+drop policy if exists hero_slides_public_read on hero_slides;
+create policy hero_slides_public_read on hero_slides for select using (true);
 
 drop policy if exists products_public_read on products;
 create policy products_public_read on products for select using (archived = false);
