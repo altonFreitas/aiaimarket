@@ -15,9 +15,9 @@ export const STR: Record<string, [string,string,string]> = {
   backToSingle:["Buka enkomenda seluk","Procurar outra encomenda","Look up a different order"],
   home:["Uma","Início","Home"],
   /* buyer questions — the four repeated questions (§2.2) */
-  qPrice:["Folin hira?","Quanto custa?","Price"],
-  qSize:["Tamañu saida?","Que tamanho?","Size"],
-  qStock:["Iha hela ka?","Ainda há?","Available"],
+  qPrice:["Folin","Preço","Price"],
+  qSize:["Tamañu","Tamanho","Size"],
+  qStock:["Disponível","Disponível","Available"],
   qWhere:["Iha ne'ebé?","Onde estão?","Where are you?"],
   qHow:["Oinsá atu enkomenda?","Como encomendar?","How do I order?"],
   qUse:["Ba saida?","Para quê?","What is it for?"],
