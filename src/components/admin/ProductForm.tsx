@@ -9,9 +9,9 @@ import { compressImage } from "@/lib/compressImage";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 
-function pathName(c: Category, cats: Category[]) {
-  const p = c.parent_id ? cats.find((x) => x.id === c.parent_id) : null;
-  return (p ? p.name + " › " : "") + c.name;
+function rootIdOf(id: string, cats: Category[]): string {
+  const c = cats.find((x) => x.id === id);
+  return c?.parent_id || id;
 }
 
 export default function ProductForm({
@@ -23,6 +23,7 @@ export default function ProductForm({
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [newCat, setNewCat] = useState("");
+  const [newSubCat, setNewSubCat] = useState("");
   const [images, setImages] = useState<string[]>(product?.images || []);
 
   const [f, setF] = useState({
@@ -76,6 +77,30 @@ export default function ProductForm({
       setCats((cur) => (cur.some((x) => x.id === c.id) ? cur : [...cur, c]));
       set("category_id", c.id);
       setNewCat("");
+      toast(t("newCategory", lang) + ": " + c.name);
+    } catch { toast("Error", true); }
+    setBusy(false);
+  }
+
+  // Category/Subcategory are two cascading dropdowns over the same
+  // category_id field: selecting a root category resets the subcategory
+  // to "none" (product filed directly under the root); selecting a
+  // subcategory files the product there instead. Both still ultimately
+  // just set f.category_id -- there's no separate subcategory column.
+  const selectedRootId = rootIdOf(f.category_id, cats) || cats.find((c) => !c.parent_id)?.id || "";
+  const rootCats = cats.filter((c) => !c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
+  const subCats = cats.filter((c) => c.parent_id === selectedRootId).sort((a, b) => a.sort_order - b.sort_order);
+  const selectedSubId = cats.find((c) => c.id === f.category_id)?.parent_id ? f.category_id : "";
+
+  async function onCreateSubCategory() {
+    const name = newSubCat.trim();
+    if (!name || !selectedRootId) return;
+    setBusy(true);
+    try {
+      const c = await createCategory(name, selectedRootId);
+      setCats((cur) => (cur.some((x) => x.id === c.id) ? cur : [...cur, c]));
+      set("category_id", c.id);
+      setNewSubCat("");
       toast(t("newCategory", lang) + ": " + c.name);
     } catch { toast("Error", true); }
     setBusy(false);
@@ -160,18 +185,39 @@ export default function ProductForm({
           <h3>{t("category", lang)}</h3>
           <div className={"field" + (errors.category_id ? " err" : "")}>
             <label htmlFor="category_id">{t("category", lang)}</label>
-            <select id="category_id" value={f.category_id}
+            <select id="category_id" value={selectedRootId}
               onChange={(e) => set("category_id", e.target.value)}>
-              {cats.map((c) => <option key={c.id} value={c.id}>{pathName(c, cats)}</option>)}
+              {rootCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <p className="msg">{errors.category_id}</p>
           </div>
+          {subCats.length > 0 && (
+            <div className="field">
+              <label htmlFor="subcategory_id">{t("subcategory", lang)}</label>
+              <select id="subcategory_id" value={selectedSubId}
+                onChange={(e) => set("category_id", e.target.value || selectedRootId)}>
+                <option value="">{t("none", lang)}</option>
+                {subCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
           <div className="field">
             <label htmlFor="newcat">{t("newCategory", lang)}</label>
             <div style={{ display: "flex", gap: 6 }}>
               <input id="newcat" value={newCat} onChange={(e) => setNewCat(e.target.value)}
                 placeholder="Sapatu, Kosmétiku…" />
               <button type="button" className="btn btn-sm" disabled={busy} onClick={onCreateCategory}>
+                {t("add", lang)}
+              </button>
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="newsubcat">{t("newSubcategory", lang)}</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input id="newsubcat" value={newSubCat} onChange={(e) => setNewSubCat(e.target.value)}
+                placeholder="Sapatu Feto, Sapatu Mane…" />
+              <button type="button" className="btn btn-sm" disabled={busy || !selectedRootId}
+                onClick={onCreateSubCategory}>
                 {t("add", lang)}
               </button>
             </div>

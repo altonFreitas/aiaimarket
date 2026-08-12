@@ -1,6 +1,8 @@
 import Hero from "@/components/home/Hero";
 import ProductSection from "@/components/home/ProductSection";
 import PromoBanner from "@/components/home/PromoBanner";
+import Sidebar from "@/components/Sidebar";
+import CatRail from "@/components/CatRail";
 import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
@@ -37,43 +39,49 @@ export default async function HomePage() {
     .slice(0, MAX_CATEGORY_SECTIONS);
 
   return (
-    <div className="wrap home">
-      <Hero lang={lang} settings={settings} slides={heroSlides} />
+    <div className="wrap">
+      <div className="cols">
+        <Sidebar cats={cats} products={products} lang={lang} />
+        <div className="home">
+          <CatRail cats={cats} products={products} lang={lang} />
+          <Hero lang={lang} settings={settings} slides={heroSlides} />
 
-      <ProductSection
-        id="new-arrivals"
-        title={t("newArrivals", lang)}
-        subtitle={t("newArrivalsSub", lang)}
-        products={newArrivals}
-        viewAllHref="/shop"
-        viewAllLabel={t("viewAll", lang)}
-        lang={lang}
-      />
+          <ProductSection
+            id="new-arrivals"
+            title={t("newArrivals", lang)}
+            subtitle={t("newArrivalsSub", lang)}
+            products={newArrivals}
+            viewAllHref="/shop"
+            viewAllLabel={t("viewAll", lang)}
+            lang={lang}
+          />
 
-      {categorySections.map(({ cat, items }) => (
-        <ProductSection
-          key={cat.id}
-          title={cat.name}
-          subtitle={t("categoryPicks", lang)}
-          products={items}
-          viewAllHref={`/c/${cat.slug}`}
-          viewAllLabel={t("viewAll", lang)}
-          lang={lang}
-        />
-      ))}
+          {categorySections.map(({ cat, items }) => (
+            <ProductSection
+              key={cat.id}
+              title={cat.name}
+              subtitle={t("categoryPicks", lang)}
+              products={items}
+              viewAllHref={`/c/${cat.slug}`}
+              viewAllLabel={t("viewAll", lang)}
+              lang={lang}
+            />
+          ))}
 
-      <ProductSection
-        title={t("bestSellers", lang)}
-        subtitle={t("bestSellersSub", lang)}
-        products={bestSellers.products}
-        viewAllHref="/shop"
-        viewAllLabel={t("viewAllBestSellers", lang)}
-        lang={lang}
-        badgeLabel={t("bestSellerBadge", lang)}
-        badgeForIds={bestSellers.confirmedIds}
-      />
+          <ProductSection
+            title={t("bestSellers", lang)}
+            subtitle={t("bestSellersSub", lang)}
+            products={bestSellers.products}
+            viewAllHref="/shop"
+            viewAllLabel={t("viewAllBestSellers", lang)}
+            lang={lang}
+            badgeLabel={t("bestSellerBadge", lang)}
+            badgeForIds={bestSellers.confirmedIds}
+          />
 
-      <PromoBanner lang={lang} />
+          <PromoBanner lang={lang} />
+        </div>
+      </div>
     </div>
   );
 }

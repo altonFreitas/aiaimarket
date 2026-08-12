@@ -75,11 +75,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .chip[aria-current=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
 .chip[aria-current=true] .n{color:rgba(255,255,255,.7)}
 .side-list{list-style:none;margin:0;padding:0}
-.side-list a{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;text-decoration:none;border-radius:var(--r-s);font-size:14px}
-.side-list a:hover{background:var(--line-2)}
-.side-list a[aria-current=true]{background:var(--ink);color:#fff;font-weight:600}
+.side-list a,.side-cat-btn{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;text-decoration:none;border-radius:var(--r-s);font-size:14px;
+  width:100%;border:0;background:transparent;color:inherit;font-family:inherit;text-align:left;cursor:pointer}
+.side-list a:hover,.side-cat-btn:hover{background:var(--line-2)}
+.side-list a[aria-current=true],.side-cat-btn[aria-current=true]{background:var(--ink);color:#fff;font-weight:600}
 .side-list .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.side-list a[aria-current=true] .n{color:rgba(255,255,255,.7)}
+.side-list a[aria-current=true] .n,.side-cat-btn[aria-current=true] .n{color:rgba(255,255,255,.7)}
 .side-list .sub-cat a{padding-left:22px;font-size:13px;color:var(--muted)}
 
 /* ---------- toolbar ---------- */
