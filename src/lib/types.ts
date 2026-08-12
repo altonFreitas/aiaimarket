@@ -13,6 +13,17 @@ export interface Category {
   sort_order: number;
 }
 
+export interface HeroSlide {
+  id: string;
+  image_url: string;
+  headline: string;
+  subtext: string;
+  cta_label: string;
+  cta_href: string;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface Product {
   id: string;
   ref: string;

@@ -1,7 +1,7 @@
 import Hero from "@/components/home/Hero";
 import ProductSection from "@/components/home/ProductSection";
 import PromoBanner from "@/components/home/PromoBanner";
-import { getCategories, getLiveProducts, getSettings, getBestSellingProducts } from "@/lib/data/public";
+import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import type { Category, Product } from "@/lib/types";
@@ -18,8 +18,8 @@ function productsInCategory(cat: Category, cats: Category[], products: Product[]
 }
 
 export default async function HomePage() {
-  const [lang, settings, cats, products, bestSellers] = await Promise.all([
-    getLang(), getSettings(), getCategories(), getLiveProducts(), getBestSellingProducts(SECTION_SIZE),
+  const [lang, settings, cats, products, bestSellers, heroSlides] = await Promise.all([
+    getLang(), getSettings(), getCategories(), getLiveProducts(), getBestSellingProducts(SECTION_SIZE), getHeroSlides(),
   ]);
 
   const newArrivals = products.slice(0, SECTION_SIZE); // getLiveProducts() is already newest-first
@@ -38,7 +38,7 @@ export default async function HomePage() {
 
   return (
     <div className="wrap home">
-      <Hero lang={lang} settings={settings} />
+      <Hero lang={lang} settings={settings} slides={heroSlides} />
 
       <ProductSection
         id="new-arrivals"

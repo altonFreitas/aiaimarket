@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, Order, Product } from "@/lib/types";
+import type { Category, HeroSlide, Order, Product } from "@/lib/types";
 
 export async function adminProducts(): Promise<Product[]> {
   const sb = supabaseAdmin();
@@ -16,6 +16,19 @@ export async function adminCategories(): Promise<Category[]> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("categories").select("*").order("sort_order");
   return (data as Category[]) || [];
+}
+/** Same "never break the admin page" caution as getHeroSlides() in
+ * lib/data/public.ts — if the migration hasn't been run yet, show an
+ * empty list rather than a crashed admin page. */
+export async function adminHeroSlides(): Promise<HeroSlide[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb.from("hero_slides").select("*").order("sort_order");
+    if (error) return [];
+    return (data as HeroSlide[]) || [];
+  } catch {
+    return [];
+  }
 }
 export async function adminOrders(): Promise<Order[]> {
   const sb = supabaseAdmin();

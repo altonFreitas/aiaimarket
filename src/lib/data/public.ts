@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, OrderItem, Product, Settings } from "@/lib/types";
+import type { Category, HeroSlide, OrderItem, Product, Settings } from "@/lib/types";
 
 const DEFAULT_SETTINGS: Settings = {
   id: 0, // 0 signals "not configured yet"
@@ -122,4 +122,20 @@ export async function bumpView(productId: string) {
 export async function bumpWaClick(productId: string) {
   const sb = await supabaseServer();
   await sb.rpc("increment_wa_clicks", { p_id: productId });
+}
+
+/** Homepage hero carousel slides. Deliberately isolated from getSettings()
+ * and its own try/catch: if the hero_slides table hasn't been created yet
+ * (see supabase/migration_hero_slides.sql), this just returns an empty
+ * list and the homepage falls back to the default hero — it must never
+ * take down the rest of the site's settings/data. */
+export async function getHeroSlides(): Promise<HeroSlide[]> {
+  try {
+    const sb = await supabaseServer();
+    const { data, error } = await sb.from("hero_slides").select("*").order("sort_order");
+    if (error) return [];
+    return (data as HeroSlide[]) || [];
+  } catch {
+    return [];
+  }
 }
