@@ -5,6 +5,26 @@ export type OrderStatus =
   | "new" | "confirmed" | "preparing" | "out" | "arrived" | "completed" | "cancelled";
 export type Lang = "tet" | "pt" | "en";
 
+export type SellerType = "individual" | "business";
+export type SellerStatus = "pending" | "approved" | "rejected" | "suspended";
+
+export interface Seller {
+  id: string;
+  user_id: string | null;
+  full_name: string;
+  store_name: string;
+  slug: string;
+  email: string;
+  phone: string;
+  description: string;
+  address: string;
+  city: string;
+  country: string;
+  seller_type: SellerType;
+  status: SellerStatus;
+  created_at: string;
+}
+
 export interface Category {
   id: string;
   name: string;

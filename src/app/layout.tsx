@@ -39,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           )}
           <Header settings={settings} />
           <main id="view">{children}</main>
-          <Footer settings={settings} />
+          <Footer settings={settings} lang={lang} />
           <BottomNav lang={lang} />
         </ToastProvider>
       </body>

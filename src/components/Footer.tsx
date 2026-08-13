@@ -1,5 +1,7 @@
-import type { Settings } from "@/lib/types";
+import type { Lang, Settings } from "@/lib/types";
 import { waLink, waNumberDigits } from "@/lib/utils";
+import { t } from "@/lib/i18n";
+import Link from "next/link";
 
 function LocationIcon() {
   return (
@@ -21,7 +23,7 @@ function WhatsAppIcon() {
   );
 }
 
-export default function Footer({ settings }: { settings: Settings }) {
+export default function Footer({ settings, lang }: { settings: Settings; lang: Lang }) {
   // Most specific string first (landmark) gives Google Maps the best chance
   // of pinning the actual building rather than just the general suco.
   const query = [settings.landmark, settings.suku, settings.municipality, "Timor-Leste"]
@@ -55,6 +57,11 @@ export default function Footer({ settings }: { settings: Settings }) {
           <WhatsAppIcon />
           WhatsApp {settings.wa_number}
         </a>
+      </div>
+      <div style={{ marginTop: 6 }}>
+        <Link href="/seller/register" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, fontSize: 12 }}>
+          {t("becomeSeller", lang)}
+        </Link>
       </div>
     </footer>
   );

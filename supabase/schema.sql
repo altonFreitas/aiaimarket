@@ -47,6 +47,49 @@ create or replace function current_seller_id() returns uuid
   select seller_id from settings where id = 1;
 $$;
 
+-- ---------- sellers (Phase 2: multi-vendor marketplace) ----------
+-- Phase 0 foundation only: real accounts (via Supabase Auth) + admin
+-- approval workflow. Products/orders are NOT yet connected to sellers --
+-- that's a deliberately separate, later step, so this can ship and be
+-- tested on its own without touching anything that already works.
+--
+-- The platform owner (the store this app already runs) does not need a
+-- row here in Phase 0 -- they keep managing everything through /admin
+-- exactly as before. This table is for *additional* sellers joining the
+-- marketplace.
+create table if not exists sellers (
+  id           uuid primary key default gen_random_uuid(),
+  -- Nullable + ON DELETE SET NULL: if a seller's auth account is ever
+  -- deleted, their seller row (and history) isn't silently destroyed
+  -- with it.
+  user_id      uuid unique references auth.users(id) on delete set null,
+  full_name    text not null default '',
+  store_name   text not null,
+  slug         text not null unique,
+  email        text not null,
+  phone        text not null default '',
+  description  text not null default '',
+  address      text not null default '',
+  city         text not null default '',
+  country      text not null default '',
+  seller_type  text not null default 'individual' check (seller_type in ('individual','business')),
+  status       text not null default 'pending' check (status in ('pending','approved','rejected','suspended')),
+  created_at   timestamptz not null default now()
+);
+
+alter table sellers enable row level security;
+
+-- A seller may read their own row (dashboard: "your application is
+-- pending"). No public read policy yet -- that arrives with public
+-- seller store pages in a later phase. No update policy yet either --
+-- there's no "edit my profile" UI in Phase 0, and granting blanket
+-- UPDATE would let a seller set their own status to 'approved'; that
+-- needs a carefully column-scoped grant (see how settings.totp_secret
+-- is protected above) added deliberately when that UI is built, not by
+-- accident now.
+drop policy if exists sellers_self_read on sellers;
+create policy sellers_self_read on sellers for select using (auth.uid() = user_id);
+
 -- ---------- categories (Epic C) ----------
 create table if not exists categories (
   id          uuid primary key default gen_random_uuid(),

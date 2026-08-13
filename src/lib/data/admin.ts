@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, HeroSlide, Order, Product } from "@/lib/types";
+import type { Category, HeroSlide, Order, Product, Seller } from "@/lib/types";
 
 export async function adminProducts(): Promise<Product[]> {
   const sb = supabaseAdmin();
@@ -51,4 +51,10 @@ export async function adminStats() {
   const [orders, products] = await Promise.all([adminOrders(), adminProducts()]);
   const { computeAdminStats } = await import("@/lib/stats");
   return computeAdminStats(orders, products);
+}
+
+export async function adminSellers(): Promise<Seller[]> {
+  const sb = supabaseAdmin();
+  const { data } = await sb.from("sellers").select("*").order("created_at", { ascending: false });
+  return (data as Seller[]) || [];
 }
