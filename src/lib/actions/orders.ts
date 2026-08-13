@@ -68,7 +68,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   const { data: settings } = await sb.from("settings").select("zones").eq("id", 1).single();
   const zones = (settings?.zones as any[]) || [];
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
-  const fee = zone && !zone.quote ? Number(zone.fee) : 0;
+  let fee = zone && !zone.quote ? Number(zone.fee) : 0;
   const subtotal = input.items.reduce((a, i) => a + i.price * i.qty, 0);
   const normalizedPhone = phoneNorm(input.phone);
 
@@ -85,6 +85,25 @@ export async function placeOrder(input: PlaceOrderInput) {
     ...i,
     seller_id: sellerByProduct.get(i.product_id) ?? null,
   }));
+
+  // Seller-configured delivery fee: if every item in this order belongs
+  // to the SAME real seller (not a mixed cart, not the platform's own
+  // catalog) and that seller has set their own delivery_fee, use it
+  // instead of the platform's zone-based fee. A mixed-seller cart, or
+  // one made entirely of the platform's own products, keeps using the
+  // existing zone-based calculation exactly as before -- unchanged
+  // behavior for every case that exists in this store today.
+  if (input.mode === "delivery") {
+    const distinctSellerIds = new Set(itemsWithSeller.map((i) => i.seller_id).filter(Boolean));
+    if (distinctSellerIds.size === 1) {
+      const [onlySellerId] = distinctSellerIds;
+      const { data: sellerRow } = await sb
+        .from("sellers").select("delivery_fee").eq("id", onlySellerId).maybeSingle();
+      if (sellerRow?.delivery_fee != null) {
+        fee = Number(sellerRow.delivery_fee);
+      }
+    }
+  }
 
   const ref = input.mode === "delivery"
     ? await nextRefWithPrefix(deliveryPrefix(input.zoneId || "", input.municipality), normalizedPhone)

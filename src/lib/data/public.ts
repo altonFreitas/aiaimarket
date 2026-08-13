@@ -185,3 +185,34 @@ export async function getSellerBySlug(slug: string): Promise<PublicSeller | null
     return null;
   }
 }
+
+export interface SellerReview {
+  id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+/** Average + count for the star display, and the most recent reviews
+ * (comment optional — a plain star rating with no text is common and
+ * still counts). Isolated with its own try/catch, same as every other
+ * public fetcher here — a ratings hiccup must never take down the
+ * storefront page around it. */
+export async function getSellerRatings(sellerId: string): Promise<{
+  average: number; count: number; reviews: SellerReview[];
+}> {
+  try {
+    const sb = await supabaseServer();
+    const { data } = await sb
+      .from("seller_ratings")
+      .select("id, rating, comment, created_at")
+      .eq("seller_id", sellerId)
+      .order("created_at", { ascending: false });
+    const reviews = (data as SellerReview[]) || [];
+    const count = reviews.length;
+    const average = count ? reviews.reduce((a, r) => a + r.rating, 0) / count : 0;
+    return { average, count, reviews: reviews.slice(0, 10) };
+  } catch {
+    return { average: 0, count: 0, reviews: [] };
+  }
+}

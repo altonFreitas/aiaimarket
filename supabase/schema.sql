@@ -109,12 +109,12 @@ alter table sellers add column if not exists delivery_area text not null default
 
 alter table sellers enable row level security;
 
--- ---------- seller_ratings (architecture only, per the original spec:
--- "prepare the architecture... do not implement a complicated review
--- system if one does not already exist"). No policies granted yet --
--- deliberately unreachable from the browser (service-role only) until
--- an actual review feature is built on top of it; this just reserves
--- the shape so that feature doesn't need a schema migration later.
+-- ---------- seller_ratings ----------
+-- Customers rate a seller after a completed order (see
+-- submitSellerRating). One rating per buyer per seller per order --
+-- resubmitting updates it rather than creating a duplicate. Ratings are
+-- public (that's the point), but buyer_phone stays private -- see the
+-- column grant below.
 create table if not exists seller_ratings (
   id          uuid primary key default gen_random_uuid(),
   seller_id   uuid not null references sellers(id) on delete cascade,
@@ -122,10 +122,37 @@ create table if not exists seller_ratings (
   buyer_phone text not null,
   rating      int not null check (rating between 1 and 5),
   comment     text not null default '',
-  created_at  timestamptz not null default now()
+  created_at  timestamptz not null default now(),
+  unique (order_id, seller_id)
 );
 create index if not exists idx_seller_ratings_seller on seller_ratings(seller_id);
 alter table seller_ratings enable row level security;
+
+-- ALTER form for an existing seller_ratings table (created by an earlier
+-- run of this script before the unique constraint existed). One rating
+-- per buyer per seller per order -- resubmitting updates it (see
+-- submitSellerRating's upsert) rather than creating a duplicate.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'seller_ratings_order_id_seller_id_key'
+  ) then
+    alter table seller_ratings add constraint seller_ratings_order_id_seller_id_key unique (order_id, seller_id);
+  end if;
+end $$;
+
+-- Ratings are public by design (that's the point of a review system),
+-- but buyer_phone is not -- column grants (same pattern as settings and
+-- sellers above) keep it out of what a browser's anon key can read even
+-- though the row itself is visible.
+drop policy if exists seller_ratings_public_read on seller_ratings;
+create policy seller_ratings_public_read on seller_ratings for select using (true);
+revoke select on seller_ratings from anon, authenticated;
+grant select (id, seller_id, order_id, rating, comment, created_at) on seller_ratings to anon, authenticated;
+-- No public insert/update policy: writing a rating goes through
+-- submitSellerRating (service role), which verifies ref+phone match a
+-- genuinely completed order containing that seller — the same trust
+-- model as every other write in this app.
 
 -- A seller may read their own row (dashboard: "your application is
 -- pending"). No public read policy yet -- that arrives with public

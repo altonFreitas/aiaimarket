@@ -8,6 +8,7 @@ import {
 } from "@/lib/actions/orders";
 import { compressImage } from "@/lib/compressImage";
 import { downloadOrderInvoice } from "@/lib/pdfInvoice";
+import SellerRatingForm from "@/components/SellerRatingForm";
 import { addrLine, money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
@@ -18,8 +19,8 @@ interface OrderSummary {
 }
 
 export default function TrackForm({
-  lang, initialRef, settings,
-}: { lang: Lang; initialRef: string; settings?: Settings }) {
+  lang, initialRef, settings, sellersById,
+}: { lang: Lang; initialRef: string; settings?: Settings; sellersById?: Record<string, { store_name: string }> }) {
   const params = useSearchParams();
   const { toast } = useToast();
   const [ref, setRef] = useState(initialRef);
@@ -131,12 +132,12 @@ export default function TrackForm({
 
   return <Dashboard order={order as Order} lang={lang} settings={settings} phone={phone}
     onRefresh={() => find((order as Order).ref, phone)}
-    onSeeAll={() => findAll(phone)} />;
+    onSeeAll={() => findAll(phone)} sellersById={sellersById} />;
 }
 
 function Dashboard({
-  order: o, lang, settings, phone, onRefresh, onSeeAll,
-}: { order: Order; lang: Lang; settings?: Settings; phone: string; onRefresh: () => void; onSeeAll: () => void }) {
+  order: o, lang, settings, phone, onRefresh, onSeeAll, sellersById,
+}: { order: Order; lang: Lang; settings?: Settings; phone: string; onRefresh: () => void; onSeeAll: () => void; sellersById?: Record<string, { store_name: string }> }) {
   const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [addr, setAddr] = useState({
@@ -423,6 +424,26 @@ function Dashboard({
           </div>
         </div>
       )}
+
+      {/* Seller ratings — only once completed, and only for sellers who
+          were actually part of this order (checked again server-side in
+          submitSellerRating, this is just what decides whether to show
+          the form at all). */}
+      {o.status === "completed" && sellersById && (() => {
+        const realSellerIds = Array.from(new Set(
+          o.items.map((it) => it.seller_id).filter((id): id is string => !!id && !!sellersById[id])
+        ));
+        if (!realSellerIds.length) return null;
+        return (
+          <div className="panel">
+            <h3>{t("rateYourSellers", lang)}</h3>
+            {realSellerIds.map((sellerId) => (
+              <SellerRatingForm key={sellerId} lang={lang} orderRef={o.ref} phone={phone}
+                sellerId={sellerId} sellerName={sellersById[sellerId].store_name} />
+            ))}
+          </div>
+        );
+      })()}
 
       {/* I6 — jump to full order history for this phone */}
       <div className="btn-row">
