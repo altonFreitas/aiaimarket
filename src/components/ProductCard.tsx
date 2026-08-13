@@ -11,7 +11,7 @@ import type { Lang } from "@/lib/types";
 
 const BADGE = { in: ["b-in", "stockIn"], low: ["b-low", "stockLow"], out: ["b-out", "stockOut"] } as const;
 
-export default function ProductCard({ p, lang }: { p: Product; lang: Lang }) {
+export default function ProductCard({ p, lang, sellerName }: { p: Product; lang: Lang; sellerName?: string }) {
   const [cls, key] = BADGE[p.stock_status];
   const img = p.images?.[0] || placeholder(p.name);
   const loc = p.suku || p.municipality || "";
@@ -38,6 +38,7 @@ export default function ProductCard({ p, lang }: { p: Product; lang: Lang }) {
       <div className="body">
         <div className="nm">{p.name}</div>
         <div className="mt">{loc}</div>
+        {sellerName && <div className="sold-by">{t("soldBy", lang)} {sellerName}</div>}
         <div className="pr">{money(p.price)}</div>
         {p.stock_status !== "out" && (
           <button type="button" className="btn btn-sm btn-ghost card-add" onClick={addToList}>

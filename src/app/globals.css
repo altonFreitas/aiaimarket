@@ -101,6 +101,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .card .nm{font-size:13.5px;line-height:1.3;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card .pr{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.02em;margin-top:auto}
 .card .mt{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;font-family:var(--mono)}
+.card .sold-by{font-size:10.5px;color:var(--muted-2)}
 .badge{position:absolute;top:8px;left:8px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
   padding:3px 6px;border-radius:4px;font-weight:700}
 .b-in{background:var(--green-soft);color:var(--green)}
@@ -131,6 +132,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .aab-price{font-family:var(--mono);font-size:29px;font-weight:700;letter-spacing:-.03em;line-height:1}
 .aab-price em{font-style:normal;font-size:12px;font-family:var(--sans);color:var(--muted);font-weight:400;margin-left:6px}
 .aab .stock-in{color:var(--green)} .aab .stock-low{color:var(--amber-ink)} .aab .stock-out{color:var(--red)}
+.sold-by-panel{margin-top:10px}
 .aab-row-price{background:var(--amber-soft)}
 .stock-pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:12px;font-weight:700;
   letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:20px}

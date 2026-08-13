@@ -141,3 +141,47 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
     return [];
   }
 }
+
+export interface PublicSeller {
+  id: string;
+  store_name: string;
+  slug: string;
+  description: string;
+  city: string;
+  country: string;
+}
+
+/** Map of seller id -> public storefront info, for "Sold by X" on cards
+ * and the product detail page. Only approved sellers ever come back (see
+ * the sellers_public_read RLS policy) — a product whose seller_id points
+ * at the platform owner (no sellers row at all) or a not-yet-approved
+ * seller simply won't have an entry, and callers should treat that as
+ * "don't show a Sold-by line" rather than an error. Isolated with its
+ * own try/catch for the same reason as getHeroSlides() — this must never
+ * take down a catalog page. */
+export async function getApprovedSellersById(): Promise<Record<string, PublicSeller>> {
+  try {
+    const sb = await supabaseServer();
+    const { data, error } = await sb
+      .from("sellers")
+      .select("id, store_name, slug, description, city, country");
+    if (error || !data) return {};
+    return Object.fromEntries((data as PublicSeller[]).map((s) => [s.id, s]));
+  } catch {
+    return {};
+  }
+}
+
+export async function getSellerBySlug(slug: string): Promise<PublicSeller | null> {
+  try {
+    const sb = await supabaseServer();
+    const { data } = await sb
+      .from("sellers")
+      .select("id, store_name, slug, description, city, country")
+      .eq("slug", slug)
+      .maybeSingle();
+    return (data as PublicSeller) || null;
+  } catch {
+    return null;
+  }
+}

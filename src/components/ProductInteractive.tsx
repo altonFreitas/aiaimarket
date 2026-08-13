@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
@@ -20,8 +21,8 @@ function WaIcon() {
 }
 
 export default function ProductInteractive({
-  p, settings, lang, siteOrigin,
-}: { p: Product; settings: Settings; lang: Lang; siteOrigin: string }) {
+  p, settings, lang, siteOrigin, seller,
+}: { p: Product; settings: Settings; lang: Lang; siteOrigin: string; seller?: { store_name: string; slug: string } | null }) {
   const [size, setSize] = useState<string | null>(p.sizes?.length === 1 ? p.sizes[0] : null);
   const [qty, setQty] = useState(1);
   const { add } = useBasket();
@@ -127,6 +128,16 @@ export default function ProductInteractive({
           </div>
         </div>
       </section>
+
+      {seller && (
+        <div className="panel sold-by-panel">
+          <span className="aab-q" style={{ display: "block", marginBottom: 4 }}>{t("soldBy", lang)}</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <b>{seller.store_name}</b>
+            <Link className="btn btn-sm btn-ghost" href={`/store/${seller.slug}`}>{t("visitStore", lang)}</Link>
+          </div>
+        </div>
+      )}
 
       <div className="btn-row">
         {p.stock_status === "out" ? (

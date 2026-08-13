@@ -90,6 +90,20 @@ alter table sellers enable row level security;
 drop policy if exists sellers_self_read on sellers;
 create policy sellers_self_read on sellers for select using (auth.uid() = user_id);
 
+-- Phase 2: public storefronts ("Sold by X", /store/[slug]). Approved
+-- sellers only -- a pending/rejected/suspended seller's application
+-- details stay private. Column grants (like settings.totp_secret above)
+-- keep email/phone out of what a random visitor's anon key can read,
+-- even though the row itself is visible -- only the self-read policy
+-- above (an authenticated seller reading their OWN row via the admin
+-- client, which bypasses grants) ever needs those fields.
+drop policy if exists sellers_public_read on sellers;
+create policy sellers_public_read on sellers for select using (status = 'approved');
+
+revoke select on sellers from anon, authenticated;
+grant select (id, store_name, slug, description, city, country, seller_type, created_at)
+  on sellers to anon, authenticated;
+
 -- ---------- categories (Epic C) ----------
 create table if not exists categories (
   id          uuid primary key default gen_random_uuid(),

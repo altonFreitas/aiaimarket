@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import ProductInteractive from "@/components/ProductInteractive";
 import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
-import { getCategories, getLiveProducts, getProductBySlug, getSettings, bumpView } from "@/lib/data/public";
+import { getCategories, getLiveProducts, getProductBySlug, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 
@@ -21,10 +21,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [lang, settings, p, cats] = await Promise.all([
-    getLang(), getSettings(), getProductBySlug(slug), getCategories(),
+  const [lang, settings, p, cats, sellersById] = await Promise.all([
+    getLang(), getSettings(), getProductBySlug(slug), getCategories(), getApprovedSellersById(),
   ]);
   if (!p) notFound();
+  const seller = sellersById[p.seller_id] || null;
 
   // E4 view counter — fire and forget, never blocks the render
   void bumpView(p.id).catch(() => {});
@@ -62,7 +63,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
         <div>
           <h1>{p.name}</h1>
-          <ProductInteractive p={p} settings={settings} lang={lang} siteOrigin={siteOrigin} />
+          <ProductInteractive p={p} settings={settings} lang={lang} siteOrigin={siteOrigin} seller={seller} />
         </div>
       </div>
 
@@ -71,7 +72,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <h2>{t("related", lang)}</h2>
           <div className="grid">
             {related.map((r) => (
-              <ProductCard key={r.id} p={r} lang={lang} />
+              <ProductCard key={r.id} p={r} lang={lang} sellerName={sellersById[r.seller_id]?.store_name} />
             ))}
           </div>
         </>

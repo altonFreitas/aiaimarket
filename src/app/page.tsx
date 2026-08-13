@@ -3,7 +3,7 @@ import ProductSection from "@/components/home/ProductSection";
 import PromoBanner from "@/components/home/PromoBanner";
 import Sidebar from "@/components/Sidebar";
 import CatRail from "@/components/CatRail";
-import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides } from "@/lib/data/public";
+import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides, getApprovedSellersById } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import type { Category, Product } from "@/lib/types";
@@ -20,8 +20,8 @@ function productsInCategory(cat: Category, cats: Category[], products: Product[]
 }
 
 export default async function HomePage() {
-  const [lang, settings, cats, products, bestSellers, heroSlides] = await Promise.all([
-    getLang(), getSettings(), getCategories(), getLiveProducts(), getBestSellingProducts(SECTION_SIZE), getHeroSlides(),
+  const [lang, settings, cats, products, bestSellers, heroSlides, sellersById] = await Promise.all([
+    getLang(), getSettings(), getCategories(), getLiveProducts(), getBestSellingProducts(SECTION_SIZE), getHeroSlides(), getApprovedSellersById(),
   ]);
 
   const newArrivals = products.slice(0, SECTION_SIZE); // getLiveProducts() is already newest-first
@@ -54,6 +54,7 @@ export default async function HomePage() {
             viewAllHref="/shop"
             viewAllLabel={t("viewAll", lang)}
             lang={lang}
+            sellersById={sellersById}
           />
 
           {categorySections.map(({ cat, items }) => (
@@ -65,6 +66,7 @@ export default async function HomePage() {
               viewAllHref={`/c/${cat.slug}`}
               viewAllLabel={t("viewAll", lang)}
               lang={lang}
+              sellersById={sellersById}
             />
           ))}
 
@@ -77,6 +79,7 @@ export default async function HomePage() {
             lang={lang}
             badgeLabel={t("bestSellerBadge", lang)}
             badgeForIds={bestSellers.confirmedIds}
+            sellersById={sellersById}
           />
 
           <PromoBanner lang={lang} />

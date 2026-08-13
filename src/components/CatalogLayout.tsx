@@ -2,10 +2,11 @@ import Sidebar from "./Sidebar";
 import CatRail from "./CatRail";
 import Toolbar from "./Toolbar";
 import ProductCard from "./ProductCard";
+import { getApprovedSellersById } from "@/lib/data/public";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, Settings } from "@/lib/types";
 
-export default function CatalogLayout({
+export default async function CatalogLayout({
   title, sub, cats, allProducts, shown, activeSlug, lang, settings,
 }: {
   title: React.ReactNode;
@@ -17,6 +18,7 @@ export default function CatalogLayout({
   lang: Lang;
   settings: Settings;
 }) {
+  const sellersById = await getApprovedSellersById();
   return (
     <div className="wrap">
       <div className="cols">
@@ -29,7 +31,7 @@ export default function CatalogLayout({
           {shown.length ? (
             <div className="grid">
               {shown.map((p) => (
-                <ProductCard key={p.id} p={p} lang={lang} />
+                <ProductCard key={p.id} p={p} lang={lang} sellerName={sellersById[p.seller_id]?.store_name} />
               ))}
             </div>
           ) : (

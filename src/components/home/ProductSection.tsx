@@ -8,7 +8,7 @@ import type { Lang, Product } from "@/lib/types";
  * the product page), and a "view all" link. Used for New Arrivals, each
  * category spotlight, and Best Sellers. */
 export default function ProductSection({
-  id, title, subtitle, products, viewAllHref, viewAllLabel, lang, badgeLabel, badgeForIds,
+  id, title, subtitle, products, viewAllHref, viewAllLabel, lang, badgeLabel, badgeForIds, sellersById,
 }: {
   id?: string;
   title: string;
@@ -20,6 +20,7 @@ export default function ProductSection({
   /** Small label shown on cards in `badgeForIds`, e.g. "BEST SELLER". */
   badgeLabel?: string;
   badgeForIds?: Set<string>;
+  sellersById?: Record<string, { store_name: string }>;
 }) {
   if (!products.length) return null;
   return (
@@ -35,7 +36,7 @@ export default function ProductSection({
         {products.map((p) => (
           <div key={p.id} className="home-card-wrap">
             {badgeLabel && badgeForIds?.has(p.id) && <span className="seller-badge">{badgeLabel}</span>}
-            <ProductCard p={p} lang={lang} />
+            <ProductCard p={p} lang={lang} sellerName={sellersById?.[p.seller_id]?.store_name} />
           </div>
         ))}
       </div>

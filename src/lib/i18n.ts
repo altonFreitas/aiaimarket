@@ -213,6 +213,12 @@ export const STR: Record<string, [string,string,string]> = {
   productStatus_rejected:["La aprova","Rejeitado","Rejected"],
   saveSettings:["Rai konfigurasaun","Guardar definições","Save settings"],
   settingsSaved:["Konfigurasaun rai ona","Definições guardadas","Settings saved"],
+
+  /* public seller storefront (Phase 2) */
+  soldBy:["Fa'an husi","Vendido por","Sold by"],
+  visitStore:["Vizita loja","Visitar loja","Visit store"],
+  storeNotFound:["Loja la hetan","Loja não encontrada","Store not found"],
+  storeProductCount:["produtu","produtos","products"],
   wrongLogin:["Dadus la loos.","Dados incorrectos.","Those details don't match."],
   totpSetupTitle:["Konfigura autentikasaun dupla","Configurar autenticação de dois fatores","Set up two-factor authentication"],
   totpSetupHint:["Skan kódigu QR ne'e ho app autentikadór (Google Authenticator, Authy, ka seluk), depois tama kódigu 6-dígitu ne'ebé app hatudu.","Digitalize o código QR com uma app autenticadora (Google Authenticator, Authy, etc.), depois introduza o código de 6 dígitos apresentado.","Scan this QR code with an authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code it shows."],
