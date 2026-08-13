@@ -7,6 +7,12 @@ export interface BasketLine {
   size: string;
   price: number;
   qty: number;
+  /** Denormalized at add-time, same as name/price above — lets the cart
+   * group items by seller (Phase 2) without a network round trip just to
+   * render the basket. null for the platform's own products (no real
+   * seller row) or anything added before this existed. */
+  seller_id: string | null;
+  sellerName: string | null;
 }
 
 const KEY = "loja:basket:v1";

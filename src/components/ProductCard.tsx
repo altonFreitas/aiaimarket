@@ -24,7 +24,8 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
   function addToList(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     e.stopPropagation();
-    add({ id: p.id, name: p.name, size: p.sizes?.[0] || "", price: Number(p.price), qty: 1 });
+    add({ id: p.id, name: p.name, size: p.sizes?.[0] || "", price: Number(p.price), qty: 1,
+      seller_id: p.seller_id, sellerName: sellerName || null });
     toast(`${p.name} → ${t("list", lang)}`);
   }
 

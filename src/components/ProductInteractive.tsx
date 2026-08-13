@@ -50,7 +50,8 @@ export default function ProductInteractive({
       toast(t("chooseSize", lang), true);
       return;
     }
-    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty });
+    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty,
+      seller_id: p.seller_id, sellerName: seller?.store_name || null });
     toast(`${p.name} → ${t("list", lang)}`);
   }
 
@@ -60,7 +61,8 @@ export default function ProductInteractive({
       toast(t("chooseSize", lang), true);
       return;
     }
-    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty });
+    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty,
+      seller_id: p.seller_id, sellerName: seller?.store_name || null });
     router.push("/checkout");
   }
 
