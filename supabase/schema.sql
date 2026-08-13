@@ -87,13 +87,45 @@ create table if not exists sellers (
   -- the platform default" (settings.commission_rate) -- most sellers
   -- should have no override; this is only for a negotiated rate.
   commission_rate numeric(5,2),
+  -- Per-seller shipping (kept intentionally simple, per the original
+  -- spec: "do not build a complicated logistics system"). delivery_area
+  -- is a free-text description ("Dili only", "Same-day in Baucau"), not
+  -- a zone system -- checkout doesn't read these yet (it still uses the
+  -- platform's own delivery zones for fee calculation); this is the
+  -- data model ready for when a seller-aware checkout is built.
+  delivery_available boolean not null default true,
+  pickup_available    boolean not null default true,
+  delivery_fee        numeric(10,2),
+  delivery_area       text not null default '',
   created_at   timestamptz not null default now()
 );
--- ALTER form for an existing sellers table (created before this column
--- existed, e.g. by apply-update-22.js).
+-- ALTER form for an existing sellers table (created before these columns
+-- existed, e.g. by apply-update-22.js / apply-update-26.js).
 alter table sellers add column if not exists commission_rate numeric(5,2);
+alter table sellers add column if not exists delivery_available boolean not null default true;
+alter table sellers add column if not exists pickup_available boolean not null default true;
+alter table sellers add column if not exists delivery_fee numeric(10,2);
+alter table sellers add column if not exists delivery_area text not null default '';
 
 alter table sellers enable row level security;
+
+-- ---------- seller_ratings (architecture only, per the original spec:
+-- "prepare the architecture... do not implement a complicated review
+-- system if one does not already exist"). No policies granted yet --
+-- deliberately unreachable from the browser (service-role only) until
+-- an actual review feature is built on top of it; this just reserves
+-- the shape so that feature doesn't need a schema migration later.
+create table if not exists seller_ratings (
+  id          uuid primary key default gen_random_uuid(),
+  seller_id   uuid not null references sellers(id) on delete cascade,
+  order_id    uuid references orders(id) on delete set null,
+  buyer_phone text not null,
+  rating      int not null check (rating between 1 and 5),
+  comment     text not null default '',
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_seller_ratings_seller on seller_ratings(seller_id);
+alter table seller_ratings enable row level security;
 
 -- A seller may read their own row (dashboard: "your application is
 -- pending"). No public read policy yet -- that arrives with public

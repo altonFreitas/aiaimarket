@@ -10,13 +10,22 @@ export interface SellerProfileInput {
   address: string;
   city: string;
   country: string;
+  deliveryAvailable: boolean;
+  pickupAvailable: boolean;
+  deliveryFee: number | null;
+  deliveryArea: string;
 }
 
 /** A seller may edit their own profile regardless of approval status
  * (fixing a typo in a still-pending application is reasonable) — this
  * is deliberately requireSeller(), not requireApprovedSeller(). It's
  * only actual marketplace-facing capability (creating products) that's
- * gated on being approved. */
+ * gated on being approved.
+ *
+ * The shipping fields here are stored but not yet read anywhere at
+ * checkout (which still prices delivery using the platform's own
+ * zones) — see the schema.sql comment on sellers.delivery_available.
+ * This just lets a seller record their shipping setup in advance. */
 export async function updateSellerProfile(input: SellerProfileInput) {
   const seller = await requireSeller();
   const storeName = input.storeName.trim();
@@ -30,6 +39,10 @@ export async function updateSellerProfile(input: SellerProfileInput) {
     address: input.address.trim(),
     city: input.city.trim(),
     country: input.country.trim(),
+    delivery_available: input.deliveryAvailable,
+    pickup_available: input.pickupAvailable,
+    delivery_fee: input.deliveryFee,
+    delivery_area: input.deliveryArea.trim(),
   }).eq("id", seller.id);
   if (error) throw error;
 

@@ -1,4 +1,4 @@
-import type { Order, Product } from "@/lib/types";
+import type { Order, Product, Seller } from "@/lib/types";
 
 export interface DailyPoint { date: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number; customers: number }
 
@@ -302,4 +302,55 @@ function startOfDay(ts: number): number {
   const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
+}
+
+export interface MarketplaceStats {
+  totalSellers: number;
+  pendingSellers: number;
+  approvedSellers: number;
+  rejectedSellers: number;
+  suspendedSellers: number;
+  pendingProducts: number;
+  totalMarketplaceSales: number;       // gross, completed orders, seller-attributed items only
+  totalMarketplaceCommission: number;  // platform's cut of the above
+}
+
+/** Marketplace-wide view across every seller — separate from
+ * computeAdminStats() (which is about the platform's own catalog/orders)
+ * on purpose, so a single-seller store's stats page is unaffected until
+ * a first seller actually joins. Only counts items whose seller_id
+ * belongs to a real row in `sellers` — the platform owner's own sales
+ * aren't "marketplace commission" against themselves. */
+export function computeMarketplaceStats(
+  sellers: Seller[],
+  orders: Order[],
+  products: Product[],
+  platformCommissionRate: number
+): MarketplaceStats {
+  const sellerById = new Map(sellers.map((s) => [s.id, s]));
+  const completed = orders.filter((o) => o.status === "completed");
+
+  let totalMarketplaceSales = 0;
+  let totalMarketplaceCommission = 0;
+  for (const o of completed) {
+    for (const item of o.items || []) {
+      const seller = item.seller_id ? sellerById.get(item.seller_id) : undefined;
+      if (!seller) continue; // platform's own item, not a marketplace sale
+      const gross = item.price * item.qty;
+      const rate = seller.commission_rate ?? platformCommissionRate;
+      totalMarketplaceSales += gross;
+      totalMarketplaceCommission += gross * (rate / 100);
+    }
+  }
+
+  return {
+    totalSellers: sellers.length,
+    pendingSellers: sellers.filter((s) => s.status === "pending").length,
+    approvedSellers: sellers.filter((s) => s.status === "approved").length,
+    rejectedSellers: sellers.filter((s) => s.status === "rejected").length,
+    suspendedSellers: sellers.filter((s) => s.status === "suspended").length,
+    pendingProducts: products.filter((p) => p.status === "pending").length,
+    totalMarketplaceSales,
+    totalMarketplaceCommission,
+  };
 }

@@ -2,7 +2,7 @@ import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import TrendChart from "./TrendChart";
 import ExportExcelButton from "./ExportExcelButton";
-import type { AdminStats } from "@/lib/stats";
+import type { AdminStats, MarketplaceStats } from "@/lib/stats";
 import type { Lang } from "@/lib/types";
 
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -20,7 +20,7 @@ const ZONE_KEY: Record<string, string> = {
   other_municipality: "zone_other_municipality", pickup: "pickup",
 };
 
-export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: AdminStats }) {
+export default function StatisticsAdmin({ lang, stats, marketplace }: { lang: Lang; stats: AdminStats; marketplace?: MarketplaceStats }) {
   const noData = stats.totalOrders === 0;
 
   return (
@@ -31,6 +31,25 @@ export default function StatisticsAdmin({ lang, stats }: { lang: Lang; stats: Ad
       </div>
 
       {noData && <div className="note info" style={{ marginBottom: 12 }}>{t("noDataYet", lang)}</div>}
+
+      {/* Marketplace-wide panel — only shown once a first seller has
+          actually joined, so a single-seller store's stats page looks
+          exactly as it always has until then. */}
+      {marketplace && marketplace.totalSellers > 0 && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <h3>{t("sellers", lang)}</h3>
+          <div className="stat">
+            <div><b>{marketplace.totalSellers}</b><span>{t("sellers", lang)}</span></div>
+            <div><b>{marketplace.pendingSellers}</b><span>{t("sellerStatus_pending", lang)}</span></div>
+            <div><b>{marketplace.approvedSellers}</b><span>{t("sellerStatus_approved", lang)}</span></div>
+            <div><b>{marketplace.pendingProducts}</b><span>{t("productStatus_pending", lang)}</span></div>
+          </div>
+          <div className="stat">
+            <div><b>{money(marketplace.totalMarketplaceSales)}</b><span>{t("grossSales", lang)}</span></div>
+            <div><b>{money(marketplace.totalMarketplaceCommission)}</b><span>{t("marketplaceCommission", lang)}</span></div>
+          </div>
+        </div>
+      )}
 
       {/* headline KPIs */}
       <div className="stat">

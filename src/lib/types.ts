@@ -23,6 +23,10 @@ export interface Seller {
   seller_type: SellerType;
   status: SellerStatus;
   commission_rate: number | null;
+  delivery_available: boolean;
+  pickup_available: boolean;
+  delivery_fee: number | null;
+  delivery_area: string;
   created_at: string;
 }
 

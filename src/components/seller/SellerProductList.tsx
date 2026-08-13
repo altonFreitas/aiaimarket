@@ -24,6 +24,7 @@ export default function SellerProductList({
   const { toast } = useToast();
   const [, startTransition] = useTransition();
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | "pending" | "rejected" | "out">("");
   const [showArchived, setShowArchived] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -33,8 +34,10 @@ export default function SellerProductList({
       const s = q.toLowerCase();
       a = a.filter((p) => (p.name + " " + p.ref).toLowerCase().includes(s));
     }
+    if (statusFilter === "out") a = a.filter((p) => p.stock_status === "out");
+    else if (statusFilter) a = a.filter((p) => p.status === statusFilter);
     return a;
-  }, [products, q, showArchived]);
+  }, [products, q, statusFilter, showArchived]);
 
   async function onCycle(p: Product) {
     setBusyId(p.id);
@@ -61,6 +64,12 @@ export default function SellerProductList({
       <div className="bar">
         <input type="text" placeholder={t("search", lang)} value={q}
           onChange={(e) => setQ(e.target.value)} style={{ flex: 1, minWidth: 130 }} />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
+          <option value="">{t("all", lang)}</option>
+          <option value="pending">{t("productStatus_pending", lang)}</option>
+          <option value="rejected">{t("productStatus_rejected", lang)}</option>
+          <option value="out">{t("stockOut", lang)}</option>
+        </select>
         <label className="toggle">
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />{" "}
           {t("archived", lang)}
