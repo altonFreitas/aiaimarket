@@ -43,9 +43,11 @@ export interface SellerProductFormInput {
  * is resolved from the verified session (requireApprovedSeller()), never
  * from the client, and every update first checks the existing row's
  * seller_id actually matches — a seller can never edit another seller's
- * product by guessing/reusing an id. New listings always start
- * status="pending" (see products.status in schema.sql) regardless of
- * what the client sends; only admin can move that to "approved". */
+ * product by guessing/reusing an id. New listings go live immediately
+ * (status="approved") — an approved seller no longer needs admin
+ * sign-off per product, only the one-time seller approval itself
+ * (admin can still reject/suspend a seller entirely at any point, and
+ * the products.status column stays in place for that). */
 export async function saveSellerProduct(input: SellerProductFormInput) {
   const seller = await requireApprovedSeller();
   const sb = supabaseAdmin();
@@ -76,7 +78,7 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
       seller_id: seller.id,
-      status: "pending",
+      status: "approved",
     });
     if (error) throw error;
   }

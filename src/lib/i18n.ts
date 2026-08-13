@@ -235,6 +235,7 @@ export const STR: Record<string, [string,string,string]> = {
   ratingSaved:["Obrigadu husi ita nia klasifikasaun!","Obrigado pela sua avaliação!","Thanks for your rating!"],
   ratingCommentPlaceholder:["Komentáriu (opsionál)","Comentário (opcional)","Comment (optional)"],
   submitRating:["Haruka klasifikasaun","Enviar avaliação","Submit rating"],
+  mixedSellerOrderNote:["Enkomenda ida ne'e iha item husi vendedor seluk mós — estadu jere husi loja.","Esta encomenda também tem itens de outro vendedor — o estado é gerido pela loja.","This order also has items from another seller — status is managed by the store."],
   wrongLogin:["Dadus la loos.","Dados incorrectos.","Those details don't match."],
   totpSetupTitle:["Konfigura autentikasaun dupla","Configurar autenticação de dois fatores","Set up two-factor authentication"],
   totpSetupHint:["Skan kódigu QR ne'e ho app autentikadór (Google Authenticator, Authy, ka seluk), depois tama kódigu 6-dígitu ne'ebé app hatudu.","Digitalize o código QR com uma app autenticadora (Google Authenticator, Authy, etc.), depois introduza o código de 6 dígitos apresentado.","Scan this QR code with an authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code it shows."],

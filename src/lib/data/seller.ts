@@ -59,6 +59,12 @@ export interface SellerOrderView {
    * the buyer's cart mixed products from several sellers in one order. */
   myItems: OrderItem[];
   mySubtotal: number;
+  /** True only when every item in the order (not just myItems) belongs
+   * to this seller — the seller can change status only when this is
+   * true (see setOrderStatusAsSeller), since order.status is one column
+   * shared by the whole order and a mixed-seller order's status isn't
+   * this seller's to set alone. */
+  allItemsMine: boolean;
 }
 
 /** Every order that contains at least one of this seller's products,
@@ -74,7 +80,8 @@ export async function getSellerOrders(sellerId: string): Promise<SellerOrderView
 
   const views: SellerOrderView[] = [];
   for (const o of orders) {
-    const myItems = (o.items || []).filter((i) => i.seller_id === sellerId);
+    const allItems = o.items || [];
+    const myItems = allItems.filter((i) => i.seller_id === sellerId);
     if (!myItems.length) continue;
     views.push({
       id: o.id, ref: o.ref, buyer_name: o.buyer_name, buyer_phone: o.buyer_phone,
@@ -82,6 +89,7 @@ export async function getSellerOrders(sellerId: string): Promise<SellerOrderView
       post: o.post, suku: o.suku, aldeia: o.aldeia, landmark: o.landmark,
       status: o.status, created_at: o.created_at,
       myItems, mySubtotal: myItems.reduce((a, i) => a + i.price * i.qty, 0),
+      allItemsMine: allItems.every((i) => i.seller_id === sellerId),
     });
   }
   return views;
