@@ -5,7 +5,7 @@ export const STR: Record<string, [string,string,string]> = {
   catalog:["Katálogu","Catálogo","Catalog"],
   categories:["Kategoria sira","Categorias","Categories"],
   all:["Hotu","Todos","All"],
-  list:["Ha'u nia lista","A minha lista","My list"],
+  list:["Ha'u nia lista","O meu cesto","My cart"],
   track:["Buka enkomenda","Seguir encomenda","Track order"],
   navList:["Hau-nia lista","O meu cesto","My cart"],
   navTrack:["Buka tuir pedidu","Seguir encomenda","Track order"],
@@ -33,7 +33,7 @@ export const STR: Record<string, [string,string,string]> = {
   qty:["Kuantidade","Quantidade","Quantity"],
   orderWa:["Enkomenda liu WhatsApp","Encomendar por WhatsApp","Order via WhatsApp"],
   buyNow:["Sosa agora","Comprar agora","Buy now"],
-  addList:["Tau ba lista","Adicionar à lista","Add to list"],
+  addList:["Tau ba lista","Adicionar à cesto","Add to cart"],
   share:["Fahe","Partilhar","Share"],
   copied:["Kopia ona","Copiado","Copied"],
   description:["Deskrisaun","Descrição","Description"],
@@ -50,7 +50,7 @@ export const STR: Record<string, [string,string,string]> = {
   noResults:["La hetan produtu ida.","Nenhum produto encontrado.","No products found."],
   clearSearch:["Hamoos buka","Limpar procura","Clear search"],
   /* basket + checkout */
-  emptyList:["Ita nia lista mamuk hela.","A sua lista está vazia.","Your list is empty."],
+  emptyList:["Ita nia lista mamuk hela.","O seu cesto está vazio.","Your cart is empty."],
   browse:["Haree katálogu","Ver catálogo","Browse the catalog"],
 
   /* homepage */
