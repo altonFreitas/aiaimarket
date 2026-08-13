@@ -58,7 +58,7 @@ export function waLink(digits: string, text: string): string {
 
 /** E1/E2 — pre-filled WhatsApp message with the product, size and reference. */
 export function waProductMsg(p: Pick<Product, "name" | "ref" | "slug" | "price">, size: string | null, qty: number, siteUrl: (path: string) => string): string {
-  const lines = ["Ola! Hau hakarak sosa:", ""];
+  const lines = ["Olá! Hau hakarak sosa:", ""];
   lines.push(
     p.name + (size ? ` — ${size}` : "") + (qty > 1 ? ` × ${qty}` : "") + ` — ${money(p.price)}`
   );
@@ -68,7 +68,7 @@ export function waProductMsg(p: Pick<Product, "name" | "ref" | "slug" | "price">
 }
 
 export function waOrderMsg(o: Order, siteUrl: (path: string) => string): string {
-  const lines = ["Botardi! Hau halo enkomenda ida:", ""];
+  const lines = ["Olá! Hau halo enkomenda ida:", ""];
   o.items.forEach((i) => {
     lines.push(`• ${i.name}${i.size ? " — " + i.size : ""} × ${i.qty} — ${money(i.price * i.qty)}`);
   });

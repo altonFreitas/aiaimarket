@@ -22,6 +22,7 @@ export interface Seller {
   country: string;
   seller_type: SellerType;
   status: SellerStatus;
+  commission_rate: number | null;
   created_at: string;
 }
 
@@ -102,6 +103,7 @@ export interface Settings {
   suku: string;
   landmark: string;
   pickup: boolean;
+  commission_rate: number;
   banks: Bank[];
   wallets: Wallet[];
   zones: Zone[];
@@ -109,6 +111,7 @@ export interface Settings {
 
 export interface OrderItem {
   product_id: string;
+  seller_id: string | null;
   name: string;
   size: string;
   price: number;

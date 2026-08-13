@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS: Settings = {
   tagline_tet: "", tagline_pt: "", tagline_en: "",
   wa_number: "", hours: "",
   municipality: "", post: "", suku: "", landmark: "",
-  pickup: true, banks: [], wallets: [], zones: [],
+  pickup: true, commission_rate: 10, banks: [], wallets: [], zones: [],
 };
 
 /** Never throws: a missing/unreachable settings row must not take the

@@ -7,7 +7,7 @@ import type { Bank, Wallet, Zone } from "@/lib/types";
 export async function saveSettings(input: {
   store_name: string; wa_number: string; hours: string;
   municipality: string; post: string; suku: string; landmark: string;
-  pickup: boolean;
+  pickup: boolean; commission_rate: number;
 }) {
   await requireAdmin();
   const sb = supabaseAdmin();

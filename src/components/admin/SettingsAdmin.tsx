@@ -21,6 +21,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     suku: settings.suku || "",
     landmark: settings.landmark || "",
     pickup: !!settings.pickup,
+    commission_rate: settings.commission_rate ?? 10,
   });
   const [banks, setBanks] = useState<Bank[]>(settings.banks || []);
   const [wallets, setWallets] = useState<Wallet[]>(settings.wallets || []);
@@ -30,7 +31,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   const [editingBank, setEditingBank] = useState<number | null>(null);
   const [editingWallet, setEditingWallet] = useState<number | null>(null);
 
-  const set = (k: string, v: string | boolean) => setF((s) => ({ ...s, [k]: v }));
+  const set = (k: string, v: string | boolean | number) => setF((s) => ({ ...s, [k]: v }));
   const refresh = () => startTransition(() => router.refresh());
 
   async function run(fn: () => Promise<unknown>) {
@@ -69,6 +70,12 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           <input type="checkbox" checked={f.pickup} onChange={(e) => set("pickup", e.target.checked)} />
           <span>{t("pickup", lang)}</span>
         </label>
+        <div className="field">
+          <label htmlFor="commission_rate">{t("commissionRate", lang)}</label>
+          <input id="commission_rate" type="number" min={0} max={100} step={0.5}
+            value={f.commission_rate} onChange={(e) => set("commission_rate", Number(e.target.value))} />
+          <p className="hint">{t("commissionRateHint", lang)}</p>
+        </div>
         <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
           onClick={() => run(() => saveSettings(f))}>
           {t("save", lang)}

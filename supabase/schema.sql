@@ -21,6 +21,11 @@ create table if not exists settings (
   suku          text default '',
   landmark      text default '',
   pickup        boolean not null default true,
+  -- Marketplace commission (Phase 2): the platform's default cut of a
+  -- sale, as a percentage (10 = 10%). A seller can have their own
+  -- commission_rate (see the sellers table) which overrides this when
+  -- set; this is just the fallback used for everyone else.
+  commission_rate numeric(5,2) not null default 10,
   banks         jsonb not null default '[]',   -- [{label,account,holder}]
   wallets       jsonb not null default '[]',   -- [{label,number}]
   zones         jsonb not null default '[{"id":"dili_center","fee":1,"quote":false},{"id":"dili_outskirts","fee":2,"quote":false},{"id":"other_municipality","fee":0,"quote":true}]',
@@ -39,6 +44,10 @@ create table if not exists settings (
   constraint single_row check (id = 1)
 );
 insert into settings (id) values (1) on conflict (id) do nothing;
+-- ALTER form for the existing settings row (see the products.status
+-- comment above for why this is needed alongside the column in the
+-- CREATE TABLE above).
+alter table settings add column if not exists commission_rate numeric(5,2) not null default 10;
 
 -- Function-based default, not a raw subquery: Postgres allows a function
 -- call in DEFAULT (evaluated per-row at insert time), just not inline SELECT.
@@ -74,8 +83,15 @@ create table if not exists sellers (
   country      text not null default '',
   seller_type  text not null default 'individual' check (seller_type in ('individual','business')),
   status       text not null default 'pending' check (status in ('pending','approved','rejected','suspended')),
+  -- Per-seller commission override (Phase 2 earnings). NULL means "use
+  -- the platform default" (settings.commission_rate) -- most sellers
+  -- should have no override; this is only for a negotiated rate.
+  commission_rate numeric(5,2),
   created_at   timestamptz not null default now()
 );
+-- ALTER form for an existing sellers table (created before this column
+-- existed, e.g. by apply-update-22.js).
+alter table sellers add column if not exists commission_rate numeric(5,2);
 
 alter table sellers enable row level security;
 

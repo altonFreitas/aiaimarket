@@ -8,6 +8,7 @@ import type { Lang } from "@/lib/types";
 const TABS = [
   ["/seller/dashboard", "sellerDashboard"],
   ["/seller/products", "sellerProducts"],
+  ["/seller/orders", "sellerOrders"],
   ["/seller/settings", "sellerSettings"],
 ] as const;
 

@@ -45,7 +45,7 @@ function deliveryPrefix(zoneId: string, municipality?: string): string {
 export interface PlaceOrderInput {
   name: string;
   phone: string;
-  items: OrderItem[];
+  items: Omit<OrderItem, "seller_id">[];
   mode: "delivery" | "pickup";
   zoneId?: string;
   addressLine?: string; // Central Dili: a simple street address
@@ -71,6 +71,21 @@ export async function placeOrder(input: PlaceOrderInput) {
   const fee = zone && !zone.quote ? Number(zone.fee) : 0;
   const subtotal = input.items.reduce((a, i) => a + i.price * i.qty, 0);
   const normalizedPhone = phoneNorm(input.phone);
+
+  // Resolve each item's seller_id server-side, never from the client --
+  // this is what makes it possible to later show a seller only their own
+  // items in a mixed-cart order, and to compute their earnings. A
+  // product with no real seller (still just the platform owner's own
+  // catalog) resolves to whatever seller_id the products row already
+  // has by default, same as everywhere else in the schema.
+  const productIds = [...new Set(input.items.map((i) => i.product_id))];
+  const { data: prodRows } = await sb.from("products").select("id, seller_id").in("id", productIds);
+  const sellerByProduct = new Map((prodRows || []).map((row) => [row.id, row.seller_id as string | null]));
+  const itemsWithSeller: OrderItem[] = input.items.map((i) => ({
+    ...i,
+    seller_id: sellerByProduct.get(i.product_id) ?? null,
+  }));
+
   const ref = input.mode === "delivery"
     ? await nextRefWithPrefix(deliveryPrefix(input.zoneId || "", input.municipality), normalizedPhone)
     : await nextRefWithPrefix("PP", normalizedPhone);
@@ -81,7 +96,7 @@ export async function placeOrder(input: PlaceOrderInput) {
       ref,
       buyer_name: input.name.trim(),
       buyer_phone: normalizedPhone,
-      items: input.items,
+      items: itemsWithSeller,
       mode: input.mode,
       zone_id: input.mode === "delivery" ? input.zoneId : null,
       fee,
