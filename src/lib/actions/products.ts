@@ -140,3 +140,25 @@ export async function uploadProductImage(dataUrl: string, filenameHint: string) 
   const { data } = sb.storage.from("product-images").getPublicUrl(path);
   return data.publicUrl;
 }
+
+/** Phase 1 product moderation — a seller-submitted product stays
+ * invisible to shoppers (see getLiveProducts/getProductBySlug) until
+ * one of these is called. Products the admin creates themselves already
+ * default to "approved" (see saveProduct's insert) and never need this. */
+export async function approveProduct(id: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+  const { error } = await sb.from("products").update({ status: "approved" }).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/", "layout");
+  revalidatePath("/admin");
+}
+
+export async function rejectProduct(id: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+  const { error } = await sb.from("products").update({ status: "rejected" }).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/", "layout");
+  revalidatePath("/admin");
+}

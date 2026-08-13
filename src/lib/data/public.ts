@@ -50,6 +50,7 @@ export async function getLiveProducts(): Promise<Product[]> {
       .from("products")
       .select("*")
       .eq("archived", false)
+      .eq("status", "approved") // Phase 1: a pending seller listing never shows publicly
       .order("created_at", { ascending: false });
     return (data as Product[]) || [];
   } catch { return []; }
@@ -62,6 +63,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .select("*")
     .eq("slug", slug)
     .eq("archived", false)
+    .eq("status", "approved") // same rule for a direct/shared link, not just the catalog
     .maybeSingle();
   return (data as Product) || null;
 }

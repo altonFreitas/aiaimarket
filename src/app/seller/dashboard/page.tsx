@@ -1,57 +1,39 @@
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import Link from "next/link";
+import { getCurrentSellerOrRedirect, getSellerProducts } from "@/lib/data/seller";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
-import LogoutButton from "@/components/seller/LogoutButton";
+import SellerStatusGate from "@/components/seller/SellerStatusGate";
 
-/** Phase 0 dashboard: proves the whole loop (register -> pending ->
- * admin approves -> log in -> see approved state) actually works end to
- * end. Products/orders/earnings are later phases, deliberately not here
- * yet -- see the multi-vendor plan. */
+/** Phase 1: a real overview now that products exist. Products/orders/
+ * earnings stats are still ahead (orders aren't connected to sellers
+ * yet), but "how many products, how many need restocking" is real data
+ * today. */
 export default async function SellerDashboardPage() {
   const lang = await getLang();
-  const sb = await supabaseServer();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) redirect("/seller/login"); // proxy.ts already guards this; belt and suspenders
-
-  const admin = supabaseAdmin();
-  const { data: seller } = await admin.from("sellers").select("*").eq("user_id", user.id).maybeSingle();
-
-  if (!seller) {
-    return (
-      <div className="wrap">
-        <div className="panel">
-          <p className="sub">No seller profile found for this account.</p>
-          <LogoutButton lang={lang} />
-        </div>
-      </div>
-    );
-  }
+  const seller = await getCurrentSellerOrRedirect();
+  const products = seller.status === "approved" ? await getSellerProducts(seller.id) : [];
+  const live = products.filter((p) => !p.archived);
+  const pendingReview = live.filter((p) => p.status === "pending").length;
+  const outOfStock = live.filter((p) => p.stock_status === "out").length;
 
   return (
-    <div className="wrap">
-      <div className="panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <h1 style={{ margin: 0 }}>{seller.store_name}</h1>
-          <LogoutButton lang={lang} />
+    <div className="panel">
+      <h1>{seller.store_name}</h1>
+
+      <SellerStatusGate seller={seller} lang={lang}>
+        <p className="sub">{t("sellerApprovedWelcome", lang)}</p>
+
+        <div className="stat">
+          <div><b>{live.length}</b><span>{t("sellerProducts", lang)}</span></div>
+          <div><b>{pendingReview}</b><span>{t("sellerStatus_pending", lang)}</span></div>
+          <div><b>{outOfStock}</b><span>{t("stockOut", lang)}</span></div>
         </div>
 
-        {seller.status === "pending" && (
-          <>
-            <h3>{t("sellerPendingTitle", lang)}</h3>
-            <p className="sub">{t("sellerPendingMsg", lang)}</p>
-          </>
-        )}
-        {seller.status === "rejected" && <p className="msg">{t("sellerRejectedMsg", lang)}</p>}
-        {seller.status === "suspended" && <p className="msg">{t("sellerSuspendedMsg", lang)}</p>}
-        {seller.status === "approved" && (
-          <>
-            <p className="sub">{t("sellerApprovedWelcome", lang)}</p>
-            <p className="sub">{t("sellerDashboardComingSoon", lang)}</p>
-          </>
-        )}
-      </div>
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <Link className="btn btn-amber" href="/seller/products/new">+ {t("newProduct", lang)}</Link>
+          <Link className="btn btn-ghost" href="/seller/products">{t("sellerProducts", lang)}</Link>
+        </div>
+      </SellerStatusGate>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 "use server";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
@@ -96,4 +97,12 @@ export async function loginSeller(email: string, password: string) {
 export async function logoutSeller() {
   const sb = await supabaseServer();
   await sb.auth.signOut();
+}
+
+/** Form-action-compatible variant (bound directly to a <form action={...}>,
+ * same pattern as the admin nav's logoutAction) — redirects server-side
+ * itself rather than relying on the caller to navigate afterward. */
+export async function logoutSellerAction() {
+  await logoutSeller();
+  redirect("/seller/login");
 }

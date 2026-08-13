@@ -143,11 +143,24 @@ create table if not exists products (
   pay_wallet    boolean not null default false,
   pay_fiar      boolean not null default false,
   archived      boolean not null default false,    -- B3: soft delete only
+  -- Marketplace product moderation (Phase 1): a seller's own new listing
+  -- starts "pending" until admin approves it (see /admin, approve/reject
+  -- actions). Products created by the platform owner default straight to
+  -- "approved" -- they don't need to self-moderate. Distinct from
+  -- `archived` above: archived is "hide this again later"; status is
+  -- "was this ever allowed to go live at all".
+  status        text not null default 'approved' check (status in ('pending','approved','rejected')),
   views         int not null default 0,
   wa_clicks     int not null default 0,
   created_at    timestamptz not null default now(),
   unique (seller_id, slug)
 );
+-- ALTER form for databases where `products` already existed before this
+-- column was added (CREATE TABLE IF NOT EXISTS above is a no-op on an
+-- existing table, so the column list change alone wouldn't reach it).
+alter table products add column if not exists status text not null default 'approved'
+  check (status in ('pending','approved','rejected'));
+create index if not exists idx_products_status on products(status);
 create index if not exists idx_products_category    on products(category_id);
 create index if not exists idx_products_stock       on products(stock_status);
 create index if not exists idx_products_created     on products(created_at desc);

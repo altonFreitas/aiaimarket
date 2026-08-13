@@ -44,8 +44,11 @@ export interface HeroSlide {
   created_at: string;
 }
 
+export type ProductStatus = "pending" | "approved" | "rejected";
+
 export interface Product {
   id: string;
+  seller_id: string;
   ref: string;
   name: string;
   slug: string;
@@ -67,6 +70,7 @@ export interface Product {
   pay_wallet: boolean;
   pay_fiar: boolean;
   archived: boolean;
+  status: ProductStatus;
   views: number;
   wa_clicks: number;
   created_at: string;

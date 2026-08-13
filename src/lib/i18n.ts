@@ -202,6 +202,17 @@ export const STR: Record<string, [string,string,string]> = {
   suspend:["Suspende","Suspender","Suspend"],
   reactivate:["Reativa","Reativar","Reactivate"],
   noSellersYet:["Seidauk iha aplikasaun vendedor.","Ainda não há candidaturas de vendedores.","No seller applications yet."],
+
+  /* seller dashboard/products/settings (Phase 1) */
+  sellerDashboard:["Painel","Painel","Dashboard"],
+  sellerProducts:["Ha'u nia produtu","Os meus produtos","My products"],
+  sellerSettings:["Konfigurasaun loja","Definições da loja","Store settings"],
+  sellerNoProducts:["Seidauk iha produtu. Aumenta ida hodi hahú fa'an.","Ainda não tem produtos. Adicione um para começar a vender.","No products yet. Add one to start selling."],
+  productStatus_pending:["Hein revizaun","Pendente","Pending review"],
+  productStatus_approved:["Aprova","Aprovado","Approved"],
+  productStatus_rejected:["La aprova","Rejeitado","Rejected"],
+  saveSettings:["Rai konfigurasaun","Guardar definições","Save settings"],
+  settingsSaved:["Konfigurasaun rai ona","Definições guardadas","Settings saved"],
   wrongLogin:["Dadus la loos.","Dados incorrectos.","Those details don't match."],
   totpSetupTitle:["Konfigura autentikasaun dupla","Configurar autenticação de dois fatores","Set up two-factor authentication"],
   totpSetupHint:["Skan kódigu QR ne'e ho app autentikadór (Google Authenticator, Authy, ka seluk), depois tama kódigu 6-dígitu ne'ebé app hatudu.","Digitalize o código QR com uma app autenticadora (Google Authenticator, Authy, etc.), depois introduza o código de 6 dígitos apresentado.","Scan this QR code with an authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code it shows."],

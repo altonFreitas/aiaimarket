@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { cycleStock, duplicateProduct, toggleArchive } from "@/lib/actions/products";
+import { cycleStock, duplicateProduct, toggleArchive, approveProduct, rejectProduct } from "@/lib/actions/products";
 import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -68,6 +68,22 @@ export default function ProductList({
     } catch { toast("Error", true); }
     setBusyId(null);
   }
+  async function onApprove(p: Product) {
+    setBusyId(p.id);
+    try {
+      await approveProduct(p.id);
+      startTransition(() => router.refresh());
+    } catch { toast("Error", true); }
+    setBusyId(null);
+  }
+  async function onReject(p: Product) {
+    setBusyId(p.id);
+    try {
+      await rejectProduct(p.id);
+      startTransition(() => router.refresh());
+    } catch { toast("Error", true); }
+    setBusyId(null);
+  }
 
   return (
     <>
@@ -111,6 +127,21 @@ export default function ProductList({
                   <span>{p.ref} · {money(p.price)} · {cat ? pathName(cat, cats) : "—"} · {p.views || 0} {t("views", lang)}</span>
                 </div>
                 <div className="acts">
+                  {p.status !== "approved" && (
+                    <span className={"pill " + (p.status === "pending" ? "warn" : "bad")}>
+                      {t("productStatus_" + p.status, lang)}
+                    </span>
+                  )}
+                  {p.status === "pending" && (
+                    <>
+                      <button className="btn btn-sm" disabled={busyId === p.id} onClick={() => onApprove(p)}>
+                        {t("approve", lang)}
+                      </button>
+                      <button className="btn btn-sm btn-danger" disabled={busyId === p.id} onClick={() => onReject(p)}>
+                        {t("reject", lang)}
+                      </button>
+                    </>
+                  )}
                   <button className={"stock-btn s-" + p.stock_status} type="button"
                     disabled={busyId === p.id} onClick={() => onCycle(p)}>
                     {t(STOCK_KEY[p.stock_status], lang)}
