@@ -56,20 +56,33 @@ export async function registerSeller(input: SellerRegistrationInput) {
     slug = `${base}-${n}`;
   }
 
-  const { error: insertError } = await admin.from("sellers").insert({
-    user_id: authData.user.id,
-    full_name: input.fullName.trim(),
-    store_name: storeName,
-    slug,
-    email,
-    phone: input.phone.trim(),
-    description: input.description.trim(),
-    address: input.address.trim(),
-    city: input.city.trim(),
-    country: input.country.trim(),
-    seller_type: input.sellerType,
-    status: "pending",
-  });
+  // Right after signUp(), the newly created auth user can occasionally
+  // not yet be visible to a follow-up query that references it via
+  // foreign key — a known brief eventual-consistency gap between
+  // Supabase Auth and the database, not something that can be avoided
+  // by ordering the calls differently. A few short retries, only for
+  // that specific error (Postgres 23503, foreign key violation), closes
+  // the gap instead of failing the whole registration.
+  let insertError: { code?: string; message: string } | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 400 * attempt));
+    const { error } = await admin.from("sellers").insert({
+      user_id: authData.user.id,
+      full_name: input.fullName.trim(),
+      store_name: storeName,
+      slug,
+      email,
+      phone: input.phone.trim(),
+      description: input.description.trim(),
+      address: input.address.trim(),
+      city: input.city.trim(),
+      country: input.country.trim(),
+      seller_type: input.sellerType,
+      status: "pending",
+    });
+    insertError = error;
+    if (!error || error.code !== "23503") break;
+  }
   if (insertError) {
     // Roll back the auth account so a failed registration doesn't leave
     // an orphaned login with no seller profile behind it.

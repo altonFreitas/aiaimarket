@@ -46,7 +46,7 @@ export default function OrderAdmin({
         <Link href="/admin/orders">{t("orders", lang)}</Link> / {o.ref}
       </p>
       <h1>{o.buyer_name}</h1>
-      <p className="sub mono">{o.buyer_phone} · {nowIso(o.created_at)}</p>
+      <p className="sub mono" suppressHydrationWarning>{o.buyer_phone} · {nowIso(o.created_at)}</p>
 
       <div className="btn-row" style={{ flexDirection: "row", flexWrap: "wrap" }}>
         <a className="btn btn-wa btn-sm" target="_blank" rel="noopener"
