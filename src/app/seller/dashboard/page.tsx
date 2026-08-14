@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrders, computeSellerEarnings } from "@/lib/data/seller";
-import { getSettings } from "@/lib/data/public";
+import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -9,7 +9,13 @@ import SellerStatusGate from "@/components/seller/SellerStatusGate";
 /** Phase 2: real product AND earnings stats — orders are now connected
  * to sellers (see getSellerOrders), so gross sales / commission / net
  * earnings below are computed from actual completed orders, not a
- * placeholder. */
+ * placeholder.
+ *
+ * Uses adminSettings() (service role, full row), not the public
+ * getSettings() — commission_rate is deliberately excluded from the
+ * public anon column grant (customers never need to see it), and this
+ * page is already gated behind a real seller login, so reading the full
+ * settings row here is safe and correct. */
 export default async function SellerDashboardPage() {
   const lang = await getLang();
   const seller = await getCurrentSellerOrRedirect();
@@ -18,7 +24,7 @@ export default async function SellerDashboardPage() {
   const [products, orders, settings] = await Promise.all([
     isApproved ? getSellerProducts(seller.id) : Promise.resolve([]),
     isApproved ? getSellerOrders(seller.id) : Promise.resolve([]),
-    getSettings(),
+    adminSettings(),
   ]);
   const live = products.filter((p) => !p.archived);
   const pendingReview = live.filter((p) => p.status === "pending").length;

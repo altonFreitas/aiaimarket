@@ -112,6 +112,7 @@ export interface Settings {
   landmark: string;
   pickup: boolean;
   commission_rate: number;
+  seller_registration_enabled: boolean;
   banks: Bank[];
   wallets: Wallet[];
   zones: Zone[];

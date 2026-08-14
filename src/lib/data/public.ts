@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS: Settings = {
   tagline_tet: "", tagline_pt: "", tagline_en: "",
   wa_number: "", hours: "",
   municipality: "", post: "", suku: "", landmark: "",
-  pickup: true, commission_rate: 10, banks: [], wallets: [], zones: [],
+  pickup: true, commission_rate: 10, seller_registration_enabled: true, banks: [], wallets: [], zones: [],
 };
 
 /** Never throws: a missing/unreachable settings row must not take the
@@ -25,7 +25,7 @@ export async function getSettings(): Promise<Settings> {
     const sb = await supabaseServer();
     const { data, error } = await sb
       .from("settings")
-      .select("id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number, hours, municipality, post, suku, landmark, pickup, banks, wallets, zones")
+      .select("id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number, hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, seller_registration_enabled")
       .eq("id", 1)
       .single();
     if (error || !data) return DEFAULT_SETTINGS;

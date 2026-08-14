@@ -37,6 +37,15 @@ export async function registerSeller(input: SellerRegistrationInput) {
   }
 
   const sb = await supabaseServer();
+
+  // Enforced server-side, not just hidden in the UI — a disabled toggle
+  // must actually stop new accounts from being created, not just hide
+  // the link to get here.
+  const { data: settingsRow } = await sb.from("settings").select("seller_registration_enabled").eq("id", 1).single();
+  if (settingsRow && settingsRow.seller_registration_enabled === false) {
+    throw new Error("We're not accepting new seller applications right now");
+  }
+
   const { data: authData, error: authError } = await sb.auth.signUp({
     email,
     password: input.password,

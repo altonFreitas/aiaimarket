@@ -26,6 +26,13 @@ create table if not exists settings (
   -- commission_rate (see the sellers table) which overrides this when
   -- set; this is just the fallback used for everyone else.
   commission_rate numeric(5,2) not null default 10,
+  -- Marketplace on/off switch: when false, /seller/register shows a
+  -- "not accepting sellers right now" message instead of the form, the
+  -- action itself refuses to create new accounts (never just hidden in
+  -- the UI), and the footer's "Become a Seller" link disappears.
+  -- Existing approved sellers keep working either way -- this only
+  -- gates new applications.
+  seller_registration_enabled boolean not null default true,
   banks         jsonb not null default '[]',   -- [{label,account,holder}]
   wallets       jsonb not null default '[]',   -- [{label,number}]
   zones         jsonb not null default '[{"id":"dili_center","fee":1,"quote":false},{"id":"dili_outskirts","fee":2,"quote":false},{"id":"other_municipality","fee":0,"quote":true}]',
@@ -48,6 +55,7 @@ insert into settings (id) values (1) on conflict (id) do nothing;
 -- comment above for why this is needed alongside the column in the
 -- CREATE TABLE above).
 alter table settings add column if not exists commission_rate numeric(5,2) not null default 10;
+alter table settings add column if not exists seller_registration_enabled boolean not null default true;
 
 -- Function-based default, not a raw subquery: Postgres allows a function
 -- call in DEFAULT (evaluated per-row at insert time), just not inline SELECT.
@@ -395,8 +403,13 @@ create policy settings_public_read on settings for select using (true);
 revoke select on settings from anon, authenticated;
 grant select (
   id, seller_id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number,
-  hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, updated_at
+  hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, updated_at,
+  seller_registration_enabled
 ) on settings to anon, authenticated;
+-- commission_rate is deliberately NOT in this list -- customers never
+-- need to see it directly, and the seller-facing pages that do
+-- (dashboard, orders) are already authenticated and read the full row
+-- via the service-role client (adminSettings()), not this public path.
 -- totp_secret, totp_enabled, totp_failed_attempts, totp_locked_until are
 -- deliberately excluded — readable only via the service-role client
 -- (supabaseAdmin()), which bypasses these grants entirely.

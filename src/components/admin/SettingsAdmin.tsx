@@ -22,6 +22,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     landmark: settings.landmark || "",
     pickup: !!settings.pickup,
     commission_rate: settings.commission_rate ?? 10,
+    seller_registration_enabled: settings.seller_registration_enabled ?? true,
   });
   const [banks, setBanks] = useState<Bank[]>(settings.banks || []);
   const [wallets, setWallets] = useState<Wallet[]>(settings.wallets || []);
@@ -76,6 +77,12 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             value={f.commission_rate} onChange={(e) => set("commission_rate", Number(e.target.value))} />
           <p className="hint">{t("commissionRateHint", lang)}</p>
         </div>
+        <label className="check" data-on={f.seller_registration_enabled}>
+          <input type="checkbox" checked={f.seller_registration_enabled}
+            onChange={(e) => set("seller_registration_enabled", e.target.checked)} />
+          <span>{t("sellerRegistrationEnabled", lang)}</span>
+        </label>
+        <p className="hint" style={{ marginTop: -4 }}>{t("sellerRegistrationEnabledHint", lang)}</p>
         <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
           onClick={() => run(() => saveSettings(f))}>
           {t("save", lang)}
