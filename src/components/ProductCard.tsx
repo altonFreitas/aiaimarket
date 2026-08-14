@@ -50,11 +50,13 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
         ) : (
           <div className="pr">{money(p.price)}</div>
         )}
-        {p.stock_status !== "out" && (
-          <button type="button" className="btn btn-sm btn-ghost card-add" onClick={addToList}>
-            {t("addList", lang)}
-          </button>
-        )}
+        <div className="card-add-slot">
+          {p.stock_status !== "out" && (
+            <button type="button" className="btn btn-sm btn-amber card-add" onClick={addToList}>
+              {t("addList", lang)}
+            </button>
+          )}
+        </div>
       </div>
     </Link>
   );

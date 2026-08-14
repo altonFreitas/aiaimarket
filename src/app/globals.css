@@ -99,11 +99,11 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .card .ph img{width:100%;height:100%;object-fit:cover}
 .card .body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px;flex:1}
 .card .nm{font-size:13.5px;line-height:1.3;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.card .pr{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.02em;margin-top:auto}
-.card .pr-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-top:auto}
+.card .pr{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.02em;margin-top:auto;min-height:23px}
+.card .pr-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-top:auto;min-height:23px}
 .card .pr-discount{font-family:var(--mono);font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--red)}
 .card .pr-original{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-decoration:line-through}
-.card .pr-pct{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--red)}
+.card .pr-pct{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--red);margin-left:4px}
 .card .mt{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;font-family:var(--mono)}
 .card .sold-by{font-size:10.5px;color:var(--muted-2)}
 .badge{position:absolute;top:8px;left:8px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
@@ -112,7 +112,20 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .b-low{background:var(--amber-soft);color:var(--amber-ink)}
 .b-out{background:var(--red-soft);color:var(--red)}
 .card.is-out .ph img{filter:grayscale(1) opacity(.65)}
-.card .card-add{width:100%;margin-top:4px}
+.card-add-slot{min-height:36px;margin-top:4px}
+.card .card-add{width:100%;margin-top:0}
+
+/* "Add to cart" only appears on hover for devices that actually support
+   real hover (a mouse) -- on touch devices (most of this app's traffic)
+   there's no hover state to reveal it, so it stays visible there exactly
+   as before. The slot above always reserves the same height either way,
+   so cards never resize when the button fades in/out, and an
+   out-of-stock card (empty slot, no button at all) still matches the
+   height of an in-stock one. */
+@media (hover: hover) and (pointer: fine) {
+  .card .card-add{opacity:0;transition:opacity .15s ease}
+  .card:hover .card-add,.card:focus-within .card-add{opacity:1}
+}
 
 /* ---------- product page ---------- */
 .gal{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
