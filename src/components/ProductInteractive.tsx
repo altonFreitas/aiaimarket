@@ -129,7 +129,9 @@ export default function ProductInteractive({
         </div>
 
         <div className="aab-row">
-          <div className="aab-q">{t("qStock", lang)}</div>
+          <div className={"aab-q" + (p.stock_status === "out" ? " aab-q-out" : "")}>
+            {p.stock_status === "out" ? t("qNotAvailable", lang) : t("qStock", lang)}
+          </div>
           <div className="aab-a">
             <span className={"stock-pill " + STOCK_CLS[p.stock_status]}>
               {t(STOCK_KEY[p.stock_status], lang)}

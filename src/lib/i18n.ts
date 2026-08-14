@@ -22,6 +22,7 @@ export const STR: Record<string, [string,string,string]> = {
   discountMustBeLower:["Folin diskontu tenke mais ki'ik duke folin normál","O preço com desconto tem de ser menor que o preço normal","Discount price must be lower than the regular price"],
   qSize:["Tamañu","Tamanho","Size"],
   qStock:["Disponível","Disponível","Available"],
+  qNotAvailable:["La Disponível","Não disponível","Not Available"],
   qWhere:["Iha ne'ebé?","Onde estão?","Where are you?"],
   qHow:["Oinsá atu enkomenda?","Como encomendar?","How do I order?"],
   qUse:["Ba saida?","Para quê?","What is it for?"],

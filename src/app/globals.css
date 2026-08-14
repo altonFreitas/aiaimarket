@@ -144,6 +144,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .aab-row{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:9px 10px;border-top:1px solid var(--line-2);align-items:baseline}
 .aab-row:first-of-type{border-top:0}
 .aab-q{font-family:var(--mono);font-size:10.5px;line-height:1.35;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-2)}
+.aab-q-out{color:var(--red)}
 .aab-a{font-size:15px;font-weight:600;line-height:1.3}
 .aab-a small{display:inline-block;font-weight:400;font-size:12px;color:var(--muted);margin-left:8px}
 .aab-price{font-family:var(--mono);font-size:29px;font-weight:700;letter-spacing:-.03em;line-height:1}
