@@ -2,7 +2,7 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { placeholder } from "@/lib/placeholder";
-import { money } from "@/lib/utils";
+import { money, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
@@ -15,6 +15,7 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
   const [cls, key] = BADGE[p.stock_status];
   const img = p.images?.[0] || placeholder(p.name);
   const loc = p.suku || p.municipality || "";
+  const pct = discountPercent(p.price, p.discount_price);
   const { add } = useBasket();
   const { toast } = useToast();
 
@@ -24,7 +25,7 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
   function addToList(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     e.stopPropagation();
-    add({ id: p.id, name: p.name, size: p.sizes?.[0] || "", price: Number(p.price), qty: 1,
+    add({ id: p.id, name: p.name, size: p.sizes?.[0] || "", price: Number(p.discount_price || p.price), qty: 1,
       seller_id: p.seller_id, sellerName: sellerName || null });
     toast(`${p.name} → ${t("list", lang)}`);
   }
@@ -40,7 +41,15 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
         <div className="nm">{p.name}</div>
         <div className="mt">{loc}</div>
         {sellerName && <div className="sold-by">{t("soldBy", lang)} {sellerName}</div>}
-        <div className="pr">{money(p.price)}</div>
+        {pct != null ? (
+          <div className="pr-row">
+            <span className="pr-discount">{money(p.discount_price!)}</span>
+            <span className="pr-original">{money(p.price)}</span>
+            <span className="pr-pct">-{pct}%</span>
+          </div>
+        ) : (
+          <div className="pr">{money(p.price)}</div>
+        )}
         {p.stock_status !== "out" && (
           <button type="button" className="btn btn-sm btn-ghost card-add" onClick={addToList}>
             {t("addList", lang)}

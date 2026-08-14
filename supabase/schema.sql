@@ -214,6 +214,11 @@ create table if not exists products (
   slug          text not null,
   category_id   uuid references categories(id) on delete set null,
   price         numeric(10,2) not null check (price >= 0),
+  -- Sale price (optional). NULL = no discount running. Only the dollar
+  -- amount is stored -- the percentage shown in admin/seller forms and
+  -- on product cards is always derived from price vs discount_price,
+  -- never stored separately, so the two can never drift out of sync.
+  discount_price numeric(10,2) check (discount_price is null or discount_price > 0),
   sizes         text[] not null default '{}',
   tags          text[] not null default '{}',
   stock_status  text not null default 'in' check (stock_status in ('in','low','out')),
@@ -249,6 +254,8 @@ create table if not exists products (
 -- existing table, so the column list change alone wouldn't reach it).
 alter table products add column if not exists status text not null default 'approved'
   check (status in ('pending','approved','rejected'));
+alter table products add column if not exists discount_price numeric(10,2)
+  check (discount_price is null or discount_price > 0);
 create index if not exists idx_products_status on products(status);
 create index if not exists idx_products_category    on products(category_id);
 create index if not exists idx_products_stock       on products(stock_status);

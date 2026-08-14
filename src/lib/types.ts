@@ -59,6 +59,10 @@ export interface Product {
   slug: string;
   category_id: string | null;
   price: number;
+  /** Sale price in dollars, or null when there's no discount running.
+   * The percentage shown anywhere in the UI is always computed from
+   * price vs discount_price, never stored — see schema.sql. */
+  discount_price: number | null;
   sizes: string[];
   tags: string[];
   stock_status: StockStatus;

@@ -30,6 +30,7 @@ export interface ProductFormInput {
   id?: string;
   name: string;
   price: number;
+  discount_price: number | null;
   qty: number;
   stock_status: StockStatus;
   description: string;
@@ -50,6 +51,7 @@ export async function saveProduct(input: ProductFormInput) {
     const slug = await uniqueSlug(baseSlug, input.id);
     const { error } = await sb.from("products").update({
       name: input.name, slug, price: input.price, qty: input.qty,
+      discount_price: input.discount_price,
       stock_status: input.stock_status, description: input.description,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
       images: input.images,
@@ -64,6 +66,7 @@ export async function saveProduct(input: ProductFormInput) {
     const slug = await uniqueSlug(baseSlug);
     const { error } = await sb.from("products").insert({
       ref, name: input.name, slug, price: input.price, qty: input.qty,
+      discount_price: input.discount_price,
       stock_status: input.stock_status, description: input.description,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
       images: input.images,

@@ -16,6 +16,10 @@ export const STR: Record<string, [string,string,string]> = {
   home:["Uma","Início","Home"],
   /* buyer questions — the four repeated questions (§2.2) */
   qPrice:["Folin","Preço","Price"],
+  discountPrice:["Folin diskontu (USD)","Preço com desconto (USD)","Discount price (USD)"],
+  discountPercent:["Diskontu (%)","Desconto (%)","Discount (%)"],
+  noDiscount:["Laiha diskontu","Sem desconto","No discount"],
+  discountMustBeLower:["Folin diskontu tenke mais ki'ik duke folin normál","O preço com desconto tem de ser menor que o preço normal","Discount price must be lower than the regular price"],
   qSize:["Tamañu","Tamanho","Size"],
   qStock:["Disponível","Disponível","Available"],
   qWhere:["Iha ne'ebé?","Onde estão?","Where are you?"],

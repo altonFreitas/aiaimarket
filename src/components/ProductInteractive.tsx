@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import { bumpWaClickAction } from "@/lib/actions/track";
-import { money, waLink, waProductMsg } from "@/lib/utils";
+import { money, waLink, waProductMsg, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Product, Settings } from "@/lib/types";
 
@@ -27,10 +27,12 @@ export default function ProductInteractive({
   const [qty, setQty] = useState(1);
   const { add } = useBasket();
   const { toast } = useToast();
+  const pct = discountPercent(p.price, p.discount_price);
+  const effectivePrice = p.discount_price ?? p.price;
 
   const siteUrl = (path: string) => `${siteOrigin}${path}`;
   const waDigits = settings.wa_number.replace(/[^\d]/g, "");
-  const msg = waProductMsg(p, size, qty, siteUrl);
+  const msg = waProductMsg({ ...p, price: effectivePrice }, size, qty, siteUrl);
   const href = waLink(waDigits, msg);
 
   const loc = {
@@ -50,7 +52,7 @@ export default function ProductInteractive({
       toast(t("chooseSize", lang), true);
       return;
     }
-    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty,
+    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
       seller_id: p.seller_id, sellerName: seller?.store_name || null });
     toast(`${p.name} → ${t("list", lang)}`);
   }
@@ -61,7 +63,7 @@ export default function ProductInteractive({
       toast(t("chooseSize", lang), true);
       return;
     }
-    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(p.price), qty,
+    add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
       seller_id: p.seller_id, sellerName: seller?.store_name || null });
     router.push("/checkout");
   }
@@ -96,7 +98,15 @@ export default function ProductInteractive({
         <div className="aab-row aab-row-price">
           <div className="aab-q">{t("qPrice", lang)}</div>
           <div className="aab-a">
-            <span className="aab-price">{money(p.price)}</span>
+            {pct != null ? (
+              <>
+                <span className="aab-price aab-price-discount">{money(p.discount_price!)}</span>
+                <span className="aab-price-original">{money(p.price)}</span>
+                <span className="aab-price-pct">-{pct}%</span>
+              </>
+            ) : (
+              <span className="aab-price">{money(p.price)}</span>
+            )}
             <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>USD</em>
           </div>
         </div>

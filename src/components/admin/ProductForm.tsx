@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { saveProduct, uploadProductImage } from "@/lib/actions/products";
 import { createCategory } from "@/lib/actions/categories";
 import { compressImage } from "@/lib/compressImage";
+import { discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 
@@ -48,6 +49,46 @@ export default function ProductForm({
     fiar: product?.pay_fiar ?? false,
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
+
+  // Discount price and discount % are two ways to enter the same thing
+  // -- only discount_price is ever persisted (see ProductFormInput);
+  // the % field is just a convenience that computes it. Editing either
+  // one recalculates the other from the current regular price. Editing
+  // the regular price afterwards keeps the dollar discount fixed and
+  // just refreshes the displayed %, since a sale price is normally a
+  // deliberate absolute decision.
+  const [discountPrice, setDiscountPriceStr] = useState(
+    product?.discount_price != null ? String(product.discount_price) : ""
+  );
+  const [discountPct, setDiscountPctStr] = useState(() => {
+    const pct = discountPercent(product?.price || 0, product?.discount_price ?? null);
+    return pct != null ? String(pct) : "";
+  });
+
+  function onPriceChange(v: string) {
+    set("price", v);
+    const price = Number(v) || 0;
+    const dp = Number(discountPrice);
+    const pct = discountPercent(price, discountPrice.trim() && dp > 0 ? dp : null);
+    setDiscountPctStr(pct != null ? String(pct) : "");
+  }
+  function onDiscountPriceChange(v: string) {
+    setDiscountPriceStr(v);
+    const price = Number(f.price) || 0;
+    const dp = Number(v);
+    const pct = discountPercent(price, v.trim() && dp > 0 ? dp : null);
+    setDiscountPctStr(pct != null ? String(pct) : "");
+  }
+  function onDiscountPctChange(v: string) {
+    setDiscountPctStr(v);
+    const price = Number(f.price) || 0;
+    const pct = Number(v);
+    if (!v.trim() || !price || !(pct > 0) || pct >= 100) {
+      setDiscountPriceStr("");
+    } else {
+      setDiscountPriceStr((price * (1 - pct / 100)).toFixed(2));
+    }
+  }
 
   async function addImages(files: FileList | null) {
     if (!files?.length) return;
@@ -111,6 +152,9 @@ export default function ProductForm({
     const errs: Record<string, string> = {};
     if (!f.name.trim()) errs.name = t("required", lang);
     if (!(Number(f.price) > 0)) errs.price = t("required", lang);
+    if (discountPrice.trim() && !(Number(discountPrice) > 0 && Number(discountPrice) < Number(f.price))) {
+      errs.price = t("discountMustBeLower", lang);
+    }
     if (!f.category_id) errs.category_id = t("required", lang);
     setErrors(errs);
     if (Object.keys(errs).length) { toast(t("required", lang), true); return; }
@@ -121,6 +165,7 @@ export default function ProductForm({
         id: product?.id,
         name: f.name.trim(),
         price: Number(f.price),
+        discount_price: discountPrice.trim() && Number(discountPrice) > 0 ? Number(discountPrice) : null,
         qty: Number(f.qty) || 0,
         stock_status: f.stock_status,
         description: f.description,
@@ -162,8 +207,24 @@ export default function ProductForm({
         <div className="panel">
           {field("name", t("name", lang))}
           <div className="two">
-            {field("price", t("qPrice", lang) + " (USD)", "number")}
+            <div className={"field" + (errors.price ? " err" : "")}>
+              <label htmlFor="price">{t("qPrice", lang)} (USD)</label>
+              <input id="price" type="number" value={f.price} onChange={(e) => onPriceChange(e.target.value)} />
+              <p className="msg">{errors.price}</p>
+            </div>
             {field("qty", t("qty", lang), "number")}
+          </div>
+          <div className="two">
+            <div className="field">
+              <label htmlFor="discount_price">{t("discountPrice", lang)}</label>
+              <input id="discount_price" type="number" min={0} step={0.01} value={discountPrice}
+                onChange={(e) => onDiscountPriceChange(e.target.value)} placeholder={t("noDiscount", lang)} />
+            </div>
+            <div className="field">
+              <label htmlFor="discount_pct">{t("discountPercent", lang)}</label>
+              <input id="discount_pct" type="number" min={0} max={99} step={1} value={discountPct}
+                onChange={(e) => onDiscountPctChange(e.target.value)} placeholder="%" />
+            </div>
           </div>
           <div className="field">
             <label htmlFor="stock_status">{t("qStock", lang)}</label>

@@ -4,6 +4,16 @@ export function money(n: number | string): string {
   return "$" + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
 }
 
+/** Whole-number percent off, or null when there's no real discount
+ * (missing/zero price, or discount_price not actually lower). Shared by
+ * both product forms (bidirectional price<->percent entry) and both
+ * display components (card + detail page), so the rounding rule is
+ * identical everywhere a discount ever shows up. */
+export function discountPercent(price: number, discountPrice: number | null | undefined): number | null {
+  if (!price || discountPrice == null || discountPrice <= 0 || discountPrice >= price) return null;
+  return Math.round((1 - discountPrice / price) * 100);
+}
+
 export function slugify(s: string): string {
   return s
     .toLowerCase()
