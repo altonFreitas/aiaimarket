@@ -8,6 +8,15 @@ export type Lang = "tet" | "pt" | "en";
 export type SellerType = "individual" | "business";
 export type SellerStatus = "pending" | "approved" | "rejected" | "suspended";
 
+export interface Customer {
+  id: string;
+  user_id: string;
+  email: string;
+  phone: string;
+  notify_new_products: boolean;
+  created_at: string;
+}
+
 export interface Seller {
   id: string;
   user_id: string | null;

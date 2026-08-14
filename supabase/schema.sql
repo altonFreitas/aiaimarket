@@ -162,6 +162,30 @@ grant select (id, seller_id, order_id, rating, comment, created_at) on seller_ra
 -- genuinely completed order containing that seller — the same trust
 -- model as every other write in this app.
 
+-- ---------- customers (optional accounts) ----------
+-- A real Supabase Auth account for anyone who isn't a seller or the
+-- admin. Deliberately minimal for now -- there's no functional
+-- difference yet between having one and browsing as a guest; this is
+-- groundwork for things like "email registered customers when a new
+-- product goes up." One row per auth user, created on their first
+-- login/signup (see lib/actions/customer-auth.ts).
+create table if not exists customers (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null unique references auth.users(id) on delete cascade,
+  email       text not null,
+  phone       text not null default '',
+  notify_new_products boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+alter table customers enable row level security;
+
+-- A customer may read/update only their own row -- never another
+-- customer's, and never through the anon key (writes go through
+-- customer-auth.ts's service-role client on first login, same trust
+-- model as sellers).
+drop policy if exists customers_self_read on customers;
+create policy customers_self_read on customers for select using (auth.uid() = user_id);
+
 -- A seller may read their own row (dashboard: "your application is
 -- pending"). No public read policy yet -- that arrives with public
 -- seller store pages in a later phase. No update policy yet either --

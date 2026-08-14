@@ -59,9 +59,13 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
         </a>
       </div>
       <div style={{ marginTop: 6 }}>
-        {settings.seller_registration_enabled && (
+        {settings.seller_registration_enabled ? (
           <Link href="/seller/register" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, fontSize: 12 }}>
             {t("becomeSeller", lang)}
+          </Link>
+        ) : (
+          <Link href="/seller/login" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, fontSize: 12 }}>
+            {t("sellerLoginLink", lang)}
           </Link>
         )}
       </div>
