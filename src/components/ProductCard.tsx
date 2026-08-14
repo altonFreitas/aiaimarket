@@ -40,7 +40,7 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
       <div className="body">
         <div className="nm">{p.name}</div>
         <div className="mt">{loc}</div>
-        {sellerName && <div className="sold-by">{t("soldBy", lang)} {sellerName}</div>}
+        <div className="sold-by">{sellerName ? `${t("soldBy", lang)} ${sellerName}` : "\u00A0"}</div>
         {pct != null ? (
           <div className="pr-row">
             <span className="pr-discount">{money(p.discount_price!)}</span>
