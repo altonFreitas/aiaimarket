@@ -463,9 +463,15 @@ create policy products_public_read on products for select using (archived = fals
 
 -- Orders: no public SELECT policy at all — order lookup by ref+phone is
 -- done through a server route using the service-role key, never straight
--- from the browser. Public may INSERT (place an order) only.
+-- from the browser. No public INSERT policy either — placeOrder() has
+-- always inserted via the service-role client (supabaseAdmin()), so an
+-- anon-key insert policy was never actually needed by the app; it only
+-- ever existed as an unused open door for anyone holding the public key
+-- (visible in any browser's network tab) to insert directly via the
+-- Supabase REST API, bypassing all of placeOrder()'s validation and
+-- price/stock checks. The drop below is defensive cleanup for a
+-- database that still has it from an earlier version of this file.
 drop policy if exists orders_public_insert on orders;
-create policy orders_public_insert on orders for insert with check (true);
 
 -- ============================================================
 -- Storage bucket for product images + payment proofs
@@ -482,10 +488,13 @@ drop policy if exists "product images public read" on storage.objects;
 create policy "product images public read" on storage.objects
   for select using (bucket_id = 'product-images');
 
+-- No public upload policy for either bucket, for the same reason as
+-- orders above — every upload path in this app (products.ts, hero.ts,
+-- seller-products.ts, orders.ts) already uploads via the service-role
+-- client. A public insert policy here would only ever be an unused
+-- door letting anyone with the anon key upload arbitrary files
+-- directly to storage, bypassing the app's own image compression and
+-- validation. Both drops below are defensive cleanup for a database
+-- that still has these from an earlier version of this file.
 drop policy if exists "product images public upload" on storage.objects;
-create policy "product images public upload" on storage.objects
-  for insert with check (bucket_id = 'product-images');
-
 drop policy if exists "payment proofs public upload" on storage.objects;
-create policy "payment proofs public upload" on storage.objects
-  for insert with check (bucket_id = 'payment-proofs');
