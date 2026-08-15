@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { startSellerTotpSetup, confirmSellerTotpSetupAction, disableSellerTotpAction } from "@/lib/actions/seller-totp";
 import { t } from "@/lib/i18n";
@@ -17,7 +16,6 @@ type View =
  * SellerTotpVerifyForm), and every seller-scoped action/page enforces it
  * too (see requireSeller() / getCurrentSellerOrRedirect()). */
 export default function SellerTotpSettings({ lang, initiallyEnabled }: { lang: Lang; initiallyEnabled: boolean }) {
-  const router = useRouter();
   const { toast } = useToast();
   const [enabled, setEnabled] = useState(initiallyEnabled);
   const [view, setView] = useState<View>({ name: "status" });
@@ -54,7 +52,12 @@ export default function SellerTotpSettings({ lang, initiallyEnabled }: { lang: L
         setView({ name: "status" });
         setCode("");
         toast(t("totpEnabledToast", lang));
-        router.refresh();
+        // A hard reload, not router.refresh() -- Safari/WebKit doesn't
+        // always pick up a cookie set by this action's response in time
+        // for a soft refresh to see it (confirmed directly during
+        // testing on the login-time equivalent of this same step). The
+        // short delay just lets the toast above actually be seen first.
+        setTimeout(() => window.location.reload(), 600);
       }
     } catch (e) {
       toast(String((e as Error).message), true);
@@ -68,7 +71,7 @@ export default function SellerTotpSettings({ lang, initiallyEnabled }: { lang: L
       await disableSellerTotpAction();
       setEnabled(false);
       toast(t("totpDisabledToast", lang));
-      router.refresh();
+      setTimeout(() => window.location.reload(), 600);
     } catch (e) {
       toast(String((e as Error).message), true);
     }

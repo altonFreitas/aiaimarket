@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { verifySellerLoginTotp } from "@/lib/actions/seller-totp";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
@@ -8,11 +7,14 @@ import type { Lang } from "@/lib/types";
 /** Shown on /account when a seller's password check already succeeded
  * (a real Supabase session exists) but they've enabled 2FA and haven't
  * cleared it yet this session — see app/account/page.tsx. On success,
- * just re-navigates to /account; the server component there re-checks
- * and sends them on to the dashboard once the second-factor cookie is
- * set, so this component doesn't need to know where "next" actually is. */
+ * forces a full page reload (not router.push/refresh) to land back on
+ * /account. This matters more than it looks: Safari/WebKit doesn't
+ * always pick up a cookie set by a server action's response in time
+ * for a client-side-routed request right after — reproduced directly
+ * during testing, where the totp cookie was confirmed set but the page
+ * kept re-showing this same form. A hard navigation forces a genuine
+ * new request cycle, which always has the cookie. */
 export default function SellerTotpVerifyForm({ lang }: { lang: Lang }) {
-  const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [locked, setLocked] = useState(false);
@@ -29,8 +31,8 @@ export default function SellerTotpVerifyForm({ lang }: { lang: Lang }) {
         setPending(false);
         return;
       }
-      router.push("/account");
-      router.refresh();
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- intentional: router.push()/refresh() here was the actual bug (see the comment on this component), a hard navigation is the fix, not an oversight.
+      window.location.href = "/account";
     } catch {
       setError(t("totpWrongCode", lang));
       setPending(false);

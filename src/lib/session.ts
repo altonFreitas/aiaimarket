@@ -3,7 +3,11 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 
 const COOKIE = "loja_admin_session";
-const MAX_AGE = 60 * 60 * 24 * 14; // 14 days
+// 10 minutes -- the whole session, not just a "remember me" window. The
+// admin's login already includes TOTP as one step, so this session
+// expiring means the next visit re-asks for password + code together,
+// same as any other fresh login.
+const MAX_AGE = 60 * 10;
 
 function secret() {
   const s = process.env.SESSION_SECRET;

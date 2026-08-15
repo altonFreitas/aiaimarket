@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireSeller } from "@/lib/actions/guard";
 import { getOrCreateTotpSetup, confirmTotpSetup, verifyTotpCode, disableTotp, type TotpTarget } from "@/lib/totp";
 import { grantSellerTotpSession, clearSellerTotpSession } from "@/lib/sellerTotpSession";
+import { notifySellerLogin } from "@/lib/actions/notify";
 import { revalidatePath } from "next/cache";
 
 function targetFor(sellerId: string): TotpTarget {
@@ -55,10 +56,16 @@ export async function verifySellerLoginTotp(code: string): Promise<{ ok: boolean
   if (!user) return { ok: false, locked: false };
 
   const admin = supabaseAdmin();
-  const { data: seller } = await admin.from("sellers").select("id, email").eq("user_id", user.id).maybeSingle();
+  const { data: seller } = await admin.from("sellers").select("id, email, store_name").eq("user_id", user.id).maybeSingle();
   if (!seller) return { ok: false, locked: false };
 
   const result = await verifyTotpCode(targetFor(seller.id), code, seller.email);
-  if (result.ok) await grantSellerTotpSession(seller.id);
+  if (result.ok) {
+    await grantSellerTotpSession(seller.id);
+    // Fire-and-forget on purpose — notifySellerLogin() never throws
+    // (see lib/actions/notify.ts), and a slow/failed email must never
+    // delay or block the login itself.
+    notifySellerLogin({ store_name: seller.store_name, email: seller.email });
+  }
   return result;
 }

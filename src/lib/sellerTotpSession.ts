@@ -10,7 +10,11 @@ import { cookies } from "next/headers";
  * cookie also says the TOTP code was verified, requireSeller() (see
  * lib/actions/guard.ts) treats the account as not fully authenticated. */
 const COOKIE = "loja_seller_totp_ok";
-const MAX_AGE = 60 * 60 * 24 * 14; // 14 days, matches the admin session
+// 10 minutes -- matches the admin session length. After this, the next
+// visit to a seller page or action needs the TOTP code re-entered, even
+// though the underlying Supabase password session may still be valid
+// longer than that.
+const MAX_AGE = 60 * 10;
 
 function secret() {
   const s = process.env.SESSION_SECRET;
