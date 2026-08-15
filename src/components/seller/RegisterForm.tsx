@@ -107,7 +107,7 @@ export default function RegisterForm({ lang }: { lang: Lang }) {
           </button>
         </div>
         <p className="sub" style={{ marginTop: 12 }}>
-          {t("alreadyHaveSellerAccount", lang)} <Link href="/seller/login">{t("logIn", lang)}</Link>
+          {t("alreadyHaveSellerAccount", lang)} <Link href="/account">{t("logIn", lang)}</Link>
         </p>
       </div>
     </form>

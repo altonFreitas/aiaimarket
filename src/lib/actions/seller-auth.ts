@@ -123,8 +123,10 @@ export async function logoutSeller() {
 
 /** Form-action-compatible variant (bound directly to a <form action={...}>,
  * same pattern as the admin nav's logoutAction) — redirects server-side
- * itself rather than relying on the caller to navigate afterward. */
+ * itself rather than relying on the caller to navigate afterward. Goes
+ * to the unified /account entry point, not a seller-only login page —
+ * there isn't a separate one anymore. */
 export async function logoutSellerAction() {
   await logoutSeller();
-  redirect("/seller/login");
+  redirect("/account");
 }

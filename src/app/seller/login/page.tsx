@@ -1,11 +1,8 @@
-import SellerLoginForm from "@/components/seller/SellerLoginForm";
-import { getLang } from "@/lib/lang";
+import { redirect } from "next/navigation";
 
-export default async function SellerLoginPage() {
-  const lang = await getLang();
-  return (
-    <div className="wrap" style={{ maxWidth: 480 }}>
-      <SellerLoginForm lang={lang} />
-    </div>
-  );
+/** /account is the one unified login for everyone now — this old
+ * seller-only page just forwards there, so any bookmark or old link
+ * still works instead of 404ing. */
+export default function SellerLoginPage() {
+  redirect("/account");
 }

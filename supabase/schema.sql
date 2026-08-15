@@ -105,6 +105,13 @@ create table if not exists sellers (
   pickup_available    boolean not null default true,
   delivery_fee        numeric(10,2),
   delivery_area       text not null default '',
+  -- Optional two-factor login (mirrors settings.totp_* on the admin
+  -- account — see lib/totp.ts, which both share). Opt-in: a seller
+  -- turns this on themselves from their settings, it's never forced.
+  totp_secret          text,
+  totp_enabled         boolean not null default false,
+  totp_failed_attempts int not null default 0,
+  totp_locked_until    timestamptz,
   created_at   timestamptz not null default now()
 );
 -- ALTER form for an existing sellers table (created before these columns
@@ -114,6 +121,10 @@ alter table sellers add column if not exists delivery_available boolean not null
 alter table sellers add column if not exists pickup_available boolean not null default true;
 alter table sellers add column if not exists delivery_fee numeric(10,2);
 alter table sellers add column if not exists delivery_area text not null default '';
+alter table sellers add column if not exists totp_secret text;
+alter table sellers add column if not exists totp_enabled boolean not null default false;
+alter table sellers add column if not exists totp_failed_attempts int not null default 0;
+alter table sellers add column if not exists totp_locked_until timestamptz;
 
 alter table sellers enable row level security;
 

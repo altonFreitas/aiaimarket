@@ -47,7 +47,7 @@ export async function proxy(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       const url = req.nextUrl.clone();
-      url.pathname = "/seller/login";
+      url.pathname = "/account";
       return NextResponse.redirect(url);
     }
     return response;

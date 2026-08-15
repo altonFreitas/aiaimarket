@@ -36,6 +36,7 @@ export interface Seller {
   pickup_available: boolean;
   delivery_fee: number | null;
   delivery_area: string;
+  totp_enabled: boolean;
   created_at: string;
 }
 

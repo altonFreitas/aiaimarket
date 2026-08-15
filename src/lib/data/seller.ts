@@ -2,21 +2,36 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
 import type { Order, OrderItem, Product, Seller } from "@/lib/types";
 
-/** Used at the top of every /seller/* page (except login/register):
- * resolves the logged-in seller's own row, or sends them back to login.
- * proxy.ts already keeps a logged-out visitor away from /seller/*; this
- * covers the edge case of a valid Supabase session with no matching
- * sellers row. */
+/** Used at the top of every /seller/* page (except register): resolves
+ * the logged-in seller's own row, or sends them back to the unified
+ * /account entry point (see app/account/page.tsx — logging in there as
+ * a seller redirects straight back to the dashboard, so this is a
+ * clean round trip, not a dead end). proxy.ts already keeps a logged-
+ * out visitor away from /seller/*; this covers the edge case of a
+ * valid Supabase session with no matching sellers row.
+ *
+ * Also enforces 2FA at the page level, same rule as requireSeller() in
+ * lib/actions/guard.ts for server actions — without this, a seller with
+ * 2FA enabled could still load their dashboard/products/orders pages
+ * (just not successfully submit anything on them) despite never having
+ * entered a TOTP code. */
 export async function getCurrentSellerOrRedirect(): Promise<Seller> {
   const sb = await supabaseServer();
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) redirect("/seller/login");
+  if (!user) redirect("/account");
 
   const admin = supabaseAdmin();
   const { data: seller } = await admin.from("sellers").select("*").eq("user_id", user.id).maybeSingle();
-  if (!seller) redirect("/seller/login");
+  if (!seller) redirect("/account");
+
+  if (seller.totp_enabled) {
+    const ok = await hasSellerTotpSession(seller.id);
+    if (!ok) redirect("/account");
+  }
+
   return seller as Seller;
 }
 
