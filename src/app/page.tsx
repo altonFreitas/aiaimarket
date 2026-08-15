@@ -1,6 +1,5 @@
 import Hero from "@/components/home/Hero";
 import ProductSection from "@/components/home/ProductSection";
-import PromoBanner from "@/components/home/PromoBanner";
 import Sidebar from "@/components/Sidebar";
 import CatRail from "@/components/CatRail";
 import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides, getApprovedSellersById } from "@/lib/data/public";
@@ -81,8 +80,6 @@ export default async function HomePage() {
             badgeForIds={bestSellers.confirmedIds}
             sellersById={sellersById}
           />
-
-          <PromoBanner lang={lang} />
         </div>
       </div>
     </div>

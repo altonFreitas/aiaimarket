@@ -37,7 +37,7 @@ export default async function Header({ settings }: { settings: Settings }) {
               <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
             </svg>
           </Link>
-          <Link className="icon-btn" href="/list" aria-label={t("navList", lang)}>
+          <Link className="icon-btn hd-cart" href="/list" aria-label={t("navList", lang)}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
               <path d="M3 6h18" />
