@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { approveSeller, rejectSeller, suspendSeller, reactivateSeller } from "@/lib/actions/sellers-admin";
+import { approveSeller, rejectSeller, suspendSeller, reactivateSeller, resetSellerTotpAction } from "@/lib/actions/sellers-admin";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Seller, SellerStatus } from "@/lib/types";
@@ -34,6 +34,15 @@ export default function SellersAdmin({ lang, sellers }: { lang: Lang; sellers: S
       toast(String((e as Error).message), true);
     }
     setBusy(false);
+  }
+
+  function resetTotp(s: Seller) {
+    // A confirm() here on purpose — this is more consequential than
+    // approve/reject/suspend above (it's the recovery path for a
+    // locked-out seller, so it should only be used after actually
+    // confirming who's asking, not clicked reflexively).
+    if (!window.confirm(t("confirmResetSellerTotp", lang).replace("{store}", s.store_name))) return;
+    run(() => resetSellerTotpAction(s.id), t("sellerTotpResetToast", lang) + ": " + s.store_name);
   }
 
   return (
@@ -91,6 +100,11 @@ export default function SellersAdmin({ lang, sellers }: { lang: Lang; sellers: S
                   <button className="btn btn-sm" disabled={busy}
                     onClick={() => run(() => reactivateSeller(s.id))}>
                     {t("reactivate", lang)}
+                  </button>
+                )}
+                {s.totp_enabled && (
+                  <button className="btn btn-sm btn-ghost" disabled={busy} onClick={() => resetTotp(s)}>
+                    {t("resetSellerTotp", lang)}
                   </button>
                 )}
               </div>
