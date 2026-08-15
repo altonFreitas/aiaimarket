@@ -17,7 +17,7 @@ function rootIdOf(id: string, cats: Category[]): string {
 
 export default function ProductForm({
   lang, cats: initialCats, product, settings,
-}: { lang: Lang; cats: Category[]; product: Product | null; settings: any }) {
+}: { lang: Lang; cats: Category[]; product: Product | null; settings: Settings }) {
   const router = useRouter();
   const { toast } = useToast();
   const [cats, setCats] = useState(initialCats);

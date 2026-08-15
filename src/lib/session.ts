@@ -37,8 +37,22 @@ function verify(token: string): string | null {
 export function checkCredentials(identifier: string, password: string): boolean {
   const okUser =
     identifier.trim().toLowerCase() === (process.env.ADMIN_EMAIL || "").toLowerCase();
-  const okPass = password === process.env.ADMIN_PASSWORD;
+  const okPass = timingSafeStringEqual(password, process.env.ADMIN_PASSWORD || "");
   return okUser && okPass;
+}
+
+/** Constant-time string comparison so a wrong admin password can't be
+ * brute-forced by measuring how long the comparison took to fail. */
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Still run a comparison of equal length so failure timing doesn't
+    // leak the real password's length either.
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 /** Grants the actual session. Only call this after both the password and

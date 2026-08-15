@@ -12,10 +12,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const p = await getProductBySlug(slug);
   if (!p) return { title: "404" };
+  const description = p.description?.slice(0, 150);
+  const images = p.images?.length ? [p.images[0]] : [];
   return {
     title: p.name,
-    description: p.description?.slice(0, 150),
-    openGraph: { title: p.name, images: p.images?.length ? [p.images[0]] : [] },
+    description,
+    alternates: { canonical: `/p/${p.slug}` },
+    openGraph: { type: "website", url: `/p/${p.slug}`, title: p.name, description, images },
+    twitter: { card: "summary_large_image", title: p.name, description, images },
   };
 }
 
@@ -42,8 +46,30 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const all = await getLiveProducts();
   const related = all.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: p.name,
+    description: p.description || undefined,
+    image: p.images?.length ? p.images : undefined,
+    sku: p.ref,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "USD",
+      price: p.discount_price || p.price,
+      availability:
+        p.stock_status === "out" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+      url: siteOrigin ? `${siteOrigin}/p/${p.slug}` : undefined,
+    },
+  };
+
   return (
     <div className="wrap">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <p className="crumb">
         <Link href="/">{t("catalog", lang)}</Link>
         {trail.map((c) => (

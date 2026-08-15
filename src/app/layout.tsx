@@ -9,12 +9,16 @@ import { getLang } from "@/lib/lang";
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
+  const description =
+    settings.tagline_tet ||
+    "Katálogu online — folin, tamañu, disponibilidade no fatin, hotu iha pájina.";
   return {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
     title: { default: settings.store_name, template: `%s · ${settings.store_name}` },
-    description:
-      settings.tagline_tet ||
-      "Katálogu online — folin, tamañu, disponibilidade no fatin, hotu iha pájina.",
+    description,
     icons: { icon: "/icon.png", apple: "/apple-touch-icon.png" },
+    openGraph: { type: "website", siteName: settings.store_name, description },
+    twitter: { card: "summary_large_image", title: settings.store_name, description },
   };
 }
 export const viewport: Viewport = { themeColor: "#152341", colorScheme: "light" };

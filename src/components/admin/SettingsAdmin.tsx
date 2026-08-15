@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/settings";
 import { t } from "@/lib/i18n";
-import type { Bank, Lang, Wallet, Zone } from "@/lib/types";
+import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 
-export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: any }) {
+export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: Settings }) {
   const router = useRouter();
   const { toast } = useToast();
   const [, startTransition] = useTransition();

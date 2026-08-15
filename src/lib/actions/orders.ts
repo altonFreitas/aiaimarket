@@ -3,7 +3,7 @@ import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { phoneNorm, phoneOk, FLOW } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
-import type { OrderItem, OrderStatus, PayMethod, PayStatus } from "@/lib/types";
+import type { OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Shared collision-checked reference generator: prefix + year +
  * last4(phone) + 6 random digits. Used for both delivery and pickup
@@ -66,7 +66,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   // never trusted from the client.
   const sb = supabaseAdmin(); // service role: needed to read settings.zones reliably & to insert with computed ref
   const { data: settings } = await sb.from("settings").select("zones").eq("id", 1).single();
-  const zones = (settings?.zones as any[]) || [];
+  const zones = (settings?.zones as Zone[]) || [];
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
   let fee = zone && !zone.quote ? Number(zone.fee) : 0;
   const subtotal = input.items.reduce((a, i) => a + i.price * i.qty, 0);
@@ -160,7 +160,7 @@ export async function lookupOrder(ref: string, phone: string) {
     .maybeSingle();
   if (!data) return null;
   if (data.buyer_phone !== phoneNorm(phone)) return null;
-  data.order_log?.sort((a: any, b: any) => a.id - b.id);
+  data.order_log?.sort((a: OrderLogEntry, b: OrderLogEntry) => a.id - b.id);
   return data;
 }
 

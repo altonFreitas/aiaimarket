@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast";
 import { addOrderNote, editOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
 import { addrLine, money, nowIso, waLink, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import type { Lang, Order, OrderStatus, PayStatus } from "@/lib/types";
+import type { Lang, Order, OrderStatus, PayStatus, Settings } from "@/lib/types";
 
 function PencilIcon() {
   return (
@@ -19,7 +19,7 @@ function PencilIcon() {
 
 export default function OrderAdmin({
   lang, order: o, settings,
-}: { lang: Lang; order: Order; settings: any }) {
+}: { lang: Lang; order: Order; settings: Settings }) {
   const router = useRouter();
   const { toast } = useToast();
   const [, startTransition] = useTransition();
