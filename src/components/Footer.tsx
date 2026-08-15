@@ -59,13 +59,14 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
         </a>
       </div>
       <div style={{ marginTop: 6 }}>
-        {settings.seller_registration_enabled ? (
+        {settings.seller_registration_enabled && (
+          // Only shown when new applications are open. When closed,
+          // there's nothing to show here — an existing seller already
+          // has a way in through the person icon in the header (see
+          // /account), which now handles login for everyone, sellers
+          // included. No separate seller-only link is needed.
           <Link href="/seller/register" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, fontSize: 12 }}>
             {t("becomeSeller", lang)}
-          </Link>
-        ) : (
-          <Link href="/seller/login" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, fontSize: 12 }}>
-            {t("sellerLoginLink", lang)}
           </Link>
         )}
       </div>
