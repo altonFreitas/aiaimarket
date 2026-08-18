@@ -15,6 +15,9 @@ const eslintConfig = defineConfig([
     // Written by Apply-aiaimarket-hardening.js — pre-patch copies of the
     // files it edits. Linting them just re-reports every issue twice.
     ".audit-backup/**",
+    ".payments-backup/**",
+    "Apply*.js",
+
   ]),
 ]);
 

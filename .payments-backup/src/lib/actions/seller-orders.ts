@@ -1,7 +1,7 @@
 "use server";
 import { requireApprovedSeller } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { assertOrderTransition } from "@/lib/orderFlow";
+import { FLOW } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderStatus } from "@/lib/types";
 
@@ -25,9 +25,20 @@ export async function setOrderStatusAsSeller(orderId: string, status: OrderStatu
   const allMine = items.length > 0 && items.every((i) => i.seller_id === seller.id);
   if (!allMine) throw new Error("This order includes items from another seller — status is managed by the store");
 
-  // Identical rules to the admin path, because they are literally the same
-  // function now -- see lib/orderFlow.ts.
-  assertOrderTransition(before.status as OrderStatus, status);
+  if (before.status === "cancelled") {
+    throw new Error("This order has been cancelled and can no longer be changed");
+  }
+  if (status === "cancelled") {
+    if (before.status === "completed") {
+      throw new Error("This order can no longer be cancelled");
+    }
+  } else {
+    const beforeIdx = FLOW.indexOf(before.status as OrderStatus);
+    const nextIdx = FLOW.indexOf(status);
+    if (beforeIdx !== -1 && nextIdx !== -1 && nextIdx < beforeIdx) {
+      throw new Error("Can't move an order back to an earlier status");
+    }
+  }
 
   const { error } = await sb.from("orders").update({ status }).eq("id", orderId);
   if (error) throw error;

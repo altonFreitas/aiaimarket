@@ -2,8 +2,7 @@
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
-import { revalidatePath, updateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 import type { HeroSlide } from "@/lib/types";
 
 /** Reuses the same public "product-images" storage bucket as product
@@ -35,7 +34,6 @@ export async function createHeroSlide(imageUrl: string): Promise<HeroSlide> {
     .single();
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.hero);
   revalidatePath("/admin/hero");
   return data as HeroSlide;
 }
@@ -49,7 +47,6 @@ export async function updateHeroSlide(
   const { error } = await sb.from("hero_slides").update(fields).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.hero);
   revalidatePath("/admin/hero");
 }
 
@@ -59,7 +56,6 @@ export async function deleteHeroSlide(id: string) {
   const { error } = await sb.from("hero_slides").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.hero);
   revalidatePath("/admin/hero");
 }
 
@@ -76,6 +72,5 @@ export async function moveHeroSlide(id: string, direction: -1 | 1) {
   await sb.from("hero_slides").update({ sort_order: slides[j].sort_order }).eq("id", slides[i].id);
   await sb.from("hero_slides").update({ sort_order: slides[i].sort_order }).eq("id", slides[j].id);
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.hero);
   revalidatePath("/admin/hero");
 }

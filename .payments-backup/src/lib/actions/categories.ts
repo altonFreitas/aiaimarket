@@ -2,8 +2,7 @@
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
-import { revalidatePath, updateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 
 /** C1 — inline category creation. Returns the existing row if the slug
  * already exists, so calling this twice by accident is harmless. */
@@ -23,7 +22,6 @@ export async function createCategory(name: string, parentId: string | null) {
     .single();
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.categories);
   revalidatePath("/admin/cats");
   return data;
 }
@@ -34,7 +32,6 @@ export async function renameCategory(id: string, name: string) {
   const { error } = await sb.from("categories").update({ name, slug: slugify(name) }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.categories);
   revalidatePath("/admin/cats");
 }
 
@@ -50,7 +47,6 @@ export async function mergeCategory(fromId: string, toId: string) {
   const { error: e3 } = await sb.from("categories").delete().eq("id", fromId);
   if (e3) throw e3;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.categories);
   revalidatePath("/admin/cats");
 }
 
@@ -71,6 +67,5 @@ export async function moveCategory(id: string, direction: -1 | 1) {
   await sb.from("categories").update({ sort_order: sibs[j].sort_order }).eq("id", sibs[i].id);
   await sb.from("categories").update({ sort_order: sibs[i].sort_order }).eq("id", sibs[j].id);
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.categories);
   revalidatePath("/admin/cats");
 }

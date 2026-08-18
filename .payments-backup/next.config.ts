@@ -3,15 +3,6 @@ import path from "node:path";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// The card gateway's origin (e.g. https://bnctl.gateway.mastercard.com).
-// A hosted-checkout redirect and any gateway-hosted script have to be
-// allowed through the CSP explicitly, or the payment page silently fails to
-// load -- with the only clue in the browser console, which the buyer will
-// never read. Empty by default so a store with no gateway configured ships
-// the tightest possible policy.
-const paymentOrigin = (process.env.PAYMENT_GATEWAY_ORIGIN || "").trim();
-const withPayment = (base: string) => (paymentOrigin ? `${base} ${paymentOrigin}` : base);
-
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
   images: {
@@ -60,16 +51,13 @@ const nextConfig: NextConfig = {
     const csp = [
       "default-src 'self'",
       // Next's runtime needs inline/eval for hydration and dev HMR.
-      withPayment("script-src 'self' 'unsafe-inline'" + (isDev ? " 'unsafe-eval'" : "")),
+      "script-src 'self' 'unsafe-inline'" + (isDev ? " 'unsafe-eval'" : ""),
       "style-src 'self' 'unsafe-inline'",
       // Product photos come from Supabase Storage; placeholders are inline SVG.
-      withPayment("img-src 'self' data: blob: https://*.supabase.co"),
+      "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self' data:",
-      withPayment("connect-src 'self' https://*.supabase.co" + (isDev ? " ws: wss:" : "")),
-      // The hosted checkout is reached by a top-level redirect, but some
-      // gateway flows POST a form to the acquirer instead -- allow both.
-      withPayment("form-action 'self'"),
-      withPayment("frame-src 'self'"),
+      "connect-src 'self' https://*.supabase.co" + (isDev ? " ws: wss:" : ""),
+      "form-action 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "object-src 'none'",

@@ -3,8 +3,7 @@ import { requireApprovedSeller } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
-import { revalidatePath, updateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 import type { StockStatus } from "@/lib/types";
 
 async function nextRef(): Promise<string> {
@@ -112,7 +111,6 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
     if (error) throw error;
   }
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
   revalidatePath("/seller/products");
 }
 
@@ -144,7 +142,6 @@ export async function cycleSellerStock(id: string, current: StockStatus) {
   const { error } = await sb.from("products").update(patch).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
   revalidatePath("/seller/products");
   return next;
 }
@@ -159,6 +156,5 @@ export async function toggleSellerProductArchive(id: string, archived: boolean) 
   const { error } = await sb.from("products").update({ archived }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
   revalidatePath("/seller/products");
 }

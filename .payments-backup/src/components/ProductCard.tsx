@@ -1,7 +1,6 @@
 "use client";
 import type { MouseEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { placeholder } from "@/lib/placeholder";
 import { money, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -35,22 +34,8 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
     <Link className={"card" + (p.stock_status === "out" ? " is-out" : "")} href={`/p/${p.slug}`}>
       <div className="ph">
         <span className={"badge " + cls}>{t(key, lang)}</span>
-        {/* next/image, not <img>: on a 360px phone this serves a 360px AVIF
-            instead of the full 1200px WebP the seller uploaded -- typically
-            an 80-90% saving on the single heaviest asset in the catalog
-            grid, on the connections this store was designed around.
-            The inline SVG placeholder is passed through unoptimized: it is
-            already ~0 bytes and running it through the optimizer would add
-            a round trip to save nothing. */}
-        <Image
-          src={img}
-          alt={p.name}
-          width={400}
-          height={400}
-          loading="lazy"
-          sizes="(max-width: 600px) 50vw, (max-width: 1000px) 33vw, 240px"
-          unoptimized={img.startsWith("data:")}
-        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={img} alt={p.name} loading="lazy" width={400} height={400} />
       </div>
       <div className="body">
         <div className="nm">{p.name}</div>

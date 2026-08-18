@@ -1,10 +1,9 @@
 "use server";
-import { requireApprovedSeller } from "./guard";
+import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
-import { revalidatePath, updateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 import type { StockStatus } from "@/lib/types";
 
 async function nextRef(): Promise<string> {
@@ -37,6 +36,7 @@ async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
   const sb = supabaseAdmin();
   let slug = base || "produtu";
   let n = 1;
+  // small loop rather than a single query: product counts are tiny (§5, no scale problem here)
   // Was `while (true)`. A single unexpected query error inside the loop
   // (or a slug that somehow never resolves) spins a serverless function
   // until its timeout, billing for every second of it. Bounded instead.
@@ -51,7 +51,7 @@ async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
   throw new Error("Could not build a unique slug for this product — try a different name");
 }
 
-export interface SellerProductFormInput {
+export interface ProductFormInput {
   id?: string;
   name: string;
   price: number;
@@ -64,26 +64,15 @@ export interface SellerProductFormInput {
   tags: string[];
   images: string[];
   pay_cod: boolean; pay_cop: boolean; pay_bank: boolean; pay_wallet: boolean; pay_fiar: boolean;
+  municipality?: string; post?: string; suku?: string; landmark?: string;
 }
 
-/** Same shape as the admin saveProduct(), but seller-scoped: the seller
- * is resolved from the verified session (requireApprovedSeller()), never
- * from the client, and every update first checks the existing row's
- * seller_id actually matches — a seller can never edit another seller's
- * product by guessing/reusing an id. New listings go live immediately
- * (status="approved") — an approved seller no longer needs admin
- * sign-off per product, only the one-time seller approval itself
- * (admin can still reject/suspend a seller entirely at any point, and
- * the products.status column stays in place for that). */
-export async function saveSellerProduct(input: SellerProductFormInput) {
-  const seller = await requireApprovedSeller();
+export async function saveProduct(input: ProductFormInput) {
+  await requireAdmin();
   const sb = supabaseAdmin();
   const baseSlug = slugify(input.name);
 
   if (input.id) {
-    const { data: existing } = await sb.from("products").select("seller_id").eq("id", input.id).maybeSingle();
-    if (!existing || existing.seller_id !== seller.id) throw new Error("Not your product");
-
     const slug = await uniqueSlug(baseSlug, input.id);
     const { error } = await sb.from("products").update({
       name: input.name, slug, price: input.price, qty: input.qty,
@@ -93,6 +82,8 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
+      municipality: input.municipality || null, post: input.post || null,
+      suku: input.suku || null, landmark: input.landmark || null,
     }).eq("id", input.id);
     if (error) throw error;
   } else {
@@ -106,18 +97,65 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
-      seller_id: seller.id,
-      status: "approved",
+      municipality: input.municipality || null, post: input.post || null,
+      suku: input.suku || null, landmark: input.landmark || null,
     });
     if (error) throw error;
   }
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
-  revalidatePath("/seller/products");
+  revalidatePath("/admin");
 }
 
-export async function uploadSellerProductImage(dataUrl: string, filenameHint: string) {
-  await requireApprovedSeller();
+/** B3 — soft delete only, never a hard DELETE. */
+export async function toggleArchive(id: string, archived: boolean) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+  const { error } = await sb.from("products").update({ archived }).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/", "layout");
+  revalidatePath("/admin");
+}
+
+/** B4 — one-click duplicate into a new draft. */
+export async function duplicateProduct(id: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+  const { data: src, error: e1 } = await sb.from("products").select("*").eq("id", id).single();
+  if (e1 || !src) throw e1 || new Error("Product not found");
+  const ref = await nextRef();
+  const name = src.name + " (kópia)";
+  const slug = await uniqueSlug(slugify(name));
+  const { id: _id, ref: _ref, slug: _slug, created_at: _c, views: _v, wa_clicks: _w, ...rest } = src;
+  const { data: created, error: e2 } = await sb
+    .from("products")
+    .insert({ ...rest, ref, slug, name, views: 0, wa_clicks: 0 })
+    .select()
+    .single();
+  if (e2) throw e2;
+  revalidatePath("/", "layout");
+  revalidatePath("/admin");
+  return created.id as string;
+}
+
+/** B5 — quick stock cycle: In -> Low -> Out -> In, no full form. */
+export async function cycleStock(id: string, current: StockStatus) {
+  await requireAdmin();
+  const order: StockStatus[] = ["in", "low", "out"];
+  const next = order[(order.indexOf(current) + 1) % order.length];
+  const sb = supabaseAdmin();
+  const patch: Record<string, unknown> = { stock_status: next };
+  if (next === "out") patch.qty = 0;
+  const { error } = await sb.from("products").update(patch).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/", "layout");
+  revalidatePath("/admin");
+  return next;
+}
+
+/** B6 — receives an already-compressed WebP data URL from the browser,
+ * uploads it to Supabase Storage, returns the public URL. */
+export async function uploadProductImage(dataUrl: string, filenameHint: string) {
+  await requireAdmin();
   const sb = supabaseAdmin();
   const { bytes, contentType, ext } = decodeImageDataUrl(dataUrl);
   const path = `products/${Date.now()}-${safeFileStem(filenameHint)}.${ext}`;
@@ -130,35 +168,24 @@ export async function uploadSellerProductImage(dataUrl: string, filenameHint: st
   return data.publicUrl;
 }
 
-/** Quick stock cycle, mirrors admin's cycleStock but ownership-checked. */
-export async function cycleSellerStock(id: string, current: StockStatus) {
-  const seller = await requireApprovedSeller();
+/** Phase 1 product moderation — a seller-submitted product stays
+ * invisible to shoppers (see getLiveProducts/getProductBySlug) until
+ * one of these is called. Products the admin creates themselves already
+ * default to "approved" (see saveProduct's insert) and never need this. */
+export async function approveProduct(id: string) {
+  await requireAdmin();
   const sb = supabaseAdmin();
-  const { data: existing } = await sb.from("products").select("seller_id").eq("id", id).maybeSingle();
-  if (!existing || existing.seller_id !== seller.id) throw new Error("Not your product");
-
-  const order: StockStatus[] = ["in", "low", "out"];
-  const next = order[(order.indexOf(current) + 1) % order.length];
-  const patch: Record<string, unknown> = { stock_status: next };
-  if (next === "out") patch.qty = 0;
-  const { error } = await sb.from("products").update(patch).eq("id", id);
+  const { error } = await sb.from("products").update({ status: "approved" }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
-  revalidatePath("/seller/products");
-  return next;
+  revalidatePath("/admin");
 }
 
-/** Soft delete only (same B3 rule as admin) — ownership-checked. */
-export async function toggleSellerProductArchive(id: string, archived: boolean) {
-  const seller = await requireApprovedSeller();
+export async function rejectProduct(id: string) {
+  await requireAdmin();
   const sb = supabaseAdmin();
-  const { data: existing } = await sb.from("products").select("seller_id").eq("id", id).maybeSingle();
-  if (!existing || existing.seller_id !== seller.id) throw new Error("Not your product");
-
-  const { error } = await sb.from("products").update({ archived }).eq("id", id);
+  const { error } = await sb.from("products").update({ status: "rejected" }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
-  revalidatePath("/seller/products");
+  revalidatePath("/admin");
 }

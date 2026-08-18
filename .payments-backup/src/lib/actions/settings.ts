@@ -1,8 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { revalidatePath, updateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 import type { Bank, Wallet, Zone } from "@/lib/types";
 
 export async function saveSettings(input: {
@@ -15,7 +14,6 @@ export async function saveSettings(input: {
   const { error } = await sb.from("settings").update(input).eq("id", 1);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.settings);
 }
 
 export async function saveBanks(banks: Bank[]) {
@@ -24,7 +22,6 @@ export async function saveBanks(banks: Bank[]) {
   const { error } = await sb.from("settings").update({ banks }).eq("id", 1);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.settings);
 }
 
 export async function saveWallets(wallets: Wallet[]) {
@@ -33,7 +30,6 @@ export async function saveWallets(wallets: Wallet[]) {
   const { error } = await sb.from("settings").update({ wallets }).eq("id", 1);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.settings);
 }
 
 export async function saveZones(zones: Zone[]) {
@@ -42,5 +38,4 @@ export async function saveZones(zones: Zone[]) {
   const { error } = await sb.from("settings").update({ zones }).eq("id", 1);
   if (error) throw error;
   revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.settings);
 }

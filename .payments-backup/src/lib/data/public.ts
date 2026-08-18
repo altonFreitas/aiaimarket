@@ -1,8 +1,6 @@
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
-import { supabaseAnon } from "@/lib/supabase/anon";
+import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { CACHE_TAGS, CATALOG_REVALIDATE_SECONDS } from "@/lib/cache";
 import type { Category, HeroSlide, OrderItem, Product, Settings } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
@@ -24,33 +22,11 @@ import type { Category, HeroSlide, OrderItem, Product, Settings } from "@/lib/ty
  * The uncached implementations below are function DECLARATIONS, which hoist,
  * so these consts may reference them before their definitions appear.
  * ------------------------------------------------------------------------ */
-/* Two layers, doing different jobs:
- *
- *   unstable_cache(...)  persists ACROSS requests, keyed + tagged, so the
- *                        storefront stops hitting Postgres in Singapore for
- *                        every visitor. Invalidated by revalidateTag() in
- *                        the admin/seller write actions.
- *   cache(...)           dedupes WITHIN one request, so a page that calls
- *                        getSettings() three times still resolves once.
- *
- * The uncached implementations below are function DECLARATIONS, which hoist,
- * so these consts may reference them before their definitions appear. */
-// Signature matches unstable_cache's own `Callback` type, which is
-// intentionally loose; the exported consts below re-narrow it.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function catalogCache<T extends (...args: any[]) => Promise<any>>(
-  fn: T, key: string, tag: string
-): T {
-  return cache(
-    unstable_cache(fn, [key], { tags: [tag], revalidate: CATALOG_REVALIDATE_SECONDS })
-  ) as T;
-}
-
-export const getSettings = catalogCache(getSettingsUncached, "settings", CACHE_TAGS.settings);
-export const getCategories = catalogCache(getCategoriesUncached, "categories", CACHE_TAGS.categories);
-export const getLiveProducts = catalogCache(getLiveProductsUncached, "live-products", CACHE_TAGS.products);
-export const getApprovedSellersById = catalogCache(getApprovedSellersByIdUncached, "sellers-by-id", CACHE_TAGS.sellers);
-export const getHeroSlides = catalogCache(getHeroSlidesUncached, "hero-slides", CACHE_TAGS.hero);
+export const getSettings = cache(getSettingsUncached);
+export const getCategories = cache(getCategoriesUncached);
+export const getLiveProducts = cache(getLiveProductsUncached);
+export const getApprovedSellersById = cache(getApprovedSellersByIdUncached);
+export const getHeroSlides = cache(getHeroSlidesUncached);
 
 const DEFAULT_SETTINGS: Settings = {
   id: 0, // 0 signals "not configured yet"
@@ -72,7 +48,7 @@ const DEFAULT_SETTINGS: Settings = {
  * and this function would wrongly report "not connected". */
 async function getSettingsUncached(): Promise<Settings> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data, error } = await sb
       .from("settings")
       .select("id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number, hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, seller_registration_enabled")
@@ -87,7 +63,7 @@ async function getSettingsUncached(): Promise<Settings> {
 
 async function getCategoriesUncached(): Promise<Category[]> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data } = await sb.from("categories").select("*").order("sort_order");
     return (data as Category[]) || [];
   } catch { return []; }
@@ -95,7 +71,7 @@ async function getCategoriesUncached(): Promise<Category[]> {
 
 async function getLiveProductsUncached(): Promise<Product[]> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data } = await sb
       .from("products")
       .select("*")
@@ -107,7 +83,7 @@ async function getLiveProductsUncached(): Promise<Product[]> {
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const sb = supabaseAnon();
+  const sb = await supabaseServer();
   const { data } = await sb
     .from("products")
     .select("*")
@@ -119,7 +95,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
-  const sb = supabaseAnon();
+  const sb = await supabaseServer();
   const { data } = await sb.from("categories").select("*").eq("slug", slug).maybeSingle();
   return (data as Category) || null;
 }
@@ -168,11 +144,11 @@ export async function getBestSellingProducts(
  * Postgres functions (see schema.sql) so an anonymous visitor can bump
  * a counter without getting general UPDATE rights on products. */
 export async function bumpView(productId: string) {
-  const sb = supabaseAnon();
+  const sb = await supabaseServer();
   await sb.rpc("increment_views", { p_id: productId });
 }
 export async function bumpWaClick(productId: string) {
-  const sb = supabaseAnon();
+  const sb = await supabaseServer();
   await sb.rpc("increment_wa_clicks", { p_id: productId });
 }
 
@@ -183,7 +159,7 @@ export async function bumpWaClick(productId: string) {
  * take down the rest of the site's settings/data. */
 async function getHeroSlidesUncached(): Promise<HeroSlide[]> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data, error } = await sb.from("hero_slides").select("*").order("sort_order");
     if (error) return [];
     return (data as HeroSlide[]) || [];
@@ -211,7 +187,7 @@ export interface PublicSeller {
  * take down a catalog page. */
 async function getApprovedSellersByIdUncached(): Promise<Record<string, PublicSeller>> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data, error } = await sb
       .from("sellers")
       .select("id, store_name, slug, description, city, country");
@@ -224,7 +200,7 @@ async function getApprovedSellersByIdUncached(): Promise<Record<string, PublicSe
 
 export async function getSellerBySlug(slug: string): Promise<PublicSeller | null> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data } = await sb
       .from("sellers")
       .select("id, store_name, slug, description, city, country")
@@ -252,7 +228,7 @@ export async function getSellerRatings(sellerId: string): Promise<{
   average: number; count: number; reviews: SellerReview[];
 }> {
   try {
-    const sb = supabaseAnon();
+    const sb = await supabaseServer();
     const { data } = await sb
       .from("seller_ratings")
       .select("id, rating, comment, created_at")

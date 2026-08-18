@@ -1,8 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { phoneNorm, phoneOk } from "@/lib/utils";
-import { assertOrderTransition } from "@/lib/orderFlow";
+import { phoneNorm, phoneOk, FLOW } from "@/lib/utils";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
 import { decodeImageDataUrl } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
@@ -321,10 +320,24 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   await requireAdmin();
   const sb = supabaseAdmin();
   const { data: before } = await sb.from("orders").select("status,ref").eq("id", orderId).single();
-  // Rules live in lib/orderFlow.ts so the admin path and the seller path
-  // (lib/actions/seller-orders.ts) share one implementation instead of two
-  // copies that drift.
-  if (before) assertOrderTransition(before.status as OrderStatus, status);
+  if (before) {
+    if (before.status === "cancelled") {
+      // Cancelled is now a fully terminal state -- no reassigning a
+      // cancelled order back into the flow, and no cancelling it again.
+      throw new Error("This order has been cancelled and can no longer be changed");
+    }
+    if (status === "cancelled") {
+      if (before.status === "completed") {
+        throw new Error("This order can no longer be cancelled");
+      }
+    } else {
+      const beforeIdx = FLOW.indexOf(before.status as OrderStatus);
+      const nextIdx = FLOW.indexOf(status);
+      if (beforeIdx !== -1 && nextIdx !== -1 && nextIdx < beforeIdx) {
+        throw new Error("Can't move an order back to an earlier status");
+      }
+    }
+  }
   const { error } = await sb.from("orders").update({ status }).eq("id", orderId);
   if (error) throw error;
   if (before) {

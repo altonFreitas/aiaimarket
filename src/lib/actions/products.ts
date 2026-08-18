@@ -3,7 +3,8 @@ import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cache";
 import type { StockStatus } from "@/lib/types";
 
 async function nextRef(): Promise<string> {
@@ -103,6 +104,7 @@ export async function saveProduct(input: ProductFormInput) {
     if (error) throw error;
   }
   revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
 }
 
@@ -113,6 +115,7 @@ export async function toggleArchive(id: string, archived: boolean) {
   const { error } = await sb.from("products").update({ archived }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
 }
 
@@ -133,6 +136,7 @@ export async function duplicateProduct(id: string) {
     .single();
   if (e2) throw e2;
   revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
   return created.id as string;
 }
@@ -148,6 +152,7 @@ export async function cycleStock(id: string, current: StockStatus) {
   const { error } = await sb.from("products").update(patch).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
   return next;
 }
@@ -178,6 +183,7 @@ export async function approveProduct(id: string) {
   const { error } = await sb.from("products").update({ status: "approved" }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
 }
 
@@ -187,5 +193,6 @@ export async function rejectProduct(id: string) {
   const { error } = await sb.from("products").update({ status: "rejected" }).eq("id", id);
   if (error) throw error;
   revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
 }

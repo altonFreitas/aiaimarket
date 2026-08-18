@@ -2,8 +2,7 @@
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { disableTotp } from "@/lib/totp";
-import { revalidatePath, updateTag } from "next/cache";
-import { CACHE_TAGS } from "@/lib/cache";
+import { revalidatePath } from "next/cache";
 import type { SellerStatus } from "@/lib/types";
 
 async function setSellerStatus(id: string, status: SellerStatus) {
@@ -11,14 +10,7 @@ async function setSellerStatus(id: string, status: SellerStatus) {
   const sb = supabaseAdmin();
   const { error } = await sb.from("sellers").update({ status }).eq("id", id);
   if (error) throw error;
-  // Approving/suspending a seller changes who appears in
-  // getApprovedSellersById() and on /store/[slug], both of which are
-  // cached catalog reads -- so the tag has to be busted, not just the
-  // admin page path revalidated.
-  updateTag(CACHE_TAGS.sellers);
-  updateTag(CACHE_TAGS.products);
   revalidatePath("/admin/sellers");
-  revalidatePath("/", "layout");
 }
 
 export async function approveSeller(id: string) {

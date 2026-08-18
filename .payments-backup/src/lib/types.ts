@@ -1,10 +1,5 @@
 export type StockStatus = "in" | "low" | "out";
-/** "card" is the gateway-backed method (BNCTL / Mastercard acquiring, see
- * lib/payments/). Every other value is a manual method the owner reconciles
- * by hand -- which is why pay_status stays a separate column: a card order
- * is paid when the gateway says so, a bank-transfer order when the owner
- * says so. */
-export type PayMethod = "cod" | "cop" | "bank" | "wallet" | "fiar" | "card";
+export type PayMethod = "cod" | "cop" | "bank" | "wallet" | "fiar";
 export type PayStatus = "unpaid" | "deposit" | "paid" | "refunded";
 export type OrderStatus =
   | "new" | "confirmed" | "preparing" | "out" | "arrived" | "completed" | "cancelled";
@@ -177,24 +172,4 @@ export interface Order {
   cancel_requested_at: string | null;
   created_at: string;
   order_log?: OrderLogEntry[];
-}
-
-/** A card payment attempt. Mirrors the `payments` table in
- * supabase/payments.sql. Amounts are integer MINOR UNITS (cents) here, not
- * dollars -- see lib/payments/money.ts for why. */
-export interface Payment {
-  id: string;
-  order_id: string;
-  provider: string;
-  provider_ref: string | null;
-  idempotency_key: string;
-  amount_minor: number;
-  currency: string;
-  status:
-    | "initiated" | "pending" | "authorized"
-    | "captured" | "failed" | "cancelled" | "refunded";
-  failure_reason: string | null;
-  redirect_url: string | null;
-  created_at: string;
-  updated_at: string;
 }
