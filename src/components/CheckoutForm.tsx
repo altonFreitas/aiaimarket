@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
@@ -55,7 +56,7 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
         <h1>{t("checkout", lang)}</h1>
         <div className="empty">
           <p>{t("emptyList", lang)}</p>
-          <a className="btn" href="/">{t("browse", lang)}</a>
+          <Link className="btn" href="/">{t("browse", lang)}</Link>
         </div>
       </div>
     );
@@ -109,7 +110,12 @@ export default function CheckoutForm({ lang, settings }: { lang: Lang; settings:
       });
       clear();
       toast(t("orderPlaced", lang));
-      router.push(`/o/${ref}?phone=${encodeURIComponent(fullPhone)}`);
+      // A query string is the least private place to put a phone number: it
+      // lands in server logs, browser history, the Referer header of every
+      // outbound link, and any analytics script on the page. sessionStorage
+      // hands it to the very next page and nowhere else.
+      try { sessionStorage.setItem("loja:justOrdered", JSON.stringify({ ref, phone: fullPhone })); } catch {}
+      router.push(`/o/${ref}`);
     } catch (err) {
       console.error(err);
       toast(String((err as Error).message || "Error"), true);

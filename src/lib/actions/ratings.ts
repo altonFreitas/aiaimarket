@@ -25,7 +25,7 @@ export async function submitSellerRating(input: SubmitRatingInput) {
   if (rating < 1 || rating > 5) throw new Error("Rating must be 1 to 5");
 
   const sb = supabaseAdmin();
-  const { data: order } = await sb.from("orders").select("*").ilike("ref", input.ref.trim()).maybeSingle();
+  const { data: order } = await sb.from("orders").select("*").eq("ref", input.ref.trim().toUpperCase()).maybeSingle();
   if (!order) throw new Error("Order not found");
   if (order.buyer_phone !== phoneNorm(input.phone)) throw new Error("Order not found");
   if (order.status !== "completed") throw new Error("This order isn't completed yet");

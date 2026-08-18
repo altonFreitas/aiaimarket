@@ -39,7 +39,7 @@ function verify(token: string): string | null {
 }
 
 export async function grantSellerTotpSession(sellerId: string) {
-  const token = sign(`seller-totp:${sellerId}`);
+  const token = sign(`seller-totp:${sellerId}:${Date.now()}`);
   const jar = await cookies();
   jar.set(COOKIE, token, {
     httpOnly: true,
@@ -58,7 +58,19 @@ export async function hasSellerTotpSession(sellerId: string): Promise<boolean> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return false;
-  return verify(token) === `seller-totp:${sellerId}`;
+
+  const value = verify(token);
+  if (!value) return false;
+
+  // Payload is `seller-totp:<sellerId>:<issuedAtMs>`. Both halves matter:
+  // the seller id so the cookie can't be replayed across accounts, and the
+  // timestamp so a captured cookie doesn't grant a permanent second factor.
+  const prefix = `seller-totp:${sellerId}:`;
+  if (!value.startsWith(prefix)) return false;
+
+  const issuedAt = Number(value.slice(prefix.length));
+  if (!Number.isFinite(issuedAt)) return false;
+  return Date.now() - issuedAt <= MAX_AGE * 1000;
 }
 
 export async function clearSellerTotpSession() {

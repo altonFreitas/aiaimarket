@@ -1,6 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
 import type { HeroSlide } from "@/lib/types";
 
@@ -11,12 +12,10 @@ import type { HeroSlide } from "@/lib/types";
 export async function uploadHeroImage(dataUrl: string, filenameHint: string) {
   await requireAdmin();
   const sb = supabaseAdmin();
-  const base64 = dataUrl.split(",")[1];
-  const bytes = Buffer.from(base64, "base64");
-  const safeName = (filenameHint || "img").replace(/[^a-z0-9.-]/gi, "-");
-  const path = `hero/${Date.now()}-${safeName}.webp`;
+  const { bytes, contentType, ext } = decodeImageDataUrl(dataUrl);
+  const path = `hero/${Date.now()}-${safeFileStem(filenameHint)}.${ext}`;
   const { error } = await sb.storage.from("product-images").upload(path, bytes, {
-    contentType: "image/webp",
+    contentType,
     upsert: false,
   });
   if (error) throw error;

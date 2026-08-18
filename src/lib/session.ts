@@ -34,10 +34,30 @@ function verify(token: string): string | null {
 /** Pure credential check — no side effects, no cookie. Used both before
  * showing the TOTP step and again when confirming it, so a stolen
  * half-completed flow can't skip straight to the second factor. */
+const MIN_ADMIN_PASSWORD_LEN = 12;
+
 export function checkCredentials(identifier: string, password: string): boolean {
-  const okUser =
-    identifier.trim().toLowerCase() === (process.env.ADMIN_EMAIL || "").toLowerCase();
-  const okPass = timingSafeStringEqual(password, process.env.ADMIN_PASSWORD || "");
+  const expectedEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  const expectedPassword = process.env.ADMIN_PASSWORD || "";
+
+  // Fail CLOSED on missing configuration. Without this, an unconfigured
+  // deploy authenticates an empty email against an empty password —
+  // "" === "" is true, and crypto.timingSafeEqual() on two zero-length
+  // buffers also returns true — handing /admin to the first visitor who
+  // submits a blank form.
+  if (!expectedEmail || !expectedPassword) {
+    throw new Error(
+      "ADMIN_EMAIL and ADMIN_PASSWORD must both be set. Refusing to authenticate."
+    );
+  }
+  if (expectedPassword.length < MIN_ADMIN_PASSWORD_LEN) {
+    throw new Error(
+      `ADMIN_PASSWORD must be at least ${MIN_ADMIN_PASSWORD_LEN} characters. Refusing to authenticate.`
+    );
+  }
+
+  const okUser = identifier.trim().toLowerCase() === expectedEmail;
+  const okPass = timingSafeStringEqual(password, expectedPassword);
   return okUser && okPass;
 }
 
@@ -87,7 +107,19 @@ export async function isLoggedIn() {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return false;
-  return verify(token) !== null;
+
+  const value = verify(token);
+  if (!value) return false;
+
+  // The cookie's maxAge is enforced by the BROWSER, which an attacker
+  // replaying a captured token simply isn't. The signed payload carries
+  // its own issue time — check it here, server-side, or the token stays
+  // valid forever.
+  const issuedAt = Number(value.split(":")[1]);
+  if (!Number.isFinite(issuedAt)) return false;
+  if (Date.now() - issuedAt > MAX_AGE * 1000) return false;
+
+  return true;
 }
 
 export { COOKIE as SESSION_COOKIE };

@@ -1,5 +1,6 @@
 "use server";
 import { checkCredentials, grantSession, logout as doLogout } from "@/lib/session";
+import { rateLimit, callerKey } from "@/lib/rateLimit";
 import { getOrCreateTotpSetup, confirmTotpSetup, verifyTotpCode, getTotpStatus, type TotpTarget } from "@/lib/totp";
 import { redirect } from "next/navigation";
 
@@ -8,6 +9,13 @@ const ADMIN_TOTP_TARGET: TotpTarget = { table: "settings", idValue: 1 };
 /** Step 1: password check only. Never grants a session — just tells the
  * client which second-factor screen to show next. */
 export async function checkPasswordAction(identifier: string, password: string) {
+  // The TOTP step has had a lockout since day one; the password step had
+  // none, so ADMIN_PASSWORD could be guessed at whatever rate the network
+  // allowed. 10 attempts / 5 minutes per IP.
+  const limit = rateLimit(await callerKey("admin-login"), 10, 300);
+  if (!limit.allowed) {
+    throw new Error(`Too many attempts. Try again in ${limit.retryAfterSeconds}s.`);
+  }
   if (!checkCredentials(identifier, password)) {
     return { ok: false as const };
   }

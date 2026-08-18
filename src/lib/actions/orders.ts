@@ -2,8 +2,16 @@
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { phoneNorm, phoneOk, FLOW } from "@/lib/utils";
+import { rateLimit, callerKey } from "@/lib/rateLimit";
+import { decodeImageDataUrl } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
+
+/** Trims and hard-truncates a free-text field. Postgres `text` has no
+ * length limit, so without this a single request can write megabytes. */
+function clip(v: string | undefined | null, max: number): string {
+  return (v || "").trim().slice(0, max);
+}
 
 /** Shared collision-checked reference generator: prefix + year +
  * last4(phone) + 6 random digits. Used for both delivery and pickup
@@ -57,10 +65,27 @@ export interface PlaceOrderInput {
 /** F1/F2 — guest checkout, no account. Uses the ANON client (not admin):
  * RLS explicitly allows public INSERT on orders and nothing else, so this
  * is safe to call from a client action without extra guarding. */
+/** Hard ceilings on anything a guest can send. An unauthenticated action
+ * that writes to the database needs an upper bound on every dimension of
+ * its input, or it becomes a free write-amplification primitive. */
+const MAX_LINE_QTY = 999;
+const MAX_BASKET_LINES = 50;
+const MAX_NAME_LEN = 120;
+const MAX_NOTE_LEN = 2000;
+const MAX_ADDRESS_FIELD_LEN = 200;
+
 export async function placeOrder(input: PlaceOrderInput) {
   if (!input.name.trim()) throw new Error("Name is required");
   if (!phoneOk(input.phone)) throw new Error("Invalid phone number");
   if (!input.items.length) throw new Error("Basket is empty");
+  if (input.items.length > MAX_BASKET_LINES) throw new Error("Too many items in one order");
+
+  // Unauthenticated, writes to the database, sends no payment — exactly the
+  // shape of endpoint that gets scripted. 10 orders / 10 minutes per IP.
+  const orderLimit = rateLimit(await callerKey("place-order"), 10, 600);
+  if (!orderLimit.allowed) {
+    throw new Error(`Too many orders from this connection. Try again in ${orderLimit.retryAfterSeconds}s.`);
+  }
 
   // Fee + zone resolution happens server-side against real settings,
   // never trusted from the client.
@@ -69,7 +94,6 @@ export async function placeOrder(input: PlaceOrderInput) {
   const zones = (settings?.zones as Zone[]) || [];
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
   let fee = zone && !zone.quote ? Number(zone.fee) : 0;
-  const subtotal = input.items.reduce((a, i) => a + i.price * i.qty, 0);
   const normalizedPhone = phoneNorm(input.phone);
 
   // Resolve each item's seller_id server-side, never from the client --
@@ -78,13 +102,55 @@ export async function placeOrder(input: PlaceOrderInput) {
   // product with no real seller (still just the platform owner's own
   // catalog) resolves to whatever seller_id the products row already
   // has by default, same as everywhere else in the schema.
+  // priceIsAuthoritative — the basket lives in the buyer's localStorage, so
+  // NOTHING it claims about price, name or seller may be trusted. Every line
+  // is re-read from `products` and re-priced here; the client's numbers are
+  // used only to say WHICH product and HOW MANY. Without this, a crafted
+  // request buys a $500 item for $0.01.
   const productIds = [...new Set(input.items.map((i) => i.product_id))];
-  const { data: prodRows } = await sb.from("products").select("id, seller_id").in("id", productIds);
-  const sellerByProduct = new Map((prodRows || []).map((row) => [row.id, row.seller_id as string | null]));
-  const itemsWithSeller: OrderItem[] = input.items.map((i) => ({
-    ...i,
-    seller_id: sellerByProduct.get(i.product_id) ?? null,
-  }));
+  const { data: prodRows } = await sb
+    .from("products")
+    .select("id, seller_id, name, price, discount_price, qty, stock_status, archived, status")
+    .in("id", productIds);
+  const byId = new Map((prodRows || []).map((row) => [row.id as string, row]));
+
+  const itemsWithSeller: OrderItem[] = input.items.map((i) => {
+    const row = byId.get(i.product_id);
+    if (!row) throw new Error("A product in your basket is no longer available");
+    if (row.archived || row.status !== "approved") {
+      throw new Error(`"${row.name}" is no longer available`);
+    }
+    if (row.stock_status === "out") throw new Error(`"${row.name}" is out of stock`);
+
+    const qty = Math.floor(Number(i.qty));
+    if (!Number.isFinite(qty) || qty < 1 || qty > MAX_LINE_QTY) {
+      throw new Error(`Invalid quantity for "${row.name}"`);
+    }
+    if (row.qty > 0 && qty > row.qty) {
+      throw new Error(`Only ${row.qty} left of "${row.name}"`);
+    }
+
+    // The discount is the store's, not the buyer's, to declare.
+    const unitPrice = row.discount_price != null && Number(row.discount_price) > 0
+      ? Number(row.discount_price)
+      : Number(row.price);
+
+    // Size is the one value the buyer genuinely chooses, so it is kept from
+    // the request — bounded, not validated against row.sizes, because sizes
+    // are free-text in this schema and legacy baskets may hold older values.
+    const size = typeof i.size === "string" ? i.size.slice(0, 40) : "";
+
+    return {
+      product_id: row.id,
+      seller_id: (row.seller_id as string | null) ?? null,
+      name: row.name as string,
+      size,
+      price: unitPrice,
+      qty,
+    };
+  });
+
+  const subtotal = itemsWithSeller.reduce((a, i) => a + i.price * i.qty, 0);
 
   // Seller-configured delivery fee: if every item in this order belongs
   // to the SAME real seller (not a mixed cart, not the platform's own
@@ -113,7 +179,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     .from("orders")
     .insert({
       ref,
-      buyer_name: input.name.trim(),
+      buyer_name: clip(input.name, MAX_NAME_LEN),
       buyer_phone: normalizedPhone,
       items: itemsWithSeller,
       mode: input.mode,
@@ -122,15 +188,15 @@ export async function placeOrder(input: PlaceOrderInput) {
       quote_requested: !!(zone && zone.quote),
       subtotal,
       total: subtotal + fee,
-      address_line: input.mode === "delivery" ? input.addressLine || null : null,
-      municipality: input.mode === "delivery" ? input.municipality || null : null,
-      post: input.mode === "delivery" ? input.post || null : null,
-      suku: input.mode === "delivery" ? input.suku || null : null,
-      aldeia: input.mode === "delivery" ? input.aldeia || null : null,
-      landmark: input.mode === "delivery" ? input.landmark : null,
+      address_line: input.mode === "delivery" ? clip(input.addressLine, MAX_ADDRESS_FIELD_LEN) || null : null,
+      municipality: input.mode === "delivery" ? clip(input.municipality, MAX_ADDRESS_FIELD_LEN) || null : null,
+      post: input.mode === "delivery" ? clip(input.post, MAX_ADDRESS_FIELD_LEN) || null : null,
+      suku: input.mode === "delivery" ? clip(input.suku, MAX_ADDRESS_FIELD_LEN) || null : null,
+      aldeia: input.mode === "delivery" ? clip(input.aldeia, MAX_ADDRESS_FIELD_LEN) || null : null,
+      landmark: input.mode === "delivery" ? clip(input.landmark, MAX_ADDRESS_FIELD_LEN) : null,
       pay_method: input.payMethod,
       pay_status: "unpaid",
-      note: input.note || "",
+      note: clip(input.note, MAX_NOTE_LEN),
       status: "new",
     })
     .select()
@@ -156,7 +222,10 @@ export async function lookupOrder(ref: string, phone: string) {
   const { data } = await sb
     .from("orders")
     .select("*, order_log(*)")
-    .ilike("ref", ref.trim())
+    // .eq(), never .ilike(): in Postgres LIKE patterns "%" and "_" are
+    // wildcards, so an .ilike() on raw user input lets ref="%" match an
+    // arbitrary order instead of one exact reference.
+    .eq("ref", ref.trim().toUpperCase())
     .maybeSingle();
   if (!data) return null;
   if (data.buyer_phone !== phoneNorm(phone)) return null;
@@ -171,6 +240,12 @@ export async function lookupOrder(ref: string, phone: string) {
  * no new accounts table, no SMS provider, no added cost. */
 export async function getOrdersByPhone(phone: string) {
   if (!phoneOk(phone)) return [];
+  // A phone number is the ONLY credential here (Decision 3), so this
+  // endpoint is a standing offer to enumerate the store's customers.
+  // Throttling doesn't fix the trust model, but it makes bulk harvesting
+  // expensive. 20 lookups / 5 minutes per IP.
+  const lookupLimit = rateLimit(await callerKey("order-lookup"), 20, 300);
+  if (!lookupLimit.allowed) return [];
   const sb = supabaseAdmin();
   const normalized = phoneNorm(phone);
   const { data } = await sb
@@ -215,12 +290,17 @@ export async function updateOrderAddress(
 export async function uploadPaymentProof(ref: string, phone: string, dataUrl: string) {
   const order = await lookupOrder(ref, phone);
   if (!order) throw new Error("Order not found");
+  if (["completed", "cancelled"].includes(order.status)) {
+    throw new Error("This order is closed");
+  }
   const sb = supabaseAdmin();
-  const base64 = dataUrl.split(",")[1];
-  const bytes = Buffer.from(base64, "base64");
-  const path = `proofs/${order.ref}-${Date.now()}.webp`;
+  // This is reachable by anyone holding a ref + phone, so the size cap and
+  // format check are the only thing between the form and arbitrary blobs
+  // in the storage bucket.
+  const { bytes, contentType, ext } = decodeImageDataUrl(dataUrl, 512);
+  const path = `proofs/${order.ref}-${Date.now()}.${ext}`;
   const { error } = await sb.storage.from("payment-proofs").upload(path, bytes, {
-    contentType: "image/webp",
+    contentType,
   });
   if (error) throw error;
   const { data: signed } = await sb.storage.from("payment-proofs").createSignedUrl(path, 60 * 60 * 24 * 365);

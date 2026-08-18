@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Written by Apply-aiaimarket-hardening.js — pre-patch copies of the
+    // files it edits. Linting them just re-reports every issue twice.
+    ".audit-backup/**",
   ]),
 ]);
 

@@ -11,7 +11,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * Async because every export from a "use server" file must be — this
  * is called directly from the client form. */
 export async function isAdminEmail(email: string): Promise<boolean> {
-  return email.trim().toLowerCase() === (process.env.ADMIN_EMAIL || "").toLowerCase();
+  const configured = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  // Unconfigured must never match — otherwise "" === "" routes an empty
+  // login straight into the admin TOTP flow.
+  if (!configured) return false;
+  return email.trim().toLowerCase() === configured;
 }
 
 /** Resolves who a signed-in Supabase Auth user actually is, without

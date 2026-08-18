@@ -64,8 +64,8 @@ export default function TrendChart({
 
   const max = Math.max(1, ...raw.map((p) => p.value));
   const periodTotal = raw.reduce((a, p) => a + p.value, 0);
-  const periodSubtotal = raw.reduce((a, p) => a + p.subtotal, 0);
-  const periodFee = raw.reduce((a, p) => a + p.fee, 0);
+  // periodSubtotal / periodFee were computed here and never read — the
+  // per-bar breakdown below derives its own numbers.
   const format = (v: number) => (metric === "revenue" ? money(v) : String(v));
 
   function breakdownOnly(subtotal: number, fee: number) {

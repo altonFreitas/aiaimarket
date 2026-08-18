@@ -35,12 +35,9 @@ export default function ProductInteractive({
   const msg = waProductMsg({ ...p, price: effectivePrice }, size, qty, siteUrl);
   const href = waLink(waDigits, msg);
 
-  const loc = {
-    municipality: p.municipality || settings.municipality,
-    post: p.post || settings.post,
-    suku: p.suku || settings.suku,
-    landmark: p.landmark || settings.landmark,
-  };
+  // `loc` (a pickup-location fallback merging product overrides onto the
+  // store defaults) was built here and never rendered. Removed rather than
+  // left to rot; the fallback logic still lives in the checkout flow.
 
   const payList: Array<[boolean, string]> = [
     [p.pay_cod, "pm_cod"], [p.pay_cop, "pm_cop"], [p.pay_bank, "pm_bank"],

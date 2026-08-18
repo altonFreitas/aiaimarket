@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# hardening-script backups (Apply-aiaimarket-hardening.js --revert reads these)
+.audit-backup/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

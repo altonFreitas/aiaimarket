@@ -1,6 +1,32 @@
+import { cache } from "react";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, OrderItem, Product, Settings } from "@/lib/types";
+
+/* ---------------------------------------------------------------------------
+ * Request-level memoization.
+ *
+ * These reads were repeated several times within a single render:
+ *   - getSettings() ran three times on a product page (generateMetadata,
+ *     the root layout, and the page itself),
+ *   - getLiveProducts() — a full, unbounded catalog scan — ran twice on
+ *     /p/[slug]: once for the page and once more just to pick 4 related
+ *     products,
+ *   - getApprovedSellersById() ran in both the page and CatalogLayout.
+ *
+ * React's cache() collapses identical calls inside one request into a single
+ * query. It is scoped to the request, so an admin edit is still visible on
+ * the very next load — this is deduplication, not caching, and it changes no
+ * behaviour beyond the number of round trips to Singapore.
+ *
+ * The uncached implementations below are function DECLARATIONS, which hoist,
+ * so these consts may reference them before their definitions appear.
+ * ------------------------------------------------------------------------ */
+export const getSettings = cache(getSettingsUncached);
+export const getCategories = cache(getCategoriesUncached);
+export const getLiveProducts = cache(getLiveProductsUncached);
+export const getApprovedSellersById = cache(getApprovedSellersByIdUncached);
+export const getHeroSlides = cache(getHeroSlidesUncached);
 
 const DEFAULT_SETTINGS: Settings = {
   id: 0, // 0 signals "not configured yet"
@@ -20,7 +46,7 @@ const DEFAULT_SETTINGS: Settings = {
  * excluded from anon, see supabase/schema.sql). A select("*") here would
  * ask for totp_secret too, get a permission error on the whole query,
  * and this function would wrongly report "not connected". */
-export async function getSettings(): Promise<Settings> {
+async function getSettingsUncached(): Promise<Settings> {
   try {
     const sb = await supabaseServer();
     const { data, error } = await sb
@@ -35,7 +61,7 @@ export async function getSettings(): Promise<Settings> {
   }
 }
 
-export async function getCategories(): Promise<Category[]> {
+async function getCategoriesUncached(): Promise<Category[]> {
   try {
     const sb = await supabaseServer();
     const { data } = await sb.from("categories").select("*").order("sort_order");
@@ -43,7 +69,7 @@ export async function getCategories(): Promise<Category[]> {
   } catch { return []; }
 }
 
-export async function getLiveProducts(): Promise<Product[]> {
+async function getLiveProductsUncached(): Promise<Product[]> {
   try {
     const sb = await supabaseServer();
     const { data } = await sb
@@ -87,7 +113,7 @@ export async function getBestSellingProducts(
   limit = 6
 ): Promise<{ products: Product[]; confirmedIds: Set<string> }> {
   try {
-    const [admin, products] = [supabaseAdmin(), await getLiveProducts()];
+    const [admin, products] = [supabaseAdmin(), await getLiveProductsUncached()];
     const { data: orders } = await admin.from("orders").select("items").eq("status", "completed");
 
     const qtySold = new Map<string, number>();
@@ -131,7 +157,7 @@ export async function bumpWaClick(productId: string) {
  * (see supabase/migration_hero_slides.sql), this just returns an empty
  * list and the homepage falls back to the default hero — it must never
  * take down the rest of the site's settings/data. */
-export async function getHeroSlides(): Promise<HeroSlide[]> {
+async function getHeroSlidesUncached(): Promise<HeroSlide[]> {
   try {
     const sb = await supabaseServer();
     const { data, error } = await sb.from("hero_slides").select("*").order("sort_order");
@@ -159,7 +185,7 @@ export interface PublicSeller {
  * "don't show a Sold-by line" rather than an error. Isolated with its
  * own try/catch for the same reason as getHeroSlides() — this must never
  * take down a catalog page. */
-export async function getApprovedSellersById(): Promise<Record<string, PublicSeller>> {
+async function getApprovedSellersByIdUncached(): Promise<Record<string, PublicSeller>> {
   try {
     const sb = await supabaseServer();
     const { data, error } = await sb

@@ -35,6 +35,21 @@ export async function adminOrders(): Promise<Order[]> {
   const { data } = await sb.from("orders").select("*").order("created_at", { ascending: false });
   return (data as Order[]) || [];
 }
+/** Orders plus the "how many arrived today" figure.
+ *
+ * The count used to be computed inside the OrdersAdmin component with
+ * Date.now(). Reading a clock during render makes a component
+ * non-deterministic — React may re-render at any moment and get a different
+ * answer — and it used the ADMIN'S OWN device clock, so a skewed laptop
+ * showed a different "today" than the store's data. Computing it here, in
+ * a plain data function on the server, fixes both. */
+export async function adminOrdersView(): Promise<{ orders: Order[]; ordersToday: number }> {
+  const orders = await adminOrders();
+  const dayAgo = Date.now() - 864e5;
+  const ordersToday = orders.filter((o) => new Date(o.created_at).getTime() > dayAgo).length;
+  return { orders, ordersToday };
+}
+
 export async function adminOrder(id: string): Promise<Order | null> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("orders").select("*, order_log(*)").eq("id", id).maybeSingle();

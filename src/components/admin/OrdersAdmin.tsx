@@ -5,10 +5,17 @@ import { money, nowIso, FLOW } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order } from "@/lib/types";
 
-export default function OrdersAdmin({ lang, orders }: { lang: Lang; orders: Order[] }) {
+export default function OrdersAdmin({
+  lang, orders, ordersToday,
+}: { lang: Lang; orders: Order[]; ordersToday: number }) {
   const [status, setStatus] = useState("");
   const list = status ? orders.filter((o) => o.status === status) : orders;
-  const today = orders.filter((o) => Date.now() - new Date(o.created_at).getTime() < 864e5).length;
+  // Was computed here with Date.now(). Reading the clock during render makes
+  // the component non-deterministic (React can re-render at any time and get
+  // a different answer), and it used the VIEWER's clock — an admin with a
+  // skewed device clock saw a different "today" than the store's data. The
+  // server owns the count now; this component just displays it.
+  const today = ordersToday;
 
   return (
     <>

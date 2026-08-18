@@ -2,20 +2,44 @@
 import { requireApprovedSeller } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
+import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
 import type { StockStatus } from "@/lib/types";
 
 async function nextRef(): Promise<string> {
   const sb = supabaseAdmin();
-  const { count } = await sb.from("products").select("*", { count: "exact", head: true });
-  return "PRD-" + String((count || 0) + 1).padStart(4, "0");
+  // Was: count() + 1. That is wrong twice over — it reuses a number as
+  // soon as anything is ever removed, and two products saved in the same
+  // second both compute the same ref, so the second insert dies on the
+  // UNIQUE constraint. Read the highest existing ref instead, and retry on
+  // the (now genuinely rare) race.
+  const { data } = await sb
+    .from("products")
+    .select("ref")
+    .like("ref", "PRD-%")
+    .order("ref", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const highest = data?.ref ? parseInt(String(data.ref).slice(4), 10) : 0;
+  let n = (Number.isFinite(highest) ? highest : 0) + 1;
+
+  for (let attempt = 0; attempt < 25; attempt++, n++) {
+    const ref = "PRD-" + String(n).padStart(4, "0");
+    const { data: clash } = await sb.from("products").select("id").eq("ref", ref).maybeSingle();
+    if (!clash) return ref;
+  }
+  throw new Error("Could not generate a unique product reference — please try again");
 }
 
 async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
   const sb = supabaseAdmin();
   let slug = base || "produtu";
   let n = 1;
-  while (true) {
+  // Was `while (true)`. A single unexpected query error inside the loop
+  // (or a slug that somehow never resolves) spins a serverless function
+  // until its timeout, billing for every second of it. Bounded instead.
+  for (let attempt = 0; attempt < 200; attempt++) {
     let q = sb.from("products").select("id").eq("slug", slug);
     if (excludeId) q = q.neq("id", excludeId);
     const { data } = await q.maybeSingle();
@@ -23,6 +47,7 @@ async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
     n += 1;
     slug = `${base}-${n}`;
   }
+  throw new Error("Could not build a unique slug for this product — try a different name");
 }
 
 export interface SellerProductFormInput {
@@ -92,11 +117,10 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
 export async function uploadSellerProductImage(dataUrl: string, filenameHint: string) {
   await requireApprovedSeller();
   const sb = supabaseAdmin();
-  const base64 = dataUrl.split(",")[1];
-  const bytes = Buffer.from(base64, "base64");
-  const path = `products/${Date.now()}-${slugify(filenameHint || "img")}.webp`;
+  const { bytes, contentType, ext } = decodeImageDataUrl(dataUrl);
+  const path = `products/${Date.now()}-${safeFileStem(filenameHint)}.${ext}`;
   const { error } = await sb.storage.from("product-images").upload(path, bytes, {
-    contentType: "image/webp",
+    contentType,
     upsert: false,
   });
   if (error) throw error;

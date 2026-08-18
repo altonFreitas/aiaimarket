@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Sidebar from "./Sidebar";
 import CatRail from "./CatRail";
 import Toolbar from "./Toolbar";
@@ -7,7 +8,7 @@ import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, Settings } from "@/lib/types";
 
 export default async function CatalogLayout({
-  title, sub, cats, allProducts, shown, activeSlug, lang, settings,
+  title, sub, cats, allProducts, shown, activeSlug, lang,
 }: {
   title: React.ReactNode;
   sub?: React.ReactNode;
@@ -37,9 +38,9 @@ export default async function CatalogLayout({
           ) : (
             <div className="empty">
               <p>{t("noResults", lang)}</p>
-              <a className="btn btn-ghost" href="/">
+              <Link className="btn btn-ghost" href="/">
                 {t("browse", lang)}
-              </a>
+              </Link>
             </div>
           )}
         </div>

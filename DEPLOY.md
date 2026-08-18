@@ -72,9 +72,17 @@ NEXT_PUBLIC_SUPABASE_URL      = https://xxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJ...
 SUPABASE_SERVICE_ROLE_KEY     = eyJ...
 ADMIN_EMAIL                   = you@yourdomain.tl
-ADMIN_PASSWORD                = <pick a strong one>
+ADMIN_PASSWORD                = <at least 12 characters>
 SESSION_SECRET                = <long random string>
+NEXT_PUBLIC_SITE_URL          = https://yourdomain.tl
 ```
+
+`NEXT_PUBLIC_SITE_URL` is not optional in production. `sitemap.xml`,
+`robots.txt`, canonical tags and every OpenGraph URL are built from it — leave
+it unset and your live site publishes a sitemap pointing at
+`http://localhost:3000`, which search engines discard. Set it to your real
+domain (no trailing slash) and redeploy. On the first deploy, before your
+domain is attached, use the `.vercel.app` URL and update it afterwards.
 
 Generate `SESSION_SECRET` with `openssl rand -base64 32`, or any 32+ character random string.
 

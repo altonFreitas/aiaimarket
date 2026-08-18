@@ -7,7 +7,11 @@ import {
   lookupOrder, getOrdersByPhone, requestCancellation, updateOrderAddress, uploadPaymentProof,
 } from "@/lib/actions/orders";
 import { compressImage } from "@/lib/compressImage";
-import { downloadOrderInvoice } from "@/lib/pdfInvoice";
+// pdfInvoice is imported lazily — see downloadInvoice() below. Statically
+// importing it pulled jspdf + dompurify (~396 KB) into the first-load
+// bundle of /track and /o/[ref]: the two pages every buyer opens, on
+// mobile data, in a store whose whole premise is data frugality. Almost
+// none of them press "download invoice".
 import SellerRatingForm from "@/components/SellerRatingForm";
 import { addrLine, money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -29,14 +33,35 @@ export default function TrackForm({
   const [history, setHistory] = useState<OrderSummary[] | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Coming straight from checkout: the phone is passed once so the buyer
-  // doesn't have to retype it to see the order they just placed.
+  // Coming straight from checkout: the phone is handed over once through
+  // sessionStorage (never the URL — see CheckoutForm) so the buyer doesn't
+  // have to retype it to see the order they just placed. Read and cleared
+  // in one go: it is good for exactly this one navigation.
+  //
+  // The work sits in an async closure rather than the effect body itself:
+  // a setState called synchronously while an effect runs schedules a second
+  // render pass before the browser has painted the first one, which is what
+  // react-hooks/set-state-in-effect flags. Inside the closure it is an
+  // ordinary asynchronous update, same as any event handler.
   useEffect(() => {
-    const p = params.get("phone");
-    if (p && initialRef) {
+    void (async () => {
+      let handoff: { ref?: string; phone?: string } | null = null;
+      try {
+        const raw = sessionStorage.getItem("loja:justOrdered");
+        if (raw) {
+          handoff = JSON.parse(raw);
+          sessionStorage.removeItem("loja:justOrdered");
+        }
+      } catch { handoff = null; }
+
+      // Legacy: an /o/<ref>?phone=… link bookmarked before this change.
+      const p = handoff?.phone || params.get("phone") || "";
+      if (!p || !initialRef) return;
+      if (handoff?.ref && handoff.ref !== initialRef) return;
+
       setPhone(p);
-      void find(initialRef, p);
-    }
+      await find(initialRef, p);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -186,6 +211,16 @@ function Dashboard({
   const at = flow.indexOf(o.status);
   const payPill = o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : o.pay_status === "refunded" ? "bad" : "warn";
 
+  /** Pulls jspdf down only when someone actually presses "download". */
+  async function downloadInvoice() {
+    try {
+      const mod = await import("@/lib/pdfInvoice");
+      await mod.downloadOrderInvoice(o, settings);
+    } catch {
+      toast(t("notFound", lang), true);
+    }
+  }
+
   async function saveAddr() {
     try {
       await updateOrderAddress(o.ref, phone, addr);
@@ -300,7 +335,7 @@ function Dashboard({
           <div className="kv total"><span>{t("total", lang)}</span><b>{money(o.total)}</b></div>
         </div>
         <button className="btn btn-amber btn-sm" type="button" style={{ marginTop: 10 }}
-          onClick={() => { void downloadOrderInvoice(o, settings); }}>
+          onClick={() => { void downloadInvoice(); }}>
           {t("downloadPdf", lang)}
         </button>
       </div>

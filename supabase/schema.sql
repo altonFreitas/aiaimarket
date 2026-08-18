@@ -137,7 +137,11 @@ alter table sellers enable row level security;
 create table if not exists seller_ratings (
   id          uuid primary key default gen_random_uuid(),
   seller_id   uuid not null references sellers(id) on delete cascade,
-  order_id    uuid references orders(id) on delete set null,
+  -- No inline `references orders(id)` here: this table is defined ABOVE
+  -- `orders`, so an inline foreign key aborts the whole script on a fresh
+  -- database ("relation orders does not exist") and every table below this
+  -- point is silently never created. FK added at the end of this file.
+  order_id    uuid,
   buyer_phone text not null,
   rating      int not null check (rating between 1 and 5),
   comment     text not null default '',
@@ -458,8 +462,15 @@ create policy categories_public_read on categories for select using (true);
 drop policy if exists hero_slides_public_read on hero_slides;
 create policy hero_slides_public_read on hero_slides for select using (true);
 
+-- `status` belongs in the POLICY, not only in the app's queries. The
+-- anon key is public by design, so anyone can call the REST API directly
+-- (GET /rest/v1/products?status=eq.pending) and read every listing awaiting
+-- moderation plus every one already rejected, unless the database itself
+-- refuses. Admin/seller pages are unaffected -- they use the service-role
+-- client, which bypasses RLS.
 drop policy if exists products_public_read on products;
-create policy products_public_read on products for select using (archived = false);
+create policy products_public_read on products
+  for select using (archived = false and status = 'approved');
 
 -- Orders: no public SELECT policy at all — order lookup by ref+phone is
 -- done through a server route using the service-role key, never straight
@@ -498,3 +509,19 @@ create policy "product images public read" on storage.objects
 -- that still has these from an earlier version of this file.
 drop policy if exists "product images public upload" on storage.objects;
 drop policy if exists "payment proofs public upload" on storage.objects;
+
+-- ============================================================
+-- Deferred constraints
+-- Anything referencing a table defined later in this file lands here, so
+-- the script runs top to bottom on a brand-new database.
+-- ============================================================
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'seller_ratings_order_id_fkey'
+  ) then
+    alter table seller_ratings
+      add constraint seller_ratings_order_id_fkey
+      foreign key (order_id) references orders(id) on delete set null;
+  end if;
+end $$;

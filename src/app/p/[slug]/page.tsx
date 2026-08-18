@@ -67,8 +67,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <div className="wrap">
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON.stringify does NOT escape "<", so a product named
+        // "</script><script>…" would break out of this tag and execute on
+        // every visitor's page. Escaping < (and the U+2028/2029 line
+        // separators, which are literal newlines in JS but legal in JSON)
+        // makes the payload inert regardless of what a seller types.
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd)
+            .replace(/</g, "\\u003c")
+            .replace(/\u2028/g, "\\u2028")
+            .replace(/\u2029/g, "\\u2029"),
+        }}
       />
       <p className="crumb">
         <Link href="/">{t("catalog", lang)}</Link>
