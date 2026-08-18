@@ -5,8 +5,6 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
 import type { Order, OrderItem, Product, Seller } from "@/lib/types";
 
-const MAX_SELLER_ORDER_SCAN = 5000;
-
 /** Used at the top of every /seller/* page (except register): resolves
  * the logged-in seller's own row, or sends them back to the unified
  * /account entry point (see app/account/page.tsx — logging in there as
@@ -92,14 +90,7 @@ export interface SellerOrderView {
  * approach used elsewhere in this app (e.g. category product counts). */
 export async function getSellerOrders(sellerId: string): Promise<SellerOrderView[]> {
   const sb = supabaseAdmin();
-  // There is no orders->seller index to query on: a seller's items live
-  // inside the order's `items` JSONB, so finding "orders containing this
-  // seller" means scanning and filtering in memory. Bounded to the most
-  // recent slice rather than the whole table; the real fix is an
-  // order_items table (or a GIN index on items) when this becomes the
-  // bottleneck.
-  const { data } = await sb.from("orders").select("*")
-    .order("created_at", { ascending: false }).limit(MAX_SELLER_ORDER_SCAN);
+  const { data } = await sb.from("orders").select("*").order("created_at", { ascending: false });
   const orders = (data as Order[]) || [];
 
   const views: SellerOrderView[] = [];

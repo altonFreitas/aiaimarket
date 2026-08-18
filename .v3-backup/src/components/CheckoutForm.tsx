@@ -11,11 +11,9 @@ import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
 
-const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "card"];
+const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet"];
 
-export default function CheckoutForm({
-  lang, settings, cardAvailable = false,
-}: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
+export default function CheckoutForm({ lang, settings }: { lang: Lang; settings: Settings }) {
   const { lines, subtotal, clear } = useBasket();
   const { toast } = useToast();
   const router = useRouter();
@@ -48,14 +46,8 @@ export default function CheckoutForm({
   // only makes sense for pickup orders. Whichever doesn't apply to the
   // chosen "how do you want it" option is hidden below.
   const availablePay = useMemo(
-    () => ALL_PAY.filter((m) => {
-      // "card" only appears when a gateway is configured (see
-      // lib/payments/registry.ts). Everything else is a manual method the
-      // owner reconciles by hand and is always available.
-      if (m === "card") return cardAvailable;
-      return mode === "pickup" ? m !== "cod" : m !== "cop";
-    }),
-    [mode, cardAvailable]
+    () => ALL_PAY.filter((m) => (mode === "pickup" ? m !== "cod" : m !== "cop")),
+    [mode]
   );
 
   if (!lines.length) {
@@ -298,9 +290,6 @@ export default function CheckoutForm({
           )}
           {pay === "fiar" && (
             <div className="note" style={{ marginTop: 8 }}>{t("pm_fiar_note", lang)}</div>
-          )}
-          {pay === "card" && (
-            <div className="note info" style={{ marginTop: 8 }}>{t("pm_card_note", lang)}</div>
           )}
         </div>
 

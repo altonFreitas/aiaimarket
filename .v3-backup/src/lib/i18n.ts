@@ -166,12 +166,6 @@ export const STR: Record<string, [string,string,string]> = {
   pm_bank:["Transferénsia banku","Transferência bancária","Bank transfer"],
   pm_wallet:["Karteira móvel","Carteira móvel","Mobile wallet"],
   pm_fiar:["Fiar — selu balun uluk","Fiado — parte agora","Trust — part now, rest later"],
-  pm_card:["Kartaun kredentiál/débitu","Cartão de crédito/débito","Credit / debit card"],
-  pm_card_note:["Selu seguru liu banku nia pájina. Ami la rai ita-nia numeru kartaun.","Pagamento seguro na página do banco. Não guardamos o número do seu cartão.","Secure payment on the bank's own page. We never store your card number."],
-  payNow:["Selu agora","Pagar agora","Pay now"],
-  payRedirecting:["Lori ba pájina pagamentu…","A redirecionar para o pagamento…","Taking you to the payment page…"],
-  payFailed:["La bele hahú pagamentu. Koko fila fali.","Não foi possível iniciar o pagamento. Tente novamente.","Could not start the payment. Please try again."],
-  payAlreadyPaid:["Enkomenda ne'e selu ona","Este pedido já está pago","This order is already paid"],
   pm_fiar_note:["Selu balun agora, balun bainhira simu sasán.","Parte agora, o resto na entrega.","Deposit now, balance on delivery."],
   /* admin */
   login:["Tama","Entrar","Sign in"],

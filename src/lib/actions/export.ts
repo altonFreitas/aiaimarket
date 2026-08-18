@@ -1,18 +1,66 @@
 "use server";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { adminOrders, adminProducts } from "@/lib/data/admin";
 import { computeAdminStats, monthlySeries, quarterlySeries, yearlySeries } from "@/lib/stats";
 import { requireAdmin } from "./guard";
+
+/* Was `xlsx` (SheetJS). Replaced because the npm build of that package
+ * carries an unfixable prototype-pollution advisory (GHSA-4r6h-8v6p-xvw6)
+ * and a ReDoS one -- SheetJS moved distribution off npm and the published
+ * versions are frozen at the vulnerable release. Nothing here parses
+ * untrusted spreadsheets, so the practical risk was low, but "known-
+ * vulnerable dependency, no fix available" is not a state to ship a store
+ * in when a maintained alternative writes the same file format.
+ *
+ * The exported contract ({ base64, filename }) is unchanged, so
+ * ExportExcelButton needed no edits. */
+
+/** Column widths sized from the content, so the admin does not open the
+ * file to a wall of ### and have to widen every column by hand. */
+function autoFitColumns(ws: ExcelJS.Worksheet, headers: string[]) {
+  ws.columns = headers.map((h) => ({ header: h, key: h, width: Math.min(42, Math.max(12, h.length + 4)) }));
+  ws.getRow(1).font = { bold: true };
+  ws.views = [{ state: "frozen", ySplit: 1 }];
+}
+
+/** Sheet from an array of objects, mirroring the old json_to_sheet(). */
+function sheetFromObjects(wb: ExcelJS.Workbook, name: string, rows: Record<string, unknown>[]) {
+  const ws = wb.addWorksheet(name);
+  if (!rows.length) return ws;
+
+  const headers = Object.keys(rows[0]);
+  autoFitColumns(ws, headers);
+  for (const r of rows) ws.addRow(headers.map((h) => r[h] ?? ""));
+
+  // Widen any column whose data is consistently longer than its header.
+  headers.forEach((h, i) => {
+    const longest = rows.reduce((m, r) => Math.max(m, String(r[h] ?? "").length), h.length);
+    ws.getColumn(i + 1).width = Math.min(60, Math.max(12, longest + 2));
+  });
+  return ws;
+}
+
+/** Sheet from a plain array-of-arrays, mirroring the old aoa_to_sheet(). */
+function sheetFromRows(wb: ExcelJS.Workbook, name: string, rows: unknown[][]) {
+  const ws = wb.addWorksheet(name);
+  for (const r of rows) ws.addRow(r);
+  ws.getRow(1).font = { bold: true };
+  ws.getColumn(1).width = 38;
+  ws.getColumn(2).width = 18;
+  return ws;
+}
 
 export async function exportStatsExcel() {
   await requireAdmin();
   const [orders, products] = await Promise.all([adminOrders(), adminProducts()]);
   const stats = computeAdminStats(orders, products);
 
-  const wb = XLSX.utils.book_new();
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Loja AIAI";
+  wb.created = new Date();
 
   // --- Summary ---
-  const summaryRows = [
+  sheetFromRows(wb, "Summary", [
     ["Metric", "Value"],
     ["Total revenue (completed orders)", stats.totalRevenue],
     ["Pending revenue", stats.pendingRevenue],
@@ -28,8 +76,7 @@ export async function exportStatsExcel() {
     ["Total product views", stats.totalViews],
     ["Total WhatsApp clicks", stats.totalWaClicks],
     ["Click-through rate", `${Math.round(stats.clickThroughRate * 100)}%`],
-  ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryRows), "Summary");
+  ]);
 
   // --- Orders (every field, one row each — the raw material for pivoting) ---
   const orderRows = orders.map((o) => ({
@@ -49,50 +96,37 @@ export async function exportStatsExcel() {
     Total: o.total,
     Cancelled: o.cancel_requested_at ? "yes" : "no",
   }));
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.json_to_sheet(orderRows.length ? orderRows : [{ Ref: "(no orders yet)" }]),
-    "Orders"
-  );
+  sheetFromObjects(wb, "Orders", orderRows.length ? orderRows : [{ Ref: "(no orders yet)" }]);
 
   // --- Revenue by day / month / quarter / year ---
-  const dailyRows = stats.dailyLast14.map((d) => ({ Date: d.date, Revenue: d.revenue, Orders: d.orders }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dailyRows), "Revenue - Daily");
-
-  const monthlyRows = monthlySeries(orders, 24).map((m) => ({ Month: m.label, Revenue: m.revenue, Orders: m.orders }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(monthlyRows), "Revenue - Monthly");
-
-  const quarterlyRows = quarterlySeries(orders, 12).map((q) => ({ Quarter: q.label, Revenue: q.revenue, Orders: q.orders }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(quarterlyRows), "Revenue - Quarterly");
-
-  const yearlyRows = yearlySeries(orders).map((y) => ({ Year: y.label, Revenue: y.revenue, Orders: y.orders }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(yearlyRows), "Revenue - Yearly");
+  sheetFromObjects(wb, "Revenue - Daily",
+    stats.dailyLast14.map((d) => ({ Date: d.date, Revenue: d.revenue, Orders: d.orders })));
+  sheetFromObjects(wb, "Revenue - Monthly",
+    monthlySeries(orders, 24).map((m) => ({ Month: m.label, Revenue: m.revenue, Orders: m.orders })));
+  sheetFromObjects(wb, "Revenue - Quarterly",
+    quarterlySeries(orders, 12).map((q) => ({ Quarter: q.label, Revenue: q.revenue, Orders: q.orders })));
+  sheetFromObjects(wb, "Revenue - Yearly",
+    yearlySeries(orders).map((y) => ({ Year: y.label, Revenue: y.revenue, Orders: y.orders })));
 
   // --- Breakdowns ---
-  const breakdownRows = [
+  sheetFromObjects(wb, "Breakdowns", [
     ...stats.byStatus.map((r) => ({ Category: "Status", Key: r.status, Count: r.count })),
     ...stats.byPayMethod.map((r) => ({ Category: "Payment method", Key: r.method, Count: r.count })),
     ...stats.byPayStatus.map((r) => ({ Category: "Payment status", Key: r.status, Count: r.count })),
     ...stats.byZone.map((r) => ({ Category: "Delivery zone", Key: r.zone, Count: r.count })),
-  ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(breakdownRows), "Breakdowns");
+  ]);
 
   // --- Top products ---
   const topRows = stats.topProducts.map((p) => ({ Product: p.name, "Units sold": p.qty, Revenue: p.revenue }));
-  XLSX.utils.book_append_sheet(
-    wb,
-    XLSX.utils.json_to_sheet(topRows.length ? topRows : [{ Product: "(no sales yet)" }]),
-    "Top Products"
-  );
+  sheetFromObjects(wb, "Top Products", topRows.length ? topRows : [{ Product: "(no sales yet)" }]);
 
   // --- Products (full catalog snapshot) ---
-  const productRows = products.map((p) => ({
+  sheetFromObjects(wb, "Products", products.map((p) => ({
     Ref: p.ref, Name: p.name, Price: p.price, Stock: p.stock_status, Qty: p.qty,
     Archived: p.archived ? "yes" : "no", Views: p.views, "WhatsApp clicks": p.wa_clicks,
-  }));
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(productRows), "Products");
+  })));
 
-  const buffer = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
+  const buffer = await wb.xlsx.writeBuffer();
   const filename = `loja-aiai-statistics-${new Date().toISOString().slice(0, 10)}.xlsx`;
-  return { base64: buffer, filename };
+  return { base64: Buffer.from(buffer).toString("base64"), filename };
 }

@@ -52,21 +52,6 @@ export const getLiveProducts = catalogCache(getLiveProductsUncached, "live-produ
 export const getApprovedSellersById = catalogCache(getApprovedSellersByIdUncached, "sellers-by-id", CACHE_TAGS.sellers);
 export const getHeroSlides = catalogCache(getHeroSlidesUncached, "hero-slides", CACHE_TAGS.hero);
 
-/* Hard ceilings on the unbounded reads.
- *
- * None of these are reached by a store of this size today. They exist
- * because "SELECT everything, filter in JavaScript" has no failure mode
- * short of the function running out of memory or timing out -- and it does
- * that suddenly, in production, on the day the store finally gets busy.
- *
- * A cap turns that cliff into a documented, visible limit. The real fix,
- * when the catalog outgrows these, is keyset pagination on the catalog
- * routes and moving the aggregate queries into Postgres views -- both
- * bigger changes than are justified before the numbers demand them. */
-const MAX_CATALOG_PRODUCTS = 2000;
-const MAX_ORDERS_SCANNED = 5000;
-const BEST_SELLER_WINDOW_DAYS = 120;
-
 const DEFAULT_SETTINGS: Settings = {
   id: 0, // 0 signals "not configured yet"
   store_name: "Loja",
@@ -116,8 +101,7 @@ async function getLiveProductsUncached(): Promise<Product[]> {
       .select("*")
       .eq("archived", false)
       .eq("status", "approved") // Phase 1: a pending seller listing never shows publicly
-      .order("created_at", { ascending: false })
-      .limit(MAX_CATALOG_PRODUCTS);
+      .order("created_at", { ascending: false });
     return (data as Product[]) || [];
   } catch { return []; }
 }
@@ -154,18 +138,7 @@ export async function getBestSellingProducts(
 ): Promise<{ products: Product[]; confirmedIds: Set<string> }> {
   try {
     const [admin, products] = [supabaseAdmin(), await getLiveProductsUncached()];
-    // Recent completed orders only. "Best selling" is a merchandising
-    // signal, not an accounting figure -- what sold last quarter is a
-    // better recommendation than an all-time tally, and it keeps this off
-    // a path that grows without bound as the store succeeds.
-    const since = new Date(Date.now() - BEST_SELLER_WINDOW_DAYS * 864e5).toISOString();
-    const { data: orders } = await admin
-      .from("orders")
-      .select("items")
-      .eq("status", "completed")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(MAX_ORDERS_SCANNED);
+    const { data: orders } = await admin.from("orders").select("items").eq("status", "completed");
 
     const qtySold = new Map<string, number>();
     for (const o of orders || []) {

@@ -2,7 +2,6 @@ import "server-only";
 import crypto from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { reportError } from "@/lib/observability";
-import { sendAlert } from "@/lib/alerts";
 import { getProvider, defaultProviderId } from "./registry";
 import { amountsMatch, toMinorUnits, type Currency } from "./money";
 import { decideTransition, orderPayStatusFor, type PaymentStatus } from "./state";
@@ -173,15 +172,6 @@ export async function applyProviderEvent(event: ProviderEvent): Promise<ApplyRes
         expected: payment.amount_minor,
         reported: event.amountMinor,
       });
-      // A capture for an amount we never asked for is either a partial
-      // capture, an unexpected currency conversion, or tampering. All three
-      // need a person, not a log line someone might read next week.
-      void sendAlert("Loja AIAI — payment amount mismatch", [
-        `Payment: ${payment.id}`,
-        `Expected: ${payment.amount_minor} minor units`,
-        `Gateway reported: ${event.amountMinor}`,
-        "The order was NOT marked paid. Check the gateway before shipping.",
-      ]);
       return { applied: false, reason: "amount mismatch — flagged for manual review" };
     }
   }

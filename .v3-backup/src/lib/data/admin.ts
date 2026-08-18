@@ -2,17 +2,9 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, Product, Seller } from "@/lib/types";
 
-/* Same reasoning as the caps in lib/data/public.ts: the admin statistics
- * and Excel export genuinely want "everything", but an unbounded read is
- * one busy year away from timing out the page that shows you how the busy
- * year went. Raise these when the numbers approach them. */
-const MAX_ADMIN_ORDERS = 10000;
-const MAX_ADMIN_PRODUCTS = 5000;
-
 export async function adminProducts(): Promise<Product[]> {
   const sb = supabaseAdmin();
-  const { data } = await sb.from("products").select("*")
-    .order("created_at", { ascending: false }).limit(MAX_ADMIN_PRODUCTS);
+  const { data } = await sb.from("products").select("*").order("created_at", { ascending: false });
   return (data as Product[]) || [];
 }
 export async function adminProduct(id: string): Promise<Product | null> {
@@ -40,8 +32,7 @@ export async function adminHeroSlides(): Promise<HeroSlide[]> {
 }
 export async function adminOrders(): Promise<Order[]> {
   const sb = supabaseAdmin();
-  const { data } = await sb.from("orders").select("*")
-    .order("created_at", { ascending: false }).limit(MAX_ADMIN_ORDERS);
+  const { data } = await sb.from("orders").select("*").order("created_at", { ascending: false });
   return (data as Order[]) || [];
 }
 /** Orders plus the "how many arrived today" figure.

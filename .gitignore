@@ -32,12 +32,22 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which carries no secrets and is the one file that
+# tells a new deploy which variables exist at all. `.env*` above swallowed it,
+# so it was never committed -- and DEPLOY.md told you to copy a file that was
+# not in the repo.
+!.env.example
 
 # vercel
 .vercel
 
-# hardening-script backups (Apply-aiaimarket-hardening.js --revert reads these)
+# apply-script backups (the --revert flags read these). Round 2 added
+# .payments-backup to the ESLint ignores but not here, so it ended up
+# committed -- untrack it with:  git rm -r --cached .payments-backup
 .audit-backup/
+.payments-backup/
+# The apply scripts themselves are one-shot tools, not part of the app.
+Apply*.js
 
 # typescript
 *.tsbuildinfo

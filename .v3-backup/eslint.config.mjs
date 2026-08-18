@@ -19,18 +19,6 @@ const eslintConfig = defineConfig([
     "Apply*.js",
 
   ]),
-  {
-    rules: {
-      // `const { id: _id, ...rest } = row` is the idiomatic way to omit keys
-      // when copying a database row (see duplicateProduct). The discarded
-      // bindings are the point, not an oversight -- an underscore prefix is
-      // the conventional way to say so.
-      "@typescript-eslint/no-unused-vars": [
-        "warn",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
-      ],
-    },
-  },
 ]);
 
 export default eslintConfig;

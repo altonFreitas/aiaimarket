@@ -18,7 +18,7 @@ function PencilIcon() {
 }
 
 export default function OrderAdmin({
-  lang, order: o, settings: _settings,
+  lang, order: o, settings,
 }: { lang: Lang; order: Order; settings: Settings }) {
   const router = useRouter();
   const { toast } = useToast();

@@ -13,8 +13,7 @@ import { compressImage } from "@/lib/compressImage";
 // mobile data, in a store whose whole premise is data frugality. Almost
 // none of them press "download invoice".
 import SellerRatingForm from "@/components/SellerRatingForm";
-import PayNowButton from "@/components/PayNowButton";
-import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
+import { addrLine, money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 
@@ -364,21 +363,6 @@ function Dashboard({
               <div className="mono" style={{ marginTop: 4 }} key={i}>{w.label} · {w.number}</div>
             ))}
           </div>
-        )}
-        {/* A card order that is not yet captured can be paid (or retried
-            after a decline) from here. Deliberately gated on pay_status,
-            not on order status: a buyer whose card was declined must be
-            able to try again, and one who has already paid must never see
-            a second "Pay now". */}
-        {o.pay_method === "card" && o.pay_status !== "paid" && o.pay_status !== "refunded" &&
-          !["completed", "cancelled"].includes(o.status) && (
-          <div style={{ marginTop: 10 }}>
-            <div className="note info">{t("pm_card_note", lang)}</div>
-            <PayNowButton orderRef={o.ref} phone={phone} lang={lang} />
-          </div>
-        )}
-        {o.pay_method === "card" && o.pay_status === "paid" && (
-          <div className="note info" style={{ marginTop: 10 }}>{t("payAlreadyPaid", lang)}</div>
         )}
         {["bank", "wallet"].includes(o.pay_method) && (
           <div style={{ marginTop: 10 }}>
