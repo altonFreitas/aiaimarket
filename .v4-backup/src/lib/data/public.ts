@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { supabaseAnon } from "@/lib/supabase/anon";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CACHE_TAGS, CATALOG_REVALIDATE_SECONDS } from "@/lib/cache";
-import type { Category, HeroSlide, OrderItem, Product, Promotion, Settings } from "@/lib/types";
+import type { Category, HeroSlide, OrderItem, Product, Settings } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
  * Request-level memoization.
@@ -51,7 +51,6 @@ export const getCategories = catalogCache(getCategoriesUncached, "categories", C
 export const getLiveProducts = catalogCache(getLiveProductsUncached, "live-products", CACHE_TAGS.products);
 export const getApprovedSellersById = catalogCache(getApprovedSellersByIdUncached, "sellers-by-id", CACHE_TAGS.sellers);
 export const getHeroSlides = catalogCache(getHeroSlidesUncached, "hero-slides", CACHE_TAGS.hero);
-export const getPromotions = catalogCache(getPromotionsUncached, "promotions", CACHE_TAGS.promotions);
 
 /* Hard ceilings on the unbounded reads.
  *
@@ -209,21 +208,6 @@ export async function bumpWaClick(productId: string) {
  * (see supabase/migration_hero_slides.sql), this just returns an empty
  * list and the homepage falls back to the default hero — it must never
  * take down the rest of the site's settings/data. */
-/** Isolated with its own try/catch, same reasoning as getHeroSlides — a
- * missing/not-yet-migrated promotions table must never take down the
- * homepage around it. */
-async function getPromotionsUncached(): Promise<Promotion[]> {
-  try {
-    const sb = supabaseAnon();
-    const { data, error } = await sb.from("promotions").select("*")
-      .eq("active", true).order("sort_order");
-    if (error) return [];
-    return (data as Promotion[]) || [];
-  } catch {
-    return [];
-  }
-}
-
 async function getHeroSlidesUncached(): Promise<HeroSlide[]> {
   try {
     const sb = supabaseAnon();

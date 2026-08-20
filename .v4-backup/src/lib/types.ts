@@ -198,16 +198,3 @@ export interface Payment {
   created_at: string;
   updated_at: string;
 }
-
-/** Homepage promo tile ("Oportunidades aos melhores preços" style). Mirrors
- * the promotions table in supabase/promotions.sql. */
-export interface Promotion {
-  id: string;
-  title: string;
-  badge_label: string;
-  image_url: string;
-  href: string;
-  sort_order: number;
-  active: boolean;
-  created_at: string;
-}

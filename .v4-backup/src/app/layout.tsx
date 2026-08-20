@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
@@ -42,7 +41,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               env vars) and run <code>supabase/schema.sql</code>, then reload.
             </div>
           )}
-          <TopBar lang={lang} settings={settings} />
           <Header settings={settings} />
           <main id="view">{children}</main>
           <Footer settings={settings} lang={lang} />

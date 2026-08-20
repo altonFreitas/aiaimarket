@@ -35,7 +35,6 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
     <Link className={"card" + (p.stock_status === "out" ? " is-out" : "")} href={`/p/${p.slug}`}>
       <div className="ph">
         <span className={"badge " + cls}>{t(key, lang)}</span>
-        {pct != null && <span className="card-deal">-{pct}%</span>}
         {/* next/image, not <img>: on a 360px phone this serves a 360px AVIF
             instead of the full 1200px WebP the seller uploaded -- typically
             an 80-90% saving on the single heaviest asset in the catalog

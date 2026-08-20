@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, HeroSlide, Order, Product, Promotion, Seller } from "@/lib/types";
+import type { Category, HeroSlide, Order, Product, Seller } from "@/lib/types";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
  * and Excel export genuinely want "everything", but an unbounded read is
@@ -34,17 +34,6 @@ export async function adminHeroSlides(): Promise<HeroSlide[]> {
     const { data, error } = await sb.from("hero_slides").select("*").order("sort_order");
     if (error) return [];
     return (data as HeroSlide[]) || [];
-  } catch {
-    return [];
-  }
-}
-/** Same "table might not be migrated yet" caution as adminHeroSlides. */
-export async function adminPromotions(): Promise<Promotion[]> {
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb.from("promotions").select("*").order("sort_order");
-    if (error) return [];
-    return (data as Promotion[]) || [];
   } catch {
     return [];
   }

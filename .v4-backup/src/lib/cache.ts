@@ -22,7 +22,6 @@ export const CACHE_TAGS = {
   settings: "catalog:settings",
   sellers: "catalog:sellers",
   hero: "catalog:hero",
-  promotions: "catalog:promotions",
 } as const;
 
 export type CacheTag = (typeof CACHE_TAGS)[keyof typeof CACHE_TAGS];
