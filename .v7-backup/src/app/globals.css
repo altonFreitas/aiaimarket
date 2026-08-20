@@ -369,44 +369,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   body{font-size:15.5px}
   .hd-logo b{display:inline}
   .grid{grid-template-columns:repeat(3,1fr);gap:14px}
-  /* The rail runs to the viewport's LEFT EDGE.
-     .wrap centres its children inside --content-w, so on a wide screen
-     there is a margin the rail would otherwise start after. Rather than
-     negative-margin the grid back out (and then pad the text back in --
-     the previous approach, which shoved the rail's own text 240px inward
-     on a 1920px screen and overflowed it on top of the hero), the wrapper
-     simply stops centring on pages that have a rail. No vw arithmetic, so
-     no scrollbar-width drift and no horizontal overflow at any size. */
-  .wrap-rail{max-width:none;padding-left:0;padding-right:0}
-  .cols{display:grid;grid-template-columns:246px minmax(0,1fr);gap:22px;align-items:stretch}
-  .side-wrap{position:relative;display:flex;min-width:0}
+  .cols{display:grid;grid-template-columns:212px 1fr;gap:22px;align-items:stretch}
   /* No align-self:start here on purpose -- that would cancel .cols'
      align-items:stretch above and put this back to shrink-wrapping its own
-     list items, which is the "floating box with a big empty gap under it"
-     problem this replaced. Left stretched, it reads as a continuous rail
-     next to the page content -- and position:sticky still pins the
-     category LIST near the top while the page scrolls, because sticky only
-     affects where a box's top edge sits, not how tall the box is. */
-  .side{display:flex;flex-direction:column;flex:1;min-width:0;
-    position:sticky;top:calc(var(--hd) + 12px);
-    background:var(--card);border:0;border-radius:0;
-    border-right:1px solid var(--line);
-    box-shadow:none;margin:0;padding:14px 14px 18px 16px}
-  /* The content column keeps a gutter on the right so it does not run
-     into the window edge, and stops short of absurd line lengths on an
-     ultrawide monitor. */
-  .cols > :last-child{min-width:0;padding-right:16px;max-width:1560px}
-
-  /* Hover mega panel: anchored to the rail's right edge and overlaying the
-     page rather than pushing it sideways -- a menu that reflows the content
-     underneath it is disorienting to use. Desktop-only by virtue of living
-     in this media query; the rail itself is hidden on mobile, where the
-     .cat-rail strip is the category nav instead. */
-  .side-mega{position:absolute;left:100%;top:0;z-index:55;
-    width:min(760px, calc(100vw - 280px));
-    background:var(--card);border:1px solid var(--line);border-left:0;
-    border-radius:0 var(--r) var(--r) 0;box-shadow:var(--sh);
-    padding:16px 18px;animation:megaIn .12s ease-out}
+     4 list items, which is the exact "floating box with a big empty gap
+     under it" problem being fixed. Left stretched, it reads as a
+     continuous rail next to the page's content, the way a dense category
+     nav actually looks -- and position:sticky still keeps the category
+     LIST itself pinned near the top of the viewport while the page
+     scrolls, because sticky only affects where a box's own top edge sits,
+     not how tall the box is. */
+  .side{display:flex;flex-direction:column;position:sticky;top:calc(var(--hd) + 12px);
+    background:var(--card);border:0;border-radius:0;border-right:1px solid var(--line);
+    box-shadow:none;padding:14px 14px 14px 0;margin:0}
   .cat-rail{display:none}
   .nav{display:none}
   .ft{padding-bottom:16px}
@@ -494,33 +469,3 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    a dense catalogue grid usually does. */
 .card-deal{position:absolute;top:8px;right:8px;background:var(--amber);color:var(--amber-ink);
   font-weight:800;font-size:11px;padding:2px 7px;border-radius:4px;z-index:1;letter-spacing:.01em}
-
-/* ---------- category rail: heading + hover mega panel ---------- */
-/* These are outside the desktop media query because they only ever render
-   inside .side / .side-mega, which are themselves desktop-only. Keeping
-   them here avoids nesting a keyframes rule inside a media block. */
-@keyframes megaIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
-
-.side-hd{margin:0 0 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-
-.side-mega-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--line-2)}
-.side-mega-hd a{font-size:17px;font-weight:700;text-decoration:none;color:var(--ink)}
-.side-mega-hd a:hover{text-decoration:underline}
-.side-mega-n{font-family:var(--mono);font-size:11px;color:var(--muted)}
-
-.side-mega-cols{list-style:none;margin:0 0 14px;padding:0;columns:3;column-gap:22px}
-.side-mega-cols li{break-inside:avoid;margin-bottom:5px}
-.side-mega-cols a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;
-  font-size:13.5px;color:var(--ink-3);padding:3px 0}
-.side-mega-cols a:hover{color:var(--ink);text-decoration:underline}
-.side-mega-cols .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
-
-.side-mega-prev{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.side-mega-card{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:4px}
-.side-mega-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
-  border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
-.side-mega-card-nm{font-size:12.5px;font-weight:600;line-height:1.25;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.side-mega-card-pr{font-size:12.5px;color:var(--ink-3)}
-.side-mega-card-pr b{color:var(--red)}

@@ -21,7 +21,7 @@ export default async function CatalogLayout({
 }) {
   const sellersById = await getApprovedSellersById();
   return (
-    <div className="wrap wrap-rail">
+    <div className="wrap">
       <div className="cols">
         <Sidebar cats={cats} products={allProducts} activeSlug={activeSlug} lang={lang} />
         <div>

@@ -369,33 +369,28 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   body{font-size:15.5px}
   .hd-logo b{display:inline}
   .grid{grid-template-columns:repeat(3,1fr);gap:14px}
-  /* The rail runs to the viewport's LEFT EDGE.
-     .wrap centres its children inside --content-w, so on a wide screen
-     there is a margin the rail would otherwise start after. Rather than
-     negative-margin the grid back out (and then pad the text back in --
-     the previous approach, which shoved the rail's own text 240px inward
-     on a 1920px screen and overflowed it on top of the hero), the wrapper
-     simply stops centring on pages that have a rail. No vw arithmetic, so
-     no scrollbar-width drift and no horizontal overflow at any size. */
-  .wrap-rail{max-width:none;padding-left:0;padding-right:0}
-  .cols{display:grid;grid-template-columns:246px minmax(0,1fr);gap:22px;align-items:stretch}
-  .side-wrap{position:relative;display:flex;min-width:0}
+  /* The rail runs to the viewport's LEFT EDGE, not to the centred content
+     column. .wrap centres everything inside --content-w, so on a wide
+     screen there is a margin the rail would otherwise start after -- that
+     margin is exactly what made the sidebar look stranded mid-page. The
+     negative margin pulls the grid's first column back out to the edge;
+     .side pads its own text back in so it still lines up with the header. */
+  .cols{display:grid;grid-template-columns:246px minmax(0,1fr);gap:22px;align-items:stretch;
+    margin-left:min(0px, calc((var(--content-w) - 100vw) / 2))}
+  .side-wrap{position:relative;display:flex}
   /* No align-self:start here on purpose -- that would cancel .cols'
      align-items:stretch above and put this back to shrink-wrapping its own
-     list items, which is the "floating box with a big empty gap under it"
-     problem this replaced. Left stretched, it reads as a continuous rail
-     next to the page content -- and position:sticky still pins the
-     category LIST near the top while the page scrolls, because sticky only
-     affects where a box's top edge sits, not how tall the box is. */
-  .side{display:flex;flex-direction:column;flex:1;min-width:0;
-    position:sticky;top:calc(var(--hd) + 12px);
-    background:var(--card);border:0;border-radius:0;
-    border-right:1px solid var(--line);
-    box-shadow:none;margin:0;padding:14px 14px 18px 16px}
-  /* The content column keeps a gutter on the right so it does not run
-     into the window edge, and stops short of absurd line lengths on an
-     ultrawide monitor. */
-  .cols > :last-child{min-width:0;padding-right:16px;max-width:1560px}
+     4 list items, which is the exact "floating box with a big empty gap
+     under it" problem being fixed. Left stretched, it reads as a
+     continuous rail next to the page's content, the way a dense category
+     nav actually looks -- and position:sticky still keeps the category
+     LIST itself pinned near the top of the viewport while the page
+     scrolls, because sticky only affects where a box's own top edge sits,
+     not how tall the box is. */
+  .side{display:flex;flex-direction:column;flex:1;position:sticky;top:calc(var(--hd) + 12px);
+    background:var(--card);border:0;border-radius:0;border-right:1px solid var(--line);
+    box-shadow:none;margin:0;padding:14px 12px 18px 0;
+    padding-left:max(12px, calc((100vw - var(--content-w)) / 2))}
 
   /* Hover mega panel: anchored to the rail's right edge and overlaying the
      page rather than pushing it sideways -- a menu that reflows the content

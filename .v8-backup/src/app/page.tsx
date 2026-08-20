@@ -39,7 +39,7 @@ export default async function HomePage() {
     .slice(0, MAX_CATEGORY_SECTIONS);
 
   return (
-    <div className="wrap wrap-rail">
+    <div className="wrap">
       <div className="cols">
         <Sidebar cats={cats} products={products} lang={lang} />
         <div className="home">
