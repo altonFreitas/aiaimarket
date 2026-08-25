@@ -122,6 +122,33 @@ export interface ProductReview {
   created_at: string;
 }
 
+export type NotifyEventName =
+  | "placed" | "confirmed" | "out" | "arrived" | "completed" | "cancelled";
+export type NotifyStatus = "queued" | "sent" | "failed" | "skipped";
+
+/** One message the store owes, or has sent, a buyer about their order.
+ * Mirrors the notifications table in supabase/notifications.sql. `body` is
+ * the exact text rendered at queue time -- not a template to be re-rendered
+ * later -- so what the admin sees is what the buyer got. */
+export interface OrderNotification {
+  id: string;
+  order_id: string;
+  order_ref: string;
+  event: NotifyEventName;
+  to_phone: string;
+  lang: Lang;
+  body: string;
+  tracking_url: string;
+  channel: "whatsapp" | "manual";
+  provider: string;
+  provider_ref: string | null;
+  status: NotifyStatus;
+  error: string | null;
+  attempts: number;
+  created_at: string;
+  sent_at: string | null;
+}
+
 export type PayoutMethod = "bank" | "wallet" | "cash" | "other";
 
 /** One recorded transfer from the platform to a seller. Mirrors
@@ -215,6 +242,10 @@ export interface Order {
   status: OrderStatus;
   cancel_reason: string | null;
   cancel_requested_at: string | null;
+  /** The language the buyer was browsing in at checkout, so notifications
+   * reach them in it. Optional: orders placed before
+   * supabase/notifications.sql was run have no value, and fall back to Tetun. */
+  lang?: Lang;
   created_at: string;
   order_log?: OrderLogEntry[];
 }

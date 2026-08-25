@@ -441,7 +441,31 @@ export const STR: Record<string, [string,string,string]> = {
   deletePayoutAsk:["Hasai rejistu pagamentu ne\u2019e?","Remover este registo de pagamento?","Remove this payout record?"],
   payoutsNeedMigration:["Halo\u2019o supabase/marketplace-v2.sql atu bele rejista pagamentu.","Execute supabase/marketplace-v2.sql para poder registar pagamentos.","Run supabase/marketplace-v2.sql to record payouts."],
   overpaid:["Selu barak liu","Pago a mais","Overpaid"],
-  sellerLedger:["Konta ita-nia","A sua conta","Your account"]
+  sellerLedger:["Konta ita-nia","A sua conta","Your account"],
+
+  /* ---- order notifications ---- */
+  orderMessages:["Mensajen ba kliente","Mensagens ao cliente","Messages to the buyer"],
+  noMessagesYet:["Seidauk haruka mensajen ida.","Ainda sem mensagens.","No messages yet."],
+  sendOnWhatsApp:["Haruka liu WhatsApp","Enviar por WhatsApp","Send on WhatsApp"],
+  markSent:["Marka haruka ona","Marcar como enviada","Mark as sent"],
+  markedSent:["Marka ona","Marcada","Marked as sent"],
+  retry:["Koko fali","Tentar de novo","Retry"],
+  skipMessage:["La haruka","Não enviar","Skip"],
+  byHand:["ho liman","manual","by hand"],
+  notif_queued:["Hein hela","Em espera","Waiting"],
+  notif_sent:["Haruka ona","Enviada","Sent"],
+  notif_failed:["La konsege","Falhou","Failed"],
+  notif_skipped:["La haruka","Ignorada","Skipped"],
+  notifEvent_placed:["Enkomenda simu","Encomenda recebida","Order received"],
+  notifEvent_confirmed:["Konfirmadu","Confirmada","Confirmed"],
+  notifEvent_out:["Iha dalan","A caminho","On the way"],
+  notifEvent_arrived:["To'o ona","Chegou","Arrived"],
+  notifEvent_completed:["Kompletu","Concluída","Completed"],
+  notifEvent_cancelled:["Kansela","Cancelada","Cancelled"],
+  manualModeHint:["Seidauk iha API mensajen. Klik \u201cHaruka liu WhatsApp\u201d, haruka, depois marka haruka ona.","Sem API de mensagens configurada. Clique em \u201cEnviar por WhatsApp\u201d, envie, depois marque como enviada.","No messaging API configured. Tap \u201cSend on WhatsApp\u201d, send it, then mark it as sent."],
+  notificationsNeedMigration:["Halo\u2019o supabase/notifications.sql atu bele haruka mensajen.","Execute supabase/notifications.sql para poder enviar mensagens.","Run supabase/notifications.sql to send buyer messages."],
+  pendingMessages:["Mensajen hein hela","Mensagens pendentes","Pending messages"],
+  allMessagesSent:["Mensajen hotu haruka ona.","Todas as mensagens foram enviadas.","Every message has been sent."]
 };
 
 export type StrKey = keyof typeof STR;

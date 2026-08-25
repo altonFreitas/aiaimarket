@@ -2,6 +2,7 @@
 import { requireApprovedSeller } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertOrderTransition } from "@/lib/orderFlow";
+import { notifyStatusChange } from "./orders";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderStatus } from "@/lib/types";
 
@@ -35,6 +36,9 @@ export async function setOrderStatusAsSeller(orderId: string, status: OrderStatu
     order_id: orderId,
     text: `Estadu: ${before.status} → ${status} (${seller.store_name})`,
   });
+  // Same notification the admin path sends -- a buyer should not get a
+  // different experience depending on who moved their order.
+  await notifyStatusChange(orderId, status);
   revalidatePath("/seller/orders");
   revalidatePath("/admin/orders");
 }

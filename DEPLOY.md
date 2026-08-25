@@ -24,7 +24,11 @@ Follow in order. Total time: about 20 minutes.
    The site runs without it — search falls back to the old in-memory filter, ratings
    render as "no reviews yet", and the payouts screen stays empty — so deploying the
    code first and running this after is safe. Both files are safe to re-run.
-4. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
+4. Do the same with `supabase/notifications.sql`. This adds the buyer message
+   outbox, so each order update reaches the buyer's WhatsApp with a one-tap
+   tracking link. Without it order status changes work exactly as before, they
+   just don't message anyone. See **Order notifications** below.
+5. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
    Skip it if you'd rather start empty.
 
 You should see "Success. No rows returned."
@@ -282,3 +286,42 @@ select * from payments_needing_review;
 
 An **authorized but never captured** row is the one to act on first: the
 buyer's funds are on hold and the store has not taken them.
+
+
+## Order notifications
+
+When an order is placed, and each time it is confirmed / sent out / delivered /
+completed / cancelled, the buyer gets a message on the phone number they gave at
+checkout. The message ends with a link straight to their order — signed, so
+tapping it opens the tracking page already unlocked, with no phone number to
+retype.
+
+**It works with no setup at all.** With no messaging API configured, every
+message is queued and the admin gets a one-tap **Send on WhatsApp** button — on
+the order page, and as a queue at `/admin/notifications`. WhatsApp opens with
+the buyer's number and the full message already filled in; press send, then
+press **Mark as sent**. No Meta business account, no cost, no approval wait.
+
+**To make it automatic**, fill in `WHATSAPP_PHONE_NUMBER_ID` and
+`WHATSAPP_ACCESS_TOKEN` (see `.env.example`). The same messages then send
+themselves. One constraint decides whether that is enough on its own:
+
+> WhatsApp does not deliver free-form text to someone who has not messaged your
+> business in the last 24 hours. Outside that window only a **pre-approved
+> template** is delivered.
+
+So the order-confirmation minutes after checkout usually lands as plain text;
+an "out for delivery" the next morning usually will not. Set
+`WHATSAPP_TEMPLATE_NAME` to a Meta-approved template whose body is a single
+`{{1}}` parameter to cover both. Either way nothing is lost — a refused message
+is recorded with Meta's reason and stays in the admin queue to be sent by hand.
+
+Two things to know about the links:
+
+- `NEXT_PUBLIC_SITE_URL` **must** be set. A tracking link is going into a chat
+  message, where a relative path is just text; without it notifications are
+  skipped rather than sent broken.
+- The links are signed with `SESSION_SECRET`. Rotating that secret invalidates
+  every tracking link already sitting in buyers' phones — they fall back to the
+  normal "enter your phone number" gate rather than breaking, but they stop
+  being one-tap.

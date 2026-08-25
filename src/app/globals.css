@@ -482,6 +482,21 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .review-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .review-body{margin:5px 0 0;font-size:13.5px}
 
+/* ---------- order notifications (admin) ---------- */
+.notif{border:1px solid var(--line);border-radius:var(--r-s);padding:10px;background:var(--card)}
+.notif-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.notif-head b{font-size:13.5px}
+.notif-head .hint{font-size:11.5px;color:var(--muted);margin:0}
+/* The message exactly as the buyer will read it, wrapped rather than
+   scrolled: an admin about to send this by hand has to be able to see all
+   of it without dragging sideways. */
+.notif-body{margin:0;padding:8px 10px;background:var(--line-2);border-radius:var(--r-s);
+  font-family:var(--sans);font-size:13px;line-height:1.45;white-space:pre-wrap;
+  word-break:break-word;overflow-wrap:anywhere}
+.notif-error{margin:7px 0 0;padding:7px 9px;background:var(--red-soft);color:var(--red);
+  border-radius:var(--r-s);font-size:12px;font-family:var(--mono);white-space:pre-wrap;
+  word-break:break-word;overflow-wrap:anywhere}
+
 @media(min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 @media print{.hd,.nav,.searchbar,.btn-row,.adm-nav{display:none}}

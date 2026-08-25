@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, HeroSlide, Order, Product, Promotion, Seller, SellerPayout } from "@/lib/types";
+import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout } from "@/lib/types";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
  * and Excel export genuinely want "everything", but an unbounded read is
@@ -9,6 +9,7 @@ import type { Category, HeroSlide, Order, Product, Promotion, Seller, SellerPayo
 const MAX_ADMIN_ORDERS = 10000;
 const MAX_ADMIN_PRODUCTS = 5000;
 const MAX_ADMIN_PAYOUTS = 5000;
+const MAX_ADMIN_NOTIFICATIONS = 500;
 
 export async function adminProducts(): Promise<Product[]> {
   const sb = supabaseAdmin();
@@ -185,6 +186,46 @@ export async function adminPayouts(): Promise<SellerPayout[]> {
       .order("paid_at", { ascending: false }).limit(MAX_ADMIN_PAYOUTS);
     if (error) return [];
     return (data as SellerPayout[]) || [];
+  } catch {
+    return [];
+  }
+}
+
+/** Every message queued or sent for one order, oldest first — the order's
+ * communication history, shown on its admin page.
+ *
+ * Returns [] rather than throwing when supabase/notifications.sql has not
+ * been run: the panel then shows a short "run the migration" note instead of
+ * taking down the order page around it. Same defensive shape as
+ * adminHeroSlides() and adminPromotions() above. */
+export async function adminOrderNotifications(orderId: string): Promise<OrderNotification[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("notifications")
+      .select("*")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: true });
+    if (error) return [];
+    return (data as OrderNotification[]) || [];
+  } catch {
+    return [];
+  }
+}
+
+/** The store's outstanding messages — everything queued or failed, across
+ * every order. In manual mode this is the admin's actual to-do list. */
+export async function adminPendingNotifications(): Promise<OrderNotification[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("notifications")
+      .select("*")
+      .in("status", ["queued", "failed"])
+      .order("created_at", { ascending: false })
+      .limit(MAX_ADMIN_NOTIFICATIONS);
+    if (error) return [];
+    return (data as OrderNotification[]) || [];
   } catch {
     return [];
   }

@@ -6,6 +6,9 @@ import { assertOrderTransition } from "@/lib/orderFlow";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
 import { decodeImageDataUrl } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
+import { getLang } from "@/lib/lang";
+import { notifyOrderEventInBackground } from "@/lib/notify/service";
+import { eventForStatus } from "@/lib/notify/templates";
 import type { OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Trims and hard-truncates a free-text field. Postgres `text` has no
@@ -176,10 +179,17 @@ export async function placeOrder(input: PlaceOrderInput) {
     ? await nextRefWithPrefix(deliveryPrefix(input.zoneId || "", input.municipality), normalizedPhone)
     : await nextRefWithPrefix("PP", normalizedPhone);
 
+  // The language the buyer was actually browsing in, captured now because
+  // this is the only moment it is knowable -- the notifications that follow
+  // are sent from an admin's session, in the admin's language, potentially
+  // days later.
+  const lang = await getLang();
+
   const { data, error } = await sb
     .from("orders")
     .insert({
       ref,
+      lang,
       buyer_name: clip(input.name, MAX_NAME_LEN),
       buyer_phone: normalizedPhone,
       items: itemsWithSeller,
@@ -208,6 +218,12 @@ export async function placeOrder(input: PlaceOrderInput) {
     order_id: data.id,
     text: `Enkomenda simu (${input.mode === "delivery" ? "entrega" : "foti rasik"})`,
   });
+
+  // The buyer gets their tracking link straight away, so it is sitting in
+  // their messages before they have closed the tab -- and every later update
+  // lands in the same thread rather than arriving as an orphan.
+  const { data: storeRow } = await sb.from("settings").select("store_name").eq("id", 1).maybeSingle();
+  notifyOrderEventInBackground(data, "placed", storeRow?.store_name || "Loja");
 
   revalidatePath("/admin/orders");
   return data.ref as string;
@@ -330,7 +346,29 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   if (before) {
     await sb.from("order_log").insert({ order_id: orderId, text: `Estadu: ${before.status} → ${status}` });
   }
+  await notifyStatusChange(orderId, status);
   revalidatePath("/admin/orders");
+}
+
+/** Tells the buyer their order moved, when the new status is one worth a
+ * message (see eventForStatus). Shared by the admin and seller paths so a
+ * seller marking their own order "out for delivery" notifies exactly as the
+ * owner doing it would.
+ *
+ * Reads the order again rather than taking the caller's copy: the caller has
+ * a two-column projection, and the message needs the buyer's name, phone,
+ * total and language. One extra read per status change is a fair price for
+ * not passing five fields through every call site. */
+export async function notifyStatusChange(orderId: string, status: OrderStatus) {
+  const event = eventForStatus(status);
+  if (!event) return;
+  const sb = supabaseAdmin();
+  const [{ data: order }, { data: storeRow }] = await Promise.all([
+    sb.from("orders").select("id, ref, buyer_name, buyer_phone, total, lang").eq("id", orderId).maybeSingle(),
+    sb.from("settings").select("store_name").eq("id", 1).maybeSingle(),
+  ]);
+  if (!order) return;
+  notifyOrderEventInBackground(order, event, storeRow?.store_name || "Loja");
 }
 
 /** G4 — manual payment status, set by the owner (no gateway). */

@@ -25,8 +25,16 @@ interface OrderSummary {
 }
 
 export default function TrackForm({
-  lang, initialRef, settings, sellersById,
-}: { lang: Lang; initialRef: string; settings?: Settings; sellersById?: Record<string, { store_name: string }> }) {
+  lang, initialRef, settings, sellersById, unlockedPhone,
+}: {
+  lang: Lang; initialRef: string; settings?: Settings;
+  sellersById?: Record<string, { store_name: string }>;
+  /** Set only when the page verified a signed ?t= token from one of the
+   * store's own notification messages -- see app/o/[ref]/page.tsx. The
+   * server has already proved this phone owns this order, so the gate below
+   * is skipped rather than asked. */
+  unlockedPhone?: string | null;
+}) {
   const params = useSearchParams();
   const { toast } = useToast();
   const [ref, setRef] = useState(initialRef);
@@ -56,10 +64,12 @@ export default function TrackForm({
         }
       } catch { handoff = null; }
 
-      // Legacy: an /o/<ref>?phone=… link bookmarked before this change.
-      const p = handoff?.phone || params.get("phone") || "";
+      // Three ways in, in order of trust: a token the server already
+      // verified, the one-shot handoff from checkout, then a legacy
+      // /o/<ref>?phone=… link bookmarked before either existed.
+      const p = unlockedPhone || handoff?.phone || params.get("phone") || "";
       if (!p || !initialRef) return;
-      if (handoff?.ref && handoff.ref !== initialRef) return;
+      if (!unlockedPhone && handoff?.ref && handoff.ref !== initialRef) return;
 
       setPhone(p);
       await find(initialRef, p);

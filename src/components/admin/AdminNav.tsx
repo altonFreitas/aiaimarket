@@ -12,6 +12,7 @@ const TABS = [
   ["/admin/promotions", "promotions"],
   ["/admin/sellers", "sellers"],
   ["/admin/orders", "orders"],
+  ["/admin/notifications", "pendingMessages"],
   ["/admin/payouts", "payoutsShort"],
   ["/admin/statistics", "statistics"],
   ["/admin/settings", "settings"],
