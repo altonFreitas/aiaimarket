@@ -52,3 +52,5 @@ Apply*.js
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.v*-backup/
+.marketplace-v2-backup/
