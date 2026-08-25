@@ -444,44 +444,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .hero-arrow-prev{left:16px}
   .hero-arrow-next{right:16px}
 }
-/* ---------- catalog filters, pagination, ratings, reviews ---------- */
-/* The price filter is a form inside .bar, so it needs to keep the bar's
-   flex rhythm rather than starting a new row of its own on desktop. */
-.price-filter{display:flex;align-items:center;gap:5px;flex-wrap:nowrap}
-.price-filter-label{font-size:12px;color:var(--muted);font-family:var(--mono);
-  text-transform:uppercase;letter-spacing:.06em}
-.price-filter input{width:74px;height:34px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);padding:0 7px;font-size:13px;font-family:var(--mono)}
-/* Number spinners eat most of a 74px input on desktop and are useless on a
-   phone, where the numeric keypad is the real control. */
-.price-filter input::-webkit-outer-spin-button,
-.price-filter input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.price-filter input[type=number]{-moz-appearance:textfield;appearance:textfield}
-
-.pager{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:18px 0 4px}
-.pager-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-/* 38px minimum on every target: this is the primary way to move through a
-   catalog on a phone, and a 24px link is not tappable. */
-.pager-n,.pager-step{display:inline-flex;align-items:center;justify-content:center;min-width:38px;
-  height:38px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);text-decoration:none;font-size:13.5px;font-family:var(--mono)}
-.pager-n:hover,.pager-step:hover{background:var(--line-2)}
-.pager-n.is-now{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
-.pager-n.is-now:hover{background:var(--ink)}
-.pager-step.is-off{opacity:.4;pointer-events:none}
-.pager-gap{padding:0 2px;color:var(--muted-2)}
-
-.card-rating{display:inline-flex;align-items:center;gap:3px}
-.card-stars{color:var(--amber-ink);letter-spacing:-1px}
-.card-rating-n{color:var(--muted-2)}
-
-.review-summary{display:flex;align-items:center;gap:8px;margin:0 0 10px}
-.review-stars{color:var(--amber-ink);font-size:15px;letter-spacing:-.5px}
-.review{border-top:1px solid var(--line-2);padding:10px 0}
-.review:first-of-type{border-top:1px solid var(--line)}
-.review-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.review-body{margin:5px 0 0;font-size:13.5px}
-
 @media(min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 @media print{.hd,.nav,.searchbar,.btn-row,.adm-nav{display:none}}

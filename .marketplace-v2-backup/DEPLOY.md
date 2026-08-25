@@ -19,12 +19,7 @@ Follow in order. Total time: about 20 minutes.
 1. In your project: **SQL Editor** → **New query**.
 2. Open `supabase/schema.sql` from this project, paste the whole file in, press **Run**.
    This creates every table, index, RLS policy, storage bucket and trigger.
-3. Do the same with `supabase/marketplace-v2.sql`. This adds catalog search
-   (accent-folded, ranked, paginated), product reviews and the seller payout ledger.
-   The site runs without it — search falls back to the old in-memory filter, ratings
-   render as "no reviews yet", and the payouts screen stays empty — so deploying the
-   code first and running this after is safe. Both files are safe to re-run.
-4. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
+3. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
    Skip it if you'd rather start empty.
 
 You should see "Success. No rows returned."

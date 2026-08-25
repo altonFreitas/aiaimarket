@@ -13,7 +13,6 @@ import { compressImage } from "@/lib/compressImage";
 // mobile data, in a store whose whole premise is data frugality. Almost
 // none of them press "download invoice".
 import SellerRatingForm from "@/components/SellerRatingForm";
-import ProductReviewForm from "@/components/ProductReviewForm";
 import PayNowButton from "@/components/PayNowButton";
 import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -492,28 +491,6 @@ function Dashboard({
             {realSellerIds.map((sellerId) => (
               <SellerRatingForm key={sellerId} lang={lang} orderRef={o.ref} phone={phone}
                 sellerId={sellerId} sellerName={sellersById[sellerId].store_name} />
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Product reviews — the same "only once completed" rule as the seller
-          ratings above, and deduplicated by product: an order with the same
-          item in two sizes is still one product to review. */}
-      {o.status === "completed" && (() => {
-        const seen = new Set<string>();
-        const products = o.items.filter((it) => {
-          if (!it.product_id || seen.has(it.product_id)) return false;
-          seen.add(it.product_id);
-          return true;
-        });
-        if (!products.length) return null;
-        return (
-          <div className="panel">
-            <h3>{t("productReviews", lang)}</h3>
-            {products.map((it) => (
-              <ProductReviewForm key={it.product_id} lang={lang} orderRef={o.ref} phone={phone}
-                productId={it.product_id} productName={it.name} />
             ))}
           </div>
         );

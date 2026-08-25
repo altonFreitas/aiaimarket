@@ -3,7 +3,7 @@ import type { MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { placeholder } from "@/lib/placeholder";
-import { money, discountPercent, ratingAverage, stars } from "@/lib/utils";
+import { money, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
@@ -17,11 +17,6 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
   const img = p.images?.[0] || placeholder(p.name);
   const loc = p.suku || p.municipality || "";
   const pct = discountPercent(p.price, p.discount_price);
-  // Comes straight off the product row (denormalised by a trigger, see
-  // marketplace-v2.sql), so a 24-card grid costs no extra queries. null on a
-  // database without the migration, and on a product nobody has reviewed --
-  // both render as "no rating shown", never as zero stars.
-  const rating = ratingAverage(p);
   const { add } = useBasket();
   const { toast } = useToast();
 
@@ -60,17 +55,7 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
       </div>
       <div className="body">
         <div className="nm">{p.name}</div>
-        <div className="mt">
-          {rating != null ? (
-            <span className="card-rating" title={`${rating} / 5`}>
-              <span className="card-stars" aria-hidden="true">{stars(rating)}</span>
-              <span>{rating.toFixed(1)}</span>
-              <span className="card-rating-n">({p.rating_count})</span>
-            </span>
-          ) : null}
-          {loc && rating != null ? <span aria-hidden="true">·</span> : null}
-          {loc}
-        </div>
+        <div className="mt">{loc}</div>
         <div className="sold-by">{sellerName ? `${t("soldBy", lang)} ${sellerName}` : "\u00A0"}</div>
         {pct != null ? (
           <div className="pr-row">

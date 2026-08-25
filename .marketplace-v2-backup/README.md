@@ -64,32 +64,11 @@ src/
   lib/
     actions/           server actions — every write goes through here
     data/              read helpers (public = RLS-gated, admin = service role)
-      search.ts        catalog search: Postgres FTS, with an in-memory fallback
-    payments/          card gateway orchestration (see supabase/payments.sql)
     supabase/          three clients: browser, server, admin
     i18n.ts            Tetun / Portuguese / English strings
     session.ts         signed admin cookie
   proxy.ts             /admin route guard
 supabase/
   schema.sql           tables, indexes, RLS, triggers, storage buckets
-  marketplace-v2.sql   search index, product reviews, seller payouts
-  payments.sql         card payment attempts
-  promotions.sql       homepage promo tiles
   seed.sql             optional sample data
 ```
-
-## Marketplace layer (v2)
-
-Three things a marketplace needs that a single-seller catalog does not. All of it
-lives in `supabase/marketplace-v2.sql`, and all of it degrades gracefully: run the
-code without the SQL and the site behaves exactly as it did before.
-
-| Area | What changed |
-|---|---|
-| **Search** | Accent-folded, prefix-matching, relevance-ranked Postgres full-text search with a trigram "did you mean" for typos. Filters on price range, stock, category and seller; paginated in the database. Replaces a JavaScript substring scan over the whole catalog. |
-| **Product reviews** | Verified-purchase only — the reviewer must hold the order's reference and the phone it was placed with, and the order must be completed and have contained that product. Star averages are denormalised onto `products` by trigger, so a grid of cards costs no extra queries, and feed `aggregateRating` in the product page's JSON-LD. |
-| **Seller payouts** | A single-entry ledger of money actually transferred to sellers. What is *owed* is derived (net earnings on completed orders minus recorded payouts), never stored, so two numbers can't disagree. `/admin/payouts` records transfers; the seller dashboard shows their own balance and history. |
-
-The catalog's `search_products()` runs as the caller, so the `products_public_read`
-RLS policy — not the function's own `WHERE` clause — is still what decides which rows
-a visitor can see.

@@ -4,9 +4,7 @@ import { headers } from "next/headers";
 import ProductInteractive from "@/components/ProductInteractive";
 import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
-import ProductReviews from "@/components/ProductReviews";
-import { getCategories, getLiveProducts, getProductBySlug, getProductReviews, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
-import { ratingAverage } from "@/lib/utils";
+import { getCategories, getLiveProducts, getProductBySlug, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 
@@ -45,20 +43,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [all, reviews] = await Promise.all([getLiveProducts(), getProductReviews(p.id)]);
+  const all = await getLiveProducts();
   const related = all.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
-
-  // Only emitted when reviews genuinely exist. Google treats a fabricated or
-  // empty aggregateRating as a structured-data violation, and an honest
-  // omission costs nothing next to a manual action against the domain.
-  const average = ratingAverage(p);
-  const aggregateRating = average != null ? {
-    "@type": "AggregateRating",
-    ratingValue: average,
-    reviewCount: Number(p.rating_count) || 0,
-    bestRating: 5,
-    worstRating: 1,
-  } : undefined;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -67,7 +53,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     description: p.description || undefined,
     image: p.images?.length ? p.images : undefined,
     sku: p.ref,
-    aggregateRating,
     offers: {
       "@type": "Offer",
       priceCurrency: "USD",
@@ -116,8 +101,6 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <ProductInteractive p={p} settings={settings} lang={lang} siteOrigin={siteOrigin} seller={seller} />
         </div>
       </div>
-
-      <ProductReviews p={p} reviews={reviews} lang={lang} />
 
       {related.length > 0 && (
         <>

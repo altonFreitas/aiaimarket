@@ -97,46 +97,6 @@ export interface Product {
   status: ProductStatus;
   views: number;
   wa_clicks: number;
-  /** Denormalised review aggregates, maintained by a trigger on
-   * product_reviews (see supabase/marketplace-v2.sql). Optional because a
-   * database that hasn't had that migration run yet simply won't have the
-   * columns -- every reader must treat "missing" as "no reviews yet", never
-   * as an error. Use ratingAverage() in lib/utils.ts rather than dividing
-   * these by hand. */
-  rating_sum?: number;
-  rating_count?: number;
-  created_at: string;
-}
-
-/** One buyer's review of one product, from one completed order. Mirrors
- * product_reviews in supabase/marketplace-v2.sql. buyer_phone is absent by
- * design -- the anon column grant excludes it, so it never reaches a
- * browser. */
-export interface ProductReview {
-  id: string;
-  product_id: string;
-  order_id: string | null;
-  buyer_name: string;
-  rating: number;
-  comment: string;
-  created_at: string;
-}
-
-export type PayoutMethod = "bank" | "wallet" | "cash" | "other";
-
-/** One recorded transfer from the platform to a seller. Mirrors
- * seller_payouts in supabase/marketplace-v2.sql. What a seller is still
- * *owed* is never stored -- it is derived as net earnings minus the sum of
- * these rows (see computeSellerLedger), so two stored numbers can never
- * disagree about the same money. */
-export interface SellerPayout {
-  id: string;
-  seller_id: string;
-  amount: number;
-  method: PayoutMethod;
-  reference: string;
-  note: string;
-  paid_at: string;
   created_at: string;
 }
 

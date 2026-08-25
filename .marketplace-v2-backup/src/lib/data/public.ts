@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { supabaseAnon } from "@/lib/supabase/anon";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CACHE_TAGS, CATALOG_REVALIDATE_SECONDS } from "@/lib/cache";
-import type { Category, HeroSlide, OrderItem, Product, ProductReview, Promotion, Settings } from "@/lib/types";
+import type { Category, HeroSlide, OrderItem, Product, Promotion, Settings } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
  * Request-level memoization.
@@ -307,30 +307,5 @@ export async function getSellerRatings(sellerId: string): Promise<{
     return { average, count, reviews: reviews.slice(0, 10) };
   } catch {
     return { average: 0, count: 0, reviews: [] };
-  }
-}
-
-/** Reviews for one product, newest first. Public by design (that is the
- * point of a review); buyer_phone never leaves the database -- the anon
- * column grant in marketplace-v2.sql excludes it, so it is not even
- * requestable from here.
- *
- * The star average shown next to a product does NOT come from this function:
- * it comes from the denormalised rating_sum/rating_count columns already on
- * the product row, so a grid of 24 cards costs zero extra queries. This is
- * only for the review list on a product page. */
-export async function getProductReviews(productId: string, limit = 20): Promise<ProductReview[]> {
-  try {
-    const sb = supabaseAnon();
-    const { data, error } = await sb
-      .from("product_reviews")
-      .select("id, product_id, order_id, buyer_name, rating, comment, created_at")
-      .eq("product_id", productId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-    if (error) return [];
-    return (data as ProductReview[]) || [];
-  } catch {
-    return [];
   }
 }

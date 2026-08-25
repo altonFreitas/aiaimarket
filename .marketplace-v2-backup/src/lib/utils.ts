@@ -109,38 +109,3 @@ export const PICKUP_FLOW: Array<Order["status"]> = FLOW.filter(
 export function flowFor(mode: "delivery" | "pickup"): Array<Order["status"]> {
   return mode === "pickup" ? PICKUP_FLOW : FLOW;
 }
-
-/** Mean star rating for a product, or null when nothing has been reviewed
- * yet. Takes the denormalised counters rather than a list of reviews, so a
- * product grid can show ratings without a second query -- and returns null
- * (not 0) for "no reviews", because a brand-new listing is unrated, not
- * badly rated. Tolerates the columns being absent entirely, which is what a
- * database that hasn't run marketplace-v2.sql looks like. */
-export function ratingAverage(
-  p: { rating_sum?: number | null; rating_count?: number | null }
-): number | null {
-  const count = Number(p.rating_count) || 0;
-  if (count <= 0) return null;
-  const sum = Number(p.rating_sum) || 0;
-  return Math.round((sum / count) * 10) / 10;
-}
-
-/** Star string for a 1-5 rating, e.g. 4.2 -> "★★★★☆". Rounds to the nearest
- * whole star; the numeric average is always displayed next to it, so the
- * rounding is a visual cue rather than the number of record. */
-export function stars(average: number): string {
-  const filled = Math.max(0, Math.min(5, Math.round(average)));
-  return "★".repeat(filled) + "☆".repeat(5 - filled);
-}
-
-/** Effective unit price: the discount when one is genuinely running, the
- * list price otherwise. The same rule placeOrder() applies when it re-prices
- * a basket server-side, and the same rule search_products() sorts by -- kept
- * here so the fallback search path in lib/data/search.ts cannot disagree
- * with the SQL about what "cheapest first" means. */
-export function effectivePrice(
-  p: { price: number; discount_price?: number | null }
-): number {
-  const d = p.discount_price;
-  return d != null && Number(d) > 0 ? Number(d) : Number(p.price);
-}

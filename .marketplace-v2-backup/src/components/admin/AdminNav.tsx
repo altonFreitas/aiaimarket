@@ -12,7 +12,6 @@ const TABS = [
   ["/admin/promotions", "promotions"],
   ["/admin/sellers", "sellers"],
   ["/admin/orders", "orders"],
-  ["/admin/payouts", "payoutsShort"],
   ["/admin/statistics", "statistics"],
   ["/admin/settings", "settings"],
 ] as const;

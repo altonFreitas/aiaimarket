@@ -16,10 +16,6 @@ const eslintConfig = defineConfig([
     // files it edits. Linting them just re-reports every issue twice.
     ".audit-backup/**",
     ".payments-backup/**",
-    // Same reasoning, for the numbered snapshots (.v3-backup … .v8-backup):
-    // they are frozen copies of files that already exist and are linted in
-    // src/, so linting them reports every finding twice.
-    ".v*-backup/**",
     "Apply*.js",
 
   ]),

@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, HeroSlide, Order, Product, Promotion, Seller, SellerPayout } from "@/lib/types";
+import type { Category, HeroSlide, Order, Product, Promotion, Seller } from "@/lib/types";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
  * and Excel export genuinely want "everything", but an unbounded read is
@@ -8,7 +8,6 @@ import type { Category, HeroSlide, Order, Product, Promotion, Seller, SellerPayo
  * year went. Raise these when the numbers approach them. */
 const MAX_ADMIN_ORDERS = 10000;
 const MAX_ADMIN_PRODUCTS = 5000;
-const MAX_ADMIN_PAYOUTS = 5000;
 
 export async function adminProducts(): Promise<Product[]> {
   const sb = supabaseAdmin();
@@ -93,99 +92,4 @@ export async function adminSellers(): Promise<Seller[]> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("sellers").select("*").order("created_at", { ascending: false });
   return (data as Seller[]) || [];
-}
-
-export interface SellerLedgerRow {
-  seller: Seller;
-  commissionRatePercent: number;
-  completedOrderCount: number;
-  grossSales: number;
-  commission: number;
-  earnings: number;
-  paidOut: number;
-  outstanding: number;
-  lastPaidAt: string | null;
-}
-
-/** Every seller's earnings reconciled against every payout, for the admin
- * payouts screen.
- *
- * Written as one pass over orders and one pass over payouts rather than
- * calling getSellerOrders() per seller: that helper re-scans the whole orders
- * table each time it is called, so using it here would turn one table scan
- * into one scan per seller — the classic N+1 that only shows up once the
- * marketplace has enough sellers to matter.
- *
- * Returns [] for the payout half rather than throwing when
- * marketplace-v2.sql hasn't been run: the page then shows real earnings with
- * nothing paid out, which is exactly what a store without a payout table
- * knows to be true. */
-export async function adminSellerLedgers(): Promise<SellerLedgerRow[]> {
-  const [sellers, orders, settings] = await Promise.all([
-    adminSellers(), adminOrders(), adminSettings(),
-  ]);
-
-  let payouts: SellerPayout[] = [];
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb.from("seller_payouts").select("*");
-    if (!error) payouts = (data as SellerPayout[]) || [];
-  } catch { /* table not migrated yet — treated as "nothing paid out" */ }
-
-  const grossBySeller = new Map<string, number>();
-  const ordersBySeller = new Map<string, Set<string>>();
-  for (const o of orders) {
-    if (o.status !== "completed") continue;
-    for (const item of o.items || []) {
-      if (!item.seller_id) continue; // the platform's own catalog, not a seller's
-      grossBySeller.set(item.seller_id, (grossBySeller.get(item.seller_id) || 0) + item.price * item.qty);
-      // A single order can hold several of one seller's lines; the seller's
-      // "completed orders" figure counts orders, not line items.
-      if (!ordersBySeller.has(item.seller_id)) ordersBySeller.set(item.seller_id, new Set());
-      ordersBySeller.get(item.seller_id)!.add(o.id);
-    }
-  }
-
-  const paidBySeller = new Map<string, number>();
-  const lastPaidBySeller = new Map<string, string>();
-  for (const p of payouts) {
-    paidBySeller.set(p.seller_id, (paidBySeller.get(p.seller_id) || 0) + Number(p.amount));
-    const seen = lastPaidBySeller.get(p.seller_id);
-    if (!seen || p.paid_at > seen) lastPaidBySeller.set(p.seller_id, p.paid_at);
-  }
-
-  const platformRate = Number(settings?.commission_rate ?? 10);
-
-  return sellers.map((seller) => {
-    const commissionRatePercent = seller.commission_rate ?? platformRate;
-    const grossSales = grossBySeller.get(seller.id) || 0;
-    const commission = grossSales * (commissionRatePercent / 100);
-    const earnings = grossSales - commission;
-    const paidOut = paidBySeller.get(seller.id) || 0;
-    return {
-      seller,
-      commissionRatePercent,
-      completedOrderCount: ordersBySeller.get(seller.id)?.size || 0,
-      grossSales,
-      commission,
-      earnings,
-      paidOut,
-      outstanding: earnings - paidOut,
-      lastPaidAt: lastPaidBySeller.get(seller.id) || null,
-    };
-  });
-}
-
-/** Full payout history across every seller, newest first — the audit trail
- * behind the balances above. */
-export async function adminPayouts(): Promise<SellerPayout[]> {
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb.from("seller_payouts").select("*")
-      .order("paid_at", { ascending: false }).limit(MAX_ADMIN_PAYOUTS);
-    if (error) return [];
-    return (data as SellerPayout[]) || [];
-  } catch {
-    return [];
-  }
 }

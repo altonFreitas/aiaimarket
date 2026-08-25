@@ -391,57 +391,7 @@ export const STR: Record<string, [string,string,string]> = {
   /* misc */
   by:["husi","por","by"],
   openHours:["Loke","Aberto","Open"],
-  demoNote:["","",""],
-
-  /* ---- search, filters and pagination (marketplace v2) ---- */
-  sortRelevance:["Relevante liu","Mais relevante","Most relevant"],
-  sortRating:["Avaliasaun aas liu","Melhor avaliados","Best rated"],
-  priceRange:["Folin","Preço","Price"],
-  priceMin:["Husi","De","From"],
-  priceMax:["To'o","Até","To"],
-  applyFilters:["Aplika","Aplicar","Apply"],
-  clearFilters:["Hamoos filtru","Limpar filtros","Clear filters"],
-  filters:["Filtru","Filtros","Filters"],
-  page:["Pájina","Página","Page"],
-  pageOf:["husi","de","of"],
-  prevPage:["Molok","Anterior","Previous"],
-  nextPage:["Tuir mai","Seguinte","Next"],
-  didYouMean:["Karik ita buka:","Talvez procure:","Did you mean:"],
-  noResultsFor:["La hetan buat ida ba","Nada encontrado para","Nothing found for"],
-  searchTips:["Koko liafuan badak liu, ka haree katálogu tomak.","Tente uma palavra mais curta, ou veja o catálogo todo.","Try a shorter word, or browse the whole catalog."],
-
-  /* ---- product reviews ---- */
-  productReviews:["Avaliasaun produtu","Avaliações do produto","Product reviews"],
-  noReviewsYet:["Seidauk iha avaliasaun. Sai ema primeiru!","Ainda sem avaliações. Seja o primeiro!","No reviews yet. Be the first."],
-  verifiedPurchase:["Sosa konfirmadu","Compra verificada","Verified purchase"],
-  rateProduct:["Fó avaliasaun ba","Avaliar","Rate"],
-  reviewSaved:["Obrigadu ba ita nia avaliasaun!","Obrigado pela sua avaliação!","Thanks for your review."],
-  reviewCommentPlaceholder:["Konta uitoan kona-ba produtu ne'e (opsionál)","Conte-nos algo sobre o produto (opcional)","Tell us about the product (optional)"],
-  submitReview:["Haruka avaliasaun","Enviar avaliação","Submit review"],
-  basedOnReviews:["bazeia ba avaliasaun","com base em avaliações","based on reviews"],
-  reviewCount:["avaliasaun","avaliações","reviews"],
-
-  /* ---- seller payouts ---- */
-  payouts:["Pagamentu ba na\u2019in","Pagamentos a vendedores","Seller payouts"],
-  payoutsShort:["Pagamentu","Pagamentos","Payouts"],
-  paidOut:["Selu tiha ona","Já pago","Paid out"],
-  outstanding:["Sei tenke selu","Ainda por pagar","Still owed"],
-  recordPayout:["Rejista pagamentu","Registar pagamento","Record payout"],
-  payoutAmount:["Montante","Montante","Amount"],
-  payoutMethod:["Dalan","Método","Method"],
-  payoutReference:["Referénsia","Referência","Reference"],
-  payoutDate:["Data","Data","Date"],
-  payoutSaved:["Rejista ona","Registado","Recorded"],
-  payoutHistory:["Istória pagamentu","Histórico de pagamentos","Payout history"],
-  noPayoutsYet:["Seidauk selu buat ida.","Ainda sem pagamentos.","Nothing paid out yet."],
-  payoutMethodBank:["Banku","Banco","Bank"],
-  payoutMethodWallet:["Karteira móvel","Carteira móvel","Mobile wallet"],
-  payoutMethodCash:["Osan tunai","Dinheiro","Cash"],
-  payoutMethodOther:["Seluk","Outro","Other"],
-  deletePayoutAsk:["Hasai rejistu pagamentu ne\u2019e?","Remover este registo de pagamento?","Remove this payout record?"],
-  payoutsNeedMigration:["Halo\u2019o supabase/marketplace-v2.sql atu bele rejista pagamentu.","Execute supabase/marketplace-v2.sql para poder registar pagamentos.","Run supabase/marketplace-v2.sql to record payouts."],
-  overpaid:["Selu barak liu","Pago a mais","Overpaid"],
-  sellerLedger:["Konta ita-nia","A sua conta","Your account"]
+  demoNote:["","",""]
 };
 
 export type StrKey = keyof typeof STR;

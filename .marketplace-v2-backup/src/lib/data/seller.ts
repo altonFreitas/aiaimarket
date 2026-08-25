@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
-import type { Order, OrderItem, Product, Seller, SellerPayout } from "@/lib/types";
+import type { Order, OrderItem, Product, Seller } from "@/lib/types";
 
 const MAX_SELLER_ORDER_SCAN = 5000;
 
@@ -148,46 +148,4 @@ export function computeSellerEarnings(
     commission,
     earnings: grossSales - commission,
   };
-}
-
-/** Payouts already made to one seller, newest first. Returns [] rather than
- * throwing when supabase/marketplace-v2.sql hasn't been run — the dashboard
- * then simply shows nothing paid out yet, which is the truth for a store
- * that has no payout table. */
-export async function getSellerPayouts(sellerId: string): Promise<SellerPayout[]> {
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("seller_payouts")
-      .select("*")
-      .eq("seller_id", sellerId)
-      .order("paid_at", { ascending: false });
-    if (error) return [];
-    return (data as SellerPayout[]) || [];
-  } catch {
-    return [];
-  }
-}
-
-export interface SellerLedger extends SellerEarnings {
-  /** Sum of every payout recorded against this seller. */
-  paidOut: number;
-  /** What the platform still owes: net earnings minus payouts. Derived, never
-   * stored — see the note on seller_payouts in marketplace-v2.sql. */
-  outstanding: number;
-}
-
-/** Earnings and payouts reconciled into the one number a seller and the
- * platform actually argue about: what is still owed.
- *
- * `outstanding` is allowed to go negative, and deliberately isn't clamped to
- * zero. A negative balance means more has been paid out than completed orders
- * justify — an advance, a double payment, or a mistake. Hiding it behind a
- * max(0, …) would make exactly the error worth noticing invisible. */
-export function computeSellerLedger(
-  earnings: SellerEarnings,
-  payouts: SellerPayout[]
-): SellerLedger {
-  const paidOut = payouts.reduce((a, p) => a + Number(p.amount), 0);
-  return { ...earnings, paidOut, outstanding: earnings.earnings - paidOut };
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrders, getSellerPayouts, computeSellerEarnings, computeSellerLedger } from "@/lib/data/seller";
+import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrders, computeSellerEarnings } from "@/lib/data/seller";
 import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
-import { money, nowIso } from "@/lib/utils";
+import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import SellerStatusGate from "@/components/seller/SellerStatusGate";
 
@@ -21,20 +21,16 @@ export default async function SellerDashboardPage() {
   const seller = await getCurrentSellerOrRedirect();
   const isApproved = seller.status === "approved";
 
-  const [products, orders, payouts, settings] = await Promise.all([
+  const [products, orders, settings] = await Promise.all([
     isApproved ? getSellerProducts(seller.id) : Promise.resolve([]),
     isApproved ? getSellerOrders(seller.id) : Promise.resolve([]),
-    isApproved ? getSellerPayouts(seller.id) : Promise.resolve([]),
     adminSettings(),
   ]);
   const live = products.filter((p) => !p.archived);
   const pendingReview = live.filter((p) => p.status === "pending").length;
   const outOfStock = live.filter((p) => p.stock_status === "out").length;
   const pendingOrders = orders.filter((o) => !["completed", "cancelled"].includes(o.status)).length;
-  const ledger = computeSellerLedger(
-    computeSellerEarnings(orders, seller, settings.commission_rate),
-    payouts
-  );
+  const earnings = computeSellerEarnings(orders, seller, settings.commission_rate);
 
   return (
     <div className="panel">
@@ -59,35 +55,12 @@ export default async function SellerDashboardPage() {
         <div style={{ marginTop: 18, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
           <h3>{t("sellerEarnings", lang)}</h3>
           <p className="hint" style={{ marginTop: -4 }}>
-            {t("commissionRate", lang)}: {ledger.commissionRatePercent}%
+            {t("commissionRate", lang)}: {earnings.commissionRatePercent}%
           </p>
-          <div className="kv"><span>{t("grossSales", lang)}</span><b>{money(ledger.grossSales)}</b></div>
-          <div className="kv"><span>{t("marketplaceCommission", lang)}</span><b>-{money(ledger.commission)}</b></div>
-          <div className="kv"><span>{t("sellerEarnings", lang)}</span><b>{money(ledger.earnings)}</b></div>
-          <div className="kv"><span>{t("paidOut", lang)}</span><b>-{money(ledger.paidOut)}</b></div>
-          {/* The one number a seller actually came here for. Shown in red
-              when negative, which means the platform has paid out more than
-              completed orders justify -- surfaced rather than clamped, so
-              the mistake is visible to both sides. */}
-          <div className="kv total">
-            <span>{ledger.outstanding < 0 ? t("overpaid", lang) : t("outstanding", lang)}</span>
-            <b style={{ color: ledger.outstanding < 0 ? "var(--red)" : undefined }}>
-              {money(ledger.outstanding)}
-            </b>
-          </div>
+          <div className="kv"><span>{t("grossSales", lang)}</span><b>{money(earnings.grossSales)}</b></div>
+          <div className="kv"><span>{t("marketplaceCommission", lang)}</span><b>-{money(earnings.commission)}</b></div>
+          <div className="kv total"><span>{t("sellerEarnings", lang)}</span><b>{money(earnings.earnings)}</b></div>
         </div>
-
-        {payouts.length > 0 && (
-          <div style={{ marginTop: 18, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-            <h3>{t("payoutHistory", lang)}</h3>
-            {payouts.map((p) => (
-              <div key={p.id} className="kv">
-                <span>{nowIso(p.paid_at)}{p.reference ? ` · ${p.reference}` : ""}</span>
-                <b>{money(p.amount)}</b>
-              </div>
-            ))}
-          </div>
-        )}
       </SellerStatusGate>
     </div>
   );

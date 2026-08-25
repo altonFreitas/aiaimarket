@@ -1,31 +1,39 @@
-import CatalogLayout, { sortAndFilter } from "@/components/CatalogLayout";
+import CatalogLayout from "@/components/CatalogLayout";
 import { getCategories, getLiveProducts, getSettings } from "@/lib/data/public";
+import { searchCatalog, parseSort, parsePage, parsePrice } from "@/lib/data/search";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 
-/** The full catalog — search, category sidebar, sort, "in stock only"
- * filter, product grid. This used to live at "/" (see git history /
- * apply-update-15.js); it moved here so "/" could become a proper
+/** The full catalog — category sidebar, sort, filters, paginated grid. This
+ * used to live at "/"; it moved here so "/" could become a proper
  * marketplace homepage, without losing any of this functionality. */
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; in?: string }>;
+  searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string }>;
 }) {
   const sp = await searchParams;
-  const [lang, settings, cats, products] = await Promise.all([
+  const [lang, settings, cats, allProducts, result] = await Promise.all([
     getLang(), getSettings(), getCategories(), getLiveProducts(),
+    searchCatalog({
+      inStockOnly: sp.in === "1",
+      minPrice: parsePrice(sp.min),
+      maxPrice: parsePrice(sp.max),
+      sort: parseSort(sp.sort, false),
+      page: parsePage(sp.page),
+    }),
   ]);
-  const shown = sortAndFilter(products, sp.sort, sp.in === "1");
 
   return (
     <CatalogLayout
       title={t("catalog", lang)}
       cats={cats}
-      allProducts={products}
-      shown={shown}
+      allProducts={allProducts}
+      result={result}
       lang={lang}
       settings={settings}
+      basePath="/shop"
+      params={{ sort: sp.sort, in: sp.in, min: sp.min, max: sp.max }}
     />
   );
 }
