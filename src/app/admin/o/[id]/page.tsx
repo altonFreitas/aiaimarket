@@ -23,6 +23,8 @@ export default async function OrderAdminPage({ params }: { params: Promise<{ id:
       <OrderAdmin lang={lang} order={order} settings={settings} />
       <OrderNotifications
         lang={lang}
+        orderId={order.id}
+        orderStatus={order.status}
         notifications={notifications}
         automatic={notificationsAutomatic()}
         migrated={migrated}

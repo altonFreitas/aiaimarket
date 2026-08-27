@@ -468,7 +468,10 @@ export const STR: Record<string, [string,string,string]> = {
   allMessagesSent:["Mensajen hotu haruka ona.","Todas as mensagens foram enviadas.","Every message has been sent."],
   smsSegment:["SMS","SMS","SMS"],
   smsSegments:["SMS","SMS","SMS"],
-  smsRemaining:["karakter sei iha","caracteres livres","characters left"]
+  smsRemaining:["karakter sei iha","caracteres livres","characters left"],
+  clearMessages:["Hamoos mensajen haruka ona","Limpar mensagens enviadas","Clear sent messages"],
+  clearMessagesAsk:["Hasai {n} mensajen ne’ebé haruka ona husi enkomenda ne’e? Enkomenda rasik sei la muda.","Remover {n} mensagens já enviadas desta encomenda? A encomenda em si não é afetada.","Remove {n} already-sent messages from this order? The order itself is unaffected."],
+  messagesCleared:["Hamoos ona","Removidas","Cleared"]
 };
 
 export type StrKey = keyof typeof STR;

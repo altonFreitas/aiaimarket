@@ -3,6 +3,7 @@ import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { dispatchNotification } from "@/lib/notify/service";
 import { notificationsAutomatic } from "@/lib/notify/registry";
+import { TERMINAL_ORDER_STATUSES, CLEARABLE_NOTIFICATION_STATUSES } from "@/lib/notify/clearability";
 import { revalidatePath } from "next/cache";
 
 /** Marks a queued message as sent by hand.
@@ -55,6 +56,39 @@ export async function skipNotification(id: string) {
   const sb = supabaseAdmin();
   const { error } = await sb.from("notifications").update({ status: "skipped" }).eq("id", id);
   if (error) throw error;
+  revalidatePath("/admin/o", "layout");
+  revalidatePath("/admin/notifications");
+}
+
+/** Deletes one order's finished messages -- sent and skipped only, never
+ * queued or failed -- once the order itself is done.
+ *
+ * The two rules that decide "safe to discard" (which order statuses, which
+ * message statuses) live in lib/notify/clearability.ts, not here, so the
+ * component deciding whether to SHOW the button and this action deciding
+ * whether to HONOUR it can never quietly disagree.
+ *
+ * This table stays small by construction -- at most six rows per order,
+ * ever -- so nothing here exists because Postgres is running out of room.
+ * It exists so a long-running store's order history doesn't accumulate a
+ * message transcript nobody asked to keep past the order being done. */
+export async function clearOrderNotifications(orderId: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+
+  const { data: order } = await sb.from("orders").select("status").eq("id", orderId).maybeSingle();
+  if (!order) throw new Error("Order not found");
+  if (!(TERMINAL_ORDER_STATUSES as readonly string[]).includes(order.status)) {
+    throw new Error("This order isn't finished yet — its messages stay until it is");
+  }
+
+  const { error } = await sb
+    .from("notifications")
+    .delete()
+    .eq("order_id", orderId)
+    .in("status", CLEARABLE_NOTIFICATION_STATUSES as string[]);
+  if (error) throw error;
+
   revalidatePath("/admin/o", "layout");
   revalidatePath("/admin/notifications");
 }

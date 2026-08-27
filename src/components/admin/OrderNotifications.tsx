@@ -2,11 +2,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { markNotificationSent, retryNotification, skipNotification } from "@/lib/actions/notifications";
+import {
+  markNotificationSent, retryNotification, skipNotification, clearOrderNotifications,
+} from "@/lib/actions/notifications";
+import { canClearOrderNotifications, countClearableNotifications } from "@/lib/notify/clearability";
 import { smsLink, nowIso } from "@/lib/utils";
 import SmsCostBadge from "./SmsCostBadge";
 import { t } from "@/lib/i18n";
-import type { Lang, OrderNotification } from "@/lib/types";
+import type { Lang, Order, OrderNotification } from "@/lib/types";
 
 const STATUS_PILL: Record<OrderNotification["status"], "ok" | "warn" | "bad"> = {
   sent: "ok",
@@ -24,9 +27,11 @@ const STATUS_PILL: Record<OrderNotification["status"], "ok" | "warn" | "bad"> = 
  * -- without it two people working the same orders send the same update
  * twice, and each duplicate costs real money. */
 export default function OrderNotifications({
-  lang, notifications, automatic, migrated,
+  lang, orderId, orderStatus, notifications, automatic, migrated,
 }: {
   lang: Lang;
+  orderId: string;
+  orderStatus: Order["status"];
   notifications: OrderNotification[];
   /** True when a provider is configured and messages send themselves. */
   automatic: boolean;
@@ -42,6 +47,18 @@ export default function OrderNotifications({
     try { await fn(); if (msg) toast(msg); router.refresh(); }
     catch (e) { toast(String((e as Error).message), true); }
     setBusy(false);
+  }
+
+  // The same rule the server enforces (lib/notify/clearability.ts), computed
+  // here too so the button can say how many rows it will remove, and stay
+  // hidden entirely when there is nothing to.
+  const statuses = notifications.map((n) => n.status);
+  const clearableCount = countClearableNotifications(statuses);
+  const canClear = canClearOrderNotifications(orderStatus, statuses);
+
+  function clearMessages() {
+    if (!window.confirm(t("clearMessagesAsk", lang).replace("{n}", String(clearableCount)))) return;
+    run(() => clearOrderNotifications(orderId), t("messagesCleared", lang));
   }
 
   return (
@@ -107,6 +124,17 @@ export default function OrderNotifications({
 
       {migrated && !automatic && (
         <p className="hint" style={{ marginTop: 10 }}>{t("manualModeHint", lang)}</p>
+      )}
+
+      {/* Only ever reachable once the order itself can no longer change
+          status -- clearing history mid-flight is not offered at all, not
+          even disabled-and-explained, so there is nothing to misclick. */}
+      {canClear && (
+        <div style={{ marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+          <button className="btn btn-sm btn-ghost" type="button" disabled={busy} onClick={clearMessages}>
+            {t("clearMessages", lang)} ({clearableCount})
+          </button>
+        </div>
       )}
     </div>
   );
