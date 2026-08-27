@@ -1,3 +1,4 @@
+import { forceGsm7Enabled, toGsm7 } from "@/lib/sms";
 import type { Lang } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
@@ -8,8 +9,18 @@ import type { Lang } from "@/lib/types";
  * already flags that the UI strings are a solid first draft, not verified
  * copy), and that review should not require reading an API client.
  *
- * Every message ends with the tracking link and nothing after it. A link with
- * text trailing behind it gets fewer taps, and the tap is the entire point.
+ * Two rules shape every line below, and both are about SMS specifically:
+ *
+ *   1. Every message ends with the tracking link and nothing after it. A link
+ *      with text trailing behind it gets fewer taps, and the tap is the point.
+ *      It also keeps the link intact if a carrier truncates the tail.
+ *
+ *   2. Short, because SMS is billed per 160-character segment -- and per 70
+ *      once a message contains a character GSM-7 lacks, which in Tetun and
+ *      Portuguese means almost any accent (see lib/sms.ts). The tracking URL
+ *      alone is ~60 characters, so the prose around it has very little room
+ *      before the store is paying twice for the same update. Tests assert
+ *      these stay inside one segment for a typical order.
  * ------------------------------------------------------------------------ */
 
 export type NotifyEvent =
@@ -28,7 +39,6 @@ export const NOTIFY_EVENTS: readonly NotifyEvent[] = [
 ];
 
 export interface TemplateVars {
-  name: string;
   ref: string;
   storeName: string;
   total: string;
@@ -37,37 +47,51 @@ export interface TemplateVars {
 
 type Trio = [tet: string, pt: string, en: string];
 
-/** `{name}`, `{ref}`, `{store}`, `{total}` and `{url}` are substituted. */
+/** `{ref}`, `{store}`, `{total}` and `{url}` are substituted.
+ *
+ * The store name appears only in the first message. After that the buyer is
+ * in a thread they recognise, and repeating it costs segments that say
+ * nothing. The order reference carries the identification instead.
+ *
+ * The Tetun and Portuguese wording is chosen to stay inside GSM-7, which is
+ * why it reads "Estamos a preparar" rather than "Estamos a prepará-la" and
+ * "Avalie aqui" rather than "Deixe a sua avaliação". One á or ã drops the
+ * whole message to 70 characters per segment, and with the tracking link
+ * included that turns a one-segment message into three -- triple price, for a
+ * diacritic. These are natural phrasings, not misspellings: the accents are
+ * avoided by choosing different words, never by stripping marks from words
+ * that need them. A test asserts every message still fits one segment, so an
+ * edit that reintroduces one fails rather than quietly costing money. */
 const MESSAGES: Record<NotifyEvent, Trio> = {
   placed: [
-    "Botardi {name}! {store} simu ona ita-nia enkomenda {ref} — {total}.\nHaree estadu enkomenda iha ne'e:\n{url}",
-    "Olá {name}! A {store} recebeu a sua encomenda {ref} — {total}.\nAcompanhe aqui:\n{url}",
-    "Hi {name}! {store} has received your order {ref} — {total}.\nTrack it here:\n{url}",
+    "{store}: simu ona enkomenda {ref}, {total}. Haree:\n{url}",
+    "{store}: recebemos a encomenda {ref}, {total}. Acompanhe:\n{url}",
+    "{store}: order {ref} received, {total}. Track it:\n{url}",
   ],
   confirmed: [
-    "{name}, ita-nia enkomenda {ref} konfirmadu ona. Ami prepara hela.\nHaree estadu iha ne'e:\n{url}",
-    "{name}, a sua encomenda {ref} está confirmada. Estamos a prepará-la.\nAcompanhe aqui:\n{url}",
-    "{name}, your order {ref} is confirmed. We're getting it ready.\nTrack it here:\n{url}",
+    "Enkomenda {ref} konfirmadu ona. Ami prepara hela. Haree:\n{url}",
+    "Encomenda {ref} confirmada. Estamos a preparar. Acompanhe:\n{url}",
+    "Order {ref} confirmed. We're getting it ready. Track it:\n{url}",
   ],
   out: [
-    "{name}, ita-nia enkomenda {ref} iha dalan ona ba ita.\nHaree iha ne'e:\n{url}",
-    "{name}, a sua encomenda {ref} saiu para entrega.\nVeja aqui:\n{url}",
-    "{name}, your order {ref} is on its way to you.\nSee it here:\n{url}",
+    "Enkomenda {ref} iha dalan ona ba ita. Haree:\n{url}",
+    "Encomenda {ref} saiu para entrega. Acompanhe:\n{url}",
+    "Order {ref} is on its way to you. Track it:\n{url}",
   ],
   arrived: [
-    "{name}, ami to'o ona ho ita-nia enkomenda {ref}. Ami bolu ita agora.\n{url}",
-    "{name}, chegámos com a sua encomenda {ref}. Estamos a ligar-lhe.\n{url}",
-    "{name}, we've arrived with your order {ref}. We're calling you now.\n{url}",
+    "Ami to'o ona ho enkomenda {ref}. Ami bolu ita agora.\n{url}",
+    "Chegamos com a encomenda {ref}. Vamos ligar-lhe.\n{url}",
+    "We've arrived with order {ref}. We're calling you now.\n{url}",
   ],
   completed: [
-    "Obrigadu barak {name}! Enkomenda {ref} kompletu ona.\nFó ita-nia avaliasaun iha ne'e:\n{url}",
-    "Muito obrigado {name}! A encomenda {ref} está concluída.\nDeixe a sua avaliação aqui:\n{url}",
-    "Thank you {name}! Order {ref} is complete.\nLeave your review here:\n{url}",
+    "Obrigadu! Enkomenda {ref} kompletu ona. Avalia iha ne'e:\n{url}",
+    "Obrigado! Encomenda {ref} entregue. Avalie aqui:\n{url}",
+    "Thank you! Order {ref} is complete. Leave a review:\n{url}",
   ],
   cancelled: [
-    "{name}, ita-nia enkomenda {ref} kansela ona. Kontaktu ami se iha pergunta.\n{url}",
-    "{name}, a sua encomenda {ref} foi cancelada. Contacte-nos se tiver dúvidas.\n{url}",
-    "{name}, your order {ref} has been cancelled. Contact us if you have questions.\n{url}",
+    "Enkomenda {ref} kansela ona. Kontaktu ami se presiza.\n{url}",
+    "Encomenda {ref} cancelada. Contacte-nos se precisar.\n{url}",
+    "Order {ref} has been cancelled. Contact us if you need to.\n{url}",
   ],
 };
 
@@ -78,12 +102,16 @@ export function renderNotification(event: NotifyEvent, lang: Lang, vars: Templat
   // Falls back to Tetun rather than throwing: an unknown language stored on
   // an old order must not be the reason a buyer hears nothing.
   const template = trio[LANG_INDEX[lang] ?? 0] ?? trio[0];
-  return template
-    .replace(/\{name\}/g, vars.name)
+  const rendered = template
     .replace(/\{ref\}/g, vars.ref)
     .replace(/\{store\}/g, vars.storeName)
     .replace(/\{total\}/g, vars.total)
     .replace(/\{url\}/g, vars.url);
+
+  // Opt-in, because flattening accents is a decision about the store's voice
+  // -- see toGsm7(). When it is on, it roughly halves the cost of every
+  // message that contains one.
+  return forceGsm7Enabled() ? toGsm7(rendered) : rendered;
 }
 
 /** Maps an order status to the event worth telling the buyer about, or null

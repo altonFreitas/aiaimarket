@@ -144,3 +144,15 @@ export function effectivePrice(
   const d = p.discount_price;
   return d != null && Number(d) > 0 ? Number(d) : Number(p.price);
 }
+
+/** Opens the phone's own SMS app with the number and message already filled
+ * in -- the manual send path when no gateway is configured.
+ *
+ * `?&body=` is deliberate and is not a typo. iOS expects the separator before
+ * `body` to be `&`, Android expects `?`; `?&` is the form both parse, and has
+ * been the accepted cross-platform workaround for years. On a desktop browser
+ * with no SMS handler the link does nothing, which is why the admin UI shows
+ * it as one option next to "mark as sent" rather than as the only way. */
+export function smsLink(phone: string, text: string): string {
+  return `sms:${phone.replace(/[^\d+]/g, "")}?&body=${encodeURIComponent(text)}`;
+}

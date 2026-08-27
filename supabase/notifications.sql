@@ -25,10 +25,11 @@ alter table orders add column if not exists lang text not null default 'tet'
 -- them" and "the network call failed". A row that is still `queued` is work
 -- outstanding; the admin can see it and send it by hand.
 --
--- That distinction is what makes this useful before any messaging API is
+-- That distinction is what makes this useful before any SMS gateway is
 -- configured at all: with no provider set up, every notification queues with
--- channel='manual' and the admin gets a one-tap WhatsApp link on the order
--- page. Configure the API later and the same rows start sending themselves.
+-- channel='manual' and the admin gets a one-tap link that opens their own
+-- phone's SMS app with the number and text filled in. Configure a gateway
+-- later and the same rows start sending themselves.
 -- ---------------------------------------------------------------------------
 create table if not exists notifications (
   id           uuid primary key default gen_random_uuid(),
@@ -49,7 +50,7 @@ create table if not exists notifications (
   -- queued today still says what the buyer was promised it would say.
   body         text not null,
   tracking_url text not null default '',
-  channel      text not null default 'manual' check (channel in ('whatsapp','manual')),
+  channel      text not null default 'manual' check (channel in ('sms','manual')),
   provider     text not null default '',
   provider_ref text,
   status       text not null default 'queued'
@@ -74,3 +75,33 @@ alter table notifications enable row level security;
 -- through the service-role client, which bypasses RLS entirely, the same
 -- way orders are already handled.
 revoke all on notifications from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Channel migration: WhatsApp -> SMS
+--
+-- An earlier version of this file allowed channel='whatsapp'. Order updates
+-- now go to the buyer's phone as SMS instead, so the constraint has to be
+-- replaced -- and any rows already carrying the old value moved across, or
+-- the new constraint refuses to be added at all.
+--
+-- Written to be a no-op on a database that never saw the WhatsApp version,
+-- so this file stays safe to run on a fresh project and on an existing one.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+     where conrelid = 'notifications'::regclass
+       and conname = 'notifications_channel_check'
+  ) then
+    alter table notifications drop constraint notifications_channel_check;
+  end if;
+
+  -- Historical rows: the message really was sent, it just went out over a
+  -- channel this store no longer uses. Relabelled rather than deleted, so
+  -- the record of what a buyer was told stays intact.
+  update notifications set channel = 'sms' where channel = 'whatsapp';
+
+  alter table notifications
+    add constraint notifications_channel_check check (channel in ('sms','manual'));
+end $$;

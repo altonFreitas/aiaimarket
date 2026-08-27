@@ -7,12 +7,13 @@ import { revalidatePath } from "next/cache";
 
 /** Marks a queued message as sent by hand.
  *
- * The manual path is not a degraded mode -- for a store without a Meta
- * business account it is the whole feature. The admin taps the WhatsApp
- * link, WhatsApp opens with the message and the buyer's number already
- * filled in, they press send, then they press this. The outbox stays an
- * accurate record of what the buyer has actually been told, which is what
- * stops the same update being sent twice by two different people. */
+ * The manual path is not a degraded mode -- for a store with no SMS gateway
+ * contract it is the whole feature. The admin taps the link, their phone's
+ * messaging app opens with the buyer's number and the text already filled
+ * in, they press send, then they press this. The outbox stays an accurate
+ * record of what the buyer has actually been told, which is what stops the
+ * same update being sent twice by two different people -- and with SMS, each
+ * duplicate is a real charge. */
 export async function markNotificationSent(id: string) {
   await requireAdmin();
   const sb = supabaseAdmin();
@@ -30,7 +31,7 @@ export async function markNotificationSent(id: string) {
 export async function retryNotification(id: string) {
   await requireAdmin();
   if (!notificationsAutomatic()) {
-    throw new Error("No messaging provider is configured — send this one by hand instead");
+    throw new Error("No SMS gateway is configured — send this one by hand instead");
   }
   const sb = supabaseAdmin();
   const { data } = await sb

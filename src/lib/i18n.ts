@@ -446,7 +446,7 @@ export const STR: Record<string, [string,string,string]> = {
   /* ---- order notifications ---- */
   orderMessages:["Mensajen ba kliente","Mensagens ao cliente","Messages to the buyer"],
   noMessagesYet:["Seidauk haruka mensajen ida.","Ainda sem mensagens.","No messages yet."],
-  sendOnWhatsApp:["Haruka liu WhatsApp","Enviar por WhatsApp","Send on WhatsApp"],
+  sendSms:["Haruka SMS","Enviar SMS","Send SMS"],
   markSent:["Marka haruka ona","Marcar como enviada","Mark as sent"],
   markedSent:["Marka ona","Marcada","Marked as sent"],
   retry:["Koko fali","Tentar de novo","Retry"],
@@ -462,10 +462,13 @@ export const STR: Record<string, [string,string,string]> = {
   notifEvent_arrived:["To'o ona","Chegou","Arrived"],
   notifEvent_completed:["Kompletu","Concluída","Completed"],
   notifEvent_cancelled:["Kansela","Cancelada","Cancelled"],
-  manualModeHint:["Seidauk iha API mensajen. Klik \u201cHaruka liu WhatsApp\u201d, haruka, depois marka haruka ona.","Sem API de mensagens configurada. Clique em \u201cEnviar por WhatsApp\u201d, envie, depois marque como enviada.","No messaging API configured. Tap \u201cSend on WhatsApp\u201d, send it, then mark it as sent."],
+  manualModeHint:["Seidauk iha gateway SMS. Klik \u201cHaruka SMS\u201d, haruka husi ita-nia telefone, depois marka haruka ona.","Sem gateway SMS configurado. Clique em \u201cEnviar SMS\u201d, envie do seu telemóvel, depois marque como enviada.","No SMS gateway configured. Tap \u201cSend SMS\u201d, send it from your own phone, then mark it as sent."],
   notificationsNeedMigration:["Halo\u2019o supabase/notifications.sql atu bele haruka mensajen.","Execute supabase/notifications.sql para poder enviar mensagens.","Run supabase/notifications.sql to send buyer messages."],
   pendingMessages:["Mensajen hein hela","Mensagens pendentes","Pending messages"],
-  allMessagesSent:["Mensajen hotu haruka ona.","Todas as mensagens foram enviadas.","Every message has been sent."]
+  allMessagesSent:["Mensajen hotu haruka ona.","Todas as mensagens foram enviadas.","Every message has been sent."],
+  smsSegment:["SMS","SMS","SMS"],
+  smsSegments:["SMS","SMS","SMS"],
+  smsRemaining:["karakter sei iha","caracteres livres","characters left"]
 };
 
 export type StrKey = keyof typeof STR;

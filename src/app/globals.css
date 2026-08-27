@@ -493,6 +493,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .notif-body{margin:0;padding:8px 10px;background:var(--line-2);border-radius:var(--r-s);
   font-family:var(--sans);font-size:13px;line-height:1.45;white-space:pre-wrap;
   word-break:break-word;overflow-wrap:anywhere}
+/* Segment count: quiet at one, amber past it. Two segments is a real cost,
+   not an error -- so it is noticeable, not alarming. */
+.sms-cost{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.04em;padding:2px 7px;border-radius:20px;background:var(--line-2);color:var(--muted)}
+.sms-cost.is-multi{background:var(--amber-soft);color:var(--amber-ink);font-weight:700}
+.sms-cost-enc{opacity:.7;font-size:9.5px}
 .notif-error{margin:7px 0 0;padding:7px 9px;background:var(--red-soft);color:var(--red);
   border-radius:var(--r-s);font-size:12px;font-family:var(--mono);white-space:pre-wrap;
   word-break:break-word;overflow-wrap:anywhere}

@@ -8,8 +8,10 @@ export interface SendResult {
 
 export interface NotifyProvider {
   id: string;
-  /** Reported to the buyer-facing outbox as the channel used. */
-  channel: "whatsapp";
+  /** Every provider sends SMS to the number the buyer gave at checkout. The
+   * field stays on the interface because the outbox records which channel a
+   * message actually went out on, and "manual" is a real value there. */
+  channel: "sms";
   /** False when the environment variables this provider needs are absent.
    * Same contract as the payment providers: an unconfigured provider is not
    * an error, it just means the manual path is used instead. */

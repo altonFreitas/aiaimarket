@@ -25,7 +25,7 @@ Follow in order. Total time: about 20 minutes.
    render as "no reviews yet", and the payouts screen stays empty — so deploying the
    code first and running this after is safe. Both files are safe to re-run.
 4. Do the same with `supabase/notifications.sql`. This adds the buyer message
-   outbox, so each order update reaches the buyer's WhatsApp with a one-tap
+   outbox, so each order update reaches the buyer as an SMS with a one-tap
    tracking link. Without it order status changes work exactly as before, they
    just don't message anyone. See **Order notifications** below.
 5. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
@@ -291,34 +291,56 @@ buyer's funds are on hold and the store has not taken them.
 ## Order notifications
 
 When an order is placed, and each time it is confirmed / sent out / delivered /
-completed / cancelled, the buyer gets a message on the phone number they gave at
-checkout. The message ends with a link straight to their order — signed, so
-tapping it opens the tracking page already unlocked, with no phone number to
-retype.
+completed / cancelled, the buyer gets a **text message** on the phone number
+they gave at checkout. The message ends with a link straight to their order —
+signed, so tapping it opens the tracking page already unlocked, with no phone
+number to retype.
 
-**It works with no setup at all.** With no messaging API configured, every
-message is queued and the admin gets a one-tap **Send on WhatsApp** button — on
-the order page, and as a queue at `/admin/notifications`. WhatsApp opens with
-the buyer's number and the full message already filled in; press send, then
-press **Mark as sent**. No Meta business account, no cost, no approval wait.
+**It works with no setup at all.** With no SMS gateway configured, every
+message is queued and the admin gets a one-tap **Send SMS** button — on the
+order page, and as a queue at `/admin/notifications`. It opens your own
+phone's messaging app with the buyer's number and the full text already
+filled in; send it, then press **Mark as sent**. No account anywhere.
 
-**To make it automatic**, fill in `WHATSAPP_PHONE_NUMBER_ID` and
-`WHATSAPP_ACCESS_TOKEN` (see `.env.example`). The same messages then send
-themselves. One constraint decides whether that is enough on its own:
+### Making it automatic
 
-> WhatsApp does not deliver free-form text to someone who has not messaged your
-> business in the last 24 hours. Outside that window only a **pre-approved
-> template** is delivered.
+Two options, either one is enough (see `.env.example` for every variable):
 
-So the order-confirmation minutes after checkout usually lands as plain text;
-an "out for delivery" the next morning usually will not. Set
-`WHATSAPP_TEMPLATE_NAME` to a Meta-approved template whose body is a single
-`{{1}}` parameter to cover both. Either way nothing is lost — a refused message
-is recorded with Meta's reason and stays in the admin queue to be sent by hand.
+| Option | When it fits |
+|---|---|
+| **A local gateway** (`SMS_HTTP_URL`) | Almost always the better choice for a +670 store. Telemor, Telkomcel and Timor Telecom all offer bulk-SMS HTTP endpoints, and a local route is normally cheaper and better delivered than an international one. The whole request is configuration, so no code change is needed for whichever gateway you sign with. |
+| **Twilio** (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`) | Works in minutes with no local contract to negotiate. Good for testing, and a fine fallback. Note that a trial account can only message numbers you have verified in their console. |
 
-Two things to know about the links:
+If both are set the local gateway wins, on the assumption that you configured
+it deliberately and it is the cheaper route.
 
-- `NEXT_PUBLIC_SITE_URL` **must** be set. A tracking link is going into a chat
+### What an SMS costs
+
+SMS is billed per **segment**, not per message, and the alphabet decides how
+much fits in one:
+
+- **160 characters** if every character is in the GSM-7 alphabet
+- **70 characters** if even one is not
+
+Tetun and Portuguese sit awkwardly across that line: `é à ì ò ù ñ ü ç` are in
+GSM-7, but `ó í ã õ â ê` are not. A single `ó` more than halves the capacity of
+a message and can double its price.
+
+Two things follow, and both are already handled:
+
+- The admin UI shows the real segment count and encoding next to every
+  message, so a template edit that doubles your bill is visible immediately
+  rather than on an invoice.
+- `SMS_FORCE_GSM7=true` rewrites the missing accents (`ó` → `o`) so messages
+  stay at 160. Off by default — flattening accents is a decision about how the
+  store writes, not something to do silently.
+
+The default templates are written to fit **one segment** for a typical order
+once the tracking link is included, in all three languages.
+
+### Two things to know about the links
+
+- `NEXT_PUBLIC_SITE_URL` **must** be set. A tracking link is going into a text
   message, where a relative path is just text; without it notifications are
   skipped rather than sent broken.
 - The links are signed with `SESSION_SECRET`. Rotating that secret invalidates

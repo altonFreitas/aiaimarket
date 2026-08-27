@@ -29,10 +29,15 @@ import crypto from "node:crypto";
  * message history forever does not stay live forever. */
 const MAX_AGE_MS = 120 * 24 * 60 * 60 * 1000;
 
-/** Half a SHA-256, hex. 128 bits is far past any brute-force worth worrying
- * about, and it keeps the URL short enough not to wrap in a chat message --
- * which matters, because a wrapped link is a link that does not get tapped. */
-const MAC_LENGTH = 32;
+/** 22 base64url characters -- 132 bits of a SHA-256.
+ *
+ * base64url rather than hex for a specific reason: this link goes into an SMS,
+ * where every character is billed. The same 132 bits cost 33 characters in hex
+ * and 22 here, and its alphabet (A-Z a-z 0-9 - _) is entirely inside GSM-7, so
+ * it never drags a message into the 70-character encoding. That is ~11
+ * characters of message text bought back per notification, at no cost to how
+ * hard the token is to forge. */
+const MAC_LENGTH = 22;
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;
@@ -44,7 +49,7 @@ function mac(ref: string, phone: string, issuedAt: number): string {
   return crypto
     .createHmac("sha256", secret())
     .update(`track:${ref}:${phone}:${issuedAt}`)
-    .digest("hex")
+    .digest("base64url")
     .slice(0, MAC_LENGTH);
 }
 

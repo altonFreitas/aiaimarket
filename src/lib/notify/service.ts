@@ -65,7 +65,6 @@ export async function notifyOrderEvent(
     const lang = asLang(order.lang);
     const url = trackingUrl(order.ref, order.buyer_phone, origin);
     const body = renderNotification(event, lang, {
-      name: (order.buyer_name || "").split(/\s+/)[0] || order.buyer_name || "",
       ref: order.ref,
       storeName,
       total: money(order.total),

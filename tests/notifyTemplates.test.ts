@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { renderNotification, eventForStatus, NOTIFY_EVENTS } from "@/lib/notify/templates";
+import { smsCost } from "@/lib/sms";
 import type { Lang } from "@/lib/types";
 
 const vars = {
-  name: "Ana",
   ref: "CD20261234567890",
   storeName: "Loja AIAI",
   total: "$24.50",
@@ -47,6 +47,36 @@ describe("renderNotification", () => {
 
   it("shows the total on the order-received message", () => {
     expect(renderNotification("placed", "en", vars)).toContain("$24.50");
+  });
+
+  it("names the store only on the first message", () => {
+    // After that the buyer is in a thread they recognise; repeating it costs
+    // segments and says nothing.
+    expect(renderNotification("placed", "en", vars)).toContain("Loja AIAI");
+    expect(renderNotification("confirmed", "en", vars)).not.toContain("Loja AIAI");
+  });
+});
+
+describe("SMS cost of the default templates", () => {
+  // These are the assertions that stop a well-meaning copy edit from
+  // quietly doubling the store's messaging bill.
+  it("fits a single segment in every event and language", () => {
+    for (const event of NOTIFY_EVENTS) {
+      for (const lang of ["tet", "pt", "en"] as Lang[]) {
+        const cost = smsCost(renderNotification(event, lang, vars));
+        expect(cost.segments, `${event}/${lang} = ${cost.units} ${cost.encoding} units`).toBe(1);
+      }
+    }
+  });
+
+  it("still fits one segment for a long store name and a large total", () => {
+    const wide = { ...vars, storeName: "Loja Timor Oan Nakroman", total: "$1,234.56" };
+    for (const event of NOTIFY_EVENTS) {
+      for (const lang of ["tet", "pt", "en"] as Lang[]) {
+        expect(smsCost(renderNotification(event, lang, wide)).segments,
+          `${event}/${lang}`).toBe(1);
+      }
+    }
   });
 });
 

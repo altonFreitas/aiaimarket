@@ -3,7 +3,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { markNotificationSent, retryNotification, skipNotification } from "@/lib/actions/notifications";
-import { waLink, nowIso } from "@/lib/utils";
+import { smsLink, nowIso } from "@/lib/utils";
+import SmsCostBadge from "./SmsCostBadge";
 import { t } from "@/lib/i18n";
 import type { Lang, OrderNotification } from "@/lib/types";
 
@@ -16,11 +17,12 @@ const STATUS_PILL: Record<OrderNotification["status"], "ok" | "warn" | "bad"> = 
 
 /** The messages this order has sent the buyer, and the ones still owed.
  *
- * In manual mode (no messaging API configured) the "Send on WhatsApp" button
- * is the feature, not a fallback: it opens WhatsApp with the buyer's number
- * and the full message already filled in, so sending is one tap and a press.
- * "Mark as sent" afterwards is what keeps the outbox honest -- without it two
- * people working the same orders send the same update twice. */
+ * In manual mode (no SMS gateway configured) the "Send SMS" button is the
+ * feature, not a fallback: it opens the admin's own phone messaging app with
+ * the buyer's number and the full text already filled in, so sending is one
+ * tap and a press. "Mark as sent" afterwards is what keeps the outbox honest
+ * -- without it two people working the same orders send the same update
+ * twice, and each duplicate costs real money. */
 export default function OrderNotifications({
   lang, notifications, automatic, migrated,
 }: {
@@ -63,6 +65,7 @@ export default function OrderNotifications({
                   {n.sent_at ? nowIso(n.sent_at) : nowIso(n.created_at)}
                   {n.channel === "manual" ? ` · ${t("byHand", lang)}` : ` · ${n.provider}`}
                 </span>
+                <SmsCostBadge body={n.body} lang={lang} />
               </div>
 
               {/* The message verbatim. An admin about to send this by hand
@@ -74,12 +77,12 @@ export default function OrderNotifications({
               {(n.status === "queued" || n.status === "failed") && (
                 <div className="acts" style={{ justifyContent: "flex-start", marginTop: 8 }}>
                   <a
-                    className="btn btn-sm btn-wa"
+                    className="btn btn-sm btn-amber"
                     target="_blank"
                     rel="noopener"
-                    href={waLink(n.to_phone.replace(/[^\d]/g, ""), n.body)}
+                    href={smsLink(n.to_phone, n.body)}
                   >
-                    {t("sendOnWhatsApp", lang)}
+                    {t("sendSms", lang)}
                   </a>
                   <button className="btn btn-sm btn-ghost" type="button" disabled={busy}
                     onClick={() => run(() => markNotificationSent(n.id), t("markedSent", lang))}>
