@@ -47,7 +47,7 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
         </a>{" "}
         · {settings.hours}
       </div>
-      <div className="mono">
+      {/* <div className="mono">
         <a
           href={waHref}
           target="_blank"
@@ -57,7 +57,7 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
           <WhatsAppIcon />
           WhatsApp {settings.wa_number}
         </a>
-      </div>
+      </div> */}
       <div style={{ marginTop: 6 }}>
         {settings.seller_registration_enabled && (
           // Only shown when new applications are open. When closed,

@@ -21,14 +21,53 @@
   --content-w:1440px;
   --sh:0 1px 2px rgba(11,20,36,.08),0 8px 24px -16px rgba(11,20,36,.25);
   --hd:52px;
+  /* Strength of the tais cloth behind the page. The one knob: raise it to
+     make the weave more present, drop it toward 0 to fade it out entirely.
+     Below ~.06 it is invisible on most screens; past ~.16 it starts
+     competing with the product photography, which is the thing people
+     actually came to look at. */
+  --tais-opacity:.12;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+/* The paper colour lives on <html>, not <body>, so the tais layer below can
+   sit between the two -- above the ground colour, beneath every pixel of
+   content. */
+html{background:var(--paper)}
 body{
-  background:var(--paper); color:var(--ink); font-family:var(--sans);
+  background:transparent; color:var(--ink); font-family:var(--sans);
   font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
   overflow-wrap:break-word;
   display:flex; flex-direction:column; min-height:100vh;
+}
+/* Timor-Leste tais (public/tais.svg), as the cloth the whole store rests on.
+   Only ever visible in the gutters and margins -- cards, panels and the
+   header all paint opaque over it.
+
+   position:fixed rather than background-attachment:fixed on purpose: the
+   latter is the well-known janky-scrolling case on iOS Safari, and this store
+   is mobile-first. A fixed layer costs one composite and never repaints on
+   scroll, so the cloth stays still while the catalog slides over it.
+
+   z-index:-1 puts it above <html>'s background and below everything else
+   without needing a single content element to be re-stacked. */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:url("/tais.svg") repeat;
+  /* Tile is 120x320; drawn at 200px wide the motifs read as woven texture
+     rather than as a graphic pattern competing for attention. */
+  background-size:200px auto;
+  opacity:var(--tais-opacity);
+}
+/* On a 360px phone a 200px tile is more than half the screen, which turns
+   texture back into pattern. Weaving it finer keeps the same cloth reading
+   as a ground rather than a graphic. */
+@media(max-width:700px){
+  body::before{background-size:150px auto}
 }
 #view{flex:1 0 auto}
 img{max-width:100%;display:block}
@@ -505,7 +544,9 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 
 @media(min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
-@media print{.hd,.nav,.searchbar,.btn-row,.adm-nav{display:none}}
+/* body::before too: an invoice printed on a customer's receipt is not the
+   place to spend their toner on background cloth. */
+@media print{.hd,.nav,.searchbar,.btn-row,.adm-nav,body::before{display:none}}
 
 /* ============================================================
    Dense marketplace layer — utility top bar + promo strip.

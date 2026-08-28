@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="320" viewBox="0 0 120 320">
+<!--
+     Tais, the traditional woven cloth of Timor-Leste, as a seamless tile.
+
+     Drawn rather than photographed, for three reasons that point the same
+     way: tais IS geometry (banded warp ikat, kaif diamonds, zigzags and
+     triangle rows), so vector loses nothing; it weighs ~3KB against ~300KB
+     for a photograph, which matters on the mobile data this store was built
+     around; and it carries no third party's copyright over their weaving.
+
+     The palette is the store's own, which is already the tais palette: the
+     indigo navy ground, the crimson and the gold of the Timorese flag.
+
+     Three decorated bands, each separated by a wide plain warp field, which
+     is how tais is actually woven and is also what keeps a page heading from
+     always landing on top of a busy motif:
+       kaif (diamond) chain, field, zigzag, field, triangle row, field.
+     Every motif meets itself at x=0/x=120 and y=0/y=320, so the cloth tiles
+     with no visible seam in either direction.
+
+     Opacity here is RELATIVE weight between motifs. Overall strength is one
+     knob: the tais-opacity custom property in globals.css.
+
+     No double hyphen may appear inside these comments: it is illegal in XML,
+     and a browser answers by silently refusing to parse the file at all.
+-->
+
+<!-- warp threads: the continuous ground the bands are woven onto -->
+<path d="M3 0V320 M9 0V320 M15 0V320 M21 0V320 M27 0V320 M33 0V320 M39 0V320 M45 0V320 M51 0V320 M57 0V320 M63 0V320 M69 0V320 M75 0V320 M81 0V320 M87 0V320 M93 0V320 M99 0V320 M105 0V320 M111 0V320 M117 0V320" fill="none" stroke="#152341" stroke-width=".75" stroke-opacity=".5"/>
+
+<!-- band 1: kaif, the diamond chain and the most recognisable tais motif -->
+<rect x="0" y="0" width="120" height="5" fill="#152341" fill-opacity=".95"/>
+<rect x="0" y="11" width="120" height="2.5" fill="#c43d2c" fill-opacity=".9"/>
+<rect x="0" y="45" width="120" height="4" fill="#152341" fill-opacity=".95"/>
+<path d="M0 68L15 52L30 68L15 84Z M30 68L45 52L60 68L45 84Z M60 68L75 52L90 68L75 84Z M90 68L105 52L120 68L105 84Z" fill="none" stroke="#152341" stroke-width="1.8" stroke-opacity=".9"/>
+<path d="M10 68L15 62L20 68L15 74Z M40 68L45 62L50 68L45 74Z M70 68L75 62L80 68L75 74Z M100 68L105 62L110 68L105 74Z" fill="#f2b705" fill-opacity="1"/>
+<rect x="0" y="87" width="120" height="4" fill="#152341" fill-opacity=".95"/>
+
+<!-- band 2: zigzag, framed by gold stripes -->
+<rect x="0" y="150" width="120" height="2.5" fill="#f2b705" fill-opacity=".95"/>
+<path d="M0 182L15 158L30 182L45 158L60 182L75 158L90 182L105 158L120 182" fill="none" stroke="#c43d2c" stroke-width="2.2" stroke-opacity=".9"/>
+<rect x="0" y="188" width="120" height="2.5" fill="#f2b705" fill-opacity=".95"/>
+
+<!-- band 3: triangle row -->
+<rect x="0" y="244" width="120" height="3.5" fill="#152341" fill-opacity=".95"/>
+<path d="M0 272L10 250L20 272Z M20 272L30 250L40 272Z M40 272L50 250L60 272Z M60 272L70 250L80 272Z M80 272L90 250L100 272Z M100 272L110 250L120 272Z" fill="#c43d2c" fill-opacity=".75"/>
+<rect x="0" y="274" width="120" height="3.5" fill="#152341" fill-opacity=".95"/>
+<rect x="0" y="285" width="120" height="2" fill="#f2b705" fill-opacity=".9"/>
+</svg>
