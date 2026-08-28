@@ -112,11 +112,24 @@ export async function getSellerOrders(sellerId: string): Promise<SellerOrderView
       mode: o.mode, address_line: o.address_line, municipality: o.municipality,
       post: o.post, suku: o.suku, aldeia: o.aldeia, landmark: o.landmark,
       status: o.status, created_at: o.created_at,
-      myItems, mySubtotal: myItems.reduce((a, i) => a + i.price * i.qty, 0),
+      myItems: myItems.map(stripCost),
+      mySubtotal: myItems.reduce((a, i) => a + i.price * i.qty, 0),
       allItemsMine: allItems.every((i) => i.seller_id === sellerId),
     });
   }
   return views;
+}
+
+/** Drop the platform's purchase cost from a line before it leaves the
+ * server for a seller's screen. The order row carries it (see
+ * OrderItem.cost) and every other field here is legitimately the seller's,
+ * so the safe move is to remove the one field that is not -- at the single
+ * point where seller-facing data is assembled, rather than trusting each
+ * component not to render it. */
+function stripCost(item: OrderItem): OrderItem {
+  if (item.cost == null) return item;
+  const { cost: _cost, ...rest } = item;
+  return rest;
 }
 
 export interface SellerEarnings {

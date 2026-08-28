@@ -275,6 +275,17 @@ export interface OrderItem {
   size: string;
   price: number;
   qty: number;
+  /** Unit cost at the moment of sale, copied from product_costs at checkout.
+   * Snapshotted for the same reason purchase_orders captures fx_rate: if
+   * margin read today's cost, re-pricing a supplier would silently rewrite
+   * last year's profit. Absent on orders placed before costs were recorded
+   * (and on every order predating supabase/sales.sql), which is why readers
+   * fall back to the live cost and treat a still-missing value as unknown
+   * rather than zero.
+   *
+   * NEVER send this to a seller or a buyer -- see stripCost() in
+   * lib/data/seller.ts. It is the platform's purchase cost. */
+  cost?: number | null;
 }
 
 export interface OrderLogEntry {
@@ -314,8 +325,38 @@ export interface Order {
    * reach them in it. Optional: orders placed before
    * supabase/notifications.sql was run have no value, and fall back to Tetun. */
   lang?: Lang;
+  /** Fulfilment dates, YYYY-MM-DD. Mirrors supabase/sales.sql. All optional:
+   * an order placed before that migration has none, and the dashboard reads
+   * a missing expected_delivery as "no date was promised" -- never as
+   * "on time", which would count unpromised orders as punctual. */
+  expected_delivery?: string | null;
+  delivered_at?: string | null;
+  invoiced_at?: string | null;
   created_at: string;
   order_log?: OrderLogEntry[];
+}
+
+/** One revenue target for one period. Mirrors sales_targets in
+ * supabase/sales.sql. `period` is '2026', '2026-Q3' or '2026-08' -- the
+ * format is the type, enforced by a check constraint. */
+export interface SalesTargetRow {
+  id: string;
+  period: string;
+  scope: "global" | "category" | "seller" | "municipality";
+  scope_id: string;
+  amount: number;
+  created_at: string;
+}
+
+/** Unit acquisition cost for one product. Mirrors product_costs in
+ * supabase/sales.sql -- a separate table, not a products column, because
+ * `products` is readable with the anon key and a table-level grant covers
+ * columns added later. */
+export interface ProductCost {
+  product_id: string;
+  cost_price: number;
+  note: string;
+  updated_at: string;
 }
 
 /** A card payment attempt. Mirrors the `payments` table in

@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast";
 import { saveSupplier, deleteSupplier } from "@/lib/actions/procurement";
 import { SOURCING_COUNTRIES, countryFlag, countryName } from "@/lib/countries";
 import { money } from "@/lib/utils";
-import { RateBar } from "./Charts";
+import { RateBar } from "../Charts";
 import { t } from "@/lib/i18n";
 import type { SupplierPerformance } from "@/lib/procurement";
 import type { Lang, Supplier } from "@/lib/types";

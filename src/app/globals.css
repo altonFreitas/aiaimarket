@@ -105,7 +105,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 .searchbar button{height:38px;border:0;border-radius:var(--r-s);background:var(--amber);color:#3a2b00;font-weight:700;padding:0 14px;cursor:pointer}
 
 /* ---------- shell ---------- */
-.wrap{max-width:var(--content-w);margin:0 auto;padding:14px 12px 90px}
+/* width:100% is load-bearing, not decoration. <body> is a column flex
+   container, so .wrap is a flex item whose CROSS size is its width. Left to
+   size itself it takes its max-content width, which the admin nav then
+   stretches to the full length of every tab -- pushing the whole page into a
+   horizontal scroll on a phone (measured: 1216px of page inside a 390px
+   viewport). Pinning it to 100% makes the width definite, so the nav's own
+   overflow-x:auto finally has something to scroll inside.
+   min-width:0 does NOT fix this: the automatic minimum size applies to the
+   MAIN axis, which in a column container is vertical. */
+.wrap{max-width:var(--content-w);width:100%;margin:0 auto;padding:14px 12px 90px}
 .cols{display:block}
 .side{display:none}
 .crumb{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
@@ -857,3 +866,108 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .side-mega-card-pr{font-size:12.5px;color:var(--ink-3)}
 .side-mega-card-pr b{color:var(--red)}
+
+/* ===== sales management dashboard ===================================== */
+
+/* Two-tier admin nav. The top row is the six domains; the sub row is the
+   tabs of whichever one is open. The sub row is deliberately quieter --
+   same shape, paper background instead of ink -- so the eye reads it as
+   "inside" the row above rather than as a second, competing bar. */
+.adm-nav-sub{background:var(--line-2);padding:5px;margin:-6px 0 12px}
+.adm-nav-sub a{color:var(--muted);font-size:12.5px;padding:6px 10px}
+.adm-nav-sub a:hover{color:var(--ink);background:var(--line)}
+.adm-nav-sub a[aria-current=true]{background:var(--card);color:var(--ink);
+  font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.page-head h1{margin:0}
+.page-head .sub{margin:3px 0 0;font-size:13px;color:var(--muted)}
+
+/* A KPI note sits under its number, never beside it: on a phone the tiles
+   are already narrow, and a second inline value turns every card into two
+   wrapped lines. */
+.stat div em{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;
+  margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat div em.up{color:var(--green)}
+.stat div em.down{color:var(--red)}
+.stat div em.hint{color:var(--muted-2)}
+
+/* Signed change inside a table cell. Colour alone never carries it -- the
+   sign is always printed too, for anyone who cannot see the difference. */
+.tbl td.up{color:var(--green)}
+.tbl td.down{color:var(--red)}
+.bad-text{color:var(--red)}
+
+/* Status tiles double as filters, so they are buttons, not divs. */
+.status-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px}
+.status-tile{display:flex;flex-direction:column;gap:1px;align-items:flex-start;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:8px 9px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.status-tile:hover{border-color:var(--amber)}
+.status-tile.is-on{border-color:var(--amber);background:var(--amber-soft)}
+.status-tile b{font-size:17px;line-height:1.1}
+.status-tile span{font-size:11px;color:var(--muted);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.status-tile em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)}
+
+.insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.insight{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:baseline;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
+.insight span{grid-column:1/-1;font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted-2)}
+.insight b{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insight em{font-style:normal;font-family:var(--mono);font-size:12.5px;color:var(--ink-3)}
+
+/* Order detail, opened under its own row rather than in a modal, so the
+   reader keeps their place in a table they arrived at by filtering. */
+.detail-row td{background:var(--line-2);padding:0}
+.tbl tr.is-open td{background:var(--amber-soft)}
+.order-detail{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+  gap:10px;padding:12px}
+.order-detail h4{margin:0 0 6px;font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted-2)}
+.order-detail .kv{display:flex;justify-content:space-between;gap:8px;padding:3px 0;
+  font-size:12.5px;border-bottom:1px solid var(--line)}
+.order-detail .kv:last-child{border-bottom:0}
+.order-detail .kv span{color:var(--muted)}
+.order-detail-lines{grid-column:1/-1}
+/* Nested inside an already-scrolling table, this one must not demand 420px
+   of its own or the detail panel gains a second scrollbar. */
+.order-detail-lines .tbl{min-width:0}
+
+.cost-input{width:88px;height:28px;text-align:right;font-family:var(--mono);font-size:12.5px;
+  border:1px solid var(--line);border-radius:var(--r-s);padding:0 6px;background:var(--paper)}
+.cost-input:focus{outline:2px solid var(--amber);outline-offset:-1px}
+
+/* A labelled field inside a .bar row. */
+.fld{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.fld>span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted-2)}
+
+/* A button that reads as a link -- used where a table cell filters the page
+   rather than navigating to one. */
+.linklike{background:none;border:0;padding:0;font:inherit;color:var(--ink);
+  text-decoration:underline;text-decoration-style:dotted;cursor:pointer;text-align:left}
+.linklike:hover{color:var(--amber-ink)}
+
+/* The third alert tier. Procurement only ever raises high/medium; sales adds
+   an informational one (e.g. "cost data missing"), which is a fact worth
+   surfacing but not a problem to fix today -- so it reads as a note, not as
+   another red or amber demand for attention. */
+.alert-low{background:var(--line-2);border-left-color:var(--muted-2);color:var(--muted)}
+
+/* Long product and customer names are the norm here, not the exception, so
+   an insight card gets enough room to show one before ellipsis. */
+.insights{grid-template-columns:repeat(auto-fit,minmax(268px,1fr))}
+
+/* .tbl th carries no padding because the sortable tables put a full-bleed
+   button inside the cell and let THAT do the spacing. Tables without sorting
+   use a plain <th>, which was landing with zero padding -- adjacent headers
+   ran together as one word ("EncomendasReceita"). Restore the padding on the
+   cell and take it back off wherever a button is actually present.
+   :has() is not required for correctness here: without it a header simply
+   gets the cell padding as well as the button's, which is roomier than
+   intended but never unreadable. */
+.tbl th{padding:9px 10px}
+.tbl th:has(button){padding:0}

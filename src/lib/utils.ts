@@ -1,7 +1,17 @@
 import type { Order, Product, Settings } from "./types";
 
+/** Grouped to thousands: "$284,610.05", not "$284610.05". A product price
+ * rarely reaches four digits so this changes almost nothing on the
+ * storefront, but the sales and procurement dashboards deal in six-figure
+ * totals, where an ungrouped run of digits has to be counted rather than
+ * read. Fixed "en-US" grouping rather than the visitor's locale: the store
+ * prices in USD, and a locale that groups with "." would render $1.234,50
+ * beside a $ sign for a number that is not in that currency. */
 export function money(n: number | string): string {
-  return "$" + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2);
+  const v = Math.round((Number(n) || 0) * 100) / 100;
+  return "$" + v.toLocaleString("en-US", {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
 }
 
 /** Whole-number percent off, or null when there's no real discount

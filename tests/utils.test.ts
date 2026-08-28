@@ -10,6 +10,14 @@ describe("money", () => {
   it("degrades to $0.00 rather than NaN", () => {
     expect(money("banana")).toBe("$0.00");
   });
+  it("groups thousands, so six-figure totals can be read not counted", () => {
+    expect(money(284610.05)).toBe("$284,610.05");
+    expect(money(1000)).toBe("$1,000.00");
+    expect(money(999.99)).toBe("$999.99");
+  });
+  it("groups negatives too, sign first", () => {
+    expect(money(-1234.5)).toBe("$-1,234.50");
+  });
 });
 
 describe("discountPercent", () => {

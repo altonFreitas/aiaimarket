@@ -118,6 +118,21 @@ export async function placeOrder(input: PlaceOrderInput) {
     .in("id", productIds);
   const byId = new Map((prodRows || []).map((row) => [row.id as string, row]));
 
+  // Unit cost at the moment of sale, so gross margin reporting is anchored
+  // to what these goods actually cost then rather than what they cost when
+  // someone opens the dashboard. Read with the same service-role client the
+  // rest of this action uses -- product_costs has no anon grant at all.
+  // Wrapped because a store that has not run supabase/sales.sql yet has no
+  // such table, and a missing cost must never block a sale.
+  const costByProduct = new Map<string, number>();
+  try {
+    const { data: costRows } = await sb
+      .from("product_costs").select("product_id, cost_price").in("product_id", productIds);
+    for (const row of costRows || []) {
+      costByProduct.set(row.product_id as string, Number(row.cost_price));
+    }
+  } catch { /* costs are optional; the dashboard reports coverage */ }
+
   const itemsWithSeller: OrderItem[] = input.items.map((i) => {
     const row = byId.get(i.product_id);
     if (!row) throw new Error("A product in your basket is no longer available");
@@ -151,6 +166,11 @@ export async function placeOrder(input: PlaceOrderInput) {
       size,
       price: unitPrice,
       qty,
+      // Omitted entirely when unknown, so "no cost recorded" stays
+      // distinguishable from "costs nothing" for the whole life of the row.
+      ...(costByProduct.has(row.id as string)
+        ? { cost: costByProduct.get(row.id as string) }
+        : {}),
     };
   });
 

@@ -54,3 +54,4 @@ Apply*.js
 next-env.d.ts
 .v*-backup/
 .marketplace-v2-backup/
+.sales-backup/
