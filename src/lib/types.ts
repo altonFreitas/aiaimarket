@@ -149,6 +149,74 @@ export interface OrderNotification {
   sent_at: string | null;
 }
 
+/* ---------------------------------------------------------------------------
+ * Procurement. Mirrors supabase/procurement.sql.
+ * ------------------------------------------------------------------------ */
+
+/** The eight stages a purchase order moves through. "Delayed" is absent on
+ * purpose -- lateness is derived from dates (see poDelayDays), so it can
+ * never fall out of step with them the way a stored flag would. */
+export type PoStatus =
+  | "draft" | "approved" | "sent" | "confirmed"
+  | "in_production" | "in_transit" | "arrived" | "received" | "cancelled";
+
+export type PoPaymentStatus = "unpaid" | "partial" | "paid" | "overdue";
+
+export type PoCategory =
+  | "raw_materials" | "components" | "packaging"
+  | "office" | "equipment" | "services" | "other";
+
+export interface Supplier {
+  id: string;
+  name: string;
+  /** ISO 3166-1 alpha-2, or "" when unknown. */
+  country_code: string;
+  contact_name: string;
+  email: string;
+  phone: string;
+  lead_time_days: number | null;
+  notes: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  po_id: string;
+  product_id: string | null;
+  product_name: string;
+  category: PoCategory;
+  qty: number;
+  unit_price: number;
+  created_at: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier_id: string;
+  buyer: string;
+  /** YYYY-MM-DD. Dates, not timestamps: a purchase order is placed on a day,
+   * and a time zone on it only ever creates off-by-one bugs. */
+  order_date: string;
+  expected_arrival: string | null;
+  actual_arrival: string | null;
+  currency: string;
+  /** Multiply an amount in `currency` by this for base currency (USD),
+   * captured at order time so historical totals do not move. */
+  fx_rate: number;
+  tax: number;
+  shipping: number;
+  discount: number;
+  status: PoStatus;
+  payment_status: PoPaymentStatus;
+  payment_date: string | null;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  items?: PurchaseOrderItem[];
+}
+
 export type PayoutMethod = "bank" | "wallet" | "cash" | "other";
 
 /** One recorded transfer from the platform to a seller. Mirrors

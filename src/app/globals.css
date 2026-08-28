@@ -578,6 +578,124 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .review-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .review-body{margin:5px 0 0;font-size:13.5px}
 
+/* ---------- procurement dashboard ---------- */
+/* Two panels side by side above 1000px, stacked below. The breakpoint is
+   where a chart plus its labels stops being readable at half width, not a
+   device size. */
+.two-col{display:grid;grid-template-columns:1fr;gap:12px}
+/* min-width:0 is load-bearing, not tidying. A grid item defaults to
+   min-width:auto, so the 720px-min table inside a .scroll-x forces its whole
+   column that wide and the PAGE scrolls sideways -- exactly what .scroll-x
+   exists to prevent. Zero lets the column take its share and hands the
+   overflow back to the box built to handle it. */
+.two-col>*{min-width:0}
+@media(min-width:1000px){.two-col{grid-template-columns:1fr 1fr}}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 8px}
+.panel-head h3{margin:0}
+.panel-head select{height:30px;border:1px solid var(--line);border-radius:var(--r-s);
+  background:var(--card);padding:0 8px;font-size:12.5px}
+
+/* Alerts: the only thing on the page allowed to interrupt, so they sit above
+   the filters and use colour rather than position to rank themselves. */
+.alerts{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.alert{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:9px 11px;
+  border-radius:var(--r-s);font-size:13.5px;border-left:3px solid transparent}
+.alert-high{background:var(--red-soft);border-left-color:var(--red);color:var(--red)}
+.alert-medium{background:var(--amber-soft);border-left-color:var(--amber);color:var(--amber-ink)}
+.alert b{font-size:13px}
+.alert span{font-family:var(--mono);font-size:12px;opacity:.9}
+
+/* Filters wrap into as many columns as fit rather than a fixed grid: there
+   are eleven of them, and a fixed count is wrong at most widths. */
+.filters .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.filters label{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.filters label>span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted)}
+.filters input,.filters select{height:32px;border:1px solid var(--line);border-radius:var(--r-s);
+  background:var(--card);padding:0 8px;font-size:13px;width:100%}
+.filter-search{grid-column:span 2}
+
+/* KPI cards carry an optional comparison line; it is muted so the figure
+   above it stays the thing being read. */
+.kpi-delta{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;margin-top:3px}
+.kpi-delta.up{color:var(--green)}
+.kpi-delta.down{color:var(--red)}
+
+/* Vertical bar series */
+.chart-bars{display:flex;align-items:flex-end;gap:4px}
+.chart-bar-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;height:100%;min-width:0}
+.chart-bar{width:100%;max-width:44px;background:var(--ink);border-radius:3px 3px 0 0}
+.chart-bar-col:hover .chart-bar{background:var(--amber)}
+.chart-bar-val{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.chart-bar-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px}
+
+/* Horizontal ranked bars: label, bar, value on one line each, so long
+   supplier and country names stay readable where a pie chart's labels would
+   collide. */
+.ranked{display:flex;flex-direction:column;gap:7px}
+.ranked-row{display:grid;grid-template-columns:minmax(90px,1.4fr) 2fr auto;gap:9px;
+  align-items:center;width:100%;background:none;border:0;padding:3px 0;text-align:left;
+  font:inherit;color:inherit}
+.ranked-row.is-clickable{cursor:pointer;border-radius:var(--r-s)}
+.ranked-row.is-clickable:hover{background:var(--line-2)}
+.ranked-label{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ranked-track{height:9px;background:var(--line-2);border-radius:5px;overflow:hidden}
+.ranked-fill{display:block;height:100%;background:var(--ink);border-radius:5px}
+.ranked-row.is-clickable:hover .ranked-fill{background:var(--amber)}
+.ranked-value{font-family:var(--mono);font-size:12.5px;text-align:right;white-space:nowrap}
+.ranked-share{display:block;font-size:10px;color:var(--muted-2)}
+.ranked-meta{grid-column:1/-1;font-size:10.5px;color:var(--muted-2);font-family:var(--mono);
+  margin-top:-4px}
+
+/* A rate reads very differently beside a target than as a bare number. */
+.rate{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.rate-track{width:44px;height:6px;background:var(--line-2);border-radius:4px;overflow:hidden}
+.rate-fill{display:block;height:100%;border-radius:4px}
+.rate-fill.is-ok{background:var(--green)}
+.rate-fill.is-bad{background:var(--red)}
+.rate-bad-text{color:var(--red)}
+.score-ok{color:var(--green)}
+.score-mid{color:var(--amber-ink)}
+.score-bad{color:var(--red)}
+
+/* Status tiles double as filters, so they look pressable and show which one
+   is currently narrowing the page. */
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.status-cell{background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  padding:9px 10px;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.status-cell:hover{background:var(--line-2)}
+.status-cell.is-on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.status-cell b{display:block;font-family:var(--mono);font-size:18px;letter-spacing:-.02em}
+.status-cell span{display:block;font-size:11px;color:var(--muted)}
+.status-cell em{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)}
+.status-cell.is-on span,.status-cell.is-on em{color:rgba(255,255,255,.75)}
+
+.pill.info{background:#e6f0fb;color:#22436f}
+.pill.muted{background:var(--line-2);color:var(--muted)}
+/* The compact tables carry five short columns, not ten, so they do not need
+   the full table's 720px floor -- and inside a half-width panel that floor is
+   what would make them scroll when they comfortably fit. */
+.tbl.tbl-compact{min-width:420px}
+.tbl-compact td{padding:6px 8px;font-size:12.5px}
+.row-muted td{opacity:.55}
+/* A button that behaves like a link inside a table cell. */
+.linkish{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;
+  text-align:left;text-decoration:underline;text-decoration-color:var(--line)}
+.linkish:hover{text-decoration-color:currentColor}
+
+/* Purchase order line editor */
+.po-line{display:grid;grid-template-columns:1fr;gap:8px;align-items:end;
+  padding:10px 0;border-top:1px solid var(--line-2)}
+.po-line:first-of-type{border-top:0}
+.po-line .field{margin:0}
+.po-line-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+@media(min-width:820px){
+  .po-line{grid-template-columns:2.2fr 1.3fr .8fr .9fr .9fr auto}
+  .po-line-total{flex-direction:column;align-items:flex-end;gap:2px}
+}
+
 /* ---------- stock control table ---------- */
 /* The table scrolls inside this box, never the page: on a phone the columns
    cannot all fit, and a horizontally scrolling BODY breaks every other
@@ -613,7 +731,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* Six summary tiles do not divide into the catalog's fixed four columns, and
    left as-is the last row sits half empty. auto-fit lets however many tiles
    this page has spread evenly at whatever width it gets. */
-.stat-fit{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.stat-fit{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.stat-fit b{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .stock-name{display:flex;align-items:center;gap:9px;text-decoration:none;min-width:0}
 .stock-name .th{width:34px;height:34px;border-radius:var(--r-s);object-fit:cover;

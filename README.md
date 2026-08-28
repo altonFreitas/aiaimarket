@@ -72,6 +72,7 @@ src/
   proxy.ts             /admin route guard
 supabase/
   schema.sql           tables, indexes, RLS, triggers, storage buckets
+  procurement.sql      suppliers, purchase orders, line items
   marketplace-v2.sql   search index, product reviews, seller payouts
   notifications.sql    buyer message outbox + order language
   payments.sql         card payment attempts

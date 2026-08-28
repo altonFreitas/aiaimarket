@@ -28,7 +28,11 @@ Follow in order. Total time: about 20 minutes.
    outbox, so each order update reaches the buyer as an SMS with a one-tap
    tracking link. Without it order status changes work exactly as before, they
    just don't message anyone. See **Order notifications** below.
-5. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
+5. *(Optional)* Do the same with `supabase/procurement.sql` if you want the purchasing
+   side — suppliers, purchase orders and the procurement dashboard at
+   `/admin/procurement`. Skip it and that tab simply reports that procurement
+   is not set up; nothing else changes.
+6. *(Optional)* Do the same with `supabase/seed.sql` to get one sample product to look at.
    Skip it if you'd rather start empty.
 
 You should see "Success. No rows returned."
@@ -347,3 +351,40 @@ once the tracking link is included, in all three languages.
   every tracking link already sitting in buyers' phones — they fall back to the
   normal "enter your phone number" gate rather than breaking, but they stop
   being one-tap.
+
+
+## Procurement
+
+`/admin/procurement` is the buying side of the business, and it is a different
+domain from everything else in this app: the `sellers` table is marketplace
+vendors who sell **through** the platform, while a supplier is someone the
+company buys **from**. Separate tables, opposite direction.
+
+Run `supabase/procurement.sql`, add a supplier, then record purchase orders.
+The dashboard needs no other configuration.
+
+### One number worth understanding
+
+Everything on the dashboard is stated in **USD**, converted using the exchange
+rate stored on each purchase order **at the time it was placed**. That choice
+matters:
+
+- Storing only the foreign amount makes "total purchase value" across a
+  mixed-currency book the sum of euros and yuan, which is not a number.
+- Converting at today's rate would make last year's totals change every
+  morning.
+
+The order form keeps showing you the supplier's own currency while you type,
+and records the rate beside it. For a USD order the rate is fixed at 1.
+
+### What is derived, not stored
+
+Lateness is never a field you set — it is computed by comparing dates, so it
+cannot fall out of step with them. An order that has arrived is judged against
+the day it landed; one that has not is judged against today, so its delay
+grows each morning it stays missing. That is also why `delayed` is not one of
+the nine purchase-order statuses.
+
+Likewise **on-time rate** only counts orders that had a promised arrival date.
+Without that rule a supplier could improve its score by refusing to commit to
+a date at all.
