@@ -125,15 +125,22 @@ export default function ProductList({
                 <div className="g">
                   <b>{p.name}</b>
                   {/* Split so CSS alone decides how much of the meta line a
-                      screen gets. On a phone only the reference survives (see
-                      .meta-extra in globals.css) -- price, category and view
-                      count are all one tap away on the edit screen, and they
-                      were what stretched every row into a paragraph. */}
+                      screen gets. A phone keeps the reference and the view
+                      count, one at each end of the line; price and category
+                      drop out (see globals.css) because they were what
+                      stretched every row into a paragraph, and both are one
+                      tap away on the edit screen.
+                      Views appear twice in the markup and never twice on
+                      screen: .meta-extra carries the desktop copy inline
+                      after the category, .meta-views the phone copy pushed
+                      to the right margin, and each is hidden where the other
+                      is shown. */}
                   <span>
-                    {p.ref}
+                    <span className="meta-ref">{p.ref}</span>
                     <span className="meta-extra">
                       {" · "}{money(p.price)} · {cat ? pathName(cat, cats) : "—"} · {p.views || 0} {t("views", lang)}
                     </span>
+                    <span className="meta-views">{p.views || 0} {t("views", lang)}</span>
                   </span>
                 </div>
                 <div className="acts">

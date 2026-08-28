@@ -302,10 +302,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* One line, always. Without nowrap this wrapped on every space and then, once
    .acts had squeezed the column to a few pixels, on every CHARACTER -- a
    product reference rendered as a vertical column of letters. */
-/* `> span`, not a descendant selector: the meta line holds a nested
-   .meta-extra span, and turning THAT into a block puts it on its own line. */
+/* `> span`, not a descendant selector: the meta line holds nested spans, and
+   turning THOSE into blocks would put each on its own line. */
 .item .g > span{display:block;font-size:11.5px;color:var(--muted);font-family:var(--mono);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The desktop meta line already ends in the view count, inline after the
+   category, so the phone-only copy stays out of the way here. */
+.item .g .meta-views{display:none}
 /* flex:0 0 auto is the fix for the row above: the action buttons have a wide
    intrinsic minimum, and while they were allowed to consume free space they
    starved the name/reference column instead of the other way round. */
@@ -333,10 +336,20 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .item .acts .btn-sm{padding:0 8px}
   .item .acts .stock-btn{padding:0 8px}
 
-  /* Price, category and view count are dropped, not shrunk. Each was one
-     more fragment the browser could break a line on, and all three are one
-     tap away on the product's own screen. */
+  /* Price and category are dropped, not shrunk: each was one more fragment
+     the browser could break a line on, and both are one tap away on the
+     product's own screen. The view count earns its place and comes back as
+     .meta-views, pushed to the opposite end of the same line. */
   .item .g .meta-extra{display:none}
+  /* space-between is what puts the reference left and the views right
+     without either needing a width. flex also replaces the container's
+     ellipsis, so the truncation moves onto .meta-ref, which is the part
+     allowed to shrink. */
+  .item .g > span{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .item .g .meta-ref{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  /* Never shrinks: a half-rendered number is worse than no number, and the
+     count is short enough that it costs the reference almost nothing. */
+  .item .g .meta-views{display:inline;flex:0 0 auto;color:var(--muted-2)}
 }
 .stock-btn{border:1px solid var(--line);background:#fff;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:.05em;
   text-transform:uppercase;padding:4px 8px;cursor:pointer;font-weight:700}

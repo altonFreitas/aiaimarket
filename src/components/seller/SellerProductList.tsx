@@ -87,13 +87,15 @@ export default function SellerProductList({
                 <img className="th" src={p.images?.[0] || placeholder(p.name)} alt="" loading="lazy" />
                 <div className="g">
                   <b>{p.name}</b>
-                  {/* Same split as the admin list: on a phone only the
-                      reference survives, so a row stays one line. */}
+                  {/* Same split as the admin list: on a phone the reference
+                      sits left and the view count right, and price/category
+                      drop out. */}
                   <span>
-                    {p.ref}
+                    <span className="meta-ref">{p.ref}</span>
                     <span className="meta-extra">
-                      {" · "}{money(p.price)} · {cat ? pathName(cat, cats) : "—"}
+                      {" · "}{money(p.price)} · {cat ? pathName(cat, cats) : "—"} · {p.views || 0} {t("views", lang)}
                     </span>
+                    <span className="meta-views">{p.views || 0} {t("views", lang)}</span>
                   </span>
                 </div>
                 <div className="acts">
