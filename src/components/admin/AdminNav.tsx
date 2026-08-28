@@ -29,8 +29,16 @@ export default function AdminNav({ lang }: { lang: Lang }) {
       ))}
       <Link href="/" style={{ marginLeft: "auto" }}>{t("catalog", lang)} ↗</Link>
       <form action={logoutAction} style={{ display: "contents" }}>
-        <button type="submit" style={{ background: "none", border: 0, color: "rgba(255,255,255,.68)", cursor: "pointer", padding: "7px 11px", fontSize: 13 }}>
-          {t("logout", lang)}
+        {/* Icon only, but never label-less: the accessible name still says
+            "sign out" for a screen reader, and title= gives a sighted user
+            the same words on hover. An unlabelled icon button is a guess. */}
+        <button type="submit" className="adm-nav-icon" title={t("logout", lang)} aria-label={t("logout", lang)}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
         </button>
       </form>
     </nav>

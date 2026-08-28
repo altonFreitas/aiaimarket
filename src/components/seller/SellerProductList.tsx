@@ -87,7 +87,14 @@ export default function SellerProductList({
                 <img className="th" src={p.images?.[0] || placeholder(p.name)} alt="" loading="lazy" />
                 <div className="g">
                   <b>{p.name}</b>
-                  <span>{p.ref} · {money(p.price)} · {cat ? pathName(cat, cats) : "—"}</span>
+                  {/* Same split as the admin list: on a phone only the
+                      reference survives, so a row stays one line. */}
+                  <span>
+                    {p.ref}
+                    <span className="meta-extra">
+                      {" · "}{money(p.price)} · {cat ? pathName(cat, cats) : "—"}
+                    </span>
+                  </span>
                 </div>
                 <div className="acts">
                   <span className={"pill " + STATUS_PILL[p.status]}>{t("productStatus_" + p.status, lang)}</span>

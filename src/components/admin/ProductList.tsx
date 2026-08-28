@@ -124,7 +124,17 @@ export default function ProductList({
                 <img className="th" src={p.images?.[0] || placeholder(p.name)} alt="" loading="lazy" />
                 <div className="g">
                   <b>{p.name}</b>
-                  <span>{p.ref} · {money(p.price)} · {cat ? pathName(cat, cats) : "—"} · {p.views || 0} {t("views", lang)}</span>
+                  {/* Split so CSS alone decides how much of the meta line a
+                      screen gets. On a phone only the reference survives (see
+                      .meta-extra in globals.css) -- price, category and view
+                      count are all one tap away on the edit screen, and they
+                      were what stretched every row into a paragraph. */}
+                  <span>
+                    {p.ref}
+                    <span className="meta-extra">
+                      {" · "}{money(p.price)} · {cat ? pathName(cat, cats) : "—"} · {p.views || 0} {t("views", lang)}
+                    </span>
+                  </span>
                 </div>
                 <div className="acts">
                   {p.status !== "approved" && (
