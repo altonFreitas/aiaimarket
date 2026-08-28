@@ -8,7 +8,7 @@ import {
   buildInsights, buildSalesAlerts, computeSalesKpis, customerAnalysis,
   deliveryDelayDays, deliveryState, filterIsActive, filterSalesLines, groupOrders,
   growth, lowPerformers, monthKeys, rank, salesByCategory, salesByCustomer,
-  salesByDay, salesByMonth, salesByMunicipality, salesByProduct, salesByQuarter,
+  salesByMonth, salesByMunicipality, salesByProduct, salesByQuarter, salesByWeek,
   salesBySeller, salesByYear, shiftIso, statusBreakdown, targetProgress, totals,
   PENDING_STATUSES, SALES_STATUSES,
   type RankBy, type SalesFilter, type SalesLine, type SalesTarget,
@@ -101,7 +101,10 @@ export default function SalesDashboard({
     [lines, year]
   );
   const quarterly = useMemo(() => salesByQuarter(currentYearRows, year), [currentYearRows, year]);
-  const daily = useMemo(() => salesByDay(rows, today, 30), [rows, today]);
+  // Weekly, not daily: the statistics page already has the day-by-day view,
+  // and at this shop's volume most days are zero -- twelve weeks shows the
+  // shape of the business where thirty days showed four spikes and noise.
+  const weekly = useMemo(() => salesByWeek(rows, today, 12), [rows, today]);
   const yearly = useMemo(() => salesByYear(rows), [rows]);
 
   const byProduct = useMemo(() => salesByProduct(rows), [rows]);
@@ -310,10 +313,10 @@ export default function SalesDashboard({
           <BarSeries points={quarterly.map((q) => ({ label: q.label, value: q.revenue }))}
             emptyLabel={t("noDataYet", lang)} />
         </div>
-        {/* ---- 3. daily, to spot peaks and dead days ---- */}
+        {/* ---- 3. weekly, to spot peaks and quiet stretches ---- */}
         <div className="panel">
-          <h3>{t("dailySales", lang)}</h3>
-          <BarSeries points={daily.map((d) => ({ label: d.label, value: d.revenue }))}
+          <h3>{t("weeklySales", lang)}</h3>
+          <BarSeries points={weekly.map((w) => ({ label: w.label, value: w.revenue }))}
             emptyLabel={t("noDataYet", lang)} />
         </div>
       </div>

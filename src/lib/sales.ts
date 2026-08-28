@@ -548,6 +548,49 @@ export function salesByYear(lines: SalesLine[]): PeriodTotals[] {
   return years.map((y) => periodTotals(lines.filter((l) => l.date.startsWith(y)), y, y));
 }
 
+/** The Monday on or before `iso`. ISO-8601 weeks start on Monday, and
+ * anchoring a week to a real date (rather than a week NUMBER) keeps the
+ * whole module on plain YYYY-MM-DD text and sidesteps the year-boundary
+ * trap where 2026-01-01 belongs to week 53 of 2025. */
+export function weekStart(iso: string): string {
+  const t = Date.parse(iso + "T00:00:00Z");
+  if (!Number.isFinite(t)) return iso;
+  const d = new Date(t);
+  // getUTCDay(): 0 = Sunday. Sunday belongs to the week that began six days
+  // earlier, not to the one starting tomorrow.
+  const back = (d.getUTCDay() + 6) % 7;
+  return shiftIso(iso, -back);
+}
+
+/** The last `count` whole weeks ending with the week containing `today`,
+ * oldest first -- empty weeks included, because a week with no sales is a
+ * finding rather than a gap to skip.
+ *
+ * Weekly rather than daily on the dashboard: a day is too fine a grain for a
+ * shop of this size, where most days are zero and the chart reads as noise
+ * with a few spikes. The daily view still exists on the statistics page for
+ * anyone who wants it. */
+export function salesByWeek(
+  lines: SalesLine[], today: string, count = 12
+): PeriodTotals[] {
+  const byWeek = new Map<string, SalesLine[]>();
+  for (const l of lines) {
+    if (!l.date) continue;
+    const k = weekStart(l.date);
+    const arr = byWeek.get(k); if (arr) arr.push(l); else byWeek.set(k, [l]);
+  }
+
+  const current = weekStart(today);
+  const out: PeriodTotals[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const start = shiftIso(current, -i * 7);
+    // Labelled by the day the week begins ("14/06"), which is what a manager
+    // actually says out loud -- "week of the 14th" -- unlike "W24".
+    out.push(periodTotals(byWeek.get(start) || [], start, start.slice(8) + "/" + start.slice(5, 7)));
+  }
+  return out;
+}
+
 /** The last `count` days ending at `today`, oldest first -- including days
  * with no sales, because a gap in the series is itself the finding. */
 export function salesByDay(lines: SalesLine[], today: string, count = 30): PeriodTotals[] {

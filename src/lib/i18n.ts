@@ -648,6 +648,7 @@ export const STR: Record<string, [string,string,string]> = {
   monthlyRevenue:["Reseita kada fulan","Receita mensal","Monthly revenue"],
   quarterlySales:["Faan kada trimestre","Vendas trimestrais","Quarterly sales"],
   dailySales:["Faan kada loron","Vendas diárias","Daily sales"],
+  weeklySales:["Faan kada semana","Vendas semanais","Weekly sales"],
   yearOnYear:["Tinan ba tinan","Ano a ano","Year on year"],
   growth:["Kresimentu","Crescimento","Growth"],
   month:["Fulan","Mês","Month"],

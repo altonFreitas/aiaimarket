@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildSalesLines, totals, growth, computeSalesKpis, groupOrders,
   deliveryDelayDays, deliveryState, salesByMonth, monthKeys, salesByQuarter,
-  salesByYear, salesByDay, salesByProduct, salesByCategory, salesByCustomer,
+  salesByYear, salesByDay, salesByWeek, weekStart, salesByProduct, salesByCategory, salesByCustomer,
   salesBySeller, salesByMunicipality, rank, customerAnalysis, statusBreakdown,
   lowPerformers, targetProgress, buildSalesAlerts, buildInsights,
   filterSalesLines, filterIsActive, linesToCsv, todayIso, daysBetween, shiftIso,
@@ -353,6 +353,46 @@ describe("time series", () => {
       order({ created_at: "2026-06-01T00:00:00Z" }),
     ]);
     expect(salesByYear(ls).map((y) => y.key)).toEqual(["2025", "2026"]);
+  });
+
+  it("anchors a week to the Monday on or before the date", () => {
+    // 2026-06-15 is a Monday.
+    expect(weekStart("2026-06-15")).toBe("2026-06-15");
+    expect(weekStart("2026-06-18")).toBe("2026-06-15");  // Thursday
+    // Sunday belongs to the week that STARTED, not the one about to.
+    expect(weekStart("2026-06-21")).toBe("2026-06-15");
+    expect(weekStart("2026-06-22")).toBe("2026-06-22");  // next Monday
+  });
+
+  it("puts a new-year date in the week that began in the old year", () => {
+    // 2026-01-01 is a Thursday; its week began Monday 2025-12-29. An ISO
+    // week NUMBER would call this week 1 of 2026 and lose that.
+    expect(weekStart("2026-01-01")).toBe("2025-12-29");
+  });
+
+  it("returns a dense weekly series ending with this week", () => {
+    const ls = lines([order({ created_at: "2026-06-10T00:00:00Z" })]);
+    const weeks = salesByWeek(ls, TODAY, 4);
+    expect(weeks).toHaveLength(4);
+    expect(weeks[3].key).toBe("2026-06-15");   // the week containing TODAY
+    expect(weeks[2].key).toBe("2026-06-08");   // the one before it
+    expect(weeks[2].revenue).toBe(20);
+    expect(weeks[1].revenue).toBe(0);          // empty weeks are kept
+  });
+
+  it("groups every day of a week into the same bucket", () => {
+    const ls = lines([
+      order({ created_at: "2026-06-08T00:00:00Z" }),   // Monday
+      order({ created_at: "2026-06-14T00:00:00Z" }),   // Sunday
+    ]);
+    const weeks = salesByWeek(ls, TODAY, 2);
+    expect(weeks[0].key).toBe("2026-06-08");
+    expect(weeks[0].revenue).toBe(40);
+    expect(weeks[0].orders).toBe(2);
+  });
+
+  it("labels a week by the day it starts", () => {
+    expect(salesByWeek([], "2026-06-15", 1)[0].label).toBe("15/06");
   });
 
   it("returns a dense daily series ending today", () => {

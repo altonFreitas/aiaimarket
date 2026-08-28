@@ -406,8 +406,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .toast.bad{background:var(--red)}
 
 /* ---------- footer ---------- */
-.ft{border-top:1px solid var(--line);margin-top:24px;padding:16px 12px calc(78px + env(safe-area-inset-bottom));
-  color:var(--muted);font-size:12px;text-align:center;background:var(--paper);
+/* No rule above it and no fill behind it: the footer is one quiet line of
+   text, so it sits directly on the tais rather than inside a painted panel
+   that reads as another section of the page. background:transparent, not
+   the paper colour -- an opaque block here would punch a rectangle through
+   the cloth the rest of the page rests on. */
+.ft{margin-top:24px;padding:16px 12px calc(78px + env(safe-area-inset-bottom));
+  color:var(--muted);font-size:12px;text-align:center;background:transparent;
   max-width:var(--content-w);margin-left:auto;margin-right:auto}
 .ft a{color:var(--muted)}
 .ft .mono{font-size:11px;color:var(--muted-2)}
@@ -971,3 +976,31 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    intended but never unreadable. */
 .tbl th{padding:9px 10px}
 .tbl th:has(button){padding:0}
+
+/* Long tables get a vertical scroll instead of running down the page.
+   Eight rows visible, header pinned, the rest scrolled -- a table of two
+   hundred products should not push the panel below it off the screen.
+
+   The cap is expressed as header + 8 x row rather than a round number, so
+   it stays honest if the compact row padding is ever retuned. Rows that
+   wrap to two lines are taller, so a wrapped table shows fewer than eight
+   and scrolls sooner: a fixed pixel cap cannot count lines, and cutting a
+   row in half mid-height would look worse than showing seven.
+   .tbl th is already position:sticky, which is what keeps the header in
+   place once this box scrolls. */
+/* Measured in the browser against .tbl-compact, not estimated from the
+   padding: a compact row lands at 35px and the header at 37px. */
+:root{--tbl-row-h:35px; --tbl-head-h:37px; --tbl-max-rows:8}
+.scroll-x{
+  /* +2px for .scroll-x's own 1px border top and bottom: max-height caps the
+     BORDER box, so without it the content box is two pixels short and the
+     eighth row is clipped to a sliver (measured: 7 rows visible, not 8). */
+  max-height:calc(var(--tbl-head-h) + var(--tbl-row-h) * var(--tbl-max-rows) + 2px);
+  overflow-y:auto;
+}
+/* The order drill-down opens INSIDE the transactions table, and reading it
+   through an eight-row window would be worse than the scroll it saves. A
+   table with a row expanded is allowed its full height again.
+   Without :has() support the panel simply stays capped and scrolls -- the
+   detail is still reachable, just in a smaller window. */
+.scroll-x:has(.detail-row){max-height:none}
