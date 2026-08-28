@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { money } from "@/lib/utils";
 import {
@@ -136,15 +136,8 @@ export default function SalesTable({
               const order = orders.get(l.orderId);
               const isOpen = openOrder === l.orderId;
               return (
-                // Fragment, not the <> shorthand: this map returns TWO <tr>s
-                // per item (the row and its optional detail row), so it needs
-                // a wrapper -- and only the named form can carry the key that
-                // wrapper needs. <>...</> cannot take a key prop at all.
-                // Keyed per LINE, not per order: buildSalesLines emits one row per
-                // order item, so a multi-item order repeats orderId across several
-                // rows here and orderId alone would collide.
-                <Fragment key={l.orderId + l.productId + i}>
-                  <tr
+                <>
+                  <tr key={l.orderId + l.productId + i}
                     className={isOpen ? "is-open" : ""}
                     onClick={() => setOpenOrder(isOpen ? null : l.orderId)}
                     style={{ cursor: "pointer" }}>
@@ -227,7 +220,7 @@ export default function SalesTable({
                       </td>
                     </tr>
                   )}
-                </Fragment>
+                </>
               );
             }) : (
               <tr><td colSpan={COLUMNS.length} className="hint">{t("noResults", lang)}</td></tr>
