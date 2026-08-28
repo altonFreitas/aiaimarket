@@ -7,6 +7,7 @@ import type { Lang } from "@/lib/types";
 
 const TABS = [
   ["/admin", "products"],
+  ["/admin/stock", "stockControl"],
   ["/admin/cats", "categories"],
   ["/admin/hero", "heroSlides"],
   ["/admin/promotions", "promotions"],

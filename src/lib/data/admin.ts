@@ -230,3 +230,16 @@ export async function adminPendingNotifications(): Promise<OrderNotification[]> 
     return [];
   }
 }
+
+/** Everything the stock screen needs, in one place.
+ *
+ * Reuses the existing capped reads rather than adding new ones -- the same
+ * products and orders the dashboard and export already load, reconciled by
+ * buildStockReport() instead of queried again. */
+export async function adminStockReport() {
+  const [products, orders, cats, sellers] = await Promise.all([
+    adminProducts(), adminOrders(), adminCategories(), adminSellers(),
+  ]);
+  const { buildStockReport } = await import("@/lib/stockReport");
+  return buildStockReport(products, orders, cats, sellers);
+}

@@ -578,6 +578,63 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .review-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .review-body{margin:5px 0 0;font-size:13.5px}
 
+/* ---------- stock control table ---------- */
+/* The table scrolls inside this box, never the page: on a phone the columns
+   cannot all fit, and a horizontally scrolling BODY breaks every other
+   screen in the admin. */
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r)}
+.tbl{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
+.tbl th{text-align:left;padding:0;border-bottom:1px solid var(--line);background:var(--line-2);
+  position:sticky;top:0;z-index:1;white-space:nowrap}
+/* The whole header cell is the sort control, so the tap target is the cell
+   rather than the few pixels of the word inside it. */
+.tbl th button{width:100%;display:flex;align-items:center;gap:4px;background:none;border:0;
+  padding:9px 10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;cursor:pointer}
+.tbl th button:hover{color:var(--ink);background:var(--line)}
+.tbl th.num button{justify-content:flex-end}
+.sort-caret{font-size:9px;min-width:8px}
+/* The product column stays put while the numbers scroll under it. On a phone
+   the table is wider than the screen by design, and a row whose identity has
+   scrolled off is a row you cannot read. */
+.tbl th:first-child,.tbl td:first-child{position:sticky;left:0;z-index:2;background:var(--card)}
+.tbl th:first-child{background:var(--line-2);z-index:3}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
+.tbl td.num b{font-size:14px}
+/* Severity as a left stripe rather than a filled row: a fully tinted row
+   fights the text sitting on it, an edge does not. */
+.tbl .row-bad td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.tbl .row-warn td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.tbl tr:hover td,.tbl tr:hover td:first-child{background:var(--line-2)}
+
+/* Six summary tiles do not divide into the catalog's fixed four columns, and
+   left as-is the last row sits half empty. auto-fit lets however many tiles
+   this page has spread evenly at whatever width it gets. */
+.stat-fit{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+.stock-name{display:flex;align-items:center;gap:9px;text-decoration:none;min-width:0}
+.stock-name .th{width:34px;height:34px;border-radius:var(--r-s);object-fit:cover;
+  background:var(--line-2);flex:0 0 auto}
+.stock-name b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:34ch}
+.stock-sub{display:block;font-size:10.5px;color:var(--muted-2);font-family:var(--mono);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38ch}
+.stock-qty{margin-left:7px}
+/* Filter chips reuse .chip from the catalog rail; this only adds the button
+   reset and the selected state, so the two stay visually identical. */
+.stock-chip{cursor:pointer;font-family:inherit}
+.stock-chip.is-on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.stock-chip.is-on .n{color:rgba(255,255,255,.7)}
+/* The pinned product column has to earn its width on a phone. Left at its
+   desktop size it filled nearly the whole 390px screen, so scrolling right
+   revealed almost none of the numbers it was pinned to keep company. */
+@media(max-width:700px){
+  .stock-name b,.stock-sub{max-width:118px}
+}
+
 /* ---------- order notifications (admin) ---------- */
 .notif{border:1px solid var(--line);border-radius:var(--r-s);padding:10px;background:var(--card)}
 .notif-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}

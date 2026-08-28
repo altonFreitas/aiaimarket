@@ -471,7 +471,27 @@ export const STR: Record<string, [string,string,string]> = {
   smsRemaining:["karakter sei iha","caracteres livres","characters left"],
   clearMessages:["Hamoos mensajen haruka ona","Limpar mensagens enviadas","Clear sent messages"],
   clearMessagesAsk:["Hasai {n} mensajen ne’ebé haruka ona husi enkomenda ne’e? Enkomenda rasik sei la muda.","Remover {n} mensagens já enviadas desta encomenda? A encomenda em si não é afetada.","Remove {n} already-sent messages from this order? The order itself is unaffected."],
-  messagesCleared:["Hamoos ona","Removidas","Cleared"]
+  messagesCleared:["Hamoos ona","Removidas","Cleared"],
+
+  /* ---- stock control ---- */
+  stockControl:["Kontrolu stok","Controlo de stock","Stock control"],
+  unitsOnHand:["Unidade iha armazén","Unidades em stock","Units on hand"],
+  stockValue:["Valór stok","Valor do stock","Stock value"],
+  oversold:["Promete liu","Vendido a mais","Oversold"],
+  needsAttention:["Presiza atensaun","Precisa de atenção","Needs attention"],
+  neverSold:["Seidauk fa\u2019an","Nunca vendido","Never sold"],
+  stockAllHealthy:["Diak hotu \u2014 laiha stok ne\u2019ebé presiza atensaun.","Tudo bem \u2014 nenhum stock precisa de atenção.","All good \u2014 no stock needs attention."],
+  product:["Produtu","Produto","Product"],
+  onHand:["Iha armazén","Em stock","On hand"],
+  available:["Disponível","Disponível","Available"],
+  unitsSold:["Fa\u2019an ona","Vendidas","Sold"],
+  lastSold:["Fa\u2019an ikus","Última venda","Last sold"],
+  awaitingConfirm:["Enkomenda seidauk konfirma \u2014 unidade sira ne\u2019e sei sura iha stok maibé promete ona","Encomendas por confirmar \u2014 estas unidades ainda contam no stock mas já estão prometidas","Unconfirmed orders \u2014 these units still count as stock but are already promised"],
+  awaitingConfirmShort:["hein","por confirmar","pending"],
+  inFulfilmentShort:["iha dalan","a caminho","in transit"],
+  awaitingConfirmHint:["Iha unidade {n} iha enkomenda ne\u2019ebé seidauk konfirma. Sira sura hela iha stok, tanba stok hasai deit bainhira konfirma.","Há {n} unidades em encomendas ainda por confirmar. Continuam a contar no stock, porque o stock só é descontado na confirmação.","{n} units sit in orders that are not confirmed yet. They still count as stock, because stock is only deducted on confirmation."],
+  today:["Ohin","Hoje","Today"],
+  never:["Nunka","Nunca","Never"]
 };
 
 export type StrKey = keyof typeof STR;
