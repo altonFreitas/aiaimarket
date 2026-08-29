@@ -1,12 +1,13 @@
-import StatisticsAdmin from "@/components/admin/StatisticsAdmin";
-import { adminStats, adminSellers, adminProducts, adminSettings, adminOrders } from "@/lib/data/admin";
-import { computeMarketplaceStats } from "@/lib/stats";
-import { getLang } from "@/lib/lang";
+import { redirect } from "next/navigation";
 
-export default async function StatisticsPage() {
-  const [lang, stats, sellers, products, settings, orders] = await Promise.all([
-    getLang(), adminStats(), adminSellers(), adminProducts(), adminSettings(), adminOrders(),
-  ]);
-  const marketplace = computeMarketplaceStats(sellers, orders, products, settings?.commission_rate ?? 10);
-  return <StatisticsAdmin lang={lang} stats={stats} marketplace={marketplace} />;
+/* "Statistics" is gone as a concept. Most of what it showed duplicated the
+ * sales dashboard; what was unique to it moved to where it belongs --
+ * the pre-sale funnel to /admin/demand, payments to the sales dashboard,
+ * marketplace commission to the sellers page.
+ *
+ * A redirect rather than a deleted route: the tab is gone from the nav, but
+ * bookmarks and any link still in the wild should land somewhere useful
+ * instead of a 404. */
+export default function StatisticsPage() {
+  redirect("/admin/demand");
 }

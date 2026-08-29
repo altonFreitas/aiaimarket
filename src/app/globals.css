@@ -1004,3 +1004,27 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    Without :has() support the panel simply stays capped and scrolls -- the
    detail is still reachable, just in a smaller window. */
 .scroll-x:has(.detail-row){max-height:none}
+
+/* ---------- demand funnel ---------- */
+/* Three stages with the conversion rate riding on the arrow between them,
+   so the rate is read where the drop happens rather than in a legend the
+   eye has to travel to. Wraps to a column on a phone, where three stages
+   side by side would each be too narrow to read. */
+.funnel{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.funnel-stage{flex:1 1 120px;min-width:0;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.funnel-stage b{display:block;font-size:22px;line-height:1.1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.funnel-stage span{display:block;font-family:var(--mono);font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.funnel-arrow{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:1px;color:var(--muted-2);padding:0 2px}
+.funnel-arrow em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.funnel-arrow span{font-size:15px;line-height:1}
+@media(max-width:520px){
+  /* Stack: the arrow turns to point down so the funnel still reads as a
+     sequence rather than three unrelated cards. */
+  .funnel{flex-direction:column}
+  .funnel-arrow{flex-direction:row;gap:6px}
+  .funnel-arrow span{transform:rotate(90deg)}
+}

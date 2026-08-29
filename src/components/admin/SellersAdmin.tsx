@@ -5,6 +5,8 @@ import { useToast } from "@/components/Toast";
 import { approveSeller, rejectSeller, suspendSeller, reactivateSeller, resetSellerTotpAction } from "@/lib/actions/sellers-admin";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { money } from "@/lib/utils";
+import type { MarketplaceStats } from "@/lib/stats";
 import type { Lang, Seller, SellerStatus } from "@/lib/types";
 
 const STATUS_PILL: Record<SellerStatus, "ok" | "warn" | "bad"> = {
@@ -14,7 +16,16 @@ const STATUS_PILL: Record<SellerStatus, "ok" | "warn" | "bad"> = {
   suspended: "bad",
 };
 
-export default function SellersAdmin({ lang, sellers }: { lang: Lang; sellers: Seller[] }) {
+export default function SellersAdmin({
+  lang, sellers, marketplace,
+}: {
+  lang: Lang; sellers: Seller[];
+  /** Gross marketplace sales and the platform's commission on them.
+   * Moved here from the old statistics page: this is money owed between
+   * the platform and its sellers, so it belongs beside the sellers it
+   * concerns rather than in a general analytics drawer. */
+  marketplace?: MarketplaceStats;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -53,6 +64,16 @@ export default function SellersAdmin({ lang, sellers }: { lang: Lang; sellers: S
         <div><b>{pendingCount}</b><span>{t("sellerStatus_pending", lang)}</span></div>
         <div><b>{approvedCount}</b><span>{t("sellerStatus_approved", lang)}</span></div>
       </div>
+
+      {/* Only shown once a first seller has actually joined -- a
+          single-seller store has no commission to report against itself. */}
+      {marketplace && marketplace.totalSellers > 0 && (
+        <div className="stat stat-fit">
+          <div><b>{money(marketplace.totalMarketplaceSales)}</b><span>{t("grossSales", lang)}</span></div>
+          <div><b>{money(marketplace.totalMarketplaceCommission)}</b><span>{t("marketplaceCommission", lang)}</span></div>
+          <div><b>{marketplace.pendingProducts}</b><span>{t("productStatus_pending", lang)}</span></div>
+        </div>
+      )}
 
       <div className="bar">
         <select value={filter} onChange={(e) => setFilter(e.target.value as "" | SellerStatus)}>

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BarSeries, RankedBars, RateBar } from "../Charts";
 import SalesTable from "./SalesTable";
+import ExportExcelButton from "../ExportExcelButton";
 import { money } from "@/lib/utils";
 import {
   buildInsights, buildSalesAlerts, computeSalesKpis, customerAnalysis,
@@ -10,6 +11,7 @@ import {
   growth, lowPerformers, monthKeys, rank, salesByCategory, salesByCustomer,
   salesByMonth, salesByMunicipality, salesByProduct, salesByQuarter, salesByWeek,
   salesBySeller, salesByYear, shiftIso, statusBreakdown, targetProgress, totals,
+  paymentSummary,
   PENDING_STATUSES, SALES_STATUSES,
   type RankBy, type SalesFilter, type SalesLine, type SalesTarget,
 } from "@/lib/sales";
@@ -101,9 +103,9 @@ export default function SalesDashboard({
     [lines, year]
   );
   const quarterly = useMemo(() => salesByQuarter(currentYearRows, year), [currentYearRows, year]);
-  // Weekly, not daily: the statistics page already has the day-by-day view,
-  // and at this shop's volume most days are zero -- twelve weeks shows the
-  // shape of the business where thirty days showed four spikes and noise.
+  // Weekly, not daily: at this shop's volume most days are zero, so thirty
+  // daily bars read as four spikes and noise. Twelve weeks shows the shape
+  // of the business.
   const weekly = useMemo(() => salesByWeek(rows, today, 12), [rows, today]);
   const yearly = useMemo(() => salesByYear(rows), [rows]);
 
@@ -116,6 +118,7 @@ export default function SalesDashboard({
     () => customerAnalysis(rows, { today, priorLines }), [rows, today, priorLines]
   );
   const statuses = useMemo(() => statusBreakdown(rows), [rows]);
+  const payments = useMemo(() => paymentSummary(rows), [rows]);
   const weak = useMemo(
     () => lowPerformers(rows, { unsoldProducts }), [rows, unsoldProducts]
   );
@@ -168,6 +171,10 @@ export default function SalesDashboard({
           <h1>{t("salesDashboard", lang)}</h1>
           <p className="sub">{t("salesDashboardSub", lang)}</p>
         </div>
+        {/* The full workbook export, rehomed from the old statistics page.
+            Distinct from the table's CSV: that exports the filtered lines on
+            screen, this one the whole book. */}
+        <ExportExcelButton lang={lang} />
       </div>
 
       {!ready && (
@@ -426,6 +433,59 @@ export default function SalesDashboard({
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* ---- payments: moved here from the old statistics page. Same
+              orders, adjacent question -- with cash on delivery and `fiar`
+              (credit) in the mix, "have we been paid" is a daily concern,
+              not a footnote. ---- */}
+      <div className="two-col">
+        <div className="panel">
+          <h3>{t("payments", lang)}</h3>
+          <div className="stat stat-fit">
+            <div><b>{money(payments.collected)}</b><span>{t("collected", lang)}</span></div>
+            <div>
+              <b className={payments.outstanding > 0 ? "bad-text" : ""}>{money(payments.outstanding)}</b>
+              <span>{t("outstandingMoney", lang)}</span>
+              {payments.outstandingOrders > 0 && (
+                <em className="hint">{payments.outstandingOrders} {t("orders", lang).toLowerCase()}</em>
+              )}
+            </div>
+          </div>
+          <div className="scroll-x">
+            <table className="tbl tbl-compact">
+              <thead>
+                <tr>
+                  <th>{t("paymentStatus", lang)}</th>
+                  <th className="num">{t("orders", lang)}</th>
+                  <th className="num">{t("value", lang)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.byStatus.length ? payments.byStatus.map((b) => (
+                  <tr key={b.key}>
+                    <td>{t("ps_" + b.key, lang)}</td>
+                    <td className="num">{b.count}</td>
+                    <td className="num">{money(b.value)}</td>
+                  </tr>
+                )) : <tr><td colSpan={3} className="hint">{t("noDataYet", lang)}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="panel">
+          <h3>{t("paymentMethodBreakdown", lang)}</h3>
+          <RankedBars
+            rows={payments.byMethod.map((b) => ({
+              key: b.key, label: t("pm_" + b.key, lang), value: b.value,
+              share: payments.byMethod.reduce((a, x) => a + x.value, 0) > 0
+                ? b.value / payments.byMethod.reduce((a, x) => a + x.value, 0) : 0,
+              meta: `${b.count} ${t("orders", lang).toLowerCase()}`,
+            }))}
+            emptyLabel={t("noDataYet", lang)}
+          />
         </div>
       </div>
 

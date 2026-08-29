@@ -784,6 +784,55 @@ export function statusBreakdown(lines: SalesLine[]): StatusBucket[] {
 }
 
 /* ---------------------------------------------------------------------------
+ * Payments. "What did we sell" and "have we been paid" are different
+ * questions, and this store answers the second one differently per method:
+ * a card order is settled by the gateway, a bank transfer or `fiar` (credit)
+ * order only when the owner says so. Outstanding money is therefore real
+ * operational information, not a rounding detail.
+ * ------------------------------------------------------------------------ */
+
+export interface PaymentBucket { key: string; count: number; value: number }
+
+export interface PaymentSummary {
+  byMethod: PaymentBucket[];
+  byStatus: PaymentBucket[];
+  /** Revenue of non-cancelled orders not yet fully paid. */
+  outstanding: number;
+  outstandingOrders: number;
+  collected: number;
+}
+
+export function paymentSummary(lines: SalesLine[]): PaymentSummary {
+  // Per ORDER, not per line: payment status belongs to the order, and
+  // summing lines would count a three-item order's balance three times.
+  const orders = groupOrders(lines).filter((o) => o.status !== "cancelled");
+
+  const bucket = (pick: (o: OrderRollup) => string): PaymentBucket[] => {
+    const m = new Map<string, PaymentBucket>();
+    for (const o of orders) {
+      const key = pick(o);
+      let b = m.get(key);
+      if (!b) { b = { key, count: 0, value: 0 }; m.set(key, b); }
+      b.count++;
+      b.value += o.revenue;
+    }
+    return [...m.values()].sort((a, b) => b.value - a.value);
+  };
+
+  // "deposit" is a part payment, so the order still owes something. Treating
+  // it as collected would understate what is out there.
+  const owing = orders.filter((o) => o.payStatus === "unpaid" || o.payStatus === "deposit");
+
+  return {
+    byMethod: bucket((o) => o.payMethod),
+    byStatus: bucket((o) => o.payStatus),
+    outstanding: owing.reduce((a, o) => a + o.revenue, 0),
+    outstandingOrders: owing.length,
+    collected: orders.filter((o) => o.payStatus === "paid").reduce((a, o) => a + o.revenue, 0),
+  };
+}
+
+/* ---------------------------------------------------------------------------
  * Section 19 -- products that are not working.
  * ------------------------------------------------------------------------ */
 

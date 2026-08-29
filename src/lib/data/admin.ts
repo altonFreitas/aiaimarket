@@ -84,12 +84,6 @@ export async function adminSettings() {
   return data;
 }
 
-export async function adminStats() {
-  const [orders, products] = await Promise.all([adminOrders(), adminProducts()]);
-  const { computeAdminStats } = await import("@/lib/stats");
-  return computeAdminStats(orders, products);
-}
-
 export async function adminSellers(): Promise<Seller[]> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("sellers").select("*").order("created_at", { ascending: false });

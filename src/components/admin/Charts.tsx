@@ -1,9 +1,9 @@
 "use client";
 import { money } from "@/lib/utils";
 
-/* Hand-rolled SVG, no charting library -- matching the existing TrendChart
- * and the project's data-frugality rule. A charting bundle would be larger
- * than every other script on the page combined, to draw rectangles. */
+/* Hand-rolled SVG, no charting library, matching the project's
+ * data-frugality rule. A charting bundle would be larger than every other
+ * script on the page combined, to draw rectangles. */
 
 const CHART_H = 150;
 

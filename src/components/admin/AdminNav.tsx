@@ -30,7 +30,6 @@ const GROUPS: Group[] = [
       ["/admin/sales", "salesDashboard"],
       ["/admin/orders", "orders"],
       ["/admin/notifications", "pendingMessages"],
-      ["/admin/statistics", "statistics"],
     ],
   },
   {
@@ -39,6 +38,7 @@ const GROUPS: Group[] = [
       ["/admin", "products"],
       ["/admin/stock", "stockControl"],
       ["/admin/cats", "categories"],
+      ["/admin/demand", "demand"],
       ["/admin/sales/costs", "unitCosts"],
     ],
   },

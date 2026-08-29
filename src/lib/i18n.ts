@@ -728,7 +728,32 @@ export const STR: Record<string, [string,string,string]> = {
   insight_yoy_growth:["Kresimentu tinan ba tinan","Crescimento ano a ano","Year-on-year growth"],
   insight_revenue_concentration:["Kliente boot nia parte","Peso dos maiores clientes","Top customers' share"],
   insight_pending_value:["Valór hein hela","Valor pendente","Pending value"],
-  insight_declining_product:["Produtu tun hela","Produto em queda","Declining product"]
+  insight_declining_product:["Produtu tun hela","Produto em queda","Declining product"],
+  /* ---- demand page + payments panel ---- */
+  demand:["Prokura","Procura","Demand"],
+  demandSub:["Sé mak haree, sé mak hakarak, sé mak la sosa.","Quem viu, quem quis, quem não comprou.","Who looked, who wanted, who did not buy."],
+  demandAllTimeNote:["Númeru sira ne'e tempu tomak. Vizualizasaun no klik la iha data, tanba ne'e la iha filtru data iha pájina ne'e.","Estes números são de sempre. As visualizações e cliques não têm data, por isso esta página não tem filtro de datas.","These figures are all-time. Views and clicks carry no date, so this page has no date filter."],
+  demandFunnel:["Funil prokura","Funil de procura","Demand funnel"],
+  overallConversion:["Konversaun tomak","Conversão global","Overall conversion"],
+  conversion:["Konversaun","Conversão","Conversion"],
+  productDemand:["Prokura kada produtu","Procura por produto","Demand by product"],
+  attentionByCategory:["Atensaun tuir kategoria","Atenção por categoria","Attention by category"],
+  neverViewed:["Seidauk haree","Nunca vistos","Never viewed"],
+  noImage:["Laiha imajen","Sem imagem","No image"],
+  uncategorised:["Laiha kategoria","Sem categoria","Uncategorised"],
+  stock:["Stock","Stock","Stock"],
+  signal:["Sinál","Sinal","Signal"],
+  signal_lost_sales:["Faan lakon","Vendas perdidas","Lost sales"],
+  signal_views_no_sales:["Haree maibé la sosa","Vistos mas não vendidos","Viewed, not sold"],
+  signal_underexposed:["La hatudu natoon","Pouco expostos","Underexposed"],
+  signal_ignored:["Ema la haree","Ignorados","Ignored"],
+  signalHint_lost_sales:["hakarak maibé laiha stock","querido mas sem stock","wanted, out of stock"],
+  signalHint_views_no_sales:["troka folin ka imajen","rever preço ou imagem","check price or listing"],
+  signalHint_underexposed:["promove sira","promover","promote these"],
+  signalHint_ignored:["konsidera hasai","considerar remover","consider retiring"],
+  payments:["Pagamentu","Pagamentos","Payments"],
+  collected:["Simu ona","Recebido","Collected"],
+  outstandingMoney:["Sei tenke simu","Por receber","Outstanding"]
 };
 
 export type StrKey = keyof typeof STR;
