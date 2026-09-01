@@ -753,7 +753,21 @@ export const STR: Record<string, [string,string,string]> = {
   signalHint_ignored:["konsidera hasai","considerar remover","consider retiring"],
   payments:["Pagamentu","Pagamentos","Payments"],
   collected:["Simu ona","Recebido","Collected"],
-  outstandingMoney:["Sei tenke simu","Por receber","Outstanding"]
+  outstandingMoney:["Sei tenke simu","Por receber","Outstanding"],
+  /* ---- purchase receipt -> stock ---- */
+  cat_goods_for_resale:["Sasán atu faan fali","Mercadoria para revenda","Goods for resale"],
+  spendCategory:["Kategoria gastu","Categoria de despesa","Spend category"],
+  shopCategory:["Kategoria iha loja","Categoria na loja","Shop category"],
+  sellPrice:["Folin faan","Preço de venda","Selling price"],
+  linkedProduct:["Produtu ligadu","Produto ligado","Linked product"],
+  existingProduct:["Iha ona","Já existe","Already in shop"],
+  onOrder:["Iha orden","Encomendado","On order"],
+  lastCost:["Kustu ikus","Último custo","Last cost"],
+  lastReceived:["Simu ikus","Última receção","Last received"],
+  atCostShort:["kustu","a custo","at cost"],
+  receiveTitle:["Simu sasán","Receber mercadoria","Receive goods"],
+  receiveDone:["Simu ona no stock atualiza","Recebido e stock atualizado","Received — stock updated"],
+  stockLedgerNeeded:["Halo lai supabase/stock-receipt.sql atu stock atualiza automatikamente bainhira simu sasán.","Execute supabase/stock-receipt.sql para que o stock se atualize sozinho ao receber.","Run supabase/stock-receipt.sql so stock updates itself when goods are received."]
 };
 
 export type StrKey = keyof typeof STR;

@@ -11,10 +11,14 @@ import {
 } from "@/lib/procurement";
 import { t } from "@/lib/i18n";
 import type {
-  Lang, PoCategory, PoPaymentStatus, PoStatus, PurchaseOrder, Supplier,
+  Category, Lang, PoCategory, PoPaymentStatus, PoStatus, Product, PurchaseOrder, Supplier,
 } from "@/lib/types";
 
+/* Goods bought to sell on come first, and are the default: for a shop, that
+ * is most purchases. It is also the only category that reaches stock and the
+ * catalog -- the others are real spending that never belonged in the shop. */
 const CATEGORIES: PoCategory[] = [
+  "goods_for_resale",
   "raw_materials", "components", "packaging", "office", "equipment", "services", "other",
 ];
 const PAYMENT_STATUSES: PoPaymentStatus[] = ["unpaid", "partial", "paid", "overdue"];
@@ -24,13 +28,28 @@ interface LineDraft {
   category: PoCategory;
   qty: string;
   unitPrice: string;
+  /** An existing catalog product, or "" to create one on receipt. */
+  productId: string;
+  /** Where a newly created product should sit in the shop. */
+  catalogCategoryId: string;
+  /** Its shelf price. Unrelated to what it cost, so it is asked for. */
+  sellPrice: string;
 }
 
-const blankLine = (): LineDraft => ({ productName: "", category: "other", qty: "1", unitPrice: "0" });
+const blankLine = (): LineDraft => ({
+  productName: "", category: "goods_for_resale", qty: "1", unitPrice: "0",
+  productId: "", catalogCategoryId: "", sellPrice: "",
+});
 
 export default function PurchaseOrderForm({
-  lang, suppliers, po,
-}: { lang: Lang; suppliers: Supplier[]; po: PurchaseOrder | null }) {
+  lang, suppliers, po, products, categories,
+}: {
+  lang: Lang; suppliers: Supplier[]; po: PurchaseOrder | null;
+  /** The live catalog, so a line can point at a product that already
+   * exists rather than creating a duplicate of it on receipt. */
+  products: Product[];
+  categories: Category[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -59,6 +78,9 @@ export default function PurchaseOrderForm({
       ? po.items.map((i) => ({
           productName: i.product_name, category: i.category,
           qty: String(i.qty), unitPrice: String(i.unit_price),
+          productId: i.product_id || "",
+          catalogCategoryId: i.catalog_category_id || "",
+          sellPrice: i.sell_price == null ? "" : String(i.sell_price),
         }))
       : [blankLine()]
   );
@@ -95,6 +117,9 @@ export default function PurchaseOrderForm({
         lines: lines.map((l) => ({
           productName: l.productName, category: l.category,
           qty: Number(l.qty), unitPrice: Number(l.unitPrice),
+          productId: l.productId || null,
+          catalogCategoryId: l.catalogCategoryId || null,
+          sellPrice: l.sellPrice === "" ? null : Number(l.sellPrice),
         })),
       });
       toast(t("saved", lang));
@@ -225,11 +250,26 @@ export default function PurchaseOrderForm({
             <div key={i} className="po-line">
               <div className="field">
                 <label htmlFor={`n${i}`}>{t("product", lang)}</label>
-                <input id={`n${i}`} value={l.productName}
-                  onChange={(e) => setLine(i, { productName: e.target.value })} required />
+                {/* A datalist, not a select: the buyer types the supplier's
+                    name for the goods, and picking a suggestion links the
+                    line to that product. Typing something new is equally
+                    valid -- it becomes a new product on receipt. */}
+                <input id={`n${i}`} value={l.productName} list={`plist${i}`}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    const hit = products.find((p) => p.name === name);
+                    setLine(i, {
+                      productName: name,
+                      productId: hit ? hit.id : "",
+                      catalogCategoryId: hit ? "" : l.catalogCategoryId,
+                    });
+                  }} required />
+                <datalist id={`plist${i}`}>
+                  {products.map((p) => <option key={p.id} value={p.name}>{p.ref}</option>)}
+                </datalist>
               </div>
               <div className="field">
-                <label htmlFor={`c${i}`}>{t("category", lang)}</label>
+                <label htmlFor={`c${i}`}>{t("spendCategory", lang)}</label>
                 <select id={`c${i}`} value={l.category}
                   onChange={(e) => setLine(i, { category: e.target.value as PoCategory })}>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{t("cat_" + c, lang)}</option>)}
@@ -245,6 +285,34 @@ export default function PurchaseOrderForm({
                 <input id={`u${i}`} type="number" min="0" step="any" value={l.unitPrice}
                   onChange={(e) => setLine(i, { unitPrice: e.target.value })} required />
               </div>
+              {/* Only a resale line reaches the shop, so only a resale line
+                  is asked where it goes and what it sells for. Both are
+                  hidden once the line points at an existing product, which
+                  already has a category and a price of its own. */}
+              {l.category === "goods_for_resale" && !l.productId && (
+                <>
+                  <div className="field">
+                    <label htmlFor={`cc${i}`}>{t("shopCategory", lang)}</label>
+                    <select id={`cc${i}`} value={l.catalogCategoryId}
+                      onChange={(e) => setLine(i, { catalogCategoryId: e.target.value })}>
+                      <option value="">{t("uncategorised", lang)}</option>
+                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor={`sp${i}`}>{t("sellPrice", lang)}</label>
+                    <input id={`sp${i}`} type="number" min="0" step="0.01" value={l.sellPrice}
+                      placeholder="0.00"
+                      onChange={(e) => setLine(i, { sellPrice: e.target.value })} />
+                  </div>
+                </>
+              )}
+              {l.productId && (
+                <div className="field">
+                  <label>{t("linkedProduct", lang)}</label>
+                  <span className="pill ok">{t("existingProduct", lang)}</span>
+                </div>
+              )}
               <div className="po-line-total">
                 <span className="hint">{t("lineTotal", lang)}</span>
                 <b className="mono">{((Number(l.qty) || 0) * (Number(l.unitPrice) || 0)).toFixed(2)}</b>

@@ -54,6 +54,27 @@ export interface StockRow {
   unitsSold: number;
   /** The price a buyer pays today: the discount when one is running. */
   unitPrice: number;
+  /* ---- purchasing, from the receipt ledger and open purchase orders.
+     All optional: a store that has not run supabase/stock-receipt.sql has
+     no ledger, and every reader must treat missing as "not known" rather
+     than as zero -- "0 on order" and "we have no idea" are different
+     answers, and only one of them justifies reordering. ---- */
+
+  /** Units on open purchase orders, not yet received. The number that stops
+   * a second order being placed for goods already in transit. */
+  onOrder?: number;
+  /** The day stock last arrived for this product, YYYY-MM-DD. */
+  lastReceived?: string | null;
+  /** Landed unit cost of that last receipt, in USD. */
+  lastCost?: number | null;
+  /** Who it last came from. */
+  lastSupplier?: string | null;
+  /** Units received across every purchase, all time. */
+  unitsReceived?: number;
+  /** onHand x lastCost -- inventory at what it cost, not what it might
+   * fetch. This is the figure an accountant wants. */
+  stockValueAtCost?: number | null;
+
   /** onHand x unitPrice. Inventory valued at what it would sell for, not at
    * cost -- this catalog has no cost price to value it at. */
   stockValue: number;
@@ -203,7 +224,8 @@ export function buildStockReport(
 
 export type StockSortKey =
   | "urgency" | "name" | "ref" | "onHand" | "available"
-  | "unitsSold" | "stockValue" | "views" | "lastSold";
+  | "unitsSold" | "stockValue" | "views" | "lastSold"
+  | "onOrder" | "lastCost" | "lastReceived";
 
 /** Client-side sorting for the table headers. Kept here beside the report so
  * the tie-breaks stay consistent with the default order above. */
@@ -223,9 +245,79 @@ export function sortStockRows(rows: StockRow[], key: StockSortKey, desc: boolean
     // Never-sold rows sort as infinitely stale: "nothing has ever moved" is
     // the extreme of the same axis, not a missing value to drop to one end.
     lastSold: num((r) => (r.daysSinceLastSale == null ? Number.MAX_SAFE_INTEGER : r.daysSinceLastSale)),
+    onOrder: num((r) => r.onOrder ?? 0),
+    // Unknown cost sorts as zero here rather than as "expensive": it is
+    // absent information, and pushing it to the top of a cost sort would
+    // read as a finding when it is a gap.
+    lastCost: num((r) => r.lastCost ?? 0),
+    // Never received sorts oldest, same reasoning as lastSold above.
+    lastReceived: (a, b) =>
+      ((a.lastReceived || "").localeCompare(b.lastReceived || "")) * dir || byName(a, b),
     name: (a, b) => byName(a, b) * dir,
     ref: (a, b) => a.ref.localeCompare(b.ref) * dir,
   };
 
   return rows.slice().sort(cmp[key]);
+}
+
+
+/* ---------------------------------------------------------------------------
+ * Purchasing facts, layered on top of a built report.
+ *
+ * Kept separate from buildStockReport rather than folded into it, because
+ * the receipt ledger is optional: a store that has not run
+ * supabase/stock-receipt.sql still gets a complete stock screen, just
+ * without the purchase columns. Merging the two would have made the whole
+ * report depend on a table that may not exist.
+ * ------------------------------------------------------------------------ */
+
+export interface ReceiptFact {
+  product_id: string;
+  delta: number;
+  unit_cost: number | null;
+  created_at: string;
+  /** Supplier name, resolved from the purchase order. */
+  supplier?: string | null;
+}
+
+export interface OnOrderFact {
+  product_id: string;
+  /** Units still expected from open purchase orders. */
+  qty: number;
+}
+
+export function withPurchaseFacts(
+  report: StockReport, receipts: ReceiptFact[], onOrder: OnOrderFact[]
+): StockReport {
+  const onOrderBy = new Map<string, number>();
+  for (const o of onOrder) {
+    onOrderBy.set(o.product_id, (onOrderBy.get(o.product_id) || 0) + o.qty);
+  }
+
+  // Latest receipt per product, plus the all-time total, in one pass.
+  const latest = new Map<string, ReceiptFact>();
+  const totalIn = new Map<string, number>();
+  for (const r of receipts) {
+    if (r.delta > 0) totalIn.set(r.product_id, (totalIn.get(r.product_id) || 0) + r.delta);
+    const prev = latest.get(r.product_id);
+    if (!prev || r.created_at > prev.created_at) latest.set(r.product_id, r);
+  }
+
+  const rows = report.rows.map((row) => {
+    const last = latest.get(row.id);
+    const lastCost = last?.unit_cost ?? null;
+    return {
+      ...row,
+      onOrder: onOrderBy.get(row.id) || 0,
+      lastReceived: last ? last.created_at.slice(0, 10) : null,
+      lastCost,
+      lastSupplier: last?.supplier ?? null,
+      unitsReceived: totalIn.get(row.id) || 0,
+      // Null, not zero, when the cost is unknown: a warehouse full of
+      // uncosted goods is not worth nothing.
+      stockValueAtCost: lastCost == null ? null : row.onHand * lastCost,
+    };
+  });
+
+  return { ...report, rows };
 }

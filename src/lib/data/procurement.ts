@@ -1,6 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PurchaseOrder, PurchaseOrderItem, Supplier } from "@/lib/types";
+import type { OnOrderFact, ReceiptFact } from "@/lib/stockReport";
 
 /* Same reasoning as the caps in lib/data/admin.ts: procurement genuinely
  * wants the whole book to compute year-on-year trends, but an unbounded read
@@ -77,3 +78,77 @@ export async function adminProcurementData(): Promise<ProcurementData> {
 }
 
 export type { PurchaseOrderItem };
+
+/* ---------------------------------------------------------------------------
+ * Receipt ledger, for the stock screen.
+ * ------------------------------------------------------------------------ */
+
+const MAX_MOVEMENTS = 20_000;
+
+/** True once supabase/stock-receipt.sql has been run. */
+export async function stockLedgerReady(): Promise<boolean> {
+  try {
+    const sb = supabaseAdmin();
+    const { error } = await sb.from("stock_movements").select("id").limit(1);
+    return !error;
+  } catch { return false; }
+}
+
+/** Every purchase receipt, with the supplier it came from.
+ *
+ * Returns empty rather than throwing when the ledger table does not exist,
+ * so the stock screen degrades to its pre-purchasing self instead of
+ * breaking. */
+export async function adminReceipts(): Promise<ReceiptFact[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("stock_movements")
+      .select("product_id, delta, unit_cost, created_at, po:purchase_orders(supplier_id)")
+      .eq("reason", "purchase_receipt")
+      .order("created_at", { ascending: false })
+      .limit(MAX_MOVEMENTS);
+    if (error || !data) return [];
+
+    const suppliers = await adminSuppliers();
+    const nameById = new Map(suppliers.map((s) => [s.id, s.name]));
+
+    return (data as unknown as Array<{
+      product_id: string; delta: number; unit_cost: number | null;
+      created_at: string; po: { supplier_id: string } | null;
+    }>).map((r) => ({
+      product_id: r.product_id,
+      delta: Number(r.delta),
+      unit_cost: r.unit_cost == null ? null : Number(r.unit_cost),
+      created_at: r.created_at,
+      supplier: r.po ? nameById.get(r.po.supplier_id) ?? null : null,
+    }));
+  } catch { return []; }
+}
+
+/** Units on purchase orders that are placed but not yet received.
+ *
+ * "Open" excludes draft (not committed to yet), cancelled, and received
+ * (already on the shelf, and counted in onHand -- adding them here would
+ * show the same goods twice). */
+const OPEN_PO_STATUSES = [
+  "approved", "sent", "confirmed", "in_production", "in_transit", "arrived",
+];
+
+export async function adminOnOrder(): Promise<OnOrderFact[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("purchase_order_items")
+      .select("product_id, qty, po:purchase_orders!inner(status)")
+      .not("product_id", "is", null)
+      .limit(MAX_MOVEMENTS);
+    if (error || !data) return [];
+
+    return (data as unknown as Array<{
+      product_id: string; qty: number; po: { status: string } | null;
+    }>)
+      .filter((r) => r.po && OPEN_PO_STATUSES.includes(r.po.status))
+      .map((r) => ({ product_id: r.product_id, qty: Math.floor(Number(r.qty) || 0) }));
+  } catch { return []; }
+}

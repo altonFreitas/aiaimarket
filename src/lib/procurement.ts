@@ -1,5 +1,5 @@
 import type {
-  PoCategory, PoPaymentStatus, PoStatus, PurchaseOrder, Supplier,
+  PoCategory, PoPaymentStatus, PoStatus, PurchaseOrder, PurchaseOrderItem, Supplier,
 } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
@@ -232,6 +232,83 @@ export function spendByMonth(pos: PurchaseOrder[], from: string, to: string): Pe
     b.orders += 1;
   }
   return [...buckets.values()].sort((a, b) => a.month.localeCompare(b.month));
+}
+
+/* ---------------------------------------------------------------------------
+ * Landed cost.
+ *
+ * The purchase price of a line is not what the goods cost you. Tax, freight
+ * and a supplier discount sit on the ORDER, not the line, and they are real
+ * money spent to get these particular goods onto the shelf. Reporting margin
+ * against the bare purchase price overstates profit by exactly the freight
+ * bill -- quietly, and worse the further the goods travelled.
+ *
+ * Header costs are split across lines by VALUE, not by unit count. Shipping
+ * a $2,000 machine and a $5 cable in one container: splitting per-unit would
+ * load nearly the whole freight bill onto the cable and report it as sold at
+ * a catastrophic loss. Value is the honest proxy when nothing tells us the
+ * weight or volume each line actually took up.
+ * ------------------------------------------------------------------------ */
+
+export interface LandedCostLine {
+  itemId: string;
+  productId: string | null;
+  qty: number;
+  /** In the order's currency, before any share of header costs. */
+  unitPrice: number;
+  /** Purchase price plus this line's share of tax/shipping/discount,
+   * converted to base currency. This is what reaches product_costs. */
+  landedUnitCost: number;
+  /** landedUnitCost x qty. */
+  landedTotal: number;
+}
+
+/** Split an order's header costs across its lines and convert to base
+ * currency. Returns one entry per line, in the order they were given. */
+export function landedCosts(po: PurchaseOrder): LandedCostLine[] {
+  const items = po.items || [];
+  const subtotal = items.reduce((a, i) => a + Number(i.qty) * Number(i.unit_price), 0);
+
+  // Discount reduces what you paid; tax and shipping increase it. A negative
+  // total (a discount larger than tax + freight) is legitimate and lowers
+  // every line's cost proportionally.
+  const overhead = Number(po.tax || 0) + Number(po.shipping || 0) - Number(po.discount || 0);
+  const fx = Number(po.fx_rate) || 1;
+
+  return items.map((i) => {
+    const qty = Number(i.qty) || 0;
+    const unitPrice = Number(i.unit_price) || 0;
+    const lineValue = qty * unitPrice;
+
+    // An order of entirely free goods still has freight. With no value to
+    // split by, fall back to an equal split per line so the cost is not
+    // silently dropped.
+    const share = subtotal > 0
+      ? (lineValue / subtotal) * overhead
+      : (items.length ? overhead / items.length : 0);
+
+    // Never let a big discount drive a cost below zero: a negative cost
+    // would report margin above 100% and corrupt every aggregate above it.
+    const landedUnitCost = qty > 0
+      ? Math.max(0, (unitPrice + share / qty) * fx)
+      : 0;
+
+    return {
+      itemId: i.id,
+      productId: i.product_id,
+      qty,
+      unitPrice,
+      landedUnitCost,
+      landedTotal: landedUnitCost * qty,
+    };
+  });
+}
+
+/** True when a line is goods bought to sell on, and so the only kind of line
+ * that may ever touch stock or the catalog. An office chair is a real
+ * purchase that must never appear in the shop. */
+export function isResaleLine(item: PurchaseOrderItem): boolean {
+  return item.category === "goods_for_resale";
 }
 
 export interface SupplierPerformance {

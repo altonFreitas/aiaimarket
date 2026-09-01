@@ -9,6 +9,7 @@ const MAX_TEXT = 2000;
 const MAX_LINES = 200;
 
 const CATEGORIES: readonly PoCategory[] = [
+  "goods_for_resale",
   "raw_materials", "components", "packaging", "office", "equipment", "services", "other",
 ];
 const STATUSES: readonly PoStatus[] = [
@@ -131,6 +132,10 @@ export interface PoLineInput {
   category: PoCategory;
   qty: number;
   unitPrice: number;
+  /** Shop category for a product this line will create on receipt. */
+  catalogCategoryId?: string | null;
+  /** Its shelf price. Unrelated to the purchase price, so it is stated. */
+  sellPrice?: number | null;
 }
 
 export interface PurchaseOrderInput {
@@ -227,17 +232,42 @@ export async function savePurchaseOrder(input: PurchaseOrderInput): Promise<stri
     const unitPrice = Number(l.unitPrice);
     if (!Number.isFinite(qty) || qty <= 0) throw new Error(`Quantity must be greater than zero for "${l.productName}"`);
     if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error(`Unit price cannot be negative for "${l.productName}"`);
+    const sellPrice = l.sellPrice == null || Number.isNaN(Number(l.sellPrice))
+      ? null : Number(l.sellPrice);
+    if (sellPrice != null && sellPrice < 0) {
+      throw new Error(`Selling price cannot be negative for "${l.productName}"`);
+    }
     return {
       product_id: l.productId || null,
       product_name: clip(l.productName, MAX_NAME),
       category: CATEGORIES.includes(l.category) ? l.category : ("other" as PoCategory),
       qty,
       unit_price: unitPrice,
+      catalog_category_id: l.catalogCategoryId || null,
+      sell_price: sellPrice,
     };
   });
 
   let poId = input.id;
   if (poId) {
+    // Lines are replaced wholesale below, which would orphan the receipt
+    // ledger: stock_movements points at a line id, and deleting the line
+    // nulls that link. The idempotency guard would then be gone, and the
+    // next move to "received" would add the stock a SECOND time.
+    //
+    // So an order whose goods have already landed is closed to line edits.
+    // That is also the right business rule on its own -- once the goods are
+    // on the shelf, the order is the record of what arrived, not a draft.
+    const { data: receipts } = await sb
+      .from("stock_movements").select("id")
+      .eq("po_id", poId).eq("reason", "purchase_receipt").limit(1);
+    if (receipts && receipts.length) {
+      throw new Error(
+        "This order has already been received, so its lines can no longer be " +
+        "changed. Record a stock adjustment instead."
+      );
+    }
+
     const { error } = await sb.from("purchase_orders").update(header).eq("id", poId);
     if (error) throw error;
     // Lines are replaced wholesale rather than diffed. An edit is a small,
@@ -288,6 +318,16 @@ export async function setPurchaseOrderStatus(id: string, status: PoStatus) {
 
   const { error } = await sb.from("purchase_orders").update(patch).eq("id", id);
   if (error) throw error;
+
+  // Reaching "received" is what puts the goods on the shelf: stock, the
+  // catalog entry and the landed cost all follow from this one move. Done
+  // after the status write so a failure here cannot leave the order stuck in
+  // its old state, and safe to repeat -- the database rejects a second
+  // receipt of the same line (see receivePurchaseOrder).
+  if (status === "received") {
+    const { receivePurchaseOrder } = await import("./receive");
+    await receivePurchaseOrder(id);
+  }
   revalidatePath("/admin/procurement", "layout");
 }
 

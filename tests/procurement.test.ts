@@ -4,6 +4,7 @@ import {
   poLeadTime, arrivedOnTime, deliveryState, computeKpis, growth, spendByMonth,
   supplierPerformance, spendByCountry, spendByCategory, spendByProduct,
   statusBreakdown, buildAlerts, filterPurchaseOrders, scoreSupplier,
+  landedCosts, isResaleLine,
 } from "@/lib/procurement";
 import type { PoStatus, PurchaseOrder, PurchaseOrderItem, Supplier } from "@/lib/types";
 
@@ -464,5 +465,81 @@ describe("filterPurchaseOrders", () => {
   it("combines filters as AND, and returns everything when empty", () => {
     expect(ids({ supplierId: "s1", status: "in_transit" })).toEqual([]);
     expect(ids({})).toEqual(["a", "b"]);
+  });
+});
+
+/* ------------------------- landed cost ------------------------- */
+
+describe("landedCosts", () => {
+  it("returns the bare purchase price when there are no header costs", () => {
+    const order = po({ tax: 0, shipping: 0, discount: 0, fx_rate: 1,
+      items: [line({ qty: 10, unit_price: 5 })] });
+    const [l] = landedCosts(order);
+    expect(l.landedUnitCost).toBeCloseTo(5);
+    expect(l.landedTotal).toBeCloseTo(50);
+  });
+
+  it("adds tax and shipping, and subtracts a discount", () => {
+    // 10 x $5 = $50 of goods, plus $10 tax + $20 freight - $5 discount = $25
+    // of overhead on one line -> $2.50 per unit on top.
+    const order = po({ tax: 10, shipping: 20, discount: 5, fx_rate: 1,
+      items: [line({ qty: 10, unit_price: 5 })] });
+    expect(landedCosts(order)[0].landedUnitCost).toBeCloseTo(7.5);
+  });
+
+  it("splits header costs by VALUE, so freight does not crush a cheap line", () => {
+    // A $2000 machine and a $5 cable share $100 of freight. Per-unit
+    // splitting would put $50 on the cable and report it sold at a loss.
+    const order = po({ tax: 0, shipping: 100, discount: 0, fx_rate: 1, items: [
+      line({ id: "big", qty: 1, unit_price: 2000 }),
+      line({ id: "small", qty: 1, unit_price: 5 }),
+    ] });
+    const [big, small] = landedCosts(order);
+    expect(big.landedUnitCost).toBeCloseTo(2000 + 100 * (2000 / 2005), 2);
+    expect(small.landedUnitCost).toBeCloseTo(5 + 100 * (5 / 2005), 2);
+    // The cable stays close to its own price rather than absorbing the ship.
+    expect(small.landedUnitCost).toBeLessThan(6);
+  });
+
+  it("converts to base currency at the order's captured rate", () => {
+    const order = po({ tax: 0, shipping: 0, discount: 0, fx_rate: 0.5,
+      items: [line({ qty: 2, unit_price: 100 })] });
+    expect(landedCosts(order)[0].landedUnitCost).toBeCloseTo(50);
+  });
+
+  it("splits equally when the goods were free but freight was not", () => {
+    const order = po({ tax: 0, shipping: 60, discount: 0, fx_rate: 1, items: [
+      line({ id: "a", qty: 1, unit_price: 0 }),
+      line({ id: "b", qty: 2, unit_price: 0 }),
+    ] });
+    const [a, b] = landedCosts(order);
+    expect(a.landedUnitCost).toBeCloseTo(30);   // $30 over 1 unit
+    expect(b.landedUnitCost).toBeCloseTo(15);   // $30 over 2 units
+  });
+
+  it("never returns a negative cost when a discount exceeds the goods", () => {
+    // A cost below zero would report margin above 100% and corrupt every
+    // aggregate built on it.
+    const order = po({ tax: 0, shipping: 0, discount: 500, fx_rate: 1,
+      items: [line({ qty: 1, unit_price: 10 })] });
+    expect(landedCosts(order)[0].landedUnitCost).toBe(0);
+  });
+
+  it("preserves line order and identity", () => {
+    const order = po({ items: [line({ id: "x" }), line({ id: "y" })] });
+    expect(landedCosts(order).map((l) => l.itemId)).toEqual(["x", "y"]);
+  });
+
+  it("is empty for an order with no lines", () => {
+    expect(landedCosts(po({ items: [] }))).toEqual([]);
+  });
+});
+
+describe("isResaleLine", () => {
+  it("is true only for goods bought to sell on", () => {
+    expect(isResaleLine(line({ category: "goods_for_resale" }))).toBe(true);
+    // An office chair is a real purchase that must never reach the catalog.
+    expect(isResaleLine(line({ category: "office" }))).toBe(false);
+    expect(isResaleLine(line({ category: "services" }))).toBe(false);
   });
 });

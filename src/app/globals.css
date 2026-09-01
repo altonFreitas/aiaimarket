@@ -700,14 +700,25 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .linkish:hover{text-decoration-color:currentColor}
 
 /* Purchase order line editor */
-.po-line{display:grid;grid-template-columns:1fr;gap:8px;align-items:end;
+/* Flex-wrap rather than a fixed grid template: a resale line shows two more
+   fields (shop category, selling price) than a line for office supplies, so
+   the column count is not knowable in advance. A fixed template put those
+   extra fields under the wrong headings. */
+.po-line{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;
   padding:10px 0;border-top:1px solid var(--line-2)}
 .po-line:first-of-type{border-top:0}
-.po-line .field{margin:0}
-.po-line-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+/* Full width on a phone: two half-width inputs side by side leaves neither
+   readable once the label wraps. */
+.po-line .field{flex:1 1 100%;min-width:0;margin:0}
+.po-line-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  flex:1 1 100%}
 @media(min-width:820px){
-  .po-line{grid-template-columns:2.2fr 1.3fr .8fr .9fr .9fr auto}
-  .po-line-total{flex-direction:column;align-items:flex-end;gap:2px}
+  /* The product name earns the most room -- it is the only free-text field,
+     and the one the buyer scans to find a line. */
+  .po-line .field{flex:1 1 130px}
+  .po-line .field:first-child{flex:2.4 1 200px}
+  .po-line-total{flex:0 0 auto;flex-direction:column;align-items:flex-end;gap:2px;
+    min-width:78px}
 }
 
 /* ---------- stock control table ---------- */

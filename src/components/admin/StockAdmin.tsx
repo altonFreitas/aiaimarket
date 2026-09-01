@@ -17,8 +17,13 @@ const COLUMNS: Array<{ key: StockSortKey; label: string; numeric: boolean }> = [
   { key: "name", label: "product", numeric: false },
   { key: "onHand", label: "onHand", numeric: true },
   { key: "available", label: "available", numeric: true },
+  // On order sits beside Available on purpose: together they answer "do I
+  // need to buy more", which is the question that brings someone here.
+  { key: "onOrder", label: "onOrder", numeric: true },
   { key: "unitsSold", label: "unitsSold", numeric: true },
   { key: "stockValue", label: "stockValue", numeric: true },
+  { key: "lastCost", label: "lastCost", numeric: true },
+  { key: "lastReceived", label: "lastReceived", numeric: true },
   { key: "lastSold", label: "lastSold", numeric: true },
   { key: "views", label: "views", numeric: true },
 ];
@@ -176,12 +181,37 @@ function StockRowView({ r, lang }: { r: StockRow; lang: Lang }) {
         )}
       </td>
       <td className="num">
+        {/* Zero and "not known" look identical in a number column, so an
+            em dash is used when the purchase ledger is not set up. */}
+        {r.onOrder == null ? "—" : (
+          r.onOrder > 0
+            ? <b style={{ color: "var(--green)" }}>+{r.onOrder}</b>
+            : <span className="hint">0</span>
+        )}
+      </td>
+      <td className="num">
         {r.unitsSold}
         {r.inFulfilment > 0 && (
           <span className="stock-sub">+{r.inFulfilment} {t("inFulfilmentShort", lang)}</span>
         )}
       </td>
-      <td className="num">{money(r.stockValue)}</td>
+      <td className="num">
+        {money(r.stockValue)}
+        {r.stockValueAtCost != null && (
+          <span className="stock-sub">{money(r.stockValueAtCost)} {t("atCostShort", lang)}</span>
+        )}
+      </td>
+      <td className="num">
+        {r.lastCost == null ? "—" : money(r.lastCost)}
+      </td>
+      <td className="num">
+        {r.lastReceived ? (
+          <>
+            <span suppressHydrationWarning>{r.lastReceived}</span>
+            {r.lastSupplier && <span className="stock-sub">{r.lastSupplier}</span>}
+          </>
+        ) : <span className="hint">—</span>}
+      </td>
       <td className="num">
         {r.lastSoldAt ? (
           <span title={nowIso(r.lastSoldAt)} suppressHydrationWarning>

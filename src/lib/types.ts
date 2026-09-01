@@ -162,7 +162,12 @@ export type PoStatus =
 
 export type PoPaymentStatus = "unpaid" | "partial" | "paid" | "overdue";
 
+/** SPEND category -- what kind of money a purchase line is. Distinct from
+ * the catalog category, which is where goods sit in the shop; a line can
+ * have both, and they answer different questions. "goods_for_resale" is the
+ * only value that lets a line touch stock or the catalog. */
 export type PoCategory =
+  | "goods_for_resale"
   | "raw_materials" | "components" | "packaging"
   | "office" | "equipment" | "services" | "other";
 
@@ -183,11 +188,40 @@ export interface Supplier {
 export interface PurchaseOrderItem {
   id: string;
   po_id: string;
+  /** The catalog product this line stocks. Null until the line is received
+   * (a new product is created then, not before -- a draft order that never
+   * arrives must not leave unbuyable products in the shop). */
   product_id: string | null;
   product_name: string;
   category: PoCategory;
   qty: number;
   unit_price: number;
+  /** Where a product this line CREATES should sit in the shop. Null when the
+   * line links to an existing product, which already has a category. */
+  catalog_category_id?: string | null;
+  /** Intended shelf price for a product this line creates. Purchase price
+   * and selling price are unrelated, so the buyer states it. */
+  sell_price?: number | null;
+  created_at: string;
+}
+
+export type StockMovementReason =
+  | "purchase_receipt" | "sale" | "adjustment" | "return" | "correction";
+
+/** One change to a product's stock. Mirrors stock_movements in
+ * supabase/stock-receipt.sql. Signed and append-only: products.qty is the
+ * running balance, these rows are the history behind it. */
+export interface StockMovement {
+  id: string;
+  product_id: string;
+  delta: number;
+  reason: StockMovementReason;
+  po_id: string | null;
+  po_item_id: string | null;
+  order_id: string | null;
+  /** Landed unit cost in USD at receipt. Null for non-purchase movements. */
+  unit_cost: number | null;
+  note: string;
   created_at: string;
 }
 

@@ -234,6 +234,13 @@ export async function adminStockReport() {
   const [products, orders, cats, sellers] = await Promise.all([
     adminProducts(), adminOrders(), adminCategories(), adminSellers(),
   ]);
-  const { buildStockReport } = await import("@/lib/stockReport");
-  return buildStockReport(products, orders, cats, sellers);
+  const { buildStockReport, withPurchaseFacts } = await import("@/lib/stockReport");
+  const report = buildStockReport(products, orders, cats, sellers);
+
+  // Purchasing facts are layered on separately and degrade to nothing when
+  // supabase/stock-receipt.sql has not been run: the stock screen still
+  // works, it just has no purchase columns to show.
+  const { adminReceipts, adminOnOrder } = await import("@/lib/data/procurement");
+  const [receipts, onOrder] = await Promise.all([adminReceipts(), adminOnOrder()]);
+  return withPurchaseFacts(report, receipts, onOrder);
 }

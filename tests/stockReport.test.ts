@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildStockReport, sortStockRows, LOW_STOCK_THRESHOLD } from "@/lib/stockReport";
+import {
+  buildStockReport, sortStockRows, withPurchaseFacts, LOW_STOCK_THRESHOLD,
+} from "@/lib/stockReport";
 import type { Category, Order, OrderItem, Product } from "@/lib/types";
 
 const product = (over: Partial<Product> = {}): Product => ({
@@ -254,5 +256,102 @@ describe("sortStockRows", () => {
     const before = report.rows.map((r) => r.id);
     sortStockRows(report.rows, "onHand", true);
     expect(report.rows.map((r) => r.id)).toEqual(before);
+  });
+});
+
+
+/* ------------------- purchase facts on the stock screen ------------------- */
+
+describe("withPurchaseFacts", () => {
+  const base = () => buildStockReport([product({ id: "p1", qty: 10 })], [], []);
+
+  it("adds on-order units from open purchase orders", () => {
+    const r = withPurchaseFacts(base(), [], [
+      { product_id: "p1", qty: 40 }, { product_id: "p1", qty: 10 },
+    ]);
+    expect(r.rows[0].onOrder).toBe(50);
+  });
+
+  it("reports zero on order rather than nothing when none is expected", () => {
+    expect(withPurchaseFacts(base(), [], []).rows[0].onOrder).toBe(0);
+  });
+
+  it("takes the LATEST receipt for last cost, date and supplier", () => {
+    const r = withPurchaseFacts(base(), [
+      { product_id: "p1", delta: 20, unit_cost: 5, created_at: "2026-01-10T00:00:00Z", supplier: "Old Co" },
+      { product_id: "p1", delta: 30, unit_cost: 7.25, created_at: "2026-06-01T00:00:00Z", supplier: "New Co" },
+    ], []);
+    expect(r.rows[0].lastCost).toBe(7.25);
+    expect(r.rows[0].lastReceived).toBe("2026-06-01");
+    expect(r.rows[0].lastSupplier).toBe("New Co");
+  });
+
+  it("is not fooled by the order rows arrive in", () => {
+    // Newest first is how the query returns them; the pass must still pick
+    // the latest by date, not the first it happens to see.
+    const r = withPurchaseFacts(base(), [
+      { product_id: "p1", delta: 30, unit_cost: 7.25, created_at: "2026-06-01T00:00:00Z", supplier: "New Co" },
+      { product_id: "p1", delta: 20, unit_cost: 5, created_at: "2026-01-10T00:00:00Z", supplier: "Old Co" },
+    ], []);
+    expect(r.rows[0].lastSupplier).toBe("New Co");
+  });
+
+  it("totals every unit ever received", () => {
+    const r = withPurchaseFacts(base(), [
+      { product_id: "p1", delta: 20, unit_cost: 5, created_at: "2026-01-10T00:00:00Z" },
+      { product_id: "p1", delta: 30, unit_cost: 7, created_at: "2026-06-01T00:00:00Z" },
+    ], []);
+    expect(r.rows[0].unitsReceived).toBe(50);
+  });
+
+  it("values stock at cost, and says nothing when the cost is unknown", () => {
+    const priced = withPurchaseFacts(base(), [
+      { product_id: "p1", delta: 10, unit_cost: 4, created_at: "2026-06-01T00:00:00Z" },
+    ], []);
+    expect(priced.rows[0].stockValueAtCost).toBe(40);   // 10 on hand x $4
+
+    // A warehouse of uncosted goods is not worth nothing.
+    const unpriced = withPurchaseFacts(base(), [
+      { product_id: "p1", delta: 10, unit_cost: null, created_at: "2026-06-01T00:00:00Z" },
+    ], []);
+    expect(unpriced.rows[0].stockValueAtCost).toBeNull();
+  });
+
+  it("leaves a product with no purchase history blank rather than zeroed", () => {
+    const r = withPurchaseFacts(base(), [], []);
+    expect(r.rows[0].lastReceived).toBeNull();
+    expect(r.rows[0].lastCost).toBeNull();
+    expect(r.rows[0].lastSupplier).toBeNull();
+  });
+
+  it("does not disturb the stock figures it layers onto", () => {
+    const before = base().rows[0];
+    const after = withPurchaseFacts(base(), [], [{ product_id: "p1", qty: 5 }]).rows[0];
+    expect(after.onHand).toBe(before.onHand);
+    expect(after.available).toBe(before.available);
+    expect(after.urgency).toBe(before.urgency);
+  });
+});
+
+describe("sortStockRows on purchase columns", () => {
+  const rows = () => withPurchaseFacts(
+    buildStockReport([
+      product({ id: "a", ref: "PRD-0001", name: "A", qty: 1 }),
+      product({ id: "b", ref: "PRD-0002", name: "B", qty: 1 }),
+    ], [], []),
+    [{ product_id: "b", delta: 5, unit_cost: 9, created_at: "2026-06-01T00:00:00Z" }],
+    [{ product_id: "a", qty: 7 }]
+  ).rows;
+
+  it("sorts by units on order", () => {
+    expect(sortStockRows(rows(), "onOrder", true)[0].id).toBe("a");
+  });
+
+  it("sorts an unknown cost as absent information, not as expensive", () => {
+    expect(sortStockRows(rows(), "lastCost", true)[0].id).toBe("b");
+  });
+
+  it("sorts never-received oldest", () => {
+    expect(sortStockRows(rows(), "lastReceived", false)[0].id).toBe("a");
   });
 });
