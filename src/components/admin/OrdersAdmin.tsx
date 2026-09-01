@@ -42,7 +42,17 @@ export default function OrdersAdmin({
           {list.map((o) => (
             <Link className="item" key={o.id} href={`/admin/o/${o.id}`} style={{ textDecoration: "none" }}>
               <div className="g">
-                <b>{o.ref} · {o.buyer_name}</b>
+                <b>
+                  {o.ref} · {o.buyer_name}
+                  {/* The PRO prefix already says it, but a pill survives
+                      being skim-read: a pre-order cannot be picked and
+                      packed today, so it must not look like one that can. */}
+                  {o.is_preorder && (
+                    <span className="pill warn" style={{ marginLeft: 6 }}>
+                      {t("preorderShort", lang)}
+                    </span>
+                  )}
+                </b>
                 <span>
                   {nowIso(o.created_at)} · {money(o.total)} · {o.buyer_phone}
                   {o.cancel_requested_at ? " · ⚠ " + t("askCancel", lang) : ""}

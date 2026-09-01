@@ -1,7 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { phoneNorm, phoneOk } from "@/lib/utils";
+import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { assertOrderTransition } from "@/lib/orderFlow";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
 import { decodeImageDataUrl } from "@/lib/uploadGuard";
@@ -27,12 +27,11 @@ function clip(v: string | undefined | null, max: number): string {
 async function nextRefWithPrefix(prefix: string, normalizedPhone: string): Promise<string> {
   const sb = supabaseAdmin();
   const year = new Date().getFullYear();
-  const phoneDigits = normalizedPhone.replace(/[^\d]/g, "");
-  const last4 = phoneDigits.slice(-4).padStart(4, "0");
 
   for (let attempt = 0; attempt < 5; attempt++) {
-    const rand = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
-    const ref = `${prefix}${year}${last4}${rand}`;
+    // Format lives in orderRef() so it can be tested without a database;
+    // the collision check and retry stay here, where the database is.
+    const ref = orderRef(prefix, normalizedPhone, year, Math.random() * 1_000_000);
     const { data } = await sb.from("orders").select("id").eq("ref", ref).maybeSingle();
     if (!data) return ref;
   }
@@ -114,7 +113,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   const productIds = [...new Set(input.items.map((i) => i.product_id))];
   const { data: prodRows } = await sb
     .from("products")
-    .select("id, seller_id, name, price, discount_price, qty, stock_status, archived, status")
+    .select("id, seller_id, name, price, discount_price, qty, stock_status, archived, status, preorder_enabled")
     .in("id", productIds);
   const byId = new Map((prodRows || []).map((row) => [row.id as string, row]));
 
@@ -133,13 +132,31 @@ export async function placeOrder(input: PlaceOrderInput) {
     }
   } catch { /* costs are optional; the dashboard reports coverage */ }
 
+  // Set inside the map below when any line turns out to be out of stock.
+  let isPreorder = false;
+
   const itemsWithSeller: OrderItem[] = input.items.map((i) => {
     const row = byId.get(i.product_id);
     if (!row) throw new Error("A product in your basket is no longer available");
     if (row.archived || row.status !== "approved") {
       throw new Error(`"${row.name}" is no longer available`);
     }
-    if (row.stock_status === "out") throw new Error(`"${row.name}" is out of stock`);
+    // Out of stock is no longer the end of the conversation: if the shop
+    // allows pre-orders on this product, the line is accepted and the whole
+    // order becomes a pre-order. The decision is made HERE, from the live
+    // row -- never from anything the browser sent. A client able to declare
+    // its own order a pre-order would be declaring the right to buy what is
+    // not there.
+    //
+    // preorder_enabled is read as enabled when the column is absent, which
+    // matches the column default for a database that has run
+    // supabase/preorders.sql and is the friendlier default for one that
+    // has not.
+    if (row.stock_status === "out") {
+      const allowed = (row as { preorder_enabled?: boolean }).preorder_enabled !== false;
+      if (!allowed) throw new Error(`"${row.name}" is out of stock`);
+      isPreorder = true;
+    }
 
     const qty = Math.floor(Number(i.qty));
     if (!Number.isFinite(qty) || qty < 1 || qty > MAX_LINE_QTY) {
@@ -195,9 +212,14 @@ export async function placeOrder(input: PlaceOrderInput) {
     }
   }
 
-  const ref = input.mode === "delivery"
-    ? await nextRefWithPrefix(deliveryPrefix(input.zoneId || "", input.municipality), normalizedPhone)
-    : await nextRefWithPrefix("PP", normalizedPhone);
+  // A pre-order takes PRO rather than a zone code, so the reference itself
+  // says what kind of order it is -- on the buyer's SMS, in the admin list
+  // and on the tracking page, with nothing extra to look up.
+  const ref = isPreorder
+    ? await nextRefWithPrefix("PRO", normalizedPhone)
+    : input.mode === "delivery"
+      ? await nextRefWithPrefix(deliveryPrefix(input.zoneId || "", input.municipality), normalizedPhone)
+      : await nextRefWithPrefix("PP", normalizedPhone);
 
   // The language the buyer was actually browsing in, captured now because
   // this is the only moment it is knowable -- the notifications that follow
@@ -210,6 +232,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     .insert({
       ref,
       lang,
+      is_preorder: isPreorder,
       buyer_name: clip(input.name, MAX_NAME_LEN),
       buyer_phone: normalizedPhone,
       items: itemsWithSeller,

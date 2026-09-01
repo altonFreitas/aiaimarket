@@ -39,6 +39,12 @@ export default function ProductInteractive({
   // store defaults) was built here and never rendered. Removed rather than
   // left to rot; the fallback logic still lives in the checkout flow.
 
+  // Out of stock is not automatically a dead end. A missing
+  // preorder_enabled reads as allowed, matching the column default and
+  // a database that has not run supabase/preorders.sql yet.
+  const isOut = p.stock_status === "out";
+  const canPreorder = isOut && p.preorder_enabled !== false;
+
   const payList: Array<[boolean, string]> = [
     [p.pay_cod, "pm_cod"], [p.pay_cop, "pm_cop"], [p.pay_bank, "pm_bank"],
     [p.pay_wallet, "pm_wallet"],
@@ -150,8 +156,27 @@ export default function ProductInteractive({
         </div>
       )}
 
+      {/* When it can be pre-ordered, say when it is expected before asking
+          for the order. A buyer committing to a wait deserves to know how
+          long, and "we do not know yet" is a fair answer that beats an
+          invented date that will be missed. */}
+      {canPreorder && (
+        <div className="note info preorder-note">
+          <b>{t("preorderTitle", lang)}</b>
+          <span>
+            {p.preorder_eta
+              ? `${t("preorderEta", lang)}: ${p.preorder_eta}`
+              : t("preorderEtaUnknown", lang)}
+          </span>
+        </div>
+      )}
+
       <div className="btn-row">
-        {p.stock_status === "out" ? (
+        {canPreorder ? (
+          <button className="btn btn-amber" type="button" onClick={buyNow}>
+            {t("preorderNow", lang)}
+          </button>
+        ) : isOut ? (
           <button className="btn" disabled>{t("stockOut", lang)}</button>
         ) : (
           <button className="btn btn-amber" type="button" onClick={buyNow}>
@@ -161,7 +186,7 @@ export default function ProductInteractive({
       </div>
 
       <div className="btn-row">
-        {p.stock_status === "out" ? null : (
+        {isOut && !canPreorder ? null : (
           <>
             <a
               className="btn btn-wa"
@@ -171,7 +196,7 @@ export default function ProductInteractive({
               onClick={() => { void bumpWaClickAction(p.id); }}
             >
               <WaIcon />
-              {t("orderWa", lang)}
+              {canPreorder ? t("preorderWa", lang) : t("orderWa", lang)}
             </a>
             <button className="btn btn-ghost" type="button" onClick={addToList}>
               {t("addList", lang)}

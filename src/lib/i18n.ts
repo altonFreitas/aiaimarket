@@ -767,7 +767,17 @@ export const STR: Record<string, [string,string,string]> = {
   atCostShort:["kustu","a custo","at cost"],
   receiveTitle:["Simu sasán","Receber mercadoria","Receive goods"],
   receiveDone:["Simu ona no stock atualiza","Recebido e stock atualizado","Received — stock updated"],
-  stockLedgerNeeded:["Halo lai supabase/stock-receipt.sql atu stock atualiza automatikamente bainhira simu sasán.","Execute supabase/stock-receipt.sql para que o stock se atualize sozinho ao receber.","Run supabase/stock-receipt.sql so stock updates itself when goods are received."]
+  stockLedgerNeeded:["Halo lai supabase/stock-receipt.sql atu stock atualiza automatikamente bainhira simu sasán.","Execute supabase/stock-receipt.sql para que o stock se atualize sozinho ao receber.","Run supabase/stock-receipt.sql so stock updates itself when goods are received."],
+  /* ---- pre-orders ---- */
+  preorderNow:["Enkomenda uluk","Pré-encomendar","Pre-order"],
+  preorderWa:["Enkomenda uluk liu WhatsApp","Pré-encomendar por WhatsApp","Pre-order on WhatsApp"],
+  preorderTitle:["Bele enkomenda uluk","Pode pré-encomendar","Available to pre-order"],
+  preorderEta:["Espera to'o","Previsto para","Expected"],
+  preorderEtaUnknown:["Seidauk hatene loron ne'ebé to'o. Ami kontakta Ita bainhira to'o.","Ainda não sabemos a data. Avisamos quando chegar.","We do not know the date yet. We will tell you when it arrives."],
+  preorderShort:["Enkomenda uluk","Pré-encomenda","Pre-order"],
+  preorderAllow:["Husik enkomenda uluk","Permitir pré-encomenda","Allow pre-orders"],
+  preorderAllowHint:["Bainhira laiha stock, kliente sei bele enkomenda uluk. Taka ne'e ba produtu ne'ebé sei la fila fali.","Sem stock, os clientes podem na mesma encomendar. Desligue para produtos que não voltam.","With no stock, shoppers can still order. Turn off for a line you will not restock."],
+  preorderEtaHint:["Husik mamuk se seidauk hatene. Diak liu duke fó loron ne'ebé la loos.","Deixe vazio se ainda não sabe. Melhor do que dar uma data que falha.","Leave empty if you do not know yet. Better than a date that will be missed."]
 };
 
 export type StrKey = keyof typeof STR;

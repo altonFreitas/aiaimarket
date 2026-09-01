@@ -59,6 +59,8 @@ export interface ProductFormInput {
   discount_price: number | null;
   qty: number;
   stock_status: StockStatus;
+  preorder_enabled?: boolean;
+  preorder_eta?: string | null;
   description: string;
   category_id: string;
   sizes: string[];
@@ -79,6 +81,8 @@ export async function saveProduct(input: ProductFormInput) {
       name: input.name, slug, price: input.price, qty: input.qty,
       discount_price: input.discount_price,
       stock_status: input.stock_status, description: input.description,
+      preorder_enabled: input.preorder_enabled ?? true,
+      preorder_eta: input.preorder_eta || null,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
@@ -94,6 +98,8 @@ export async function saveProduct(input: ProductFormInput) {
       ref, name: input.name, slug, price: input.price, qty: input.qty,
       discount_price: input.discount_price,
       stock_status: input.stock_status, description: input.description,
+      preorder_enabled: input.preorder_enabled ?? true,
+      preorder_eta: input.preorder_eta || null,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,

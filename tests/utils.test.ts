@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { money, discountPercent, slugify, phoneOk, phoneNorm, addrLine, waLink, sum } from "@/lib/utils";
+import { money, discountPercent, slugify, phoneOk, phoneNorm, addrLine, waLink, sum, orderRef } from "@/lib/utils";
 
 describe("money", () => {
   it("always renders two decimals", () => {
@@ -94,5 +94,46 @@ describe("sum", () => {
   it("adds a projection over a list", () => {
     expect(sum([{ n: 1 }, { n: 2 }], (x) => x.n)).toBe(3);
     expect(sum([], (x: { n: number }) => x.n)).toBe(0);
+  });
+});
+
+describe("orderRef", () => {
+  it("is prefix + year + last 4 phone digits + 6 random digits", () => {
+    //          CD  2026  5678  041932
+    expect(orderRef("CD", "+67077125678", 2026, 41932)).toBe("CD20265678041932");
+  });
+
+  it("builds a pre-order reference", () => {
+    expect(orderRef("PRO", "+67077125678", 2026, 119004)).toBe("PRO20265678119004");
+  });
+
+  it("builds delivery and pickup references from the same parts", () => {
+    expect(orderRef("CD", "+67077125678", 2026, 41932)).toBe("CD20265678041932");
+    expect(orderRef("PP", "+67077125678", 2026, 887201)).toBe("PP20265678887201");
+  });
+
+  it("pads the random tail to six digits", () => {
+    expect(orderRef("PRO", "+6707712345678", 2026, 7)).toBe("PRO20265678000007");
+  });
+
+  it("pads a short phone rather than failing to make a reference", () => {
+    expect(orderRef("PRO", "12", 2026, 123456)).toBe("PRO20260012123456");
+  });
+
+  it("ignores non-digits in the phone", () => {
+    expect(orderRef("PP", "+670 7712-5678", 2026, 1)).toBe("PP20265678000001");
+  });
+
+  it("keeps the tail six digits even when handed a larger number", () => {
+    // A caller passing an unbounded value must not stretch the reference.
+    expect(orderRef("PRO", "+67077125678", 2026, 7_654_321)).toHaveLength("PRO".length + 4 + 4 + 6);
+  });
+
+  it("varies in length only by the prefix", () => {
+    const pro = orderRef("PRO", "+67077125678", 2026, 1);
+    const cd = orderRef("CD", "+67077125678", 2026, 1);
+    expect(pro).toHaveLength(3 + 4 + 4 + 6);   // PRO 2026 5678 000001
+    expect(cd).toHaveLength(2 + 4 + 4 + 6);
+    expect(pro.slice(3)).toBe(cd.slice(2));    // everything after differs not at all
   });
 });

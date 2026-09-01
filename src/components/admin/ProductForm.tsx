@@ -32,6 +32,8 @@ export default function ProductForm({
     price: product ? String(product.price) : "",
     qty: product ? String(product.qty) : "1",
     stock_status: (product?.stock_status || "in") as StockStatus,
+    preorder_enabled: product?.preorder_enabled !== false,
+    preorder_eta: product?.preorder_eta || "",
     description: product?.description || "",
     category_id: product?.category_id || cats[0]?.id || "",
     sizes: (product?.sizes || []).join(", "),
@@ -48,7 +50,10 @@ export default function ProductForm({
     wallet: product?.pay_wallet ?? false,
     fiar: product?.pay_fiar ?? false,
   });
-  const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
+  // Values are not all strings any more: the pre-order toggle is a
+  // boolean, and coercing it to a string here would store "false",
+  // which is truthy everywhere it is later read.
+  const set = (k: string, v: string | boolean) => setF((s) => ({ ...s, [k]: v }));
 
   // Discount price and discount % are two ways to enter the same thing
   // -- only discount_price is ever persisted (see ProductFormInput);
@@ -168,6 +173,8 @@ export default function ProductForm({
         discount_price: discountPrice.trim() && Number(discountPrice) > 0 ? Number(discountPrice) : null,
         qty: Number(f.qty) || 0,
         stock_status: f.stock_status,
+        preorder_enabled: f.preorder_enabled,
+        preorder_eta: f.preorder_eta || null,
         description: f.description,
         category_id: f.category_id,
         sizes: f.sizes.split(",").map((s) => s.trim()).filter(Boolean),
@@ -235,6 +242,31 @@ export default function ProductForm({
               <option value="out">{t("stockOut", lang)}</option>
             </select>
           </div>
+
+          {/* Only shown when the product is actually out of stock: a
+              pre-order setting on something sitting on the shelf is a
+              control with nothing to control, and it would sit in the form
+              collecting confused edits. */}
+          {f.stock_status === "out" && (
+            <>
+              <div className="field">
+                <label className="toggle" htmlFor="preorder_enabled">
+                  <input id="preorder_enabled" type="checkbox" checked={f.preorder_enabled}
+                    onChange={(e) => set("preorder_enabled", e.target.checked)} />{" "}
+                  {t("preorderAllow", lang)}
+                </label>
+                <p className="hint">{t("preorderAllowHint", lang)}</p>
+              </div>
+              {f.preorder_enabled && (
+                <div className="field">
+                  <label htmlFor="preorder_eta">{t("preorderEta", lang)}</label>
+                  <input id="preorder_eta" type="date" value={f.preorder_eta}
+                    onChange={(e) => set("preorder_eta", e.target.value)} />
+                  <p className="hint">{t("preorderEtaHint", lang)}</p>
+                </div>
+              )}
+            </>
+          )}
           <div className="field">
             <label htmlFor="description">{t("description", lang)}</label>
             <textarea id="description" value={f.description}

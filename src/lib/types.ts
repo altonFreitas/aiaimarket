@@ -97,6 +97,13 @@ export interface Product {
   status: ProductStatus;
   views: number;
   wa_clicks: number;
+  /** Whether shoppers may pre-order this when it is out of stock.
+   * Optional: a database without supabase/preorders.sql has no column,
+   * and a missing value reads as enabled, matching the column default. */
+  preorder_enabled?: boolean;
+  /** Expected availability, YYYY-MM-DD. Null/absent means genuinely
+   * unknown, which is shown as such rather than guessed at. */
+  preorder_eta?: string | null;
   /** Denormalised review aggregates, maintained by a trigger on
    * product_reviews (see supabase/marketplace-v2.sql). Optional because a
    * database that hasn't had that migration run yet simply won't have the
@@ -359,6 +366,10 @@ export interface Order {
    * reach them in it. Optional: orders placed before
    * supabase/notifications.sql was run have no value, and fall back to Tetun. */
   lang?: Lang;
+  /** True when placed for goods that were out of stock. Set by the SERVER
+   * from live stock at checkout, never from the browser -- a client that
+   * could claim it would be claiming the right to buy what is not there. */
+  is_preorder?: boolean;
   /** Fulfilment dates, YYYY-MM-DD. Mirrors supabase/sales.sql. All optional:
    * an order placed before that migration has none, and the dashboard reads
    * a missing expected_delivery as "no date was promised" -- never as

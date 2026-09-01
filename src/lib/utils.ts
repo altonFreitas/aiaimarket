@@ -166,3 +166,27 @@ export function effectivePrice(
 export function smsLink(phone: string, text: string): string {
   return `sms:${phone.replace(/[^\d+]/g, "")}?&body=${encodeURIComponent(text)}`;
 }
+
+/** An order reference: prefix + 4-digit year + the last 4 digits of the
+ * buyer's phone + 6 random digits.
+ *
+ *   CD 2026 5678 041932   central Dili delivery
+ *   PP 2026 5678 887201   pickup
+ *   PRO2026 5678 119004   pre-order
+ *
+ * Pure and injectable so the format itself is testable -- the collision
+ * check and retry stay in the action, where the database is.
+ *
+ * The phone tail is what makes a reference easy to confirm over a phone
+ * call, and short numbers are padded rather than rejected: a reference must
+ * never fail to generate because someone typed a four-digit number. */
+export function orderRef(
+  prefix: string, phone: string, year: number, random: number
+): string {
+  const digits = String(phone).replace(/[^\d]/g, "");
+  const last4 = digits.slice(-4).padStart(4, "0");
+  // Modulo, not a bare value: a caller passing 1234567 must not silently
+  // produce a seven-digit tail and a reference of the wrong length.
+  const rand = String(Math.abs(Math.floor(random)) % 1_000_000).padStart(6, "0");
+  return `${prefix}${year}${last4}${rand}`;
+}
