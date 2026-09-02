@@ -218,6 +218,40 @@ export interface PurchaseOrderItem {
   created_at: string;
 }
 
+export type ReturnReason =
+  | "damaged" | "wrong_item" | "not_as_described" | "changed_mind" | "other";
+
+/** Goods handed back. A document of its own, not a flag on the order: one
+ * order can be returned in parts, on different days, for different reasons,
+ * and only some of what comes back is fit to sell again. Mirrors
+ * order_returns in supabase/returns.sql. */
+export interface OrderReturn {
+  id: string;
+  order_id: string;
+  /** RET + year + last four of the phone + six random. */
+  ref: string;
+  reason: ReturnReason;
+  note: string;
+  /** In the order's currency. Stored rather than derived: a shop may refund
+   * the delivery fee, or not, or settle on a different figure at the
+   * counter, and next year nobody will remember which. */
+  refund_total: number;
+  refunded_at: string | null;
+  created_at: string;
+  items?: OrderReturnItem[];
+}
+
+export interface OrderReturnItem {
+  id: string;
+  return_id: string;
+  product_id: string | null;
+  product_name: string;
+  qty: number;
+  /** Damaged goods come back into the building but not onto the shelf. */
+  restock: boolean;
+  created_at: string;
+}
+
 export type StockMovementReason =
   | "purchase_receipt" | "sale" | "adjustment" | "return" | "correction";
 

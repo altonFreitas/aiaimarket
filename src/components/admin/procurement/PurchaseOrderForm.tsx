@@ -44,14 +44,40 @@ const blankLine = (): LineDraft => ({
   productId: "", catalogCategoryId: "", sellPrice: "", sizes: "", description: "",
 });
 
+/** The reorder plan's suggestion, turned into lines. Quantities come from
+ * the plan; the unit price is left at zero because the plan does not know
+ * what the supplier will charge this time -- the last landed cost includes
+ * freight and tax apportioned from a different order, and filling it in
+ * would be a guess wearing the clothes of a quote.
+ *
+ * A line naming a product that is no longer in the catalog is dropped
+ * rather than carried as an empty row. */
+function prefilledLines(
+  prefill: { lines: Array<{ productId: string; qty: number }> } | undefined,
+  products: Product[]
+): LineDraft[] {
+  if (!prefill?.lines?.length) return [blankLine()];
+  const byId = new Map(products.map((p) => [p.id, p]));
+  const lines = prefill.lines.flatMap(({ productId, qty }) => {
+    const p = byId.get(productId);
+    if (!p || qty <= 0) return [];
+    return [{ ...blankLine(), productId: p.id, productName: p.name, qty: String(qty) }];
+  });
+  return lines.length ? lines : [blankLine()];
+}
+
 export default function PurchaseOrderForm({
-  lang, suppliers, po, products, categories,
+  lang, suppliers, po, products, categories, prefill,
 }: {
   lang: Lang; suppliers: Supplier[]; po: PurchaseOrder | null;
   /** The live catalog, so a line can point at a product that already
    * exists rather than creating a duplicate of it on receipt. */
   products: Product[];
   categories: Category[];
+  /** A draft handed over from the reorder plan: which supplier, and how
+   * many of what. Only ever used for a NEW order -- an existing one has its
+   * own lines and must not have them replaced by a link. */
+  prefill?: { supplierId?: string; lines: Array<{ productId: string; qty: number }> };
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -59,7 +85,7 @@ export default function PurchaseOrderForm({
   const today = todayIso();
 
   const [f, setF] = useState({
-    supplierId: po?.supplier_id || suppliers[0]?.id || "",
+    supplierId: po?.supplier_id || (!po && prefill?.supplierId) || suppliers[0]?.id || "",
     buyer: po?.buyer || "",
     orderDate: po?.order_date || today,
     expectedArrival: po?.expected_arrival || "",
@@ -87,7 +113,7 @@ export default function PurchaseOrderForm({
           sizes: i.sizes || "",
           description: i.description || "",
         }))
-      : [blankLine()]
+      : prefilledLines(prefill, products)
   );
   const setLine = (i: number, patch: Partial<LineDraft>) =>
     setLines((ls) => ls.map((l, n) => (n === i ? { ...l, ...patch } : l)));

@@ -7,6 +7,7 @@ import { saveProduct, uploadProductImage } from "@/lib/actions/products";
 import { createCategory } from "@/lib/actions/categories";
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
+import { statusForQty } from "@/lib/stockReport";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 
@@ -14,6 +15,13 @@ function rootIdOf(id: string, cats: Category[]): string {
   const c = cats.find((x) => x.id === id);
   return c?.parent_id || id;
 }
+
+const STOCK_LABEL: Record<StockStatus, string> = {
+  in: "stockIn", low: "stockLow", out: "stockOut",
+};
+const STOCK_PILL: Record<StockStatus, string> = {
+  in: "ok", low: "warn", out: "bad",
+};
 
 export default function ProductForm({
   lang, cats: initialCats, product, settings,
@@ -31,7 +39,6 @@ export default function ProductForm({
     name: product?.name || "",
     price: product ? String(product.price) : "",
     qty: product ? String(product.qty) : "1",
-    stock_status: (product?.stock_status || "in") as StockStatus,
     preorder_enabled: product?.preorder_enabled !== false,
     preorder_eta: product?.preorder_eta || "",
     description: product?.description || "",
@@ -43,6 +50,9 @@ export default function ProductForm({
     suku: product?.suku || settings?.suku || "",
     landmark: product?.landmark || settings?.landmark || "",
   });
+
+  // Derived here exactly as the database derives it on save.
+  const derivedStatus = statusForQty(Number(f.qty) || 0);
   const [pay, setPay] = useState({
     cod: product?.pay_cod ?? true,
     cop: product?.pay_cop ?? true,
@@ -172,7 +182,6 @@ export default function ProductForm({
         price: Number(f.price),
         discount_price: discountPrice.trim() && Number(discountPrice) > 0 ? Number(discountPrice) : null,
         qty: Number(f.qty) || 0,
-        stock_status: f.stock_status,
         preorder_enabled: f.preorder_enabled,
         preorder_eta: f.preorder_eta || null,
         description: f.description,
@@ -185,7 +194,7 @@ export default function ProductForm({
         municipality: f.municipality, post: f.post, suku: f.suku, landmark: f.landmark,
       });
       toast(t("saved", lang));
-      router.push("/admin");
+      router.push("/admin/products");
       router.refresh();
     } catch (err) {
       console.error(err);
@@ -206,7 +215,7 @@ export default function ProductForm({
   return (
     <>
       <p className="crumb">
-        <Link href="/admin">{t("products", lang)}</Link> / {product ? product.ref : t("newProduct", lang)}
+        <Link href="/admin/products">{t("products", lang)}</Link> / {product ? product.ref : t("newProduct", lang)}
       </p>
       <h1>{product ? product.name || t("edit", lang) : t("newProduct", lang)}</h1>
 
@@ -233,21 +242,24 @@ export default function ProductForm({
                 onChange={(e) => onDiscountPctChange(e.target.value)} placeholder="%" />
             </div>
           </div>
+          {/* Read out, not chosen. The quantity decides the status, and
+              two controls for one fact is how a product ends up advertised
+              as in stock with nothing behind it. */}
           <div className="field">
-            <label htmlFor="stock_status">{t("qStock", lang)}</label>
-            <select id="stock_status" value={f.stock_status}
-              onChange={(e) => set("stock_status", e.target.value)}>
-              <option value="in">{t("stockIn", lang)}</option>
-              <option value="low">{t("stockLow", lang)}</option>
-              <option value="out">{t("stockOut", lang)}</option>
-            </select>
+            <label>{t("qStock", lang)}</label>
+            <p className="stock-derived">
+              <span className={"pill " + STOCK_PILL[derivedStatus]}>
+                {t(STOCK_LABEL[derivedStatus], lang)}
+              </span>
+              <span className="hint">{t("stockDerivedHint", lang)}</span>
+            </p>
           </div>
 
           {/* Only shown when the product is actually out of stock: a
               pre-order setting on something sitting on the shelf is a
               control with nothing to control, and it would sit in the form
               collecting confused edits. */}
-          {f.stock_status === "out" && (
+          {derivedStatus === "out" && (
             <>
               <div className="field">
                 <label className="toggle" htmlFor="preorder_enabled">
@@ -374,7 +386,7 @@ export default function ProductForm({
           <button className="btn btn-amber" type="submit" disabled={busy}>
             {busy ? "…" : t("save", lang)}
           </button>
-          <Link className="btn btn-ghost" href="/admin">{t("cancel", lang)}</Link>
+          <Link className="btn btn-ghost" href="/admin/products">{t("cancel", lang)}</Link>
           {product && (
             <Link className="btn btn-ghost" href={`/p/${product.slug}`} target="_blank">
               {t("catalog", lang)} ↗

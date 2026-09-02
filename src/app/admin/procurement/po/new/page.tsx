@@ -3,8 +3,12 @@ import PurchaseOrderForm from "@/components/admin/procurement/PurchaseOrderForm"
 import { adminSuppliers, procurementReady } from "@/lib/data/procurement";
 import { adminProducts, adminCategories } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
+import { parsePrefillLines } from "@/lib/replenishment";
 
-export default async function NewPurchaseOrderPage() {
+export default async function NewPurchaseOrderPage({ searchParams }: {
+  searchParams: Promise<{ supplier?: string; lines?: string }>;
+}) {
+  const params = await searchParams;
   const [lang, ready] = await Promise.all([getLang(), procurementReady()]);
   if (!ready) notFound();
   const [suppliers, products, categories] = await Promise.all([
@@ -16,6 +20,12 @@ export default async function NewPurchaseOrderPage() {
     <PurchaseOrderForm
       lang={lang} suppliers={suppliers} po={null}
       products={products.filter((p) => !p.archived)} categories={categories}
+      prefill={{
+        // Only a supplier that actually exists: a stale link must not leave
+        // the form pointing at nothing.
+        supplierId: suppliers.some((s) => s.id === params.supplier) ? params.supplier : undefined,
+        lines: parsePrefillLines(params.lines),
+      }}
     />
   );
 }

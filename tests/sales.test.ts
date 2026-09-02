@@ -6,8 +6,7 @@ import {
   salesBySeller, salesByMunicipality, rank, customerAnalysis, statusBreakdown,
   lowPerformers, targetProgress, buildSalesAlerts, buildInsights,
   filterSalesLines, filterIsActive, linesToCsv, todayIso, daysBetween, shiftIso,
-  type LineSources, type SalesTarget,
-} from "@/lib/sales";
+  type LineSources, type SalesTarget, returnKey, returnableQty } from "@/lib/sales";
 import type { Category, Order, OrderItem, OrderStatus, Product, Seller } from "@/lib/types";
 
 const TODAY = "2026-06-15";
@@ -705,5 +704,91 @@ describe("status coverage", () => {
     ];
     const rows = statusBreakdown([]);
     expect(rows.map((r) => r.status).sort()).toEqual([...all].sort());
+  });
+});
+
+/* ------------------------------ returns ------------------------------ */
+
+describe("returns netted off the lines", () => {
+  const o = order({ id: "o9", items: [item({ product_id: "p1", qty: 5, price: 10 })] });
+
+  it("changes nothing when no returns are supplied", () => {
+    const [l] = lines([o]);
+    expect(l.qty).toBe(5);
+    expect(l.netSales).toBe(50);
+  });
+
+  it("removes returned units from quantity and revenue", () => {
+    const [l] = lines([o], { returns: new Map([[returnKey("o9", "p1"), 2]]) });
+    expect(l.qty).toBe(3);
+    expect(l.netSales).toBe(30);
+  });
+
+  it("carries the correction into cost and gross profit", () => {
+    // cost 6/unit: 3 kept units cost 18 and earn 30, so 12 profit at 40%
+    const [l] = lines([o], { returns: new Map([[returnKey("o9", "p1"), 2]]) });
+    expect(l.cost).toBe(18);
+    expect(l.grossProfit).toBe(12);
+    expect(l.margin).toBeCloseTo(0.4, 6);
+  });
+
+  it("reports a fully returned line as nothing sold, not as a loss", () => {
+    const [l] = lines([o], { returns: new Map([[returnKey("o9", "p1"), 5]]) });
+    expect(l.qty).toBe(0);
+    expect(l.netSales).toBe(0);
+    expect(l.grossProfit).toBe(0);
+    expect(l.margin).toBeNull();  // no revenue to have a margin on
+  });
+
+  it("never goes negative when more comes back than went out", () => {
+    // A data error must not become negative revenue that quietly cancels a
+    // real sale somewhere else in the total.
+    const [l] = lines([o], { returns: new Map([[returnKey("o9", "p1"), 99]]) });
+    expect(l.qty).toBe(0);
+    expect(l.netSales).toBe(0);
+  });
+
+  it("applies a return to its own order only", () => {
+    const other = order({ id: "o10", items: [item({ product_id: "p1", qty: 5, price: 10 })] });
+    const out = lines([o, other], { returns: new Map([[returnKey("o9", "p1"), 5]]) });
+    expect(out.find((l) => l.orderId === "o9")!.qty).toBe(0);
+    expect(out.find((l) => l.orderId === "o10")!.qty).toBe(5);
+  });
+
+  it("applies a return to its own product only", () => {
+    const two = order({ id: "o11", items: [
+      item({ product_id: "p1", qty: 4, price: 10 }),
+      item({ product_id: "p2", qty: 4, price: 10 }),
+    ] });
+    const out = lines([two], { returns: new Map([[returnKey("o11", "p1"), 4]]) });
+    expect(out.find((l) => l.productId === "p1")!.qty).toBe(0);
+    expect(out.find((l) => l.productId === "p2")!.qty).toBe(4);
+  });
+});
+
+describe("returnableQty", () => {
+  const none = new Map<string, number>();
+
+  it("is the whole order when nothing has come back", () => {
+    expect(returnableQty([{ product_id: "p1", qty: 3 }], none).get("p1")).toBe(3);
+  });
+
+  it("subtracts what has already been returned", () => {
+    expect(returnableQty([{ product_id: "p1", qty: 3 }], new Map([["p1", 2]])).get("p1")).toBe(1);
+  });
+
+  it("adds up two sizes of one product into one allowance", () => {
+    // Stock does not care about sizes, so neither can the allowance:
+    // otherwise returning the M would be checked against the L's quantity.
+    expect(returnableQty(
+      [{ product_id: "p1", qty: 2 }, { product_id: "p1", qty: 3 }], none).get("p1")).toBe(5);
+  });
+
+  it("never goes below zero, however much was recorded as returned", () => {
+    expect(returnableQty([{ product_id: "p1", qty: 3 }], new Map([["p1", 99]])).get("p1")).toBe(0);
+  });
+
+  it("ignores a line with no product", () => {
+    expect(returnableQty([{ product_id: "", qty: 3 }], none).size).toBe(0);
   });
 });

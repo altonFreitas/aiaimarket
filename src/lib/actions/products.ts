@@ -5,7 +5,7 @@ import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
-import type { StockStatus } from "@/lib/types";
+import { setStock } from "./stock";
 
 async function nextRef(): Promise<string> {
   const sb = supabaseAdmin();
@@ -57,8 +57,10 @@ export interface ProductFormInput {
   name: string;
   price: number;
   discount_price: number | null;
+  /** The count on the shelf. Recorded as a ledger adjustment, not written
+   * over the balance -- and the only thing that decides stock_status, which
+   * the database derives and nobody types. */
   qty: number;
-  stock_status: StockStatus;
   preorder_enabled?: boolean;
   preorder_eta?: string | null;
   description: string;
@@ -77,10 +79,15 @@ export async function saveProduct(input: ProductFormInput) {
 
   if (input.id) {
     const slug = await uniqueSlug(baseSlug, input.id);
+    // qty and stock_status are deliberately absent from this patch. The
+    // quantity moves through the ledger below, and the status is derived
+    // from the quantity by the database. Writing either here would put the
+    // balance and its history out of step -- which is what this form used
+    // to do every time it was saved.
     const { error } = await sb.from("products").update({
-      name: input.name, slug, price: input.price, qty: input.qty,
+      name: input.name, slug, price: input.price,
       discount_price: input.discount_price,
-      stock_status: input.stock_status, description: input.description,
+      description: input.description,
       preorder_enabled: input.preorder_enabled ?? true,
       preorder_eta: input.preorder_eta || null,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
@@ -91,13 +98,20 @@ export async function saveProduct(input: ProductFormInput) {
       suku: input.suku || null, landmark: input.landmark || null,
     }).eq("id", input.id);
     if (error) throw error;
+
+    // A counted shelf, recorded as what it is: an adjustment, with a
+    // reason, that anyone can find later.
+    await setStock(input.id, input.qty, "counted on the product form");
   } else {
     const ref = await nextRef();
     const slug = await uniqueSlug(baseSlug);
-    const { error } = await sb.from("products").insert({
-      ref, name: input.name, slug, price: input.price, qty: input.qty,
+    // Created empty and stocked by a movement, so a product's history
+    // starts at its first unit rather than at some number that was already
+    // there when the ledger began.
+    const { data: made, error } = await sb.from("products").insert({
+      ref, name: input.name, slug, price: input.price, qty: 0,
       discount_price: input.discount_price,
-      stock_status: input.stock_status, description: input.description,
+      stock_status: "out", description: input.description,
       preorder_enabled: input.preorder_enabled ?? true,
       preorder_eta: input.preorder_eta || null,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
@@ -106,12 +120,17 @@ export async function saveProduct(input: ProductFormInput) {
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
       municipality: input.municipality || null, post: input.post || null,
       suku: input.suku || null, landmark: input.landmark || null,
-    });
+    }).select("id").single();
     if (error) throw error;
+
+    if (input.qty) {
+      await setStock(made.id, input.qty, "opening balance", "correction");
+    }
   }
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
+  revalidatePath("/admin/products");
 }
 
 /** B3 — soft delete only, never a hard DELETE. */
@@ -123,6 +142,7 @@ export async function toggleArchive(id: string, archived: boolean) {
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
+  revalidatePath("/admin/products");
 }
 
 /** B4 — one-click duplicate into a new draft. */
@@ -144,24 +164,17 @@ export async function duplicateProduct(id: string) {
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
+  revalidatePath("/admin/products");
   return created.id as string;
 }
 
 /** B5 — quick stock cycle: In -> Low -> Out -> In, no full form. */
-export async function cycleStock(id: string, current: StockStatus) {
-  await requireAdmin();
-  const order: StockStatus[] = ["in", "low", "out"];
-  const next = order[(order.indexOf(current) + 1) % order.length];
-  const sb = supabaseAdmin();
-  const patch: Record<string, unknown> = { stock_status: next };
-  if (next === "out") patch.qty = 0;
-  const { error } = await sb.from("products").update(patch).eq("id", id);
-  if (error) throw error;
-  revalidatePath("/", "layout");
-  updateTag(CACHE_TAGS.products);
-  revalidatePath("/admin");
-  return next;
-}
+/* cycleStock() used to live here. It walked in -> low -> out and set qty to
+ * 0 on the way past, which made two problems: the balance changed with no
+ * movement behind it, and cycling back round to "in stock" left a product
+ * advertised as available with a quantity of zero. Stock status is now
+ * derived from the quantity, so there is nothing to cycle. See
+ * markOutOfStock() in ./stock.ts for the quick action that replaced it. */
 
 /** B6 — receives an already-compressed WebP data URL from the browser,
  * uploads it to Supabase Storage, returns the public URL. */
@@ -191,6 +204,7 @@ export async function approveProduct(id: string) {
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
+  revalidatePath("/admin/products");
 }
 
 export async function rejectProduct(id: string) {
@@ -201,4 +215,5 @@ export async function rejectProduct(id: string) {
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
+  revalidatePath("/admin/products");
 }

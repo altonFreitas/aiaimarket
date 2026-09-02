@@ -1,11 +1,11 @@
 "use client";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { placeholder } from "@/lib/placeholder";
 import { money, nowIso } from "@/lib/utils";
 import { sortStockRows, type StockReport, type StockRow, type StockSortKey } from "@/lib/stockReport";
 import { t } from "@/lib/i18n";
-import type { Lang } from "@/lib/types";
+import type { Lang, StockMovement, StockMovementReason } from "@/lib/types";
 
 const STOCK_KEY = { in: "stockIn", low: "stockLow", out: "stockOut" } as const;
 
@@ -28,11 +28,30 @@ const COLUMNS: Array<{ key: StockSortKey; label: string; numeric: boolean }> = [
   { key: "views", label: "views", numeric: true },
 ];
 
-export default function StockAdmin({ lang, report }: { lang: Lang; report: StockReport }) {
+export default function StockAdmin({ lang, report }: {
+  lang: Lang;
+  report: StockReport & { movements?: StockMovement[]; drift?: Map<string, number> };
+}) {
+  // Which row is showing its history. One at a time: two open drill-downs
+  // push everything else off the screen and neither can be compared to the
+  // other anyway.
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>("attention");
   const [sort, setSort] = useState<StockSortKey>("urgency");
   const [desc, setDesc] = useState(true);
+
+  /* Grouped once for the whole table rather than filtered per row on every
+     render: a store with a few thousand movements would otherwise walk the
+     entire ledger once per visible row, every time anything changed. */
+  const movesByProduct = useMemo(() => {
+    const m = new Map<string, StockMovement[]>();
+    for (const mv of report.movements || []) {
+      const list = m.get(mv.product_id);
+      if (list) list.push(mv); else m.set(mv.product_id, [mv]);
+    }
+    return m;
+  }, [report.movements]);
 
   const rows = useMemo(() => {
     let a = report.rows;
@@ -139,7 +158,22 @@ export default function StockAdmin({ lang, report }: { lang: Lang; report: Stock
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => <StockRowView key={r.id} r={r} lang={lang} />)}
+              {rows.map((r) => (
+                <Fragment key={r.id}>
+                  <StockRowView r={r} lang={lang}
+                    drift={report.drift?.get(r.id) ?? 0}
+                    open={openRow === r.id}
+                    onToggle={() => setOpenRow(openRow === r.id ? null : r.id)} />
+                  {openRow === r.id && (
+                    <tr className="detail-row">
+                      <td colSpan={COLUMNS.length}>
+                        <MovementHistory lang={lang} moves={movesByProduct.get(r.id) || []}
+                          onHand={r.onHand} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -148,15 +182,19 @@ export default function StockAdmin({ lang, report }: { lang: Lang; report: Stock
   );
 }
 
-function StockRowView({ r, lang }: { r: StockRow; lang: Lang }) {
+function StockRowView({ r, lang, drift, open, onToggle }: {
+  r: StockRow; lang: Lang; drift: number; open: boolean; onToggle: () => void;
+}) {
   return (
-    <tr className={r.urgency >= 3 ? "row-bad" : r.urgency === 1 ? "row-warn" : ""}>
+    <tr className={(r.urgency >= 3 ? "row-bad" : r.urgency === 1 ? "row-warn" : "")
+      + (open ? " is-open" : "")}
+      onClick={onToggle} style={{ cursor: "pointer" }}>
       <td>
         <Link className="stock-name" href={`/admin/p/${r.id}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="th" src={r.image || placeholder(r.name)} alt="" loading="lazy" />
           <span>
-            <b>{r.name}</b>
+            <b>{open ? "▾ " : "▸ "}{r.name}</b>
             <span className="stock-sub">
               {r.ref}
               {r.categoryName ? ` · ${r.categoryName}` : ""}
@@ -168,6 +206,15 @@ function StockRowView({ r, lang }: { r: StockRow; lang: Lang }) {
       <td className="num">
         <span className={"stock-btn s-" + r.stockStatus}>{t(STOCK_KEY[r.stockStatus], lang)}</span>
         <b className="stock-qty">{r.onHand}</b>
+        {/* The balance and its ledger disagree. After stock-ledger.sql this
+            should never appear; if it does, something wrote products.qty
+            without leaving a movement and the count cannot be trusted. */}
+        {drift !== 0 && (
+          <span className="stock-sub" style={{ color: "var(--red)" }}
+            title={t("stockDriftHint", lang)}>
+            {t("stockDrift", lang)} {drift > 0 ? "+" : ""}{drift}
+          </span>
+        )}
       </td>
       <td className="num">
         {/* Negative means more has been promised than is held. Red, because
@@ -223,5 +270,73 @@ function StockRowView({ r, lang }: { r: StockRow; lang: Lang }) {
       </td>
       <td className="num">{r.views}</td>
     </tr>
+  );
+}
+
+const REASON_KEY: Record<StockMovementReason, string> = {
+  purchase_receipt: "movementReceipt", sale: "movementSale",
+  adjustment: "movementAdjustment", return: "movementReturn",
+  correction: "movementCorrection",
+};
+
+/** Why the number is the number.
+ *
+ * Read oldest first and running to the balance on the right, because that is
+ * the order the stock actually moved in -- a history that ends at the
+ * opening balance answers nothing. */
+function MovementHistory({ lang, moves, onHand }: {
+  lang: Lang; moves: StockMovement[]; onHand: number;
+}) {
+  if (!moves.length) {
+    return <p className="hint" style={{ margin: "6px 0" }}>{t("noMovements", lang)}</p>;
+  }
+
+  // Oldest first, with the balance carried forward. The ledger arrives
+  // newest first because that is what every other screen wants.
+  const withBalance = [...moves].reverse().reduce<Array<{ m: StockMovement; balance: number }>>(
+    (acc, m) => {
+      const previous = acc.length ? acc[acc.length - 1].balance : 0;
+      acc.push({ m, balance: previous + Number(m.delta) });
+      return acc;
+    }, []);
+
+  return (
+    <div className="movements">
+      <div className="movements-head">
+        <b>{t("stockHistory", lang)}</b>
+        <span className="hint">
+          {withBalance.length} {t("movements", lang)} · {t("onHand", lang)} {onHand}
+        </span>
+      </div>
+      <table className="tbl tbl-compact movements-tbl">
+        <thead>
+          <tr>
+            <th>{t("date", lang)}</th>
+            <th>{t("movement", lang)}</th>
+            <th className="num">{t("change", lang)}</th>
+            <th className="num">{t("balance", lang)}</th>
+            <th>{t("note", lang)}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {withBalance.map(({ m, balance }) => (
+            <tr key={m.id}>
+              <td>{nowIso(m.created_at)}</td>
+              <td><span className={"pill mv-" + m.reason}>{t(REASON_KEY[m.reason], lang)}</span></td>
+              <td className={"num " + (m.delta > 0 ? "up" : "down")}>
+                {m.delta > 0 ? "+" : ""}{m.delta}
+              </td>
+              <td className="num"><b>{balance}</b></td>
+              <td>
+                {m.note || "—"}
+                {m.unit_cost != null && (
+                  <span className="stock-sub">{money(m.unit_cost)} {t("perUnit", lang)}</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

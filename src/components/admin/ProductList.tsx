@@ -3,7 +3,8 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { cycleStock, duplicateProduct, toggleArchive, approveProduct, rejectProduct } from "@/lib/actions/products";
+import { duplicateProduct, toggleArchive, approveProduct, rejectProduct } from "@/lib/actions/products";
+import { markOutOfStock } from "@/lib/actions/stock";
 import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -43,10 +44,15 @@ export default function ProductList({
   const outCount = live.filter((p) => p.stock_status === "out").length;
   const clicks = live.reduce((a, p) => a + (p.wa_clicks || 0), 0);
 
-  async function onCycle(p: Product) {
+  /* One direction only. Saying "this shelf is empty" needs no number and is
+     recorded as an adjustment down to zero; saying it is full again needs a
+     count, which is a receipt or the product form -- a button cannot invent
+     one. The old three-way cycle did, and flipped products to "in stock"
+     while their quantity stayed at zero. */
+  async function onMarkOut(p: Product) {
     setBusyId(p.id);
     try {
-      await cycleStock(p.id, p.stock_status);
+      await markOutOfStock(p.id);
       startTransition(() => router.refresh());
     } catch { toast("Error", true); }
     setBusyId(null);
@@ -160,7 +166,10 @@ export default function ProductList({
                     </>
                   )}
                   <button className={"stock-btn s-" + p.stock_status} type="button"
-                    disabled={busyId === p.id} onClick={() => onCycle(p)}>
+                    disabled={busyId === p.id || p.stock_status === "out"}
+                    title={p.stock_status === "out"
+                      ? t("stockRestockHint", lang) : t("markOutOfStock", lang)}
+                    onClick={() => onMarkOut(p)}>
                     {t(STOCK_KEY[p.stock_status], lang)}
                   </button>
                   <Link className="btn btn-sm btn-ghost" href={`/admin/p/${p.id}`}>{t("edit", lang)}</Link>

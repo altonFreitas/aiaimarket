@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout } from "@/lib/types";
+import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
  * and Excel export genuinely want "everything", but an unbounded read is
@@ -240,7 +240,81 @@ export async function adminStockReport() {
   // Purchasing facts are layered on separately and degrade to nothing when
   // supabase/stock-receipt.sql has not been run: the stock screen still
   // works, it just has no purchase columns to show.
-  const { adminReceipts, adminOnOrder } = await import("@/lib/data/procurement");
-  const [receipts, onOrder] = await Promise.all([adminReceipts(), adminOnOrder()]);
-  return withPurchaseFacts(report, receipts, onOrder);
+  const { adminReceipts, adminOnOrder, adminStockMovements, adminStockDrift } =
+    await import("@/lib/data/procurement");
+  const [receipts, onOrder, movements, drift] = await Promise.all([
+    adminReceipts(), adminOnOrder(), adminStockMovements(), adminStockDrift(),
+  ]);
+  return {
+    ...withPurchaseFacts(report, receipts, onOrder),
+    movements,
+    // Keyed by product so the screen can flag a row without scanning a list
+    // for every one of them.
+    drift: new Map(drift.map((d) => [d.product_id, d.drift])),
+  };
+}
+
+/** Everything the reorder plan needs, reusing the same capped reads the
+ * stock screen already makes rather than querying again. */
+export async function adminReplenishment() {
+  const [products, orders] = await Promise.all([adminProducts(), adminOrders()]);
+  const { adminOnOrder, supplierByProduct } = await import("@/lib/data/procurement");
+  const [onOrderFacts, supplierMap] = await Promise.all([adminOnOrder(), supplierByProduct()]);
+
+  const onOrder = new Map<string, number>();
+  for (const f of onOrderFacts) {
+    if (!f.product_id) continue;
+    onOrder.set(f.product_id, (onOrder.get(f.product_id) || 0) + Number(f.qty || 0));
+  }
+
+  const { buildReplenishment } = await import("@/lib/replenishment");
+  return buildReplenishment({
+    products: products.filter((p) => !p.archived),
+    orders, onOrder, supplierByProduct: supplierMap,
+  });
+}
+
+/** The admin home's to-do list.
+ *
+ * Reuses the reads every other admin screen already makes; the only cost
+ * over opening any one of them is the fan-out, which runs in parallel. Each
+ * source degrades to nothing on its own rather than taking the home down
+ * with it -- a store that has not run the procurement migrations still gets
+ * its orders and its stock. */
+export async function adminAttention() {
+  const { buildAttention } = await import("@/lib/attention");
+  const { adminPurchaseOrders } = await import("@/lib/data/procurement");
+  const { adminStockDrift } = await import("@/lib/data/procurement");
+
+  const [orders, products, purchaseOrders, replenishment, pending, drift] =
+    await Promise.all([
+      adminOrders(), adminProducts(),
+      adminPurchaseOrders().catch(() => []),
+      adminReplenishment().catch(() => []),
+      adminPendingNotifications().catch(() => []),
+      adminStockDrift().catch(() => []),
+    ]);
+
+  return buildAttention({
+    orders, products, purchaseOrders, replenishment,
+    pendingMessages: pending.length,
+    driftCount: drift.length,
+  });
+}
+
+/** Every return recorded against one order, with its lines.
+ *
+ * Empty when supabase/returns.sql has not been run, so the order screen
+ * shows no returns panel rather than an error. */
+export async function adminOrderReturns(orderId: string): Promise<OrderReturn[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("order_returns")
+      .select("*, items:order_return_items(*)")
+      .eq("order_id", orderId)
+      .order("created_at", { ascending: false });
+    if (error || !data) return [];
+    return data as unknown as OrderReturn[];
+  } catch { return []; }
 }

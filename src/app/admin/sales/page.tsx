@@ -1,16 +1,22 @@
 import SalesDashboard from "@/components/admin/sales/SalesDashboard";
-import { adminSalesData, costMap } from "@/lib/data/sales";
+import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { buildSalesLines, todayIso, type SalesTarget } from "@/lib/sales";
 import { getLang } from "@/lib/lang";
 
 export default async function SalesPage() {
-  const [lang, data] = await Promise.all([getLang(), adminSalesData()]);
+  const [lang, data, returns] = await Promise.all([
+    getLang(), adminSalesData(), returnedUnits(),
+  ]);
 
   const lines = buildSalesLines(data.orders, {
     products: data.products,
     categories: data.categories,
     sellers: data.sellers,
     costs: costMap(data.costs),
+    // Goods handed back were never really sold. Netted off here so every
+    // figure below -- revenue, margin, best product, best customer -- is
+    // corrected at once rather than one metric at a time.
+    returns,
   });
 
   // Catalog products that sold nothing at all -- section 19 of the spec.

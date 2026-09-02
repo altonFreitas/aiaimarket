@@ -140,6 +140,42 @@ export interface LineSources {
   sellers: Seller[];
   /** product_id -> unit cost. Absent id means "cost unknown". */
   costs: Map<string, number>;
+  /** Units handed back, keyed by returnKey(orderId, productId).
+   *
+   * Netted off the line here rather than subtracted from each metric
+   * downstream: quantity, net sales, discount, cost, gross profit and margin
+   * all derive from the same two numbers, so correcting them once at the
+   * source corrects every figure on the dashboard at once. Optional, so a
+   * store that has not run supabase/returns.sql reads exactly as before. */
+  returns?: Map<string, number>;
+}
+
+/** How many of each line an order may still have returned.
+ *
+ * Pure, and shared by the action that records a return and the form that
+ * offers one, so the button cannot offer a quantity the action will refuse.
+ * Counts what has ALREADY come back, so two returns of two out of three
+ * cannot become four. */
+export function returnableQty(
+  ordered: Array<{ product_id: string; qty: number }>,
+  alreadyReturned: Map<string, number>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const item of ordered) {
+    if (!item.product_id) continue;
+    const sold = (out.get(item.product_id) || 0) + (Number(item.qty) || 0);
+    out.set(item.product_id, sold);
+  }
+  for (const [productId, sold] of out) {
+    out.set(productId, Math.max(0, sold - (alreadyReturned.get(productId) || 0)));
+  }
+  return out;
+}
+
+/** The key both sides of the returns netting agree on. Exported so the
+ * caller building the map cannot disagree with the reader using it. */
+export function returnKey(orderId: string, productId: string): string {
+  return orderId + "\u0000" + productId;
 }
 
 /** Flatten every order into one row per line item.
@@ -162,8 +198,16 @@ export function buildSalesLines(orders: Order[], src: LineSources): SalesLine[] 
       const category = product?.category_id ? categoryById.get(product.category_id) : undefined;
       const seller = item.seller_id ? sellerById.get(item.seller_id) : undefined;
 
-      const qty = Number(item.qty) || 0;
+      const soldQty = Number(item.qty) || 0;
       const unitPrice = Number(item.price) || 0;
+
+      // Goods handed back were never really sold. Floored at zero rather
+      // than trusted: a return larger than the order is a data error, and
+      // it must not turn into negative revenue that quietly cancels out a
+      // real sale somewhere else in the total.
+      const returned = Math.min(
+        soldQty, Math.max(0, src.returns?.get(returnKey(o.id, item.product_id)) ?? 0));
+      const qty = soldQty - returned;
 
       // The line snapshot has no list price of its own. The product's
       // current `price` is the best available reconstruction -- and it is

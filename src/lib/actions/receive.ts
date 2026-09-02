@@ -209,6 +209,7 @@ export async function receivePurchaseOrder(poId: string): Promise<ReceiptResult>
   revalidatePath("/admin/procurement", "layout");
   revalidatePath("/admin/stock");
   revalidatePath("/admin");
+  revalidatePath("/admin/products");
   revalidatePath("/admin/sales/costs");
 
   return result;

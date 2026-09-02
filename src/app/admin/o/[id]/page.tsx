@@ -1,14 +1,16 @@
 import { notFound } from "next/navigation";
 import OrderAdmin from "@/components/admin/OrderAdmin";
 import OrderNotifications from "@/components/admin/OrderNotifications";
-import { adminOrder, adminOrderNotifications, adminSettings } from "@/lib/data/admin";
+import OrderReturns from "@/components/admin/OrderReturns";
+import { adminOrder, adminOrderNotifications, adminOrderReturns, adminSettings } from "@/lib/data/admin";
 import { notificationsAutomatic } from "@/lib/notify/registry";
 import { getLang } from "@/lib/lang";
 
 export default async function OrderAdminPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [lang, order, settings, notifications] = await Promise.all([
+  const [lang, order, settings, notifications, returns] = await Promise.all([
     getLang(), adminOrder(id), adminSettings(), adminOrderNotifications(id),
+    adminOrderReturns(id),
   ]);
   if (!order) notFound();
 
@@ -21,6 +23,7 @@ export default async function OrderAdminPage({ params }: { params: Promise<{ id:
   return (
     <>
       <OrderAdmin lang={lang} order={order} settings={settings} />
+      <OrderReturns lang={lang} order={order} returns={returns} />
       <OrderNotifications
         lang={lang}
         orderId={order.id}

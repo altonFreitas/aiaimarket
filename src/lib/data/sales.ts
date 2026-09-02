@@ -84,3 +84,28 @@ export async function adminSalesData(): Promise<SalesData> {
 export function costMap(costs: ProductCost[]): Map<string, number> {
   return new Map(costs.map((c) => [c.product_id, Number(c.cost_price)]));
 }
+
+/** Units handed back, keyed the way buildSalesLines expects.
+ *
+ * Empty when supabase/returns.sql has not been run, so the dashboard reads
+ * exactly as it did before rather than failing. */
+export async function returnedUnits(): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  try {
+    const { returnKey } = await import("@/lib/sales");
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("order_return_items")
+      .select("product_id, qty, ret:order_returns(order_id)")
+      .limit(20_000);
+    if (error || !data) return out;
+    for (const r of data as unknown as Array<{
+      product_id: string | null; qty: number; ret: { order_id: string } | null;
+    }>) {
+      if (!r.product_id || !r.ret) continue;
+      const key = returnKey(r.ret.order_id, r.product_id);
+      out.set(key, (out.get(key) || 0) + (Number(r.qty) || 0));
+    }
+  } catch { /* returns.sql not run: nothing has been returned */ }
+  return out;
+}

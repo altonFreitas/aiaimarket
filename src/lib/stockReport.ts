@@ -29,6 +29,22 @@ const IN_FULFILMENT: ReadonlySet<string> = new Set(["confirmed", "preparing", "o
  * the dashboard and the badge on a product card never disagree. */
 export const LOW_STOCK_THRESHOLD = 2;
 
+/** The stock status a quantity implies.
+ *
+ * The one place this rule is written in TypeScript. It mirrors
+ * apply_stock_movement() in supabase/stock-ledger.sql, which applies the
+ * same thresholds when a movement lands -- the database is what actually
+ * sets the column, and this exists so the product form can show the answer
+ * before the save rather than making someone guess.
+ *
+ * Zero and below are both "out": a negative balance means the shop has
+ * promised units it does not have, which is emphatically not "in stock". */
+export function statusForQty(qty: number): StockStatus {
+  if (qty <= 0) return "out";
+  if (qty <= LOW_STOCK_THRESHOLD) return "low";
+  return "in";
+}
+
 export interface StockRow {
   id: string;
   ref: string;

@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { PurchaseOrder, PurchaseOrderItem, Supplier } from "@/lib/types";
+import type { PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier } from "@/lib/types";
 import type { OnOrderFact, ReceiptFact } from "@/lib/stockReport";
 
 /* Same reasoning as the caps in lib/data/admin.ts: procurement genuinely
@@ -151,4 +151,83 @@ export async function adminOnOrder(): Promise<OnOrderFact[]> {
       .filter((r) => r.po && OPEN_PO_STATUSES.includes(r.po.status))
       .map((r) => ({ product_id: r.product_id, qty: Math.floor(Number(r.qty) || 0) }));
   } catch { return []; }
+}
+
+/** Every movement for the stock screen's drill-down, newest first.
+ *
+ * The whole ledger rather than one product's: the screen already holds every
+ * product in memory, and one query beats one per row opened. Capped like
+ * every other admin read -- a store past the cap loses its oldest history
+ * from the drill-down, never its balance, which lives in products.qty. */
+export async function adminStockMovements(): Promise<StockMovement[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("stock_movements")
+      .select("id, product_id, delta, reason, po_id, po_item_id, order_id, unit_cost, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(MAX_MOVEMENTS);
+    if (error || !data) return [];
+    return data as unknown as StockMovement[];
+  } catch { return []; }
+}
+
+/** Products whose balance and ledger disagree.
+ *
+ * Empty is the healthy answer and the normal one. Anything here means
+ * something wrote products.qty without leaving a movement, which after
+ * supabase/stock-ledger.sql should be impossible -- so a row is worth
+ * showing rather than swallowing. Returns empty when the view does not
+ * exist, i.e. when that file has not been run yet. */
+export async function adminStockDrift(): Promise<Array<{ product_id: string; drift: number }>> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("stock_reconciliation")
+      .select("product_id, drift")
+      .neq("drift", 0)
+      .limit(500);
+    if (error || !data) return [];
+    return data as Array<{ product_id: string; drift: number }>;
+  } catch { return []; }
+}
+
+/** Who last supplied each product, with their stated lead time.
+ *
+ * "Last" rather than "cheapest" or "usual": the reorder plan needs a lead
+ * time and a name to put on a draft order, and the most recent supplier is
+ * the one whose terms still apply. Products never bought through a purchase
+ * order are simply absent -- the plan falls back to an assumed lead time and
+ * says that it did. */
+export async function supplierByProduct(): Promise<
+  Map<string, { id: string; name: string; leadDays: number | null }>
+> {
+  const out = new Map<string, { id: string; name: string; leadDays: number | null }>();
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("stock_movements")
+      .select("product_id, created_at, po:purchase_orders(supplier_id)")
+      .eq("reason", "purchase_receipt")
+      .order("created_at", { ascending: false })
+      .limit(MAX_MOVEMENTS);
+    if (error || !data) return out;
+
+    const suppliers = await adminSuppliers();
+    const byId = new Map(suppliers.map((s) => [s.id, s]));
+
+    // Newest first, so the first row seen for a product is its latest.
+    for (const r of data as unknown as Array<{
+      product_id: string; po: { supplier_id: string } | null;
+    }>) {
+      if (!r.po || out.has(r.product_id)) continue;
+      const sup = byId.get(r.po.supplier_id);
+      if (!sup) continue;
+      out.set(r.product_id, {
+        id: sup.id, name: sup.name,
+        leadDays: sup.lead_time_days == null ? null : Number(sup.lead_time_days),
+      });
+    }
+  } catch { /* no ledger yet: every product falls back to an assumed lead time */ }
+  return out;
 }

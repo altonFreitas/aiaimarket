@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildStockReport, sortStockRows, withPurchaseFacts, LOW_STOCK_THRESHOLD,
-} from "@/lib/stockReport";
+  buildStockReport, sortStockRows, withPurchaseFacts, LOW_STOCK_THRESHOLD, statusForQty } from "@/lib/stockReport";
 import type { Category, Order, OrderItem, Product } from "@/lib/types";
 
 const product = (over: Partial<Product> = {}): Product => ({
@@ -353,5 +352,26 @@ describe("sortStockRows on purchase columns", () => {
 
   it("sorts never-received oldest", () => {
     expect(sortStockRows(rows(), "lastReceived", false)[0].id).toBe("a");
+  });
+});
+
+describe("statusForQty", () => {
+  it("calls anything at or below the low threshold low", () => {
+    expect(statusForQty(1)).toBe("low");
+    expect(statusForQty(2)).toBe("low");
+  });
+  it("calls anything above it in stock", () => {
+    expect(statusForQty(3)).toBe("in");
+    expect(statusForQty(4000)).toBe("in");
+  });
+  it("calls zero out", () => {
+    expect(statusForQty(0)).toBe("out");
+  });
+  it("calls a NEGATIVE balance out, not in stock", () => {
+    // A negative balance is an oversell -- the shop has promised units it
+    // does not have. Reading that as anything but "out" would put the
+    // product back on the shelf and sell it again.
+    expect(statusForQty(-1)).toBe("out");
+    expect(statusForQty(-404)).toBe("out");
   });
 });

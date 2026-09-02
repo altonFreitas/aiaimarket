@@ -25,6 +25,11 @@ interface Group {
 
 const GROUPS: Group[] = [
   {
+    // The admin opens on what needs doing, not on a list of everything.
+    key: "navHome", href: "/admin",
+    tabs: [["/admin", "attnTitle"]],
+  },
+  {
     key: "navSales", href: "/admin/sales",
     tabs: [
       ["/admin/sales", "salesDashboard"],
@@ -33,9 +38,9 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    key: "navCatalog", href: "/admin",
+    key: "navCatalog", href: "/admin/products",
     tabs: [
-      ["/admin", "products"],
+      ["/admin/products", "products"],
       ["/admin/stock", "stockControl"],
       ["/admin/cats", "categories"],
       ["/admin/demand", "demand"],
@@ -46,6 +51,7 @@ const GROUPS: Group[] = [
     key: "navProcurement", href: "/admin/procurement",
     tabs: [
       ["/admin/procurement", "procurement"],
+      ["/admin/procurement/reorder", "reorderPlan"],
       ["/admin/procurement/suppliers", "suppliers"],
     ],
   },

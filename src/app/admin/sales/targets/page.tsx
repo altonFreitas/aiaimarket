@@ -1,16 +1,21 @@
 import TargetsAdmin from "@/components/admin/sales/TargetsAdmin";
-import { adminSalesData, costMap } from "@/lib/data/sales";
+import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { buildSalesLines, totals, type SalesTarget } from "@/lib/sales";
 import { getLang } from "@/lib/lang";
 
 export default async function TargetsPage() {
-  const [lang, data] = await Promise.all([getLang(), adminSalesData()]);
+  const [lang, data, returns] = await Promise.all([
+    getLang(), adminSalesData(), returnedUnits(),
+  ]);
 
   const lines = buildSalesLines(data.orders, {
     products: data.products,
     categories: data.categories,
     sellers: data.sellers,
     costs: costMap(data.costs),
+    // Netted here too, or a target would be measured against revenue the
+    // dashboard has already written off.
+    returns,
   });
 
   // Actual revenue for exactly the periods that have a target, so each row
