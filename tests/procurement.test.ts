@@ -4,7 +4,7 @@ import {
   poLeadTime, arrivedOnTime, deliveryState, computeKpis, growth, spendByMonth,
   supplierPerformance, spendByCountry, spendByCategory, spendByProduct,
   statusBreakdown, buildAlerts, filterPurchaseOrders, scoreSupplier,
-  landedCosts, isResaleLine,
+  landedCosts, isResaleLine, parseSizes,
 } from "@/lib/procurement";
 import type { PoStatus, PurchaseOrder, PurchaseOrderItem, Supplier } from "@/lib/types";
 
@@ -541,5 +541,36 @@ describe("isResaleLine", () => {
     // An office chair is a real purchase that must never reach the catalog.
     expect(isResaleLine(line({ category: "office" }))).toBe(false);
     expect(isResaleLine(line({ category: "services" }))).toBe(false);
+  });
+});
+
+describe("parseSizes", () => {
+  it("splits a comma list into a product's size array", () => {
+    expect(parseSizes("S, M, L, XL")).toEqual(["S", "M", "L", "XL"]);
+  });
+
+  it("accepts slashes and newlines, which is what suppliers actually send", () => {
+    expect(parseSizes("S/M/L")).toEqual(["S", "M", "L"]);
+    expect(parseSizes("38\n39\n40")).toEqual(["38", "39", "40"]);
+  });
+
+  it("keeps the order given, because size order is meaningful", () => {
+    // Sorting would put L before M before S and scramble the run.
+    expect(parseSizes("XS, S, M, L, XL")).toEqual(["XS", "S", "M", "L", "XL"]);
+  });
+
+  it("drops blanks and stray separators", () => {
+    expect(parseSizes("S,, M , ,L,")).toEqual(["S", "M", "L"]);
+  });
+
+  it("de-duplicates case-insensitively, keeping the first spelling", () => {
+    expect(parseSizes("S, s, M")).toEqual(["S", "M"]);
+  });
+
+  it("is empty for nothing at all", () => {
+    expect(parseSizes("")).toEqual([]);
+    expect(parseSizes(null)).toEqual([]);
+    expect(parseSizes(undefined)).toEqual([]);
+    expect(parseSizes("  ,  ")).toEqual([]);
   });
 });

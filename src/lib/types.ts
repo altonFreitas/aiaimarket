@@ -209,6 +209,12 @@ export interface PurchaseOrderItem {
   /** Intended shelf price for a product this line creates. Purchase price
    * and selling price are unrelated, so the buyer states it. */
   sell_price?: number | null;
+  /** Sizes as typed on the supplier's order, e.g. "S, M, L, XL".
+   * Parsed into products.sizes at receipt by parseSizes(). */
+  sizes?: string;
+  /** Product description. Fills a product this line creates, or a blank
+   * one on an existing product -- it never overwrites text already there. */
+  description?: string;
   created_at: string;
 }
 

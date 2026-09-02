@@ -304,6 +304,29 @@ export function landedCosts(po: PurchaseOrder): LandedCostLine[] {
   });
 }
 
+/** Split sizes as the buyer typed them on the purchase order into the array
+ * a product stores: "S, M, L, XL" -> ["S","M","L","XL"].
+ *
+ * Accepts commas, slashes and newlines, because a buyer copying from a
+ * supplier's invoice gets whichever that supplier used. Trims, drops blanks
+ * and removes duplicates while keeping the order given -- size order is
+ * meaningful (S before M before L) and sorting it would scramble that. */
+export function parseSizes(raw: string | null | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of String(raw || "").split(/[,/\n]+/)) {
+    const size = part.trim();
+    if (!size) continue;
+    // Case-insensitive de-duplication, but the first spelling is what is
+    // kept: "s, S" is one size, written the way it was first written.
+    const key = size.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(size);
+  }
+  return out;
+}
+
 /** True when a line is goods bought to sell on, and so the only kind of line
  * that may ever touch stock or the catalog. An office chair is a real
  * purchase that must never appear in the shop. */

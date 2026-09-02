@@ -777,7 +777,11 @@ export const STR: Record<string, [string,string,string]> = {
   preorderShort:["Enkomenda uluk","Pré-encomenda","Pre-order"],
   preorderAllow:["Husik enkomenda uluk","Permitir pré-encomenda","Allow pre-orders"],
   preorderAllowHint:["Bainhira laiha stock, kliente sei bele enkomenda uluk. Taka ne'e ba produtu ne'ebé sei la fila fali.","Sem stock, os clientes podem na mesma encomendar. Desligue para produtos que não voltam.","With no stock, shoppers can still order. Turn off for a line you will not restock."],
-  preorderEtaHint:["Husik mamuk se seidauk hatene. Diak liu duke fó loron ne'ebé la loos.","Deixe vazio se ainda não sabe. Melhor do que dar uma data que falha.","Leave empty if you do not know yet. Better than a date that will be missed."]
+  preorderEtaHint:["Husik mamuk se seidauk hatene. Diak liu duke fó loron ne'ebé la loos.","Deixe vazio se ainda não sabe. Melhor do que dar uma data que falha.","Leave empty if you do not know yet. Better than a date that will be missed."],
+  /* ---- purchase order details + PDF ---- */
+  sizesVariants:["Tamañu / variante","Tamanho / variante","Size / variant"],
+  descriptionPoHint:["Deskrisaun ne'e sei ba produtu foun iha loja.","Esta descrição vai para o produto novo na loja.","This description goes onto the new product in the shop."],
+  error:["Iha erru","Ocorreu um erro","Something went wrong"]
 };
 
 export type StrKey = keyof typeof STR;

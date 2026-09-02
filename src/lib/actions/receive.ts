@@ -1,7 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { landedCosts, isResaleLine } from "@/lib/procurement";
+import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
 import { slugify } from "@/lib/utils";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
@@ -127,7 +127,12 @@ export async function receivePurchaseOrder(poId: string): Promise<ReceiptResult>
           stock_status: "out",
           status: "approved",
           archived: false,
-          description: "",
+          // Both come from the purchase order, which is where the buyer
+          // already knew them. Without this the new listing showed
+          // "SIZE —" and an empty description until someone retyped what
+          // they had just entered on the order.
+          sizes: parseSizes(item.sizes),
+          description: item.description || "",
           images: [],
         })
         .select("id")
@@ -140,6 +145,28 @@ export async function receivePurchaseOrder(poId: string): Promise<ReceiptResult>
       // product rather than creating a duplicate.
       await sb.from("purchase_order_items")
         .update({ product_id: productId }).eq("id", item.id);
+    }
+
+    // An existing product is FILLED IN, never overwritten. Someone may
+    // have written a careful description for the shop's own listing, and a
+    // restock must not replace it with whatever the supplier called it.
+    // Only genuinely blank fields are touched.
+    else if (item.sizes || item.description) {
+      const { data: current } = await sb
+        .from("products").select("sizes, description").eq("id", productId).maybeSingle();
+      if (current) {
+        const patch: Record<string, unknown> = {};
+        const incomingSizes = parseSizes(item.sizes);
+        if (incomingSizes.length && !(current.sizes as string[] | null)?.length) {
+          patch.sizes = incomingSizes;
+        }
+        if (item.description && !String(current.description || "").trim()) {
+          patch.description = item.description;
+        }
+        if (Object.keys(patch).length) {
+          await sb.from("products").update(patch).eq("id", productId);
+        }
+      }
     }
 
     // The ledger row. The trigger on stock_movements moves products.qty.

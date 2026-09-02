@@ -717,8 +717,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      and the one the buyer scans to find a line. */
   .po-line .field{flex:1 1 130px}
   .po-line .field:first-child{flex:2.4 1 200px}
+  /* margin-left:auto, not justify-content on the row: the total is the last
+     thing on whichever wrap line it lands on, and a full-width description
+     pushes it onto a line of its own. Without this it would sit flush left
+     there and flush right on a line with no description -- the same field
+     in two different places depending on the spend category. */
   .po-line-total{flex:0 0 auto;flex-direction:column;align-items:flex-end;gap:2px;
-    min-width:78px}
+    min-width:78px;margin-left:auto}
 }
 
 /* ---------- stock control table ---------- */
@@ -1055,3 +1060,10 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .preorder-note{display:flex;flex-direction:column;gap:2px;margin:0 0 8px}
 .preorder-note b{font-size:13.5px}
 .preorder-note span{font-size:12.5px;opacity:.9}
+
+/* The description on a purchase order line spans the row: a two-line
+   textarea squeezed into a 130px column is unusable, and this is the field
+   that becomes the product's own description. */
+.po-line-desc{flex:1 1 100% !important}
+.po-line-desc textarea{width:100%;resize:vertical;font:inherit;
+  border:1px solid var(--line);border-radius:var(--r-s);padding:6px 8px;background:var(--paper)}

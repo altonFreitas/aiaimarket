@@ -34,11 +34,14 @@ interface LineDraft {
   catalogCategoryId: string;
   /** Its shelf price. Unrelated to what it cost, so it is asked for. */
   sellPrice: string;
+  /** "S, M, L, XL" as the supplier writes it. */
+  sizes: string;
+  description: string;
 }
 
 const blankLine = (): LineDraft => ({
   productName: "", category: "goods_for_resale", qty: "1", unitPrice: "0",
-  productId: "", catalogCategoryId: "", sellPrice: "",
+  productId: "", catalogCategoryId: "", sellPrice: "", sizes: "", description: "",
 });
 
 export default function PurchaseOrderForm({
@@ -81,6 +84,8 @@ export default function PurchaseOrderForm({
           productId: i.product_id || "",
           catalogCategoryId: i.catalog_category_id || "",
           sellPrice: i.sell_price == null ? "" : String(i.sell_price),
+          sizes: i.sizes || "",
+          description: i.description || "",
         }))
       : [blankLine()]
   );
@@ -120,6 +125,8 @@ export default function PurchaseOrderForm({
           productId: l.productId || null,
           catalogCategoryId: l.catalogCategoryId || null,
           sellPrice: l.sellPrice === "" ? null : Number(l.sellPrice),
+          sizes: l.sizes,
+          description: l.description,
         })),
       });
       toast(t("saved", lang));
@@ -129,6 +136,18 @@ export default function PurchaseOrderForm({
       toast(String((err as Error).message), true);
     }
     setBusy(false);
+  }
+
+  /** Pulls jspdf down only when someone actually presses the button --
+   * it is ~400 KB and nothing else on this page needs it. */
+  async function downloadPdf() {
+    if (!po) return;
+    try {
+      const mod = await import("@/lib/pdfPurchaseOrder");
+      mod.downloadPurchaseOrderPdf(po, suppliers.find((s) => s.id === po.supplier_id));
+    } catch {
+      toast(t("error", lang), true);
+    }
   }
 
   async function quickStatus(status: PoStatus) {
@@ -160,7 +179,16 @@ export default function PurchaseOrderForm({
         <Link href="/admin/procurement">{t("procurement", lang)}</Link>
         {" / "}{po ? po.po_number : t("newPurchaseOrder", lang)}
       </p>
-      <h1>{po ? po.po_number : t("newPurchaseOrder", lang)}</h1>
+      <div className="page-head">
+        <h1>{po ? po.po_number : t("newPurchaseOrder", lang)}</h1>
+        {/* Only for a saved order: there is nothing to print from a form
+            that has not been written down yet. */}
+        {po && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={downloadPdf}>
+            {t("downloadPdf", lang)}
+          </button>
+        )}
+      </div>
 
       {/* Derived delivery facts, for an order that already exists. Read-only:
           every one of them comes from the dates below, so they update when
@@ -304,6 +332,21 @@ export default function PurchaseOrderForm({
                     <input id={`sp${i}`} type="number" min="0" step="0.01" value={l.sellPrice}
                       placeholder="0.00"
                       onChange={(e) => setLine(i, { sellPrice: e.target.value })} />
+                  </div>
+                  {/* Captured here because this is the moment the buyer
+                      knows them. Without it the product created on receipt
+                      shows "SIZE —" and a blank description until someone
+                      retypes what they just entered on this order. */}
+                  <div className="field">
+                    <label htmlFor={`sz${i}`}>{t("sizesVariants", lang)}</label>
+                    <input id={`sz${i}`} value={l.sizes} placeholder="S, M, L, XL"
+                      onChange={(e) => setLine(i, { sizes: e.target.value })} />
+                  </div>
+                  <div className="field po-line-desc">
+                    <label htmlFor={`ds${i}`}>{t("description", lang)}</label>
+                    <textarea id={`ds${i}`} rows={2} value={l.description}
+                      placeholder={t("descriptionPoHint", lang)}
+                      onChange={(e) => setLine(i, { description: e.target.value })} />
                   </div>
                 </>
               )}

@@ -136,6 +136,9 @@ export interface PoLineInput {
   catalogCategoryId?: string | null;
   /** Its shelf price. Unrelated to the purchase price, so it is stated. */
   sellPrice?: number | null;
+  /** Sizes as typed, e.g. "S, M, L, XL". */
+  sizes?: string;
+  description?: string;
 }
 
 export interface PurchaseOrderInput {
@@ -245,6 +248,8 @@ export async function savePurchaseOrder(input: PurchaseOrderInput): Promise<stri
       unit_price: unitPrice,
       catalog_category_id: l.catalogCategoryId || null,
       sell_price: sellPrice,
+      sizes: clip(l.sizes, MAX_NAME),
+      description: clip(l.description, MAX_TEXT),
     };
   });
 
