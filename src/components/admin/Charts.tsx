@@ -68,8 +68,14 @@ export function RankedBars({
   const max = Math.max(...shown.map((r) => r.value), 0);
   if (!shown.length || max <= 0) return <Empty label={emptyLabel} />;
 
+  /* A row with a meta line under it is nearly twice the height of one
+     without, so the five-row window cannot be a single number in the
+     stylesheet. The component knows which shape it is rendering; the two
+     measured heights live in globals.css beside every other row cap. */
+  const hasMeta = shown.some((r) => r.meta);
+
   return (
-    <div className="ranked">
+    <div className={"ranked" + (hasMeta ? " has-meta" : "")}>
       {shown.map((r) => {
         const Row = onSelect ? "button" : "div";
         return (

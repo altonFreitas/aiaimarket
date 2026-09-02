@@ -662,6 +662,23 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .ranked-share{display:block;font-size:10px;color:var(--muted-2)}
 .ranked-meta{grid-column:1/-1;font-size:10.5px;color:var(--muted-2);font-family:var(--mono);
   margin-top:-4px}
+/* Five rows, then it scrolls -- the same window the product list and the
+   admin tables use, so no panel on a dashboard grows without limit.
+   Measured in the browser, not derived from the padding: a bare row lands
+   at 38.6px and one carrying a meta line at 58.8px, with a 7px gap between
+   rows but none after the last. Both rounded UP, so the fifth row is never
+   clipped by a fraction of a pixel and the sixth peeks by a pixel or two --
+   which is the cue that the box scrolls at all. */
+:root{--rank-row-h:39px; --rank-row-meta-h:59px; --rank-gap:7px; --rank-max-rows:5}
+.ranked{
+  max-height:calc((var(--rank-row-h) + var(--rank-gap)) * var(--rank-max-rows)
+    - var(--rank-gap));
+  overflow-y:auto;
+}
+.ranked.has-meta{
+  max-height:calc((var(--rank-row-meta-h) + var(--rank-gap)) * var(--rank-max-rows)
+    - var(--rank-gap));
+}
 
 /* A rate reads very differently beside a target than as a bare number. */
 .rate{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
@@ -741,6 +758,14 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   padding:9px 10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);font-weight:600;cursor:pointer}
 .tbl th button:hover{color:var(--ink);background:var(--line)}
+/* A numeric column is right-aligned in both halves or it is not aligned at
+   all. td.num has always been right; th.num was only pulled right when the
+   header happened to be a SORT BUTTON, so every table with plain headings
+   -- the year comparison, customer analysis, product analysis, purchase
+   orders -- put its headings on the left and its figures on the right.
+   Text columns stay left in both halves, which is the same rule read the
+   other way. */
+.tbl th.num{text-align:right}
 .tbl th.num button{justify-content:flex-end}
 .sort-caret{font-size:9px;min-width:8px}
 /* The product column stays put while the numbers scroll under it. On a phone
