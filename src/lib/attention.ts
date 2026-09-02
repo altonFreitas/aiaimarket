@@ -1,4 +1,5 @@
 import type { Order, Product, PurchaseOrder } from "./types";
+import { storeDay } from "./tz";
 import type { ReplenishmentRow } from "./replenishment";
 
 /* What needs doing today.
@@ -65,8 +66,10 @@ const RANK = { urgent: 0, warn: 1, info: 2 } as const;
 
 export function buildAttention(input: AttentionInput): AttentionItem[] {
   const nowMs = input.nowMs ?? Date.now();
-  const today = new Date(nowMs).toISOString().slice(0, 10);
-  const inAWeek = new Date(nowMs + 7 * DAY_MS).toISOString().slice(0, 10);
+  // The shop's days, because these are compared against expected_arrival --
+  // a date somebody typed while standing in Dili.
+  const today = storeDay(nowMs);
+  const inAWeek = storeDay(nowMs + 7 * DAY_MS);
 
   const items: AttentionItem[] = [];
   const add = (

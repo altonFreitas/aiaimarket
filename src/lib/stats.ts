@@ -1,3 +1,4 @@
+import { storeDay, storeDayStart } from "./tz";
 import type { Order, Product, Seller } from "@/lib/types";
 
 export interface DailyPoint { date: string; revenue: number; orders: number; qty: number; subtotal: number; fee: number; customers: number }
@@ -113,14 +114,16 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
   const dailyLast14: DailyPoint[] = [];
   for (let i = 13; i >= 0; i--) {
     const dayStart = startOfDay(now - i * 86_400_000);
-    const dayEnd = dayStart + 86_400_000;
+    // Derived, not dayStart + 24h: in a zone with daylight saving a day can
+    // be 23 or 25 hours, and a fixed step would leak orders between buckets.
+    const dayEnd = startOfDay(dayStart + 36 * 3_600_000);
     const dayOrders = orders.filter((o) => {
       const t = new Date(o.created_at).getTime();
       return t >= dayStart && t < dayEnd;
     });
     const dayCompleted = dayOrders.filter((o) => o.status === "completed");
     dailyLast14.push({
-      date: new Date(dayStart).toISOString().slice(0, 10),
+      date: storeDay(dayStart),
       revenue: sum(dayCompleted, (o) => o.total),
       orders: dayOrders.length,
       qty: sumUnits(dayCompleted),
@@ -149,29 +152,35 @@ export function computeAdminStats(orders: Order[], products: Product[]): AdminSt
 /** Last `count` calendar months, oldest first, labelled "2026-08" style —
  * unambiguous and sorts correctly as plain text. */
 export function monthlySeries(orders: Order[], count: number): PeriodPoint[] {
-  const now = new Date();
+  // Which month it is now is the SHOP's question: at 8am on 1 September in
+  // Dili the server in UTC still thinks it is August.
+  const today = storeDay();
+  const nowYear = Number(today.slice(0, 4));
+  const nowMonth = Number(today.slice(5, 7)) - 1;   // 0-based
   const points: PeriodPoint[] = [];
   for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const start = d.getTime();
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
-    const label = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    points.push(periodPoint(orders, start, end, label));
+    const total = nowYear * 12 + nowMonth - i;
+    const year = Math.floor(total / 12);
+    const mi = total % 12;
+    const start = boundary(year, mi + 1, 1);
+    const end = mi === 11 ? boundary(year + 1, 1, 1) : boundary(year, mi + 2, 1);
+    points.push(periodPoint(orders, start, end, `${year}-${String(mi + 1).padStart(2, "0")}`));
   }
   return points;
 }
 
 /** Last `count` calendar quarters, oldest first, labelled "2026-Q3". */
 export function quarterlySeries(orders: Order[], count: number): PeriodPoint[] {
-  const now = new Date();
-  const currentQ = Math.floor(now.getMonth() / 3);
+  const today = storeDay();
+  const nowYear = Number(today.slice(0, 4));
+  const currentQ = Math.floor((Number(today.slice(5, 7)) - 1) / 3);
   const points: PeriodPoint[] = [];
   for (let i = count - 1; i >= 0; i--) {
-    const totalQIndex = now.getFullYear() * 4 + currentQ - i;
+    const totalQIndex = nowYear * 4 + currentQ - i;
     const year = Math.floor(totalQIndex / 4);
     const q = totalQIndex % 4;
-    const start = new Date(year, q * 3, 1).getTime();
-    const end = new Date(year, q * 3 + 3, 1).getTime();
+    const start = boundary(year, q * 3 + 1, 1);
+    const end = q === 3 ? boundary(year + 1, 1, 1) : boundary(year, q * 3 + 4, 1);
     points.push(periodPoint(orders, start, end, `${year}-Q${q + 1}`));
   }
   return points;
@@ -180,11 +189,13 @@ export function quarterlySeries(orders: Order[], count: number): PeriodPoint[] {
 /** Every calendar year that has at least one order, oldest first. Falls
  * back to the current year alone for a brand-new store with no history. */
 export function yearlySeries(orders: Order[]): PeriodPoint[] {
-  const years = new Set<number>(orders.map((o) => new Date(o.created_at).getFullYear()));
-  years.add(new Date().getFullYear());
+  // The shop's calendar year, not the server's: an order placed at 8am on
+  // 1 January in Dili is still the previous year in UTC.
+  const years = new Set<number>(orders.map((o) => Number(storeDay(new Date(o.created_at)).slice(0, 4))));
+  years.add(Number(storeDay().slice(0, 4)));
   return [...years].sort().map((year) => {
-    const start = new Date(year, 0, 1).getTime();
-    const end = new Date(year + 1, 0, 1).getTime();
+    const start = boundary(year, 1, 1);
+    const end = boundary(year + 1, 1, 1);
     return periodPoint(orders, start, end, String(year));
   });
 }
@@ -232,29 +243,29 @@ export function buildDrillData(orders: Order[], years: PeriodPoint[]): DrillData
     const quarters: DrillPoint[] = [];
 
     for (let q = 0; q < 4; q++) {
-      const qStart = new Date(year, q * 3, 1).getTime();
-      const qEnd = new Date(year, q * 3 + 3, 1).getTime();
+      const qStart = boundary(year, q * 3 + 1, 1);
+      const qEnd = q === 3 ? boundary(year + 1, 1, 1) : boundary(year, q * 3 + 4, 1);
       quarters.push({ ...periodPoint(orders, qStart, qEnd, `Q${q + 1}`), key: q });
 
       const months: DrillPoint[] = [];
       for (let mi = q * 3; mi < q * 3 + 3; mi++) {
-        const mStart = new Date(year, mi, 1).getTime();
-        const mEnd = new Date(year, mi + 1, 1).getTime();
+        const mStart = boundary(year, mi + 1, 1);
+        const mEnd = mi === 11 ? boundary(year + 1, 1, 1) : boundary(year, mi + 2, 1);
         const label = String(mi + 1).padStart(2, "0");
         months.push({ ...periodPoint(orders, mStart, mEnd, label), key: mi });
 
         const daysInMonth = new Date(year, mi + 1, 0).getDate();
         const days: DailyPoint[] = [];
         for (let d = 1; d <= daysInMonth; d++) {
-          const dayStart = new Date(year, mi, d).getTime();
-          const dayEnd = dayStart + 86_400_000;
+          const dayStart = boundary(year, mi + 1, d);
+          const dayEnd = startOfDay(dayStart + 36 * 3_600_000);
           const dayOrders = orders.filter((o) => {
             const t = new Date(o.created_at).getTime();
             return t >= dayStart && t < dayEnd;
           });
           const dayCompleted = dayOrders.filter((o) => o.status === "completed");
           days.push({
-            date: new Date(dayStart).toISOString().slice(0, 10),
+            date: storeDay(dayStart),
             revenue: sum(dayCompleted, (o) => o.total),
             orders: dayOrders.length,
             qty: sumUnits(dayCompleted),
@@ -298,10 +309,26 @@ function sum<T>(arr: T[], f: (x: T) => number): number {
 function distinctCustomers(orders: Order[]): number {
   return new Set(orders.map((o) => (o.buyer_phone || "").trim()).filter(Boolean)).size;
 }
+/** Midnight in the SHOP's timezone.
+ *
+ * This used to be setHours(0,0,0,0) -- the SERVER's midnight -- while the
+ * bucket's label was rendered with toISOString(), which is UTC. On any host
+ * that is not UTC the two disagreed, so a day's bucket could be named after
+ * a different day than the orders it held. Both sides now come from
+ * lib/tz.ts, and both are Dili's. */
+/** The instant a calendar date begins in the shop's timezone.
+ *
+ * new Date(year, month, day) builds the SERVER's midnight, which is a
+ * different instant in every hosting region. These boundaries decide which
+ * quarter, month and day an order is counted in, so they have to be the
+ * shop's. */
+function boundary(year: number, month1: number, day: number): number {
+  return storeDayStart(
+    `${year}-${String(month1).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+}
+
 function startOfDay(ts: number): number {
-  const d = new Date(ts);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  return storeDayStart(storeDay(ts));
 }
 
 export interface MarketplaceStats {

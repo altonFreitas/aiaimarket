@@ -347,6 +347,13 @@ export interface Settings {
   banks: Bank[];
   wallets: Wallet[];
   zones: Zone[];
+  /* The reorder plan's four numbers. Optional, because a store that has
+     not run supabase/reorder-policy.sql has no columns for them and falls
+     back to the same defaults these were seeded with. */
+  reorder_window_days?: number;
+  reorder_review_days?: number;
+  reorder_safety_days?: number;
+  reorder_default_lead_days?: number;
 }
 
 export interface OrderItem {

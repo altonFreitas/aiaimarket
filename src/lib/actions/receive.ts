@@ -5,6 +5,7 @@ import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
 import { slugify } from "@/lib/utils";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
+import { audit } from "@/lib/audit";
 import type { PurchaseOrder } from "@/lib/types";
 
 /* Receiving a purchase order: the one event that writes everything
@@ -72,7 +73,7 @@ async function freeSlug(name: string): Promise<string> {
  * Called when an order reaches "received". Safe to call again: lines already
  * received are reported rather than re-applied. */
 export async function receivePurchaseOrder(poId: string): Promise<ReceiptResult> {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const sb = supabaseAdmin();
 
   const { data: po, error } = await sb
@@ -208,6 +209,20 @@ export async function receivePurchaseOrder(poId: string): Promise<ReceiptResult>
   }
   revalidatePath("/admin/procurement", "layout");
   revalidatePath("/admin/stock");
+  // The stock ledger records each line; this records the act -- one person
+  // deciding a delivery had arrived, which is what every one of those
+  // movements hangs off.
+  await audit(actor, {
+    action: "po.receive", entity: "purchase_order", entityId: poId,
+    summary: `${po.po_number}: ${result.received} line(s) received, ` +
+      `${result.productsCreated} product(s) created`,
+    meta: {
+      poNumber: po.po_number, received: result.received,
+      alreadyReceived: result.alreadyReceived, skipped: result.skipped,
+      productsCreated: result.productsCreated,
+    },
+  });
+
   revalidatePath("/admin");
   revalidatePath("/admin/products");
   revalidatePath("/admin/sales/costs");

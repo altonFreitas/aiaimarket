@@ -1139,3 +1139,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* The quantity box on a return line. Narrow on purpose: it takes a number
    of shoes, not a price, and a full-width input invites a typo. */
 .qty-in{width:72px;text-align:right;font-family:var(--mono)}
+
+/* The "these figures are incomplete" banner. Sits above the numbers it
+   qualifies, with room under it, so it is read before them rather than
+   noticed after. */
+.coverage-note{margin:0 0 12px}
+
+/* The period chips sit above the rest of the filters with a hairline under
+   them: they answer a different question from the boxes below -- when, not
+   what -- and running them together reads as one long row of controls. */
+.preset-bar{padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid var(--line-2)}

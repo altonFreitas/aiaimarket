@@ -1,7 +1,10 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { groupBySupplier, toReorder, type ReplenishmentRow } from "@/lib/replenishment";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/components/Toast";
+import { saveReorderPolicy } from "@/lib/actions/reorderPolicy";
+import { groupBySupplier, toReorder, type ReplenishmentPolicy, type ReplenishmentRow } from "@/lib/replenishment";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -37,7 +40,9 @@ function poHref(supplierId: string | null, rows: ReplenishmentRow[]): string {
   return `/admin/procurement/po/new?${q}`;
 }
 
-export default function ReorderPlan({ lang, rows }: { lang: Lang; rows: ReplenishmentRow[] }) {
+export default function ReorderPlan({ lang, rows, policy }: {
+  lang: Lang; rows: ReplenishmentRow[]; policy: ReplenishmentPolicy;
+}) {
   const [showAll, setShowAll] = useState(false);
 
   const needed = useMemo(() => toReorder(rows), [rows]);
@@ -96,6 +101,8 @@ export default function ReorderPlan({ lang, rows }: { lang: Lang; rows: Replenis
           </div>
         ))
       )}
+
+      <ReorderPolicyPanel lang={lang} policy={policy} />
 
       {resting.length > 0 && (
         <div className="panel">
@@ -171,6 +178,88 @@ function ReorderTable({ lang, rows }: { lang: Lang; rows: ReplenishmentRow[] }) 
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/* The four numbers the plan is built from.
+ *
+ * On this page rather than in Settings, and below the plan rather than
+ * above it: these only mean anything next to the suggestions they produce,
+ * and someone who has just read "order 164 today" is exactly the person
+ * qualified to say whether a fortnight's buffer is right. */
+function ReorderPolicyPanel({ lang, policy }: { lang: Lang; policy: ReplenishmentPolicy }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [, startTransition] = useTransition();
+  const [f, setF] = useState({
+    windowDays: String(policy.windowDays),
+    reviewDays: String(policy.reviewDays),
+    safetyDays: String(policy.safetyDays),
+    defaultLeadDays: String(policy.defaultLeadDays),
+  });
+  const set = (k: keyof typeof f, v: string) => setF((s) => ({ ...s, [k]: v }));
+
+  async function save() {
+    setBusy(true);
+    try {
+      await saveReorderPolicy({
+        windowDays: Number(f.windowDays), reviewDays: Number(f.reviewDays),
+        safetyDays: Number(f.safetyDays), defaultLeadDays: Number(f.defaultLeadDays),
+      });
+      toast(t("saved", lang));
+      setOpen(false);
+      startTransition(() => router.refresh());
+    } catch (e) {
+      toast(e instanceof Error ? e.message : t("error", lang), true);
+    }
+    setBusy(false);
+  }
+
+  const field = (k: keyof typeof f, label: string, hint: string) => (
+    <div className="field">
+      <label htmlFor={"pol-" + k}>{t(label, lang)}</label>
+      <input id={"pol-" + k} type="number" min="0" step="1" value={f[k]}
+        onChange={(e) => set(k, e.target.value)} />
+      <p className="hint">{t(hint, lang)}</p>
+    </div>
+  );
+
+  return (
+    <div className="panel">
+      <div className="panel-head">
+        <h3>{t("reorderRules", lang)}</h3>
+        <button type="button" className="btn btn-sm btn-ghost"
+          onClick={() => setOpen(!open)} disabled={busy}>
+          {open ? t("cancel", lang) : t("edit", lang)}
+        </button>
+      </div>
+
+      {!open ? (
+        <p className="hint" style={{ margin: 0 }}>
+          {t("reorderRulesSummary", lang)
+            .replace("{window}", String(policy.windowDays))
+            .replace("{lead}", String(policy.defaultLeadDays))
+            .replace("{safety}", String(policy.safetyDays))
+            .replace("{review}", String(policy.reviewDays))}
+        </p>
+      ) : (
+        <>
+          <div className="two">
+            {field("windowDays", "reorderWindow", "reorderWindowHint")}
+            {field("reviewDays", "reorderReview", "reorderReviewHint")}
+            {field("safetyDays", "reorderSafety", "reorderSafetyHint")}
+            {field("defaultLeadDays", "reorderLead", "reorderLeadHint")}
+          </div>
+          <div className="bar">
+            <button type="button" className="btn btn-primary" onClick={save} disabled={busy}>
+              {busy ? t("saving", lang) : t("save", lang)}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

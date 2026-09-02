@@ -1,6 +1,8 @@
 import SalesDashboard from "@/components/admin/sales/SalesDashboard";
+import CoverageNotice from "@/components/admin/CoverageNotice";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { buildSalesLines, todayIso, type SalesTarget } from "@/lib/sales";
+import { packSalesLines } from "@/lib/salesWire";
 import { getLang } from "@/lib/lang";
 
 export default async function SalesPage() {
@@ -28,15 +30,20 @@ export default async function SalesPage() {
     .map((p) => ({ id: p.id, name: p.name }));
 
   return (
-    <SalesDashboard
-      lang={lang}
-      lines={lines}
-      categories={data.categories}
-      sellers={data.sellers}
-      targets={data.targets as SalesTarget[]}
-      unsoldProducts={unsoldProducts}
-      today={todayIso()}
-      ready={data.ready}
-    />
+    <>
+      {/* Above the figures, not below them: a limitation read after the
+          numbers is a limitation read too late. */}
+      <CoverageNotice lang={lang} coverage={data.coverage} />
+      <SalesDashboard
+        lang={lang}
+        lines={packSalesLines(lines)}
+        categories={data.categories}
+        sellers={data.sellers}
+        targets={data.targets as SalesTarget[]}
+        unsoldProducts={unsoldProducts}
+        today={todayIso()}
+        ready={data.ready}
+      />
+    </>
   );
 }

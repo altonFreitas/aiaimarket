@@ -6,6 +6,7 @@ import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
 import { setStock } from "./stock";
+import { audit, change } from "@/lib/audit";
 
 async function nextRef(): Promise<string> {
   const sb = supabaseAdmin();
@@ -73,12 +74,17 @@ export interface ProductFormInput {
 }
 
 export async function saveProduct(input: ProductFormInput) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const sb = supabaseAdmin();
   const baseSlug = slugify(input.name);
 
   if (input.id) {
     const slug = await uniqueSlug(baseSlug, input.id);
+    // Only the price is worth a record. Recording every field would bury
+    // the one edit anybody ever asks about later -- "who put this on sale"
+    // -- under a stream of description tweaks.
+    const { data: was } = await sb
+      .from("products").select("name, price, discount_price").eq("id", input.id).maybeSingle();
     // qty and stock_status are deliberately absent from this patch. The
     // quantity moves through the ledger below, and the status is derived
     // from the quantity by the database. Writing either here would put the
@@ -98,6 +104,21 @@ export async function saveProduct(input: ProductFormInput) {
       suku: input.suku || null, landmark: input.landmark || null,
     }).eq("id", input.id);
     if (error) throw error;
+
+    if (was && (Number(was.price) !== Number(input.price)
+        || Number(was.discount_price ?? 0) !== Number(input.discount_price ?? 0))) {
+      await audit(actor, {
+        action: "product.price", entity: "product", entityId: input.id,
+        summary: `${was.name}: price ${change(was.price, input.price)}` +
+          (Number(was.discount_price ?? 0) !== Number(input.discount_price ?? 0)
+            ? `, discount ${change(was.discount_price ?? "none", input.discount_price ?? "none")}`
+            : ""),
+        meta: {
+          priceFrom: Number(was.price), priceTo: Number(input.price),
+          discountFrom: was.discount_price ?? null, discountTo: input.discount_price ?? null,
+        },
+      });
+    }
 
     // A counted shelf, recorded as what it is: an adjustment, with a
     // reason, that anyone can find later.

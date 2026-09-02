@@ -74,6 +74,8 @@ const GROUPS: Group[] = [
     tabs: [
       ["/admin/settings", "settings"],
       ["/admin/sales/targets", "salesTargets"],
+      ["/admin/users", "adminUsers"],
+      ["/admin/activity", "activity"],
     ],
   },
 ];

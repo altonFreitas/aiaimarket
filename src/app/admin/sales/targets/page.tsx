@@ -1,4 +1,5 @@
 import TargetsAdmin from "@/components/admin/sales/TargetsAdmin";
+import CoverageNotice from "@/components/admin/CoverageNotice";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { buildSalesLines, totals, type SalesTarget } from "@/lib/sales";
 import { getLang } from "@/lib/lang";
@@ -39,11 +40,16 @@ export default async function TargetsPage() {
   }
 
   return (
-    <TargetsAdmin
-      lang={lang}
-      targets={data.targets as SalesTarget[]}
-      actualByPeriod={actualByPeriod}
-      ready={data.ready}
-    />
+    <>
+      {/* Progress against a target is only as honest as the revenue behind
+          it, and that revenue stops at the same cap. */}
+      <CoverageNotice lang={lang} coverage={data.coverage} />
+      <TargetsAdmin
+        lang={lang}
+        targets={data.targets as SalesTarget[]}
+        actualByPeriod={actualByPeriod}
+        ready={data.ready}
+      />
+    </>
   );
 }

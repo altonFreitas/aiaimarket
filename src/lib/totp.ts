@@ -13,7 +13,9 @@ const LOCKOUT_MINUTES = 5;
  * (lib/actions/auth.ts) and seller login/settings
  * (lib/actions/seller-totp.ts) instead of being duplicated per role. */
 export interface TotpTarget {
-  table: "settings" | "sellers";
+  /** admin_users carries the same four totp_* columns as the other two,
+   * which is what lets every path through this file stay generic. */
+  table: "settings" | "sellers" | "admin_users";
   idValue: string | number;
 }
 

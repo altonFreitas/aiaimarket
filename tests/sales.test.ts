@@ -5,7 +5,7 @@ import {
   salesByYear, salesByDay, salesByWeek, weekStart, salesByProduct, salesByCategory, salesByCustomer,
   salesBySeller, salesByMunicipality, rank, customerAnalysis, statusBreakdown,
   lowPerformers, targetProgress, buildSalesAlerts, buildInsights,
-  filterSalesLines, filterIsActive, linesToCsv, todayIso, daysBetween, shiftIso,
+  filterSalesLines, filterIsActive, linesToCsv, todayIso, orderDate, daysBetween, shiftIso,
   type LineSources, type SalesTarget, returnKey, returnableQty } from "@/lib/sales";
 import type { Category, Order, OrderItem, OrderStatus, Product, Seller } from "@/lib/types";
 
@@ -59,11 +59,22 @@ const lines = (orders: Order[], src: Partial<LineSources> = {}) =>
 /* ------------------------------- dates ------------------------------- */
 
 describe("date helpers", () => {
-  it("formats today in LOCAL time, not UTC", () => {
-    // 23:30 local on the 14th is already the 15th in UTC. toISOString()
-    // would report the wrong day for half of every evening.
-    const d = new Date(2026, 5, 14, 23, 30);
-    expect(todayIso(d)).toBe("2026-06-14");
+  // This test used to assert the SERVER's local day. That was the right
+  // instinct -- UTC is wrong for a shop in Dili -- but the wrong fix: the
+  // server's zone is wherever the host happens to be, so the answer changed
+  // with the deployment region and was still wrong on any UTC host. The rule
+  // is now the SHOP's day, wherever the server sits. See lib/tz.ts.
+  it("formats today in the SHOP's timezone, whatever the server's is", () => {
+    // 22:15 UTC on the 14th is 07:15 on the 15th in Dili (UTC+9): a
+    // morning's trading, which UTC would file under the day before.
+    expect(todayIso(new Date("2026-06-14T22:15:00Z"))).toBe("2026-06-15");
+    // 14:30 UTC is 23:30 the same day in Dili: still the 15th.
+    expect(todayIso(new Date("2026-06-15T14:30:00Z"))).toBe("2026-06-15");
+  });
+
+  it("puts an order on the day the shop sold it", () => {
+    const early = { created_at: "2026-06-14T22:15:00Z" } as Order;
+    expect(orderDate(early)).toBe("2026-06-15");
   });
 
   it("counts whole days between dates, signed", () => {

@@ -13,9 +13,11 @@ import {
   salesBySeller, salesByYear, shiftIso, statusBreakdown, targetProgress, totals,
   paymentSummary,
   PENDING_STATUSES, SALES_STATUSES,
-  type RankBy, type SalesFilter, type SalesLine, type SalesTarget,
+  PERIOD_PRESETS, presetRange, activePreset,
+  type RankBy, type SalesFilter, type SalesTarget,
 } from "@/lib/sales";
 import { t } from "@/lib/i18n";
+import { unpackSalesLines, type PackedSalesLines } from "@/lib/salesWire";
 import type { Category, Lang, OrderStatus, Seller } from "@/lib/types";
 
 /* The whole dashboard is one filtered set feeding every panel. A filter that
@@ -41,7 +43,8 @@ function moneyOrDash(n: number | null): string {
 
 interface Props {
   lang: Lang;
-  lines: SalesLine[];
+  /** Packed for the wire; see lib/salesWire.ts. Unpacked once on arrival. */
+  lines: PackedSalesLines;
   categories: Category[];
   sellers: Seller[];
   targets: SalesTarget[];
@@ -53,14 +56,23 @@ interface Props {
 }
 
 export default function SalesDashboard({
-  lang, lines, categories, sellers, targets, unsoldProducts, today, ready,
+  lang, lines: wire, categories, sellers, targets, unsoldProducts, today, ready,
 }: Props) {
+  /* The order book arrives as a dictionary plus rows of integers rather
+     than as objects -- about a fifth of the bytes, which on mobile data is
+     the difference between a dashboard and a wait. Unpacked once, here;
+     everything below works on exactly the objects it always did. */
+  const lines = useMemo(() => unpackSalesLines(wire), [wire]);
   const thisYear = Number(today.slice(0, 4));
   const [f, setF] = useState<SalesFilter>({});
   const [year, setYear] = useState(thisYear);
   const [productRank, setProductRank] = useState<RankBy>("revenue");
   const [customerRank, setCustomerRank] = useState<RankBy>("revenue");
   const set = (patch: Partial<SalesFilter>) => setF((s) => ({ ...s, ...patch }));
+
+  // Lit from the filter itself rather than from a separate piece of state,
+  // so typing a range by hand into the date boxes correctly lights nothing.
+  const chosenPreset = activePreset(f.from, f.to, today);
 
   // ---- the one filtered set -------------------------------------------
   const rows = useMemo(() => filterSalesLines(lines, f, today), [lines, f, today]);
@@ -201,6 +213,24 @@ export default function SalesDashboard({
 
       {/* ---- 24. global filters ---- */}
       <div className="panel filters">
+        {/* One click for the question people actually ask. The two date
+            boxes below still take any range; these are the six that get
+            typed over and over, and each is a whole calendar period so two
+            people reading the same screen mean the same thing by it. */}
+        <div className="bar preset-bar">
+          {PERIOD_PRESETS.map((p) => (
+            <button key={p} type="button"
+              className={"chip" + (chosenPreset === p ? " is-on" : "")}
+              onClick={() => set(presetRange(p, today))}>
+              {t("range_" + p, lang)}
+            </button>
+          ))}
+          {(f.from || f.to) && (
+            <button type="button" className="chip" onClick={() => set({ from: "", to: "" })}>
+              {t("allTime", lang)}
+            </button>
+          )}
+        </div>
         <div className="bar">
           <input type="search" placeholder={t("searchSales", lang)} value={f.q || ""}
             onChange={(e) => set({ q: e.target.value })} style={{ flex: 1, minWidth: 150 }} />

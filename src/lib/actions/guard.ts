@@ -1,5 +1,5 @@
 import "server-only";
-import { isLoggedIn } from "@/lib/session";
+import { currentActor, type AdminActor } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
@@ -7,10 +7,14 @@ import type { Seller } from "@/lib/types";
 
 /** Every admin server action must call this before touching the
  * service-role client. Throws, which surfaces as a generic error to any
- * caller that isn't an authenticated admin request. */
-export async function requireAdmin() {
-  const ok = await isLoggedIn();
-  if (!ok) throw new Error("Not authenticated");
+ * caller that isn't an authenticated admin request.
+ *
+ * Returns WHO is acting, so an action can record it without a second
+ * lookup. Callers that only need the gate can keep ignoring the result. */
+export async function requireAdmin(): Promise<AdminActor> {
+  const actor = await currentActor();
+  if (!actor) throw new Error("Not authenticated");
+  return actor;
 }
 
 /** Every seller-scoped server action must call this and use the

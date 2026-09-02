@@ -1,5 +1,6 @@
 "use server";
 import { requireAdmin } from "./guard";
+import { audit, change } from "@/lib/audit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { assertOrderTransition } from "@/lib/orderFlow";
@@ -416,11 +417,22 @@ export async function notifyStatusChange(orderId: string, status: OrderStatus) {
 
 /** G4 — manual payment status, set by the owner (no gateway). */
 export async function setPayStatus(orderId: string, payStatus: PayStatus) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const sb = supabaseAdmin();
+  // Read first, so the record can say what it changed FROM. order_log has
+  // always noted the new value; it has never said who, or what it was
+  // before.
+  const { data: before } = await sb
+    .from("orders").select("ref, pay_status").eq("id", orderId).maybeSingle();
   const { error } = await sb.from("orders").update({ pay_status: payStatus }).eq("id", orderId);
   if (error) throw error;
   await sb.from("order_log").insert({ order_id: orderId, text: `Pagamentu: ${payStatus}` });
+
+  await audit(actor, {
+    action: "order.payStatus", entity: "order", entityId: orderId,
+    summary: `${before?.ref || orderId}: payment ${change(before?.pay_status ?? "?", payStatus)}`,
+    meta: { from: before?.pay_status ?? null, to: payStatus },
+  });
   revalidatePath("/admin/orders");
 }
 

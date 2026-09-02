@@ -2,6 +2,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAdmin } from "./guard";
+import { audit, change } from "@/lib/audit";
 import { CACHE_TAGS } from "@/lib/cache";
 import type { StockMovementReason } from "@/lib/types";
 
@@ -25,7 +26,7 @@ import type { StockMovementReason } from "@/lib/types";
 export async function setStock(
   productId: string, nextQty: number, note = "", reason: StockMovementReason = "adjustment"
 ): Promise<number> {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const sb = supabaseAdmin();
 
   const { data: current, error: readErr } = await sb
@@ -40,6 +41,14 @@ export async function setStock(
     product_id: productId, delta, reason, note,
   });
   if (error) throw error;
+
+  // The ledger already says WHAT moved and why. This says who moved it --
+  // the one question a counted shelf cannot answer about itself.
+  await audit(actor, {
+    action: "stock.adjust", entity: "product", entityId: productId,
+    summary: `${note || "stock adjusted"}: ${change(current.qty ?? 0, target)}`,
+    meta: { from: current.qty ?? 0, to: target, delta, reason },
+  });
 
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);

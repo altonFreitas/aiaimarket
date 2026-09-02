@@ -1,3 +1,4 @@
+import { storeDay } from "./tz";
 import type {
   PoCategory, PoPaymentStatus, PoStatus, PurchaseOrder, PurchaseOrderItem, Supplier,
 } from "@/lib/types";
@@ -32,8 +33,10 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((to - from) / MS_PER_DAY);
 }
 
+/** Today in the shop's timezone, not the server's and not UTC. A purchase
+ * order raised at 8am in Dili is dated today, not yesterday. */
 export function todayIso(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return storeDay(now);
 }
 
 /** Statuses meaning the goods are physically in hand. */

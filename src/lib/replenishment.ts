@@ -1,4 +1,5 @@
 import type { Order, Product } from "./types";
+import { storeDay } from "./tz";
 
 /* What to buy, how much, and by when.
  *
@@ -37,6 +38,31 @@ export interface ReplenishmentPolicy {
 export const DEFAULT_POLICY: ReplenishmentPolicy = {
   windowDays: 56, reviewDays: 14, safetyDays: 7, defaultLeadDays: 14,
 };
+
+/** The shop's own policy, or the defaults where it has not set one.
+ *
+ * Every field is validated here rather than trusted: these arrive from a
+ * settings row, and a zero window would divide by zero while a negative
+ * buffer would quietly suggest ordering less than nothing. The database
+ * has its own checks; this is the second lock, for the case where the
+ * columns do not exist yet at all. */
+export function policyFromSettings(s: {
+  reorder_window_days?: number | null;
+  reorder_review_days?: number | null;
+  reorder_safety_days?: number | null;
+  reorder_default_lead_days?: number | null;
+} | null | undefined): ReplenishmentPolicy {
+  const pick = (v: number | null | undefined, fallback: number, min: number) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= min ? n : fallback;
+  };
+  return {
+    windowDays: pick(s?.reorder_window_days, DEFAULT_POLICY.windowDays, 7),
+    reviewDays: pick(s?.reorder_review_days, DEFAULT_POLICY.reviewDays, 1),
+    safetyDays: pick(s?.reorder_safety_days, DEFAULT_POLICY.safetyDays, 0),
+    defaultLeadDays: pick(s?.reorder_default_lead_days, DEFAULT_POLICY.defaultLeadDays, 1),
+  };
+}
 
 export interface ReplenishmentRow {
   productId: string;
@@ -164,7 +190,7 @@ export function buildReplenishment(input: ReplenishmentInput): ReplenishmentRow[
 
     const daysOfCover = rate > 0 ? position / rate : null;
     const stockoutOn = daysOfCover == null ? null
-      : new Date(nowMs + Math.max(0, daysOfCover) * DAY_MS).toISOString().slice(0, 10);
+      : storeDay(nowMs + Math.max(0, daysOfCover) * DAY_MS);
 
     rows.push({
       productId: p.id, ref: p.ref, name: p.name,

@@ -1,4 +1,5 @@
 import "server-only";
+import { readCapped, type Capped } from "./capped";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
 
@@ -51,11 +52,22 @@ export async function adminPromotions(): Promise<Promotion[]> {
     return [];
   }
 }
-export async function adminOrders(): Promise<Order[]> {
+/** The order book, newest first, capped -- and honest about the cap.
+ *
+ * Callers that only want the rows use adminOrders(); anything that PRESENTS
+ * these numbers as a total should use this and say so, because the rows
+ * that fall off the end are the oldest ones. */
+export async function adminOrdersCapped(): Promise<Capped<Order>> {
   const sb = supabaseAdmin();
-  const { data } = await sb.from("orders").select("*")
-    .order("created_at", { ascending: false }).limit(MAX_ADMIN_ORDERS);
-  return (data as Order[]) || [];
+  return readCapped<Order>(MAX_ADMIN_ORDERS, async (limit) => {
+    const { data } = await sb.from("orders").select("*")
+      .order("created_at", { ascending: false }).limit(limit);
+    return data as Order[] | null;
+  });
+}
+
+export async function adminOrders(): Promise<Order[]> {
+  return (await adminOrdersCapped()).rows;
 }
 /** Orders plus the "how many arrived today" figure.
  *
@@ -267,10 +279,15 @@ export async function adminReplenishment() {
     onOrder.set(f.product_id, (onOrder.get(f.product_id) || 0) + Number(f.qty || 0));
   }
 
-  const { buildReplenishment } = await import("@/lib/replenishment");
+  const { buildReplenishment, policyFromSettings } = await import("@/lib/replenishment");
+  // The shop's own policy where it has set one. Falls back to the same
+  // defaults the constants held, so a store that has not run
+  // supabase/reorder-policy.sql sees exactly the plan it saw before.
+  const settings = await adminSettings().catch(() => null);
   return buildReplenishment({
     products: products.filter((p) => !p.archived),
     orders, onOrder, supplierByProduct: supplierMap,
+    policy: policyFromSettings(settings),
   });
 }
 
@@ -317,4 +334,43 @@ export async function adminOrderReturns(orderId: string): Promise<OrderReturn[]>
     if (error || !data) return [];
     return data as unknown as OrderReturn[];
   } catch { return []; }
+}
+
+/** Staff accounts, newest first. Never returns the password hash.
+ *
+ * Empty when supabase/admin-users.sql has not been run, so the screen says
+ * "no staff accounts yet" rather than failing. */
+export async function adminUsers(): Promise<AdminUserRow[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb.from("admin_users")
+      .select("id, name, email, active, totp_enabled, created_at, last_login_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error || !data) return [];
+    return data as AdminUserRow[];
+  } catch { return []; }
+}
+
+export interface AdminUserRow {
+  id: string; name: string; email: string; active: boolean;
+  totp_enabled: boolean; created_at: string; last_login_at: string | null;
+}
+
+/** The record of who did what, newest first. */
+export async function adminAuditLog(limit = 300): Promise<AuditRow[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb.from("audit_log")
+      .select("id, at, actor_kind, actor_label, action, entity, entity_id, summary")
+      .order("at", { ascending: false })
+      .limit(Math.min(limit, 1000));
+    if (error || !data) return [];
+    return data as AuditRow[];
+  } catch { return []; }
+}
+
+export interface AuditRow {
+  id: string; at: string; actor_kind: string; actor_label: string;
+  action: string; entity: string; entity_id: string | null; summary: string;
 }

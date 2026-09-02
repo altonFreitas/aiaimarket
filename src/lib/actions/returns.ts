@@ -2,6 +2,7 @@
 import { revalidatePath, updateTag } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAdmin } from "./guard";
+import { audit } from "@/lib/audit";
 import { CACHE_TAGS } from "@/lib/cache";
 import { orderRef } from "@/lib/utils";
 import { returnableQty } from "@/lib/sales";
@@ -34,7 +35,7 @@ export interface RecordReturnInput {
 const MAX_ATTEMPTS = 5;
 
 export async function recordReturn(input: RecordReturnInput): Promise<string> {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const sb = supabaseAdmin();
 
   const lines = input.lines.filter((l) => l.productId && Number(l.qty) > 0);
@@ -107,6 +108,17 @@ export async function recordReturn(input: RecordReturnInput): Promise<string> {
     await sb.from("order_returns").delete().eq("id", created.id);
     throw itemsErr;
   }
+
+  // Money leaving the till, with a name against it.
+  await audit(actor, {
+    action: "order.refund", entity: "order", entityId: input.orderId,
+    summary: `${created.ref}: ${lines.reduce((n, l) => n + l.qty, 0)} item(s) back, ` +
+      `${refund.toFixed(2)} refunded (${input.reason})`,
+    meta: {
+      returnRef: created.ref, refund, reason: input.reason,
+      lines: lines.map((l) => ({ productId: l.productId, qty: l.qty, restock: l.restock })),
+    },
+  });
 
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);

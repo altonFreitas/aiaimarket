@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildReplenishment, dailyRate, daysBetween, groupBySupplier, toReorder,
-  DEFAULT_POLICY, parsePrefillLines, type ReplenishmentInput,
+  DEFAULT_POLICY, parsePrefillLines, policyFromSettings, type ReplenishmentInput,
 } from "@/lib/replenishment";
 import type { Order, Product } from "@/lib/types";
 
@@ -297,5 +297,53 @@ describe("parsePrefillLines", () => {
   });
   it("survives junk without throwing", () => {
     expect(parsePrefillLines(",,:,a,:5,")).toEqual([]);
+  });
+});
+
+describe("policyFromSettings", () => {
+  it("falls back to the defaults when the store has set nothing", () => {
+    expect(policyFromSettings(null)).toEqual(DEFAULT_POLICY);
+    expect(policyFromSettings(undefined)).toEqual(DEFAULT_POLICY);
+    expect(policyFromSettings({})).toEqual(DEFAULT_POLICY);
+  });
+
+  it("takes the store's numbers when it has set them", () => {
+    expect(policyFromSettings({
+      reorder_window_days: 90, reorder_review_days: 30,
+      reorder_safety_days: 3, reorder_default_lead_days: 45,
+    })).toEqual({ windowDays: 90, reviewDays: 30, safetyDays: 3, defaultLeadDays: 45 });
+  });
+
+  it("allows a zero safety buffer, for a shop that wants none", () => {
+    expect(policyFromSettings({ reorder_safety_days: 0 }).safetyDays).toBe(0);
+  });
+
+  it("refuses a window of zero rather than dividing by it", () => {
+    expect(policyFromSettings({ reorder_window_days: 0 }).windowDays)
+      .toBe(DEFAULT_POLICY.windowDays);
+  });
+
+  it("refuses negatives, which would suggest ordering less than nothing", () => {
+    const p = policyFromSettings({
+      reorder_window_days: -5, reorder_review_days: -1,
+      reorder_safety_days: -9, reorder_default_lead_days: -30,
+    });
+    expect(p).toEqual(DEFAULT_POLICY);
+  });
+
+  it("falls back when a value is not a number at all", () => {
+    expect(policyFromSettings({ reorder_window_days: NaN }).windowDays)
+      .toBe(DEFAULT_POLICY.windowDays);
+    expect(policyFromSettings({ reorder_window_days: "banana" as unknown as number }).windowDays)
+      .toBe(DEFAULT_POLICY.windowDays);
+  });
+
+  it("accepts a numeric string, because that is what a form field gives", () => {
+    expect(policyFromSettings({ reorder_review_days: "30" as unknown as number }).reviewDays)
+      .toBe(30);
+  });
+
+  it("rounds a fractional day rather than carrying it into every sum", () => {
+    expect(policyFromSettings({ reorder_window_days: 60.6 }).windowDays).toBe(61);
   });
 });

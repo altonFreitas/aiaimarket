@@ -1,8 +1,9 @@
 "use server";
 import ExcelJS from "exceljs";
-import { adminOrders, adminProducts } from "@/lib/data/admin";
+import { adminOrdersCapped, adminProducts } from "@/lib/data/admin";
 import { computeAdminStats, monthlySeries, quarterlySeries, yearlySeries } from "@/lib/stats";
 import { requireAdmin } from "./guard";
+import { storeDay } from "@/lib/tz";
 
 /* Was `xlsx` (SheetJS). Replaced because the npm build of that package
  * carries an unfixable prototype-pollution advisory (GHSA-4r6h-8v6p-xvw6)
@@ -52,15 +53,27 @@ function sheetFromRows(wb: ExcelJS.Workbook, name: string, rows: unknown[][]) {
 
 export async function exportStatsExcel() {
   await requireAdmin();
-  const [orders, products] = await Promise.all([adminOrders(), adminProducts()]);
+  const [ordersRead, products] = await Promise.all([adminOrdersCapped(), adminProducts()]);
+  const orders = ordersRead.rows;
   const stats = computeAdminStats(orders, products);
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Loja AIAI";
   wb.created = new Date();
 
+  // A spreadsheet outlives the screen it came from and gets forwarded to
+  // people who never saw the caveat. If these figures stand on part of the
+  // book, the file has to say so on its own first sheet.
+  const coverage: Array<[string, string | number]> = ordersRead.truncated
+    ? [["NOTE — these figures are incomplete",
+        `Only the most recent ${ordersRead.cap.toLocaleString("en-US")} orders are included` +
+        (ordersRead.oldestKept ? `, from ${ordersRead.oldestKept.slice(0, 10)} onwards` : "")],
+       ["", ""]]
+    : [];
+
   // --- Summary ---
   sheetFromRows(wb, "Summary", [
+    ...coverage,
     ["Metric", "Value"],
     ["Total revenue (completed orders)", stats.totalRevenue],
     ["Pending revenue", stats.pendingRevenue],
@@ -127,6 +140,6 @@ export async function exportStatsExcel() {
   })));
 
   const buffer = await wb.xlsx.writeBuffer();
-  const filename = `loja-aiai-statistics-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const filename = `loja-aiai-statistics-${storeDay()}.xlsx`;
   return { base64: Buffer.from(buffer).toString("base64"), filename };
 }

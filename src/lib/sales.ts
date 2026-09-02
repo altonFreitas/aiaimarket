@@ -1,6 +1,7 @@
 import type {
   Category, Order, OrderStatus, Product, Seller,
 } from "@/lib/types";
+import { storeDay } from "./tz";
 
 /* ===========================================================================
  * sales.ts — every number on the sales management dashboard.
@@ -60,13 +61,13 @@ export const PENDING_STATUSES: readonly OrderStatus[] = [
 
 const DAY_MS = 86_400_000;
 
-/** YYYY-MM-DD in local time. Never toISOString(), which converts to UTC and
- * shifts the date by one either side of midnight. */
+/** Today in the SHOP's timezone.
+ *
+ * This used to read the server's own clock, which meant the answer changed
+ * with the hosting region and was wrong for Dili on every UTC host -- a
+ * sale at 7am local was filed under the previous day. See lib/tz.ts. */
 export function todayIso(now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return storeDay(now);
 }
 
 /** Whole days from `a` to `b`, both YYYY-MM-DD. Negative when b precedes a. */
@@ -79,8 +80,7 @@ export function daysBetween(a: string, b: string): number {
 
 /** The calendar day an order was placed, as YYYY-MM-DD. */
 export function orderDate(o: Order): string {
-  const d = new Date(o.created_at);
-  return Number.isNaN(d.getTime()) ? "" : todayIso(d);
+  return storeDay(new Date(o.created_at));
 }
 
 /* ---------------------------------------------------------------------------
@@ -604,6 +604,81 @@ export function weekStart(iso: string): string {
   // earlier, not to the one starting tomorrow.
   const back = (d.getUTCDay() + 6) % 7;
   return shiftIso(iso, -back);
+}
+
+/* ---------------------------------------------------------------------------
+ * Period presets
+ *
+ * The filters take a from and a to date, which is complete but is not the
+ * question anyone actually asks. "How did this month go" should be one
+ * click, not two date pickers and a mental note of what today is.
+ *
+ * Every preset is a whole calendar period, so two people reading the same
+ * screen mean the same thing by it. Nothing here is a rolling window: "the
+ * last 30 days" and "this month" differ by an amount that changes daily,
+ * and a figure whose span moves under you cannot be compared to itself.
+ * ------------------------------------------------------------------------ */
+
+export type PeriodPreset =
+  | "today" | "week" | "month" | "lastMonth" | "quarter" | "year";
+
+export const PERIOD_PRESETS: PeriodPreset[] = [
+  "today", "week", "month", "lastMonth", "quarter", "year",
+];
+
+/** First day of the month `iso` falls in, shifted by `months`. */
+function monthStart(iso: string, months = 0): string {
+  const year = Number(iso.slice(0, 4));
+  const monthIndex = Number(iso.slice(5, 7)) - 1 + months;
+  const y = year + Math.floor(monthIndex / 12);
+  const m = ((monthIndex % 12) + 12) % 12;
+  return `${y}-${String(m + 1).padStart(2, "0")}-01`;
+}
+
+/** Last day of the month `iso` falls in. Derived by stepping back one day
+ * from the next month's first, so February and leap years need no table. */
+function monthEnd(iso: string): string {
+  return shiftIso(monthStart(iso, 1), -1);
+}
+
+/** The from/to a preset means, given what today is.
+ *
+ * Every range ends today rather than at the end of the period: a month that
+ * has not finished should not report itself as a full month of trading, and
+ * "this year" including December would flatter every average. The one
+ * exception is last month, which is over. */
+export function presetRange(preset: PeriodPreset, today: string): { from: string; to: string } {
+  switch (preset) {
+    case "today":
+      return { from: today, to: today };
+    case "week":
+      return { from: weekStart(today), to: today };
+    case "month":
+      return { from: monthStart(today), to: today };
+    case "lastMonth": {
+      const start = monthStart(today, -1);
+      return { from: start, to: monthEnd(start) };
+    }
+    case "quarter": {
+      const q = Math.floor((Number(today.slice(5, 7)) - 1) / 3);
+      return { from: `${today.slice(0, 4)}-${String(q * 3 + 1).padStart(2, "0")}-01`, to: today };
+    }
+    case "year":
+      return { from: `${today.slice(0, 4)}-01-01`, to: today };
+  }
+}
+
+/** Which preset the current filter matches, or null for a hand-picked range.
+ * Lets the chip row show what is actually selected instead of guessing. */
+export function activePreset(
+  from: string | undefined, to: string | undefined, today: string
+): PeriodPreset | null {
+  if (!from || !to) return null;
+  for (const p of PERIOD_PRESETS) {
+    const r = presetRange(p, today);
+    if (r.from === from && r.to === to) return p;
+  }
+  return null;
 }
 
 /** The last `count` whole weeks ending with the week containing `today`,

@@ -1,4 +1,5 @@
 import "server-only";
+import { readCapped } from "./capped";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type {
   Category, Order, Product, ProductCost, SalesTargetRow, Seller,
@@ -52,6 +53,16 @@ export interface SalesData {
   sellers: Seller[];
   costs: ProductCost[];
   targets: SalesTargetRow[];
+  /** How much of the order book these figures actually stand on. */
+  coverage: DataCoverage;
+}
+
+export interface DataCoverage {
+  /** True when older orders exist that are NOT in these numbers. */
+  truncated: boolean;
+  cap: number;
+  /** created_at of the oldest order included, when some were left out. */
+  oldestKept: string | null;
 }
 
 /** Everything the dashboard needs, in one pass.
@@ -65,9 +76,15 @@ export async function adminSalesData(): Promise<SalesData> {
   const sb = supabaseAdmin();
   const ready = await salesReady();
 
-  const [orders, products, categories, sellers, costs, targets] = await Promise.all([
-    sb.from("orders").select("*").order("created_at", { ascending: false })
-      .limit(MAX_ORDERS).then((r) => (r.data as Order[]) || []),
+  const [ordersRead, products, categories, sellers, costs, targets] = await Promise.all([
+    // Capped, and the page is told so. Newest first, so the rows that fall
+    // off the end are the OLDEST -- which is why the year-on-year comparison
+    // is the first thing a silent cap would break.
+    readCapped<Order>(MAX_ORDERS, async (limit) => {
+      const r = await sb.from("orders").select("*")
+        .order("created_at", { ascending: false }).limit(limit);
+      return r.data as Order[] | null;
+    }),
     sb.from("products").select("*").limit(MAX_PRODUCTS)
       .then((r) => (r.data as Product[]) || []),
     sb.from("categories").select("*").order("sort_order")
@@ -77,7 +94,14 @@ export async function adminSalesData(): Promise<SalesData> {
     ready ? adminSalesTargets() : Promise.resolve([] as SalesTargetRow[]),
   ]);
 
-  return { ready, orders, products, categories, sellers, costs, targets };
+  return {
+    ready, orders: ordersRead.rows, products, categories, sellers, costs, targets,
+    coverage: {
+      truncated: ordersRead.truncated,
+      cap: ordersRead.cap,
+      oldestKept: ordersRead.oldestKept,
+    },
+  };
 }
 
 /** product_id -> unit cost, the shape lib/sales.ts wants. */

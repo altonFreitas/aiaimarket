@@ -3,6 +3,7 @@ import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import type { PoCategory, PoPaymentStatus, PoStatus } from "@/lib/types";
+import { todayIso } from "@/lib/procurement";
 
 const MAX_NAME = 160;
 const MAX_TEXT = 2000;
@@ -317,7 +318,7 @@ export async function setPurchaseOrderStatus(id: string, status: PoStatus) {
   if (status === "arrived" || status === "received") {
     const { data } = await sb.from("purchase_orders").select("actual_arrival").eq("id", id).maybeSingle();
     if (data && !data.actual_arrival) {
-      patch.actual_arrival = new Date().toISOString().slice(0, 10);
+      patch.actual_arrival = todayIso();
     }
   }
 
