@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { t } from "@/lib/i18n";
+import { parseAudienceFilter } from "@/lib/audience";
 import type { Lang } from "@/lib/types";
 
 /** Catalog controls: sort, in-stock toggle, price range.
@@ -23,6 +24,10 @@ export default function Toolbar({
   const params = useSearchParams();
   const sort = params.get("sort") || (showRelevance ? "relevance" : "new");
   const inStock = params.get("in") === "1";
+  // Read through the same parser the server uses, so a hand-edited URL
+  // ("?for=male") shows the control in the state the results are actually
+  // in rather than in the one the URL claims.
+  const audience = parseAudienceFilter(params.get("for"));
   const urlMin = params.get("min") || "";
   const urlMax = params.get("max") || "";
 
@@ -34,7 +39,7 @@ export default function Toolbar({
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
-  const hasFilters = inStock || urlMin !== "" || urlMax !== "";
+  const hasFilters = inStock || urlMin !== "" || urlMax !== "" || audience !== null;
 
   return (
     <div className="bar">
@@ -48,6 +53,16 @@ export default function Toolbar({
         <option value="low">{t("sortLow", lang)}</option>
         <option value="high">{t("sortHigh", lang)}</option>
         <option value="rating">{t("sortRating", lang)}</option>
+      </select>
+
+      <select
+        aria-label={t("audienceLabel", lang)}
+        value={audience ?? ""}
+        onChange={(e) => update({ for: e.target.value || null })}
+      >
+        <option value="">{t("audienceAny", lang)}</option>
+        <option value="men">{t("audienceMen", lang)}</option>
+        <option value="women">{t("audienceWomen", lang)}</option>
       </select>
 
       <label className="toggle">
@@ -73,7 +88,7 @@ export default function Toolbar({
       {hasFilters && (
         <button
           className="btn btn-sm btn-ghost" type="button"
-          onClick={() => update({ in: null, min: null, max: null })}
+          onClick={() => update({ in: null, min: null, max: null, for: null })}
         >
           {t("clearFilters", lang)}
         </button>

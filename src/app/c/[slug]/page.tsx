@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 import CatalogLayout from "@/components/CatalogLayout";
 import { getCategories, getCategoryBySlug, getLiveProducts, getSettings } from "@/lib/data/public";
 import { searchCatalog, parseSort, parsePage, parsePrice } from "@/lib/data/search";
+import { parseAudienceFilter } from "@/lib/audience";
 import { getLang } from "@/lib/lang";
 
 export default async function CategoryPage({
   params, searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string }>;
+  searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string; for?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -25,6 +26,7 @@ export default async function CategoryPage({
   const result = await searchCatalog({
     categoryIds,
     inStockOnly: sp.in === "1",
+    audience: parseAudienceFilter(sp.for),
     minPrice: parsePrice(sp.min),
     maxPrice: parsePrice(sp.max),
     sort: parseSort(sp.sort, false),
@@ -41,7 +43,7 @@ export default async function CategoryPage({
       lang={lang}
       settings={settings}
       basePath={`/c/${cat.slug}`}
-      params={{ sort: sp.sort, in: sp.in, min: sp.min, max: sp.max }}
+      params={{ sort: sp.sort, in: sp.in, min: sp.min, max: sp.max, for: sp.for }}
     />
   );
 }

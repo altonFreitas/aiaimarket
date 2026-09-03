@@ -10,6 +10,7 @@ import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
+import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 
 function rootIdOf(id: string, cats: Category[]): string {
@@ -46,6 +47,7 @@ export default function ProductForm({
     description: product?.description || "",
     category_id: product?.category_id || cats[0]?.id || "",
     sizes: (product?.sizes || []).join(", "),
+    audience: normalizeAudience(product?.audience) ?? "",
     tags: (product?.tags || []).join(", "),
     municipality: product?.municipality || settings?.municipality || "",
     post: product?.post || settings?.post || "",
@@ -189,6 +191,7 @@ export default function ProductForm({
         description: f.description,
         category_id: f.category_id,
         sizes: f.sizes.split(",").map((s) => s.trim()).filter(Boolean),
+        audience: f.audience || null,
         tags: f.tags.split(",").map((s) => s.trim()).filter(Boolean),
         images,
         pay_cod: pay.cod, pay_cop: pay.cop, pay_bank: pay.bank,
@@ -335,6 +338,20 @@ export default function ProductForm({
 
         <div className="panel">
           {field("sizes", t("sizesLabel", lang), "text", t("sizesHint", lang))}
+          <div className="field">
+            <label htmlFor="audience">{t("audienceLabel", lang)}</label>
+            <select id="audience" value={f.audience} disabled={!canWrite}
+              onChange={(e) => setF({ ...f, audience: e.target.value })}>
+              {/* Empty is a real answer, not a missing one: it means the
+                  question does not apply to this product. A saucepan is not
+                  unisex. */}
+              <option value="">{t("audienceAny", lang)}</option>
+              {AUDIENCES.map((a) => (
+                <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
+              ))}
+            </select>
+            <p className="hint">{t("audienceHint", lang)}</p>
+          </div>
           {field("tags", t("utility", lang), "text", t("utilityHint", lang))}
         </div>
 

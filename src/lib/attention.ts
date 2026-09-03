@@ -1,6 +1,9 @@
 import type { Order, Product, PurchaseOrder } from "./types";
 import { storeDay } from "./tz";
 import type { ReplenishmentRow } from "./replenishment";
+import {
+  restockAlerts, normalizeRestockPct, DEFAULT_RESTOCK_PCT, type RestockInput,
+} from "./restock";
 
 /* What needs doing today.
  *
@@ -25,6 +28,7 @@ export type AttentionKind =
   | "po_arriving"
   | "po_unpaid"
   | "preorders_waiting"
+  | "restock_soon"
   | "stock_drift";
 
 export interface AttentionItem {
@@ -39,6 +43,10 @@ export interface AttentionItem {
   labelKey: string;
   /** i18n key for the line underneath. */
   hintKey: string;
+  /** Values to substitute into either string, as {name} placeholders.
+   * Most items need none: the count is rendered as its own number beside
+   * the label, so a label carrying {n} would print it twice. */
+  vars?: Record<string, string | number>;
 }
 
 export interface AttentionInput {
@@ -50,6 +58,9 @@ export interface AttentionInput {
   pendingMessages: number;
   /** Products whose balance disagrees with their ledger. Should be empty. */
   driftCount: number;
+  /** How far a product may fall below its last delivery before it is worth
+   * mentioning. Absent on a shop that has not set one. */
+  restockPct?: number;
   nowMs?: number;
 }
 
@@ -74,8 +85,9 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
   const items: AttentionItem[] = [];
   const add = (
     kind: AttentionKind, count: number, severity: AttentionItem["severity"],
-    href: string, labelKey: string, hintKey: string
-  ) => { if (count > 0) items.push({ kind, count, severity, href, labelKey, hintKey }); };
+    href: string, labelKey: string, hintKey: string,
+    vars?: Record<string, string | number>
+  ) => { if (count > 0) items.push({ kind, count, severity, href, labelKey, hintKey, vars }); };
 
   // --- someone is waiting on a person ---
   const toConfirm = input.orders.filter((o) => o.status === "new");
@@ -100,6 +112,15 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     (r) => (r.urgency === "out" || r.urgency === "urgent") && r.suggestedQty > 0);
   add("reorder_now", reorderNow.length, "urgent",
     "/admin/procurement/reorder", "attnReorderNow", "attnReorderNowHint");
+
+  // Emptying, but not yet empty. Deliberately less urgent than the two
+  // above and deliberately separate from reorder_now: this needs no sales
+  // history and no supplier lead time, so it says something useful about a
+  // product added last week, which is exactly when the other two cannot.
+  const pct = normalizeRestockPct(input.restockPct ?? DEFAULT_RESTOCK_PCT);
+  const lowShelves = restockAlerts(input.products as RestockInput[], pct);
+  add("restock_soon", lowShelves.length, "warn",
+    "/admin/stock", "restockSoon", "restockSoonHint", { pct });
 
   // Empty AND still selling. A listing nobody orders being at zero is not a
   // problem to solve today; one that people are still trying to buy is.

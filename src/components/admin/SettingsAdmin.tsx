@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/settings";
 import { t } from "@/lib/i18n";
-import WriteOnly from "./Access";
+import WriteOnly, { useCanWrite } from "./Access";
+import { normalizeRestockPct } from "@/lib/restock";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 
 export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: Settings }) {
@@ -12,6 +13,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   const { toast } = useToast();
   const [, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
+  const canWrite = useCanWrite();
 
   const [f, setF] = useState({
     store_name: settings.store_name || "",
@@ -24,6 +26,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     pickup: !!settings.pickup,
     commission_rate: settings.commission_rate ?? 10,
     seller_registration_enabled: settings.seller_registration_enabled ?? true,
+    restock_alert_pct: normalizeRestockPct(settings.restock_alert_pct),
   });
   const [banks, setBanks] = useState<Bank[]>(settings.banks || []);
   const [wallets, setWallets] = useState<Wallet[]>(settings.wallets || []);
@@ -84,6 +87,14 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           <span>{t("sellerRegistrationEnabled", lang)}</span>
         </label>
         <p className="hint" style={{ marginTop: -4 }}>{t("sellerRegistrationEnabledHint", lang)}</p>
+
+        <div className="field" style={{ maxWidth: 220, marginTop: 10 }}>
+          <label htmlFor="restock-pct">{t("restockAlertPct", lang)}</label>
+          <input id="restock-pct" type="number" min={1} max={99} step={1}
+            value={f.restock_alert_pct} disabled={busy || !canWrite}
+            onChange={(e) => set("restock_alert_pct", Number(e.target.value))} />
+          <p className="hint">{t("restockAlertPctHint", lang)}</p>
+        </div>
         <WriteOnly>
           <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
             onClick={() => run(() => saveSettings(f))}>

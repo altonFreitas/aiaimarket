@@ -1,5 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
+import { normalizeAudience } from "@/lib/audience";
+import { writeTolerating } from "@/lib/missingColumn";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
@@ -68,6 +70,8 @@ export interface ProductFormInput {
   category_id: string;
   sizes: string[];
   tags: string[];
+  /** men | women | unisex, or null for "the question does not apply". */
+  audience?: string | null;
   images: string[];
   pay_cod: boolean; pay_cop: boolean; pay_bank: boolean; pay_wallet: boolean; pay_fiar: boolean;
   municipality?: string; post?: string; suku?: string; landmark?: string;
@@ -90,19 +94,28 @@ export async function saveProduct(input: ProductFormInput) {
     // from the quantity by the database. Writing either here would put the
     // balance and its history out of step -- which is what this form used
     // to do every time it was saved.
-    const { error } = await sb.from("products").update({
-      name: input.name, slug, price: input.price,
-      discount_price: input.discount_price,
-      description: input.description,
-      preorder_enabled: input.preorder_enabled ?? true,
-      preorder_eta: input.preorder_eta || null,
-      category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
-      images: input.images,
-      pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
-      pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
-      municipality: input.municipality || null, post: input.post || null,
-      suku: input.suku || null, landmark: input.landmark || null,
-    }).eq("id", input.id);
+    // `audience` arrived with supabase/audience-restock.sql. On a shop that
+    // has this code and has not run that file yet, naming it would fail the
+    // whole update -- so the product could not be saved at all, over a
+    // field nobody had filled in. It is dropped and the save retried; it
+    // starts being kept the moment the migration runs.
+    const { error } = await writeTolerating(
+      { audience: normalizeAudience(input.audience) },
+      (extra) => sb.from("products").update({
+        name: input.name, slug, price: input.price,
+        discount_price: input.discount_price,
+        description: input.description,
+        preorder_enabled: input.preorder_enabled ?? true,
+        preorder_eta: input.preorder_eta || null,
+        category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
+        images: input.images,
+        pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
+        pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
+        municipality: input.municipality || null, post: input.post || null,
+        suku: input.suku || null, landmark: input.landmark || null,
+        ...extra,
+      }).eq("id", input.id)
+    );
     if (error) throw error;
 
     if (was && (Number(was.price) !== Number(input.price)
@@ -129,20 +142,27 @@ export async function saveProduct(input: ProductFormInput) {
     // Created empty and stocked by a movement, so a product's history
     // starts at its first unit rather than at some number that was already
     // there when the ledger began.
-    const { data: made, error } = await sb.from("products").insert({
-      ref, name: input.name, slug, price: input.price, qty: 0,
-      discount_price: input.discount_price,
-      stock_status: "out", description: input.description,
-      preorder_enabled: input.preorder_enabled ?? true,
-      preorder_eta: input.preorder_eta || null,
-      category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
-      images: input.images,
-      pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
-      pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
-      municipality: input.municipality || null, post: input.post || null,
-      suku: input.suku || null, landmark: input.landmark || null,
-    }).select("id").single();
+    const { data: made, error } = await writeTolerating<{ id: string }>(
+      { audience: normalizeAudience(input.audience) },
+      (extra) => sb.from("products").insert({
+        ref, name: input.name, slug, price: input.price, qty: 0,
+        discount_price: input.discount_price,
+        stock_status: "out", description: input.description,
+        preorder_enabled: input.preorder_enabled ?? true,
+        preorder_eta: input.preorder_eta || null,
+        category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
+        images: input.images,
+        pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
+        pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
+        municipality: input.municipality || null, post: input.post || null,
+        suku: input.suku || null, landmark: input.landmark || null,
+        ...extra,
+      }).select("id").single()
+    );
     if (error) throw error;
+    // The insert asked for the id back, so a success without one means the
+    // row is not there and stocking it would write against nothing.
+    if (!made) throw new Error("The product was not created.");
 
     if (input.qty) {
       await setStock(made.id, input.qty, "opening balance", "correction");

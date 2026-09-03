@@ -306,19 +306,21 @@ export async function adminAttention() {
   const { adminPurchaseOrders } = await import("@/lib/data/procurement");
   const { adminStockDrift } = await import("@/lib/data/procurement");
 
-  const [orders, products, purchaseOrders, replenishment, pending, drift] =
+  const [orders, products, purchaseOrders, replenishment, pending, drift, settings] =
     await Promise.all([
       adminOrders(), adminProducts(),
       adminPurchaseOrders().catch(() => []),
       adminReplenishment().catch(() => []),
       adminPendingNotifications().catch(() => []),
       adminStockDrift().catch(() => []),
+      adminSettings().catch(() => null),
     ]);
 
   return buildAttention({
     orders, products, purchaseOrders, replenishment,
     pendingMessages: pending.length,
     driftCount: drift.length,
+    restockPct: (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct,
   });
 }
 

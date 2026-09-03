@@ -187,8 +187,24 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 
 /* ---------- product page ---------- */
 .gal{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.gal .main{aspect-ratio:4/3;max-height:40vh;background:var(--line-2)}
-.gal .main img{width:100%;height:100%;object-fit:cover}
+.gal .main{aspect-ratio:4/3;max-height:40vh;background:var(--line-2);
+  position:relative;overflow:hidden;touch-action:pan-y}
+.gal .main img{width:100%;height:100%;object-fit:cover;transform-origin:center center}
+/* Once zoomed the picture is draggable, and the cursor has to say so.
+   touch-action:none stops the browser scrolling the page instead of
+   panning the photo when a finger moves across it. */
+.gal .main.zoomed{cursor:grab;touch-action:none}
+.gal .main.zoomed:active{cursor:grabbing}
+
+.zoom-ctl{position:absolute;right:8px;bottom:8px;display:flex;align-items:center;gap:2px;
+  background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:999px;
+  padding:2px;box-shadow:0 1px 4px rgba(0,0,0,.14)}
+.zoom-ctl button{width:28px;height:28px;display:grid;place-items:center;border:0;
+  background:none;border-radius:999px;color:var(--ink);cursor:pointer;padding:0}
+.zoom-ctl button:hover:not(:disabled){background:var(--line-2)}
+.zoom-ctl button:disabled{color:var(--muted-2);cursor:default}
+.zoom-lvl{font-size:11px;font-variant-numeric:tabular-nums;color:var(--muted);
+  min-width:34px;text-align:center;user-select:none}
 .thumbs{display:flex;gap:6px;padding:6px}
 .thumbs button{width:52px;height:52px;padding:0;border:1px solid var(--line);border-radius:var(--r-s);overflow:hidden;background:none;cursor:pointer}
 .thumbs button[aria-current=true]{border-color:var(--ink);border-width:2px}
@@ -1225,3 +1241,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    which is a promise the span cannot fulfil. */
 span.stock-btn{cursor:default}
 span.stock-btn:hover{filter:none}
+
+/* Which ways of paying are switched on (Settings). */
+.pay-ready{display:grid;gap:6px;margin-top:10px}
+.pay-row{display:grid;grid-template-columns:120px auto 1fr;gap:10px;align-items:center;
+  padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.pay-row.on{background:#f2f9f5;border-color:#bfe3cd}
+.pay-name{font-weight:600}
+.pay-todo{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.pay-vars{font-family:var(--mono);font-size:11px;background:var(--line-2);
+  padding:2px 6px;border-radius:4px;color:var(--ink)}
+.pay-blocked{color:var(--amber-ink)}
+.pay-manual{color:var(--muted-2)}
+@media (max-width:600px){
+  .pay-row{grid-template-columns:1fr auto;row-gap:6px}
+  .pay-todo{grid-column:1 / -1}
+}

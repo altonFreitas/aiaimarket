@@ -104,6 +104,13 @@ export interface Product {
   /** Expected availability, YYYY-MM-DD. Null/absent means genuinely
    * unknown, which is shown as such rather than guessed at. */
   preorder_eta?: string | null;
+  /** Who the product is for: men, women, unisex, or absent when nobody
+   * has said (or the database has not run supabase/audience-restock.sql).
+   * Absent is NOT unisex -- see src/lib/audience.ts. */
+  audience?: string | null;
+  /** Quantity on hand just after the last delivery, the reference the
+   * low-stock alert compares against. Maintained by the database. */
+  restock_level?: number | null;
   /** Denormalised review aggregates, maintained by a trigger on
    * product_reviews (see supabase/marketplace-v2.sql). Optional because a
    * database that hasn't had that migration run yet simply won't have the
@@ -330,6 +337,10 @@ export interface Bank { label: string; account: string; holder: string; }
 export interface Wallet { label: string; number: string; }
 
 export interface Settings {
+  /** How far a product may fall below its last delivery before the admin
+   * home mentions it, 1-99. Absent on a database that has not run
+   * supabase/audience-restock.sql; treated as the default when so. */
+  restock_alert_pct?: number;
   id: number;
   store_name: string;
   tagline_tet: string;

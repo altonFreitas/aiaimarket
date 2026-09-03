@@ -46,8 +46,8 @@ export default function AdminHome({ lang, items }: { lang: Lang; items: Attentio
                 {/* The number above already says how many. Repeating it in
                     the label duplicated it and forced a plural no single
                     string can get right -- "1 products to approve". */}
-                <span className="attn-label">{t(i.labelKey, lang)}</span>
-                <span className="attn-hint">{t(i.hintKey, lang)}</span>
+                <span className="attn-label">{fill(t(i.labelKey, lang), i.vars)}</span>
+                <span className="attn-hint">{fill(t(i.hintKey, lang), i.vars)}</span>
               </Link>
             ))}
           </div>
@@ -73,4 +73,12 @@ export default function AdminHome({ lang, items }: { lang: Lang; items: Attentio
       </div>
     </>
   );
+}
+
+/** Substitutes {name} placeholders. Returns the string untouched when an
+ * item has no values, which is almost all of them. */
+function fill(text: string, vars?: Record<string, string | number>): string {
+  if (!vars) return text;
+  return Object.entries(vars).reduce(
+    (out, [k, v]) => out.replaceAll(`{${k}}`, String(v)), text);
 }

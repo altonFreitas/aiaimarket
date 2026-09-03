@@ -2,13 +2,14 @@ import Link from "next/link";
 import CatalogLayout from "@/components/CatalogLayout";
 import { getCategories, getLiveProducts, getSettings } from "@/lib/data/public";
 import { searchCatalog, suggestProducts, parseSort, parsePage, parsePrice } from "@/lib/data/search";
+import { parseAudienceFilter } from "@/lib/audience";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string; in?: string; min?: string; max?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; in?: string; min?: string; max?: string; page?: string; for?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q || "").trim();
@@ -18,6 +19,7 @@ export default async function SearchPage({
     searchCatalog({
       q,
       inStockOnly: sp.in === "1",
+      audience: parseAudienceFilter(sp.for),
       minPrice: parsePrice(sp.min),
       maxPrice: parsePrice(sp.max),
       sort: parseSort(sp.sort, !!q),
@@ -66,7 +68,7 @@ export default async function SearchPage({
       lang={lang}
       settings={settings}
       basePath="/search"
-      params={{ q: sp.q, sort: sp.sort, in: sp.in, min: sp.min, max: sp.max }}
+      params={{ q: sp.q, sort: sp.sort, in: sp.in, min: sp.min, max: sp.max, for: sp.for }}
       showRelevance
     />
   );

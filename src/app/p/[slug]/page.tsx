@@ -105,7 +105,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
       <div className="pdp">
         <div>
-          <ProductGallery images={p.images} name={p.name} />
+          <ProductGallery images={p.images} name={p.name} lang={lang} />
           <div className="panel" style={{ marginTop: 12 }}>
             <h3>{t("description", lang)}</h3>
             <div style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
