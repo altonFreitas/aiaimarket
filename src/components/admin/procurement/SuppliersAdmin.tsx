@@ -8,6 +8,7 @@ import { SOURCING_COUNTRIES, countryFlag, countryName } from "@/lib/countries";
 import { money } from "@/lib/utils";
 import { RateBar } from "../Charts";
 import { t } from "@/lib/i18n";
+import WriteOnly from "../Access";
 import type { SupplierPerformance } from "@/lib/procurement";
 import type { Lang, Supplier } from "@/lib/types";
 
@@ -79,9 +80,11 @@ export default function SuppliersAdmin({
       <div className="panel-head">
         <h1>{t("suppliers", lang)}</h1>
         {!form && (
-          <button className="btn btn-sm btn-amber" type="button" onClick={() => setForm(blank())}>
-            + {t("newSupplier", lang)}
-          </button>
+          <WriteOnly>
+            <button className="btn btn-sm btn-amber" type="button" onClick={() => setForm(blank())}>
+              + {t("newSupplier", lang)}
+            </button>
+          </WriteOnly>
         )}
       </div>
 
@@ -179,12 +182,14 @@ export default function SuppliersAdmin({
                 <td className="num">{p.lastPurchase || "—"}</td>
                 <td className="num">{p.nextArrival || "—"}</td>
                 <td className="num">
-                  <div className="acts">
-                    <button className="btn btn-sm btn-ghost" type="button" disabled={busy}
-                      onClick={() => edit(p.supplier)}>{t("edit", lang)}</button>
-                    <button className="btn btn-sm btn-danger" type="button" disabled={busy}
-                      onClick={() => remove(p)}>{t("delete", lang)}</button>
-                  </div>
+                  <WriteOnly>
+                    <div className="acts">
+                      <button className="btn btn-sm btn-ghost" type="button" disabled={busy}
+                        onClick={() => edit(p.supplier)}>{t("edit", lang)}</button>
+                      <button className="btn btn-sm btn-danger" type="button" disabled={busy}
+                        onClick={() => remove(p)}>{t("delete", lang)}</button>
+                    </div>
+                  </WriteOnly>
                 </td>
               </tr>
             ))}

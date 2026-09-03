@@ -7,6 +7,7 @@ import {
   createHeroSlide, deleteHeroSlide, moveHeroSlide, updateHeroSlide, uploadHeroImage,
 } from "@/lib/actions/hero";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { HeroSlide, Lang } from "@/lib/types";
 
 type Draft = Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href">;
@@ -85,7 +86,7 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                     onChange={(e) => setDraft(s.id, { cta_href: e.target.value })} style={{ flex: 1 }} />
                 </div>
               </div>
-              <div className="hero-slide-acts">
+              <div className="hero-slide-acts"><WriteOnly>
                 <button className="btn btn-sm btn-ghost" disabled={busy || i === 0}
                   onClick={() => run(() => moveHeroSlide(s.id, -1))} aria-label={t("moveUp", lang)}>↑</button>
                 <button className="btn btn-sm btn-ghost" disabled={busy || i === slides.length - 1}
@@ -94,7 +95,7 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                   onClick={() => run(() => updateHeroSlide(s.id, d), t("saved", lang))}>{t("save", lang)}</button>
                 <button className="btn btn-sm btn-danger" disabled={busy}
                   onClick={() => run(() => deleteHeroSlide(s.id))}>{t("remove", lang)}</button>
-              </div>
+              </WriteOnly></div>
             </div>
           );
         })}

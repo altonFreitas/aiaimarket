@@ -9,7 +9,7 @@ import { decodeImageDataUrl } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
-import { eventForStatus } from "@/lib/notify/templates";
+import { notifyStatusChange } from "@/lib/orderNotify";
 import type { OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Trims and hard-truncates a free-text field. Postgres `text` has no
@@ -394,26 +394,6 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   revalidatePath("/admin/orders");
 }
 
-/** Tells the buyer their order moved, when the new status is one worth a
- * message (see eventForStatus). Shared by the admin and seller paths so a
- * seller marking their own order "out for delivery" notifies exactly as the
- * owner doing it would.
- *
- * Reads the order again rather than taking the caller's copy: the caller has
- * a two-column projection, and the message needs the buyer's name, phone,
- * total and language. One extra read per status change is a fair price for
- * not passing five fields through every call site. */
-export async function notifyStatusChange(orderId: string, status: OrderStatus) {
-  const event = eventForStatus(status);
-  if (!event) return;
-  const sb = supabaseAdmin();
-  const [{ data: order }, { data: storeRow }] = await Promise.all([
-    sb.from("orders").select("id, ref, buyer_name, buyer_phone, total, lang").eq("id", orderId).maybeSingle(),
-    sb.from("settings").select("store_name").eq("id", 1).maybeSingle(),
-  ]);
-  if (!order) return;
-  notifyOrderEventInBackground(order, event, storeRow?.store_name || "Loja");
-}
 
 /** G4 — manual payment status, set by the owner (no gateway). */
 export async function setPayStatus(orderId: string, payStatus: PayStatus) {

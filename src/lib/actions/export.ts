@@ -2,7 +2,7 @@
 import ExcelJS from "exceljs";
 import { adminOrdersCapped, adminProducts } from "@/lib/data/admin";
 import { computeAdminStats, monthlySeries, quarterlySeries, yearlySeries } from "@/lib/stats";
-import { requireAdmin } from "./guard";
+import { requireAdminRead } from "./guard";
 import { storeDay } from "@/lib/tz";
 
 /* Was `xlsx` (SheetJS). Replaced because the npm build of that package
@@ -52,7 +52,9 @@ function sheetFromRows(wb: ExcelJS.Workbook, name: string, rows: unknown[][]) {
 }
 
 export async function exportStatsExcel() {
-  await requireAdmin();
+  // A download is a read. Refusing it to a read-only account would be
+  // refusing them the one thing their account is for.
+  await requireAdminRead();
   const [ordersRead, products] = await Promise.all([adminOrdersCapped(), adminProducts()]);
   const orders = ordersRead.rows;
   const stats = computeAdminStats(orders, products);

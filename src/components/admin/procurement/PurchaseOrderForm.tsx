@@ -10,6 +10,7 @@ import {
   PO_STATUSES, deliveryState, poDelayDays, poLeadTime, poQty, poTotal, todayIso,
 } from "@/lib/procurement";
 import { t } from "@/lib/i18n";
+import WriteOnly, { useCanWrite } from "../Access";
 import type {
   Category, Lang, PoCategory, PoPaymentStatus, PoStatus, Product, PurchaseOrder, Supplier,
 } from "@/lib/types";
@@ -82,6 +83,7 @@ export default function PurchaseOrderForm({
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
+  const canWrite = useCanWrite();
   const today = todayIso();
 
   const [f, setF] = useState({
@@ -235,12 +237,14 @@ export default function PurchaseOrderForm({
       )}
 
       {po && (
-        <div className="btn-row" style={{ flexDirection: "row", flexWrap: "wrap" }}>
-          {PO_STATUSES.filter((s) => s !== po.status).map((s) => (
-            <button key={s} type="button" className="btn btn-sm btn-ghost" disabled={busy}
-              onClick={() => quickStatus(s)}>{t("po_" + s, lang)}</button>
-          ))}
-        </div>
+        <WriteOnly>
+          <div className="btn-row" style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {PO_STATUSES.filter((s) => s !== po.status).map((s) => (
+              <button key={s} type="button" className="btn btn-sm btn-ghost" disabled={busy}
+                onClick={() => quickStatus(s)}>{t("po_" + s, lang)}</button>
+            ))}
+          </div>
+        </WriteOnly>
       )}
 
       <form onSubmit={submit}>
@@ -297,8 +301,10 @@ export default function PurchaseOrderForm({
         <div className="panel">
           <div className="panel-head">
             <h3>{t("lineItems", lang)}</h3>
-            <button className="btn btn-sm btn-ghost" type="button"
-              onClick={() => setLines((ls) => [...ls, blankLine()])}>+ {t("addLine", lang)}</button>
+            <WriteOnly>
+              <button className="btn btn-sm btn-ghost" type="button"
+                onClick={() => setLines((ls) => [...ls, blankLine()])}>+ {t("addLine", lang)}</button>
+            </WriteOnly>
           </div>
           {lines.map((l, i) => (
             <div key={i} className="po-line">
@@ -386,9 +392,11 @@ export default function PurchaseOrderForm({
                 <span className="hint">{t("lineTotal", lang)}</span>
                 <b className="mono">{((Number(l.qty) || 0) * (Number(l.unitPrice) || 0)).toFixed(2)}</b>
               </div>
-              <button className="btn btn-sm btn-danger" type="button"
-                disabled={lines.length === 1}
-                onClick={() => setLines((ls) => ls.filter((_, n) => n !== i))}>×</button>
+              <WriteOnly>
+                <button className="btn btn-sm btn-danger" type="button"
+                  disabled={lines.length === 1}
+                  onClick={() => setLines((ls) => ls.filter((_, n) => n !== i))}>×</button>
+              </WriteOnly>
             </div>
           ))}
         </div>
@@ -456,15 +464,21 @@ export default function PurchaseOrderForm({
         </div>
 
         <div className="btn-row">
-          <button className="btn btn-amber" type="submit" disabled={busy}>
-            {busy ? "…" : t("save", lang)}
-          </button>
-          <Link className="btn btn-ghost" href="/admin/procurement">{t("cancel", lang)}</Link>
-          {po && (
-            <button className="btn btn-danger" type="button" disabled={busy} onClick={remove}>
-              {t("delete", lang)}
+          <WriteOnly>
+            <button className="btn btn-amber" type="submit" disabled={busy}>
+              {busy ? "…" : t("save", lang)}
             </button>
-          )}
+          </WriteOnly>
+          <Link className="btn btn-ghost" href="/admin/procurement">
+            {t(canWrite ? "cancel" : "back", lang)}
+          </Link>
+          <WriteOnly>
+            {po && (
+              <button className="btn btn-danger" type="button" disabled={busy} onClick={remove}>
+                {t("delete", lang)}
+              </button>
+            )}
+          </WriteOnly>
         </div>
       </form>
     </>

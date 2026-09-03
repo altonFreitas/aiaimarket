@@ -6,6 +6,7 @@ import { deleteSalesTarget, setSalesTarget } from "@/lib/actions/sales";
 import { money } from "@/lib/utils";
 import { targetProgress, type SalesTarget } from "@/lib/sales";
 import { t } from "@/lib/i18n";
+import WriteOnly from "../Access";
 import type { Lang } from "@/lib/types";
 
 /* Revenue targets, per period. Without one, section 21 of the dashboard has
@@ -65,6 +66,7 @@ export default function TargetsAdmin({
         <div className="note info" style={{ marginBottom: 12 }}>{t("salesMigrationNeeded", lang)}</div>
       )}
 
+      <WriteOnly>
       <div className="panel">
         <div className="bar">
           <label className="fld">
@@ -84,6 +86,7 @@ export default function TargetsAdmin({
         </div>
         <p className="hint">{t("periodFormatHint", lang)}</p>
       </div>
+      </WriteOnly>
 
       <div className="scroll-x">
         <table className="tbl tbl-compact">
@@ -111,10 +114,12 @@ export default function TargetsAdmin({
                   </td>
                   <td className="num">{money(p.remaining)}</td>
                   <td>
-                    <button type="button" className="btn btn-sm btn-ghost"
-                      disabled={busy} onClick={() => onDelete(x.id)}>
-                      {t("delete", lang)}
-                    </button>
+                    <WriteOnly>
+                      <button type="button" className="btn btn-sm btn-ghost"
+                        disabled={busy} onClick={() => onDelete(x.id)}>
+                        {t("delete", lang)}
+                      </button>
+                    </WriteOnly>
                   </td>
                 </tr>
               );

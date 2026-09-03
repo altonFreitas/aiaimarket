@@ -9,6 +9,7 @@ import {
   updatePromotion, uploadPromotionImage,
 } from "@/lib/actions/promotions";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Lang, Promotion } from "@/lib/types";
 
 type Draft = Pick<Promotion, "title" | "badge_label" | "href">;
@@ -82,7 +83,7 @@ export default function PromotionsAdmin({ lang, promotions }: { lang: Lang; prom
                     onChange={(e) => setDraft(p.id, { href: e.target.value })} style={{ flex: 2 }} />
                 </div>
               </div>
-              <div className="hero-slide-acts">
+              <div className="hero-slide-acts"><WriteOnly>
                 <button className="btn btn-sm btn-ghost" disabled={busy || i === 0}
                   onClick={() => run(() => movePromotion(p.id, -1))} aria-label={t("moveUp", lang)}>↑</button>
                 <button className="btn btn-sm btn-ghost" disabled={busy || i === promotions.length - 1}
@@ -97,7 +98,7 @@ export default function PromotionsAdmin({ lang, promotions }: { lang: Lang; prom
                 </button>
                 <button className="btn btn-sm btn-danger" disabled={busy}
                   onClick={() => run(() => deletePromotion(p.id))}>{t("remove", lang)}</button>
-              </div>
+              </WriteOnly></div>
             </div>
           );
         })}

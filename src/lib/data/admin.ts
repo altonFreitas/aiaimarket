@@ -1,4 +1,7 @@
 import "server-only";
+import {
+  normalizeRole, normalizeSections, type AdminRole, type SectionKey,
+} from "@/lib/adminSections";
 import { readCapped, type Capped } from "./capped";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
@@ -344,17 +347,26 @@ export async function adminUsers(): Promise<AdminUserRow[]> {
   try {
     const sb = supabaseAdmin();
     const { data, error } = await sb.from("admin_users")
-      .select("id, name, email, active, totp_enabled, created_at, last_login_at")
+      .select("id, name, email, active, totp_enabled, created_at, last_login_at, role, sections")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error || !data) return [];
-    return data as AdminUserRow[];
+    // Normalised on the way out, so the screen shows what the application
+    // would actually enforce rather than what the column happens to say.
+    // A row still on the pre-roles default reads as a reader with nothing,
+    // which is what it is.
+    return (data as Record<string, unknown>[]).map((r) => ({
+      ...r,
+      role: normalizeRole(r.role),
+      sections: normalizeSections(r.sections),
+    })) as AdminUserRow[];
   } catch { return []; }
 }
 
 export interface AdminUserRow {
   id: string; name: string; email: string; active: boolean;
   totp_enabled: boolean; created_at: string; last_login_at: string | null;
+  role: AdminRole; sections: SectionKey[];
 }
 
 /** The record of who did what, newest first. */

@@ -4,6 +4,7 @@ import { notificationsAutomatic } from "@/lib/notify/registry";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import PendingNotifications from "@/components/admin/PendingNotifications";
+import { requireSection } from "@/lib/actions/guard";
 
 /** Every message the store still owes a buyer, across all orders.
  *
@@ -12,6 +13,7 @@ import PendingNotifications from "@/components/admin/PendingNotifications";
  * order. That is why it lives in the nav rather than buried on an order
  * page -- an empty queue here is the thing worth being able to check. */
 export default async function AdminNotificationsPage() {
+  await requireSection("sales");
   const [lang, pending] = await Promise.all([getLang(), adminPendingNotifications()]);
   return (
     <>

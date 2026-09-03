@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { createCategory, mergeCategory, moveCategory, renameCategory } from "@/lib/actions/categories";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Category, Lang, Product } from "@/lib/types";
 
 export default function CategoriesAdmin({
@@ -42,7 +43,7 @@ export default function CategoriesAdmin({
           <b>{c.name}</b>
           <span>{n} {t("results", lang)} · /{c.slug}{n === 0 ? " · " + t("hiddenEmpty", lang) : ""}</span>
         </div>
-        <div className="acts">
+        <div className="acts"><WriteOnly>
           <button className="btn btn-sm btn-ghost" disabled={busy}
             onClick={() => run(() => moveCategory(c.id, -1))} aria-label={t("moveUp", lang)}>↑</button>
           <button className="btn btn-sm btn-ghost" disabled={busy}
@@ -53,7 +54,7 @@ export default function CategoriesAdmin({
             onClick={() => { setMerging(c); setMergeTo(cats.find((x) => x.id !== c.id)?.id || ""); }}>
             {t("merge", lang)}
           </button>
-        </div>
+        </WriteOnly></div>
       </div>
     );
   };

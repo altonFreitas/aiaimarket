@@ -3,8 +3,10 @@ import ProcurementDashboard from "@/components/admin/procurement/ProcurementDash
 import { adminProcurementData } from "@/lib/data/procurement";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
+import { requireSection } from "@/lib/actions/guard";
 
 export default async function ProcurementPage() {
+  await requireSection("procurement");
   const [lang, data] = await Promise.all([getLang(), adminProcurementData()]);
 
   // A dashboard with no tables behind it should say so plainly rather than

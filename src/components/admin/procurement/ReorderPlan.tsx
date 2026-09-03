@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { saveReorderPolicy } from "@/lib/actions/reorderPolicy";
 import { groupBySupplier, toReorder, type ReplenishmentPolicy, type ReplenishmentRow } from "@/lib/replenishment";
 import { t } from "@/lib/i18n";
+import WriteOnly from "../Access";
 import type { Lang } from "@/lib/types";
 
 const URGENCY_PILL: Record<ReplenishmentRow["urgency"], string> = {
@@ -231,10 +232,12 @@ function ReorderPolicyPanel({ lang, policy }: { lang: Lang; policy: Replenishmen
     <div className="panel">
       <div className="panel-head">
         <h3>{t("reorderRules", lang)}</h3>
-        <button type="button" className="btn btn-sm btn-ghost"
-          onClick={() => setOpen(!open)} disabled={busy}>
-          {open ? t("cancel", lang) : t("edit", lang)}
-        </button>
+        <WriteOnly>
+          <button type="button" className="btn btn-sm btn-ghost"
+            onClick={() => setOpen(!open)} disabled={busy}>
+            {open ? t("cancel", lang) : t("edit", lang)}
+          </button>
+        </WriteOnly>
       </div>
 
       {!open ? (

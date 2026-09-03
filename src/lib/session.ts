@@ -1,6 +1,10 @@
 import "server-only";
 import crypto from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
+import {
+  normalizeRole, normalizeSections, type AdminRole, type SectionKey,
+} from "@/lib/adminSections";
 
 const COOKIE = "loja_admin_session";
 // 10 minutes -- the whole session, not just a "remember me" window. The
@@ -79,23 +83,68 @@ export async function resolveLogin(
   const email = identifier.trim().toLowerCase();
   if (!email) return null;
 
+  // THE OWNER'S EMAIL IS THE OWNER'S, AND NOBODY ELSE'S.
+  //
+  // Without this, failing the owner check above fell through to
+  // admin_users and matched a staff row with the same address -- so an
+  // owner who had created a staff account under their own email, and
+  // typed that account's password, was quietly signed in as it. If the
+  // account was read-only, everything then behaved exactly as though the
+  // owner had lost their access: saves refused, Admin users a dead end.
+  // The password was right, the person was right, and the identity was
+  // wrong.
+  //
+  // One address, one identity. Creating such an account is refused now
+  // too (see lib/actions/adminUsers.ts), but a shop that already has one
+  // must not keep signing its owner in as it.
+  const ownerEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  if (ownerEmail && email === ownerEmail) return null;
+
   try {
     const { supabaseAdmin } = await import("@/lib/supabase/admin");
     const { verifyPassword } = await import("@/lib/password");
     const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("admin_users")
-      .select("id, name, password_hash, active")
-      .ilike("email", email)
-      .maybeSingle();
-    if (error || !data || !data.active) return null;
+    const data = await readAdminUser(
+      sb, (cols) => sb.from("admin_users").select(cols).ilike("email", email).maybeSingle()
+    );
+    if (!data || !data.active) return null;
     if (!(await verifyPassword(password, data.password_hash as string))) return null;
-    return { kind: "staff", id: data.id as string, label: (data.name as string) || email };
+    return {
+      kind: "staff", id: data.id as string, label: (data.name as string) || email,
+      role: normalizeRole(data.role), sections: normalizeSections(data.sections),
+    };
   } catch {
     // No admin_users table yet, or it is unreachable. The owner path above
     // has already had its chance, so there is nothing left to try.
     return null;
   }
+}
+
+/* The columns an account needs to sign in, and the two that say what it
+ * may then do. They are split because the second pair arrived in a later
+ * migration (supabase/admin-roles.sql) and Postgres fails the WHOLE query
+ * when a select names a column that does not exist.
+ *
+ * So a shop that had staff accounts and had not yet run that file would
+ * have found every one of them unable to log in, and every open staff
+ * session dead -- not because of anything to do with permissions, but
+ * because the query asked for a column. Asking again without it lets them
+ * in as a reader holding nothing, which is the safe reading of "this
+ * database cannot tell me what they may do". */
+const AUTH_COLUMNS = "id, name, password_hash, active";
+const ROLE_COLUMNS = "role, sections";
+
+type AdminUserRead = Record<string, unknown> | null;
+
+async function readAdminUser(
+  _sb: unknown,
+  run: (columns: string) => PromiseLike<{ data: AdminUserRead; error: unknown }>
+): Promise<AdminUserRead> {
+  const full = await run(`${AUTH_COLUMNS}, ${ROLE_COLUMNS}`);
+  if (!full.error) return full.data;
+  const base = await run(AUTH_COLUMNS);
+  if (base.error) return null;
+  return base.data;
 }
 
 /** Constant-time string comparison so a wrong admin password can't be
@@ -112,9 +161,11 @@ function timingSafeStringEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-/** Who is signed in. The owner is the environment credentials and has no
- * database row; staff are rows in admin_users. */
-export interface AdminActor {
+/** WHO is signed in -- the part the cookie carries.
+ *
+ * Identity only. Permissions are deliberately not in here: see AdminActor
+ * below for why. */
+export interface ActorIdentity {
   kind: "owner" | "staff";
   /** admin_users.id for staff, null for the owner. */
   id: string | null;
@@ -124,7 +175,39 @@ export interface AdminActor {
   label: string;
 }
 
-export const OWNER: AdminActor = { kind: "owner", id: null, label: "Owner" };
+/** Who is signed in AND what they may do.
+ *
+ * The permissions are NOT in the cookie. They are read from admin_users on
+ * each request, which costs one indexed lookup by primary key, deduped per
+ * request by React's cache().
+ *
+ * Baking them into the signed token would be cheaper and is the obvious
+ * design -- it is also wrong here. A token is a statement about the past:
+ * it says what was true when it was issued. Sessions last ten minutes, so
+ * "Disable" on the Admin users screen would mean "disabled within ten
+ * minutes", and the moment you most want to disable an account is the
+ * moment those ten minutes matter most. Reading the row makes revoking
+ * access, changing a role and unticking a section all take effect on the
+ * person's very next click.
+ *
+ * The identity stays in the token because it is genuinely a fact about the
+ * past -- it is who passed the password and the code -- and because the
+ * audit trail must be able to name them even if the row later changes. */
+export interface AdminActor extends ActorIdentity {
+  /** What they may do: "admin" writes, "reader" only looks. */
+  role: AdminRole;
+  /** Which parts of the admin they may open. Empty for the owner, who is
+   * not filtered by it at all -- see canSee(). */
+  sections: SectionKey[];
+}
+
+/** The owner as the cookie carries them. */
+export const OWNER_IDENTITY: ActorIdentity = { kind: "owner", id: null, label: "Owner" };
+
+/** The owner has no row and no checkboxes: theirs is the login the shop is
+ * reachable through if everything on the Admin users screen goes wrong, so
+ * it is never filtered. */
+export const OWNER: AdminActor = { ...OWNER_IDENTITY, role: "admin", sections: [] };
 
 /* The session payload, encoded and decoded as pure functions.
  *
@@ -133,7 +216,7 @@ export const OWNER: AdminActor = { kind: "owner", id: null, label: "Owner" };
  * stands between a stranger and the admin; it should not be reachable only
  * through next/headers. */
 
-export function encodeActor(actor: AdminActor, issuedAt: number): string {
+export function encodeActor(actor: ActorIdentity, issuedAt: number): string {
   // JSON rather than colon-separated fields: a staff member called
   // "Ana: Sales" would otherwise split the token in half.
   return "v2." + Buffer.from(JSON.stringify({
@@ -143,14 +226,14 @@ export function encodeActor(actor: AdminActor, issuedAt: number): string {
 
 export function decodeActor(
   value: string, now: number, maxAgeMs: number
-): AdminActor | null {
+): ActorIdentity | null {
   // Sessions issued before named accounts existed read "admin:<ts>". They
   // last ten minutes, so this matters for one deploy -- but a confusing
   // ten minutes is still worth a few lines.
   if (value.startsWith("admin:")) {
     const issuedAt = Number(value.split(":")[1]);
     if (!Number.isFinite(issuedAt) || now - issuedAt > maxAgeMs) return null;
-    return OWNER;
+    return OWNER_IDENTITY;
   }
 
   if (!value.startsWith("v2.")) return null;
@@ -175,7 +258,7 @@ export function decodeActor(
 
 /** Grants the actual session. Only call this after both the password and
  * (when 2FA is enabled) the TOTP code have already been verified. */
-export async function grantSession(actor: AdminActor = OWNER) {
+export async function grantSession(actor: ActorIdentity = OWNER_IDENTITY) {
   const token = sign(encodeActor(actor, Date.now()));
   const jar = await cookies();
   jar.set(COOKIE, token, {
@@ -201,13 +284,45 @@ export async function logout() {
   jar.delete(COOKIE);
 }
 
+/** Reads role and sections for a staff account, live.
+ *
+ * Fails closed on every uncertain answer -- no row, inactive, a failed
+ * query, no table at all. None of those can happen to a legitimately
+ * signed-in staff member during normal operation: they had a row a moment
+ * ago, or they could not have logged in. Treating them as "no access"
+ * costs a re-login in the rare case and refuses access in the bad one.
+ *
+ * The owner never reaches this code. Their login does not depend on the
+ * database, and it stays that way. */
+async function staffPermissions(who: ActorIdentity): Promise<AdminActor | null> {
+  if (!who.id) return null;
+  try {
+    const { supabaseAdmin } = await import("@/lib/supabase/admin");
+    const sb = supabaseAdmin();
+    const data = await readAdminUser(
+      sb, (cols) => sb.from("admin_users").select(cols).eq("id", who.id!).maybeSingle()
+    );
+    if (!data || !data.active) return null;
+    return {
+      ...who,
+      role: normalizeRole(data.role),
+      sections: normalizeSections(data.sections),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** The signed-in admin, or null. The single place the cookie is read.
  *
  * The cookie's maxAge is enforced by the BROWSER, which an attacker
  * replaying a captured token simply isn't. The signed payload carries its
  * own issue time -- checked here, server-side, or the token stays valid
- * forever. */
-export async function currentActor(): Promise<AdminActor | null> {
+ * forever.
+ *
+ * cache() so the permission lookup happens once per request no matter how
+ * many guards, pages and actions ask who is signed in. */
+export const currentActor = cache(async function currentActor(): Promise<AdminActor | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
@@ -215,8 +330,12 @@ export async function currentActor(): Promise<AdminActor | null> {
   const value = verify(token);
   if (!value) return null;
 
-  return decodeActor(value, Date.now(), MAX_AGE * 1000);
-}
+  const who = decodeActor(value, Date.now(), MAX_AGE * 1000);
+  if (!who) return null;
+  if (who.kind === "owner") return OWNER;
+
+  return staffPermissions(who);
+});
 
 export async function isLoggedIn() {
   return (await currentActor()) !== null;

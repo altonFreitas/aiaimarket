@@ -7,6 +7,7 @@ import { markNotificationSent, retryNotification, skipNotification } from "@/lib
 import { smsLink, nowIso } from "@/lib/utils";
 import SmsCostBadge from "./SmsCostBadge";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Lang, OrderNotification } from "@/lib/types";
 
 export default function PendingNotifications({
@@ -46,7 +47,7 @@ export default function PendingNotifications({
             <pre className="notif-body">{n.body}</pre>
             {n.error && <p className="notif-error">{n.error}</p>}
 
-            <div className="acts" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+            <div className="acts" style={{ justifyContent: "flex-start", marginTop: 8 }}><WriteOnly>
               <a className="btn btn-sm btn-amber" target="_blank" rel="noopener"
                 href={smsLink(n.to_phone, n.body)}>
                 {t("sendSms", lang)}
@@ -65,7 +66,7 @@ export default function PendingNotifications({
                 onClick={() => run(() => skipNotification(n.id))}>
                 {t("skipMessage", lang)}
               </button>
-            </div>
+            </WriteOnly></div>
           </div>
         ))}
       </div>

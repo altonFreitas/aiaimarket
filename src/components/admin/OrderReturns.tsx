@@ -6,6 +6,7 @@ import { recordReturn } from "@/lib/actions/returns";
 import { returnableQty } from "@/lib/sales";
 import { money, nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Lang, Order, OrderReturn, ReturnReason } from "@/lib/types";
 
 const REASONS: ReturnReason[] = [
@@ -93,10 +94,12 @@ export default function OrderReturns({ lang, order, returns }: {
       <div className="panel-head">
         <h3>{t("returns", lang)}</h3>
         {rows.length > 0 && (
-          <button type="button" className="btn btn-sm btn-ghost"
-            onClick={() => setOpen(!open)} disabled={busy}>
-            {open ? t("cancel", lang) : t("recordReturn", lang)}
-          </button>
+          <WriteOnly>
+            <button type="button" className="btn btn-sm btn-ghost"
+              onClick={() => setOpen(!open)} disabled={busy}>
+              {open ? t("cancel", lang) : t("recordReturn", lang)}
+            </button>
+          </WriteOnly>
         )}
       </div>
 

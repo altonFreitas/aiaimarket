@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { addOrderNote, editOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
 import { addrLine, money, nowIso, waLink, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Lang, Order, OrderStatus, PayStatus, Settings } from "@/lib/types";
 
 function PencilIcon() {
@@ -59,6 +60,12 @@ export default function OrderAdmin({
       {/* F4 status machine */}
       <div className="panel">
         <h3>{t("markStatus", lang)}</h3>
+        {/* An admin gets the row of steps to move the order along. A reader
+            gets the one thing the row was also telling them -- where the
+            order is now -- because that is the information, not the click. */}
+        <WriteOnly otherwise={
+          <span className="pill">{t("st_" + o.status, lang)}</span>
+        }>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {flow.map((s, i) => (
             <button key={s} className={"btn btn-sm " + (i === at ? "btn-amber" : "btn-ghost")}
@@ -72,6 +79,7 @@ export default function OrderAdmin({
             {t("st_cancelled", lang)}
           </button>
         </div>
+        </WriteOnly>
         {o.cancel_requested_at && (
           <p className="note" style={{ marginTop: 8 }}>
             {t("askCancel", lang)}: “{o.cancel_reason}”
@@ -83,14 +91,20 @@ export default function OrderAdmin({
       <div className="panel">
         <h3>{t("paymentStatus", lang)}</h3>
         <div className="kv"><span>{t("payment", lang)}</span><b>{t("pm_" + o.pay_method, lang)}</b></div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-          {(["unpaid", "deposit", "paid", "refunded"] as PayStatus[]).map((s) => (
-            <button key={s} className={"btn btn-sm " + (o.pay_status === s ? "btn-amber" : "btn-ghost")}
-              disabled={busy} onClick={() => run(() => setPayStatus(o.id, s))}>
-              {t("ps_" + s, lang)}
-            </button>
-          ))}
-        </div>
+        <WriteOnly otherwise={
+          <div style={{ marginTop: 8 }}>
+            <span className="pill">{t("ps_" + o.pay_status, lang)}</span>
+          </div>
+        }>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {(["unpaid", "deposit", "paid", "refunded"] as PayStatus[]).map((s) => (
+              <button key={s} className={"btn btn-sm " + (o.pay_status === s ? "btn-amber" : "btn-ghost")}
+                disabled={busy} onClick={() => run(() => setPayStatus(o.id, s))}>
+                {t("ps_" + s, lang)}
+              </button>
+            ))}
+          </div>
+        </WriteOnly>
         {o.proof_url && (
           <div style={{ marginTop: 10 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -147,10 +161,12 @@ export default function OrderAdmin({
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     {l.text}
                     {isNote && (
+                      <WriteOnly>
                       <button type="button" className="log-edit-btn" aria-label={t("edit", lang)}
                         onClick={() => { setEditingId(l.id); setEditText(l.text.trim().slice(2)); }}>
                         <PencilIcon />
                       </button>
+                      </WriteOnly>
                     )}
                   </span>
                 )}
@@ -158,6 +174,7 @@ export default function OrderAdmin({
             );
           })}
         </ul>
+        <WriteOnly>
         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
           <input value={note} onChange={(e) => setNote(e.target.value)}
             placeholder={t("addNote", lang)}
@@ -167,6 +184,7 @@ export default function OrderAdmin({
             {t("add", lang)}
           </button>
         </div>
+        </WriteOnly>
       </div>
     </>
   );

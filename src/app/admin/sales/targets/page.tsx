@@ -3,8 +3,10 @@ import CoverageNotice from "@/components/admin/CoverageNotice";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { buildSalesLines, totals, type SalesTarget } from "@/lib/sales";
 import { getLang } from "@/lib/lang";
+import { requireSection } from "@/lib/actions/guard";
 
 export default async function TargetsPage() {
+  await requireSection("settings");
   const [lang, data, returns] = await Promise.all([
     getLang(), adminSalesData(), returnedUnits(),
   ]);

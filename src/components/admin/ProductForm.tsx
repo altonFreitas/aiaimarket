@@ -9,6 +9,7 @@ import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
 import { t } from "@/lib/i18n";
+import WriteOnly, { useCanWrite } from "./Access";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 
 function rootIdOf(id: string, cats: Category[]): string {
@@ -30,6 +31,7 @@ export default function ProductForm({
   const { toast } = useToast();
   const [cats, setCats] = useState(initialCats);
   const [busy, setBusy] = useState(false);
+  const canWrite = useCanWrite();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [newCat, setNewCat] = useState("");
   const [newSubCat, setNewSubCat] = useState("");
@@ -306,6 +308,7 @@ export default function ProductForm({
               </select>
             </div>
           )}
+          <WriteOnly>
           <div className="field">
             <label htmlFor="newcat">{t("newCategory", lang)}</label>
             <div style={{ display: "flex", gap: 6 }}>
@@ -327,6 +330,7 @@ export default function ProductForm({
               </button>
             </div>
           </div>
+          </WriteOnly>
         </div>
 
         <div className="panel">
@@ -338,11 +342,16 @@ export default function ProductForm({
           <h3>{t("images", lang)}</h3>
           <div className="thumbs">
             {images.map((src, i) => (
-              <button key={i} type="button" title={t("del", lang)}
-                onClick={() => setImages((cur) => cur.filter((_, ix) => ix !== i))}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+              <WriteOnly key={i} otherwise={
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={src} alt="" />
-              </button>
+              }>
+                <button type="button" title={t("del", lang)}
+                  onClick={() => setImages((cur) => cur.filter((_, ix) => ix !== i))}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" />
+                </button>
+              </WriteOnly>
             ))}
             {images.length < 5 && (
               <label className="btn btn-sm btn-ghost" style={{ height: 52 }}>
@@ -383,10 +392,16 @@ export default function ProductForm({
         </div>
 
         <div className="btn-row">
-          <button className="btn btn-amber" type="submit" disabled={busy}>
-            {busy ? "…" : t("save", lang)}
-          </button>
-          <Link className="btn btn-ghost" href="/admin/products">{t("cancel", lang)}</Link>
+          <WriteOnly>
+            <button className="btn btn-amber" type="submit" disabled={busy}>
+              {busy ? "…" : t("save", lang)}
+            </button>
+          </WriteOnly>
+          {/* Stays for everyone: with no Save above it this is simply the
+              way back to the list. */}
+          <Link className="btn btn-ghost" href="/admin/products">
+            {t(canWrite ? "cancel" : "back", lang)}
+          </Link>
           {product && (
             <Link className="btn btn-ghost" href={`/p/${product.slug}`} target="_blank">
               {t("catalog", lang)} ↗

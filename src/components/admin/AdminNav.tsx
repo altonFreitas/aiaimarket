@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 import { t } from "@/lib/i18n";
+import { canSee, canWrite, type Access, type SectionKey } from "@/lib/adminSections";
 import type { Lang } from "@/lib/types";
 
 /* Two tiers, not twelve flat tabs.
@@ -18,6 +19,9 @@ import type { Lang } from "@/lib/types";
 
 interface Group {
   key: string;
+  /** Which section of the admin this group is; what the account must hold
+   * to be shown it. Same keys the page guards and the checklist use. */
+  section: SectionKey;
   /** Where the group's own label links to -- its most-used tab. */
   href: string;
   tabs: Array<readonly [href: string, key: string]>;
@@ -26,11 +30,11 @@ interface Group {
 const GROUPS: Group[] = [
   {
     // The admin opens on what needs doing, not on a list of everything.
-    key: "navHome", href: "/admin",
+    key: "navHome", section: "home", href: "/admin",
     tabs: [["/admin", "attnTitle"]],
   },
   {
-    key: "navSales", href: "/admin/sales",
+    key: "navSales", section: "sales", href: "/admin/sales",
     tabs: [
       ["/admin/sales", "salesDashboard"],
       ["/admin/orders", "orders"],
@@ -38,7 +42,7 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    key: "navCatalog", href: "/admin/products",
+    key: "navCatalog", section: "catalog", href: "/admin/products",
     tabs: [
       ["/admin/products", "products"],
       ["/admin/stock", "stockControl"],
@@ -48,7 +52,7 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    key: "navProcurement", href: "/admin/procurement",
+    key: "navProcurement", section: "procurement", href: "/admin/procurement",
     tabs: [
       ["/admin/procurement", "procurement"],
       ["/admin/procurement/reorder", "reorderPlan"],
@@ -56,21 +60,21 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    key: "navSellers", href: "/admin/sellers",
+    key: "navSellers", section: "sellers", href: "/admin/sellers",
     tabs: [
       ["/admin/sellers", "sellers"],
       ["/admin/payouts", "payoutsShort"],
     ],
   },
   {
-    key: "navStorefront", href: "/admin/hero",
+    key: "navStorefront", section: "storefront", href: "/admin/hero",
     tabs: [
       ["/admin/hero", "heroSlides"],
       ["/admin/promotions", "promotions"],
     ],
   },
   {
-    key: "navSettings", href: "/admin/settings",
+    key: "navSettings", section: "settings", href: "/admin/settings",
     tabs: [
       ["/admin/settings", "settings"],
       ["/admin/sales/targets", "salesTargets"],
@@ -104,18 +108,50 @@ function isCurrent(pathname: string, href: string): boolean {
   return pathname.startsWith(href + "/");
 }
 
-export default function AdminNav({ lang }: { lang: Lang }) {
+export default function AdminNav({ lang, access }: {
+  lang: Lang;
+  /** The signed-in admin. `label` is their name, shown so that who you are
+   * is a fact on screen rather than something to be inferred from which
+   * buttons happen to be missing. */
+  access: Access & { label?: string };
+}) {
   const pathname = usePathname();
+  // Only the sections this account holds. Cosmetic -- every page checks for
+  // itself, so a link removed here is a courtesy, not the lock. Showing the
+  // other five and bouncing them off each one is just a worse way to say
+  // the same thing.
+  const isOwner = access.kind === "owner";
+  const groups = GROUPS.filter((g) => canSee(access, g.section)).map((g) => ({
+    ...g,
+    // Managing accounts is the owner's alone -- the page refuses everyone
+    // else. A tab that always refuses is a broken link with a label on it,
+    // so staff are not offered it.
+    tabs: g.tabs.filter(([href]) => isOwner || href !== "/admin/users"),
+  }));
   const group = activeGroup(pathname);
+  const readOnly = !canWrite(access);
 
   return (
     <>
       <nav className="adm-nav adm-nav-top">
-        {GROUPS.map((g) => (
+        {groups.map((g) => (
           <Link key={g.key} href={g.href} aria-current={g.key === group.key}>
             {t(g.key, lang)}
           </Link>
         ))}
+        {access.label && (
+          <span className="adm-who" title={t("signedInAs", lang) + ": " + access.label}>
+            {access.label}
+          </span>
+        )}
+        {readOnly && (
+          /* Said once, at the top, rather than on every button. Somebody
+             who cannot save should know that before they fill in a form,
+             not after. */
+          <span className="adm-readonly" title={t("readOnlyHint", lang)}>
+            {t("readOnlyBadge", lang)}
+          </span>
+        )}
         <Link href="/" style={{ marginLeft: "auto" }}>{t("catalog", lang)} ↗</Link>
         <form action={logoutAction} style={{ display: "contents" }}>
           {/* Icon only, but never label-less: the accessible name still says
@@ -134,7 +170,7 @@ export default function AdminNav({ lang }: { lang: Lang }) {
 
       {/* Second tier. Hidden for a single-tab group, where it would be a row
           of one repeating the label directly above it. */}
-      {group.tabs.length > 1 && (
+      {group.tabs.length > 1 && canSee(access, group.section) && (
         <nav className="adm-nav adm-nav-sub">
           {group.tabs.map(([href, key]) => (
             <Link key={href} href={href} aria-current={isCurrent(pathname, href)}>

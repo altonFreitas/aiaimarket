@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { approveSeller, rejectSeller, suspendSeller, reactivateSeller, resetSellerTotpAction } from "@/lib/actions/sellers-admin";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import { money } from "@/lib/utils";
 import type { MarketplaceStats } from "@/lib/stats";
 import type { Lang, Seller, SellerStatus } from "@/lib/types";
@@ -98,7 +99,10 @@ export default function SellersAdmin({
                 </span>
               </div>
               <div className="acts">
+                {/* The status pill stays: it is what a reader came to read.
+                    Only the four verbs that change it go. */}
                 <span className={"pill " + STATUS_PILL[s.status]}>{t("sellerStatus_" + s.status, lang)}</span>
+                <WriteOnly>
                 {s.status === "pending" && (
                   <>
                     <button className="btn btn-sm" disabled={busy}
@@ -128,6 +132,7 @@ export default function SellersAdmin({
                     {t("resetSellerTotp", lang)}
                   </button>
                 )}
+                </WriteOnly>
               </div>
             </div>
           ))}

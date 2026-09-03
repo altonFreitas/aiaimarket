@@ -2,7 +2,7 @@
 import { requireApprovedSeller } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { assertOrderTransition } from "@/lib/orderFlow";
-import { notifyStatusChange } from "./orders";
+import { notifyStatusChange } from "@/lib/orderNotify";
 import { revalidatePath } from "next/cache";
 import type { OrderItem, OrderStatus } from "@/lib/types";
 

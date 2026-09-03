@@ -4,10 +4,12 @@ import { adminSuppliers, procurementReady } from "@/lib/data/procurement";
 import { adminProducts, adminCategories } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
 import { parsePrefillLines } from "@/lib/replenishment";
+import { requireSection } from "@/lib/actions/guard";
 
 export default async function NewPurchaseOrderPage({ searchParams }: {
   searchParams: Promise<{ supplier?: string; lines?: string }>;
 }) {
+  await requireSection("procurement");
   const params = await searchParams;
   const [lang, ready] = await Promise.all([getLang(), procurementReady()]);
   if (!ready) notFound();

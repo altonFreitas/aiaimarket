@@ -1,8 +1,10 @@
 import CategoriesAdmin from "@/components/admin/CategoriesAdmin";
 import { adminCategories, adminProducts } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
+import { requireSection } from "@/lib/actions/guard";
 
 export default async function CatsPage() {
+  await requireSection("catalog");
   const [lang, cats, products] = await Promise.all([
     getLang(), adminCategories(), adminProducts(),
   ]);

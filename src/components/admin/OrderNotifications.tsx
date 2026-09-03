@@ -9,6 +9,7 @@ import { canClearOrderNotifications, countClearableNotifications } from "@/lib/n
 import { smsLink, nowIso } from "@/lib/utils";
 import SmsCostBadge from "./SmsCostBadge";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Lang, Order, OrderNotification } from "@/lib/types";
 
 const STATUS_PILL: Record<OrderNotification["status"], "ok" | "warn" | "bad"> = {
@@ -92,7 +93,7 @@ export default function OrderNotifications({
               {n.error && <p className="notif-error">{n.error}</p>}
 
               {(n.status === "queued" || n.status === "failed") && (
-                <div className="acts" style={{ justifyContent: "flex-start", marginTop: 8 }}>
+                <div className="acts" style={{ justifyContent: "flex-start", marginTop: 8 }}><WriteOnly>
                   <a
                     className="btn btn-sm btn-amber"
                     target="_blank"
@@ -115,7 +116,7 @@ export default function OrderNotifications({
                     onClick={() => run(() => skipNotification(n.id))}>
                     {t("skipMessage", lang)}
                   </button>
-                </div>
+                </WriteOnly></div>
               )}
             </div>
           ))}
@@ -130,11 +131,13 @@ export default function OrderNotifications({
           status -- clearing history mid-flight is not offered at all, not
           even disabled-and-explained, so there is nothing to misclick. */}
       {canClear && (
+        <WriteOnly>
         <div style={{ marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
           <button className="btn btn-sm btn-ghost" type="button" disabled={busy} onClick={clearMessages}>
             {t("clearMessages", lang)} ({clearableCount})
           </button>
         </div>
+        </WriteOnly>
       )}
     </div>
   );

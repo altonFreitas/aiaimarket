@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { recordPayout, deletePayout } from "@/lib/actions/payouts";
 import { money, nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { SellerLedgerRow } from "@/lib/data/admin";
 import type { Lang, PayoutMethod, SellerPayout } from "@/lib/types";
 
@@ -103,12 +104,14 @@ export default function PayoutsAdmin({
                   {l.outstanding < 0 ? t("overpaid", lang) : t("outstanding", lang)}
                 </span>
               </div>
-              <div className="acts">
-                <button className="btn btn-sm btn-amber" type="button" disabled={busy}
-                  onClick={() => open(l)}>
-                  {t("recordPayout", lang)}
-                </button>
-              </div>
+              <WriteOnly>
+                <div className="acts">
+                  <button className="btn btn-sm btn-amber" type="button" disabled={busy}
+                    onClick={() => open(l)}>
+                    {t("recordPayout", lang)}
+                  </button>
+                </div>
+              </WriteOnly>
 
               {openFor === l.seller.id && (
                 <div style={{ flexBasis: "100%", borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 6 }}>
@@ -163,10 +166,12 @@ export default function PayoutsAdmin({
                 </span>
               </div>
               <b className="mono">{money(p.amount)}</b>
-              <div className="acts">
-                <button className="btn btn-sm btn-danger" type="button" disabled={busy}
-                  onClick={() => remove(p.id)}>×</button>
-              </div>
+              <WriteOnly>
+                <div className="acts">
+                  <button className="btn btn-sm btn-danger" type="button" disabled={busy}
+                    onClick={() => remove(p.id)}>×</button>
+                </div>
+              </WriteOnly>
             </div>
           ))}
         </div>

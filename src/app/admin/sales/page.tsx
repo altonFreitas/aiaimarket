@@ -4,8 +4,10 @@ import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { buildSalesLines, todayIso, type SalesTarget } from "@/lib/sales";
 import { packSalesLines } from "@/lib/salesWire";
 import { getLang } from "@/lib/lang";
+import { requireSection } from "@/lib/actions/guard";
 
 export default async function SalesPage() {
+  await requireSection("sales");
   const [lang, data, returns] = await Promise.all([
     getLang(), adminSalesData(), returnedUnits(),
   ]);

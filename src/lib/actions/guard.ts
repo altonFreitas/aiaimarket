@@ -3,17 +3,74 @@ import { currentActor, type AdminActor } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
+import { canSee, canWrite, type SectionKey } from "@/lib/adminSections";
+import { redirect } from "next/navigation";
+import { PermissionError } from "@/lib/permissionError";
 import type { Seller } from "@/lib/types";
 
 /** Every admin server action must call this before touching the
  * service-role client. Throws, which surfaces as a generic error to any
  * caller that isn't an authenticated admin request.
  *
+ * IT ALSO REFUSES READ-ONLY ACCOUNTS. That is the whole of "reader",
+ * enforced in one function rather than in seventy-odd places, and it is
+ * why this is the default rather than an opt-in: an action written next
+ * year by someone who has never heard of roles calls requireAdmin() out of
+ * habit and is locked down correctly without knowing it. An action that
+ * genuinely only reads has to say so, out loud, by calling
+ * requireAdminRead() instead -- which is a deliberate, visible, greppable
+ * decision rather than an omission.
+ *
  * Returns WHO is acting, so an action can record it without a second
  * lookup. Callers that only need the gate can keep ignoring the result. */
 export async function requireAdmin(): Promise<AdminActor> {
+  const actor = await requireAdminRead();
+  if (!canWrite(actor)) {
+    // PermissionError, not Error: this is the guard answering "no", and it
+    // is logged as one line rather than as a crash with a code frame
+    // pointing at the very check that is doing its job. The message is the
+    // one the person sees.
+    throw new PermissionError(
+      "Your account has read-only access, so nothing was saved.",
+      `${actor.label} (read-only) tried to change something`
+    );
+  }
+  return actor;
+}
+
+/** Signed in, of any role. For the handful of admin actions that only
+ * read -- an export, a lookup -- where refusing a reader would be refusing
+ * them the thing they are for.
+ *
+ * Use this ONLY where nothing is written. If in doubt it is requireAdmin(),
+ * because the cost of guessing wrong here is a reader who can change
+ * things, and the cost of guessing wrong there is an error message. */
+export async function requireAdminRead(): Promise<AdminActor> {
   const actor = await currentActor();
   if (!actor) throw new Error("Not authenticated");
+  return actor;
+}
+
+/** Every admin PAGE calls this. Refuses anyone whose account does not hold
+ * that section, so a URL typed straight into the address bar meets the
+ * same rule that hid the link from the navigation.
+ *
+ * Pages read; they do not write. So this deliberately does not care about
+ * the role -- a reader opening a page they hold is exactly what a reader
+ * is for. The buttons on that page are stopped by requireAdmin(), above.
+ *
+ * Redirects rather than throws. A thrown error in a page renders the error
+ * boundary: a stack-trace screen with no navigation, which tells somebody
+ * who mistyped a URL that the admin is broken rather than that this part
+ * is not theirs. /admin/no-access is a plain sentence with the nav still
+ * above it, so they can go somewhere that is.
+ *
+ * A missing call here is caught by tests/adminSections.test.ts, which
+ * reads every page.tsx under src/app/admin and fails if one does not
+ * guard itself. */
+export async function requireSection(section: SectionKey): Promise<AdminActor> {
+  const actor = await requireAdminRead();
+  if (!canSee(actor, section)) redirect("/admin/no-access");
   return actor;
 }
 

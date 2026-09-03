@@ -3,8 +3,10 @@ import PurchaseOrderForm from "@/components/admin/procurement/PurchaseOrderForm"
 import { adminPurchaseOrder, adminSuppliers } from "@/lib/data/procurement";
 import { adminProducts, adminCategories } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
+import { requireSection } from "@/lib/actions/guard";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireSection("procurement");
   const { id } = await params;
   const [lang, po, suppliers, products, categories] = await Promise.all([
     getLang(), adminPurchaseOrder(id), adminSuppliers(), adminProducts(), adminCategories(),

@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { setProductCosts } from "@/lib/actions/sales";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import WriteOnly from "../Access";
 import type { Category, Lang, Product, ProductCost } from "@/lib/types";
 
 /* Unit cost entry. This is the screen that turns every blank margin on the
@@ -115,10 +116,12 @@ export default function CostsAdmin({
             onChange={(e) => setOnlyMissing(e.target.checked)} />{" "}
           {t("missingCost", lang)}
         </label>
-        <button type="button" className="btn btn-sm btn-amber"
-          disabled={!dirty.length || saving || !ready} onClick={onSave}>
-          {saving ? t("saving", lang) : `${t("save", lang)} (${dirty.length})`}
-        </button>
+        <WriteOnly>
+          <button type="button" className="btn btn-sm btn-amber"
+            disabled={!dirty.length || saving || !ready} onClick={onSave}>
+            {saving ? t("saving", lang) : `${t("save", lang)} (${dirty.length})`}
+          </button>
+        </WriteOnly>
       </div>
 
       <div className="scroll-x">

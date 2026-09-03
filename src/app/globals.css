@@ -273,6 +273,9 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .kv.total{border-top:1px solid var(--line);padding-top:9px;font-size:16px;font-weight:700;margin-top:4px;border-bottom:0}
 .note{background:var(--amber-soft);border:1px solid #ecd48c;border-radius:var(--r-s);padding:9px 10px;font-size:13px;color:var(--amber-ink)}
 .note.info{background:#eaf1fb;border-color:#c6d8f2;color:#22436f}
+/* The bare .note is already the amber one. Naming it means the markup
+   says what it intends instead of relying on that staying true. */
+.note.warn{background:var(--amber-soft);border-color:#e0bd52;color:var(--amber-ink)}
 .empty{text-align:center;padding:40px 16px;color:var(--muted)}
 .empty p{margin:6px 0 14px}
 
@@ -1165,3 +1168,60 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    stretch the column it lives in. */
 .reset-bar{margin-top:8px;justify-content:flex-end}
 .reset-input{max-width:210px;flex:1 1 160px}
+
+/* ===========================================================================
+   Who can do what -- the role picker and section checklist on Admin users,
+   and the read-only badge in the admin navigation.
+   ======================================================================== */
+.access{display:grid;gap:14px;margin:14px 0 4px}
+.access fieldset{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;margin:0}
+.access legend{padding:0 6px;font-size:12px;font-weight:600;color:var(--muted)}
+.access fieldset:disabled{opacity:.55}
+
+.access-role{display:block}
+.access-role-opt{display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border-radius:8px;cursor:pointer}
+.access-role-opt + .access-role-opt{margin-top:2px}
+.access-role-opt:hover{background:var(--line-2)}
+/* The chosen one is filled, not just dotted: at a glance across the table
+   the difference between an admin and a reader has to be obvious. */
+.access-role-opt.on{background:var(--amber-soft);box-shadow:inset 0 0 0 1px var(--amber-ink)}
+.access-role-opt input{margin-top:3px;flex:none}
+.access-role-opt span{display:flex;flex-direction:column;gap:1px;line-height:1.3}
+.access-role-opt em{font-style:normal;font-size:12px;color:var(--muted)}
+
+.access-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.access-box{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);
+  border-radius:8px;cursor:pointer;font-size:13px}
+.access-box:hover{background:var(--line-2)}
+.access-box.on{background:var(--amber-soft);border-color:var(--amber-ink)}
+.access-box input{flex:none}
+.access-quick{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:9px}
+.access-quick .hint{margin:0;font-size:12px}
+
+.access-cell{font-size:12px;color:var(--muted);max-width:230px}
+/* Opens as a full-width row beneath the account (.detail-row), not inside
+   the actions cell -- a table column is as wide as its widest cell, so a
+   checklist in there squeezed every other column until a three-word name
+   wrapped to three lines. */
+.access-edit{padding:4px 14px 14px;text-align:left}
+.access-edit .access{margin-top:10px}
+
+/* The signed-in name, then the read-only badge if there is one, then the
+   link out. Whichever of the first two comes first claims the gap. */
+.adm-who{margin-left:auto;display:inline-flex;align-items:center;
+  font-size:12px;color:var(--muted-2);white-space:nowrap;max-width:190px;
+  overflow:hidden;text-overflow:ellipsis}
+.adm-who + .adm-readonly{margin-left:8px}
+.adm-who + a{margin-left:10px!important}
+.adm-readonly{margin-left:auto;display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;
+  background:var(--amber-soft);color:var(--amber-ink);white-space:nowrap}
+/* The catalog link already claims margin-left:auto; with two of them the
+   badge sits immediately before it rather than fighting for the same gap. */
+.adm-readonly + a{margin-left:10px!important}
+
+/* A read-only viewer gets the stock badge without the click. It keeps the
+   colour, which is the information; it must not keep the pointer cursor,
+   which is a promise the span cannot fulfil. */
+span.stock-btn{cursor:default}
+span.stock-btn:hover{filter:none}

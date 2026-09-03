@@ -8,6 +8,7 @@ import { markOutOfStock } from "@/lib/actions/stock";
 import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import WriteOnly, { useCanWrite } from "./Access";
 import type { Category, Lang, Product, StockStatus } from "@/lib/types";
 
 const STOCK_KEY = { in: "stockIn", low: "stockLow", out: "stockOut" } as const;
@@ -27,6 +28,7 @@ export default function ProductList({
   const [catId, setCatId] = useState("");
   const [stock, setStock] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const canWrite = useCanWrite();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const list = useMemo(() => {
@@ -117,7 +119,9 @@ export default function ProductList({
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />{" "}
           {t("archived", lang)}
         </label>
-        <Link className="btn btn-sm btn-amber" href="/admin/p/new">+ {t("newProduct", lang)}</Link>
+        <WriteOnly>
+          <Link className="btn btn-sm btn-amber" href="/admin/p/new">+ {t("newProduct", lang)}</Link>
+        </WriteOnly>
       </div>
 
       {list.length ? (
@@ -156,29 +160,46 @@ export default function ProductList({
                     </span>
                   )}
                   {p.status === "pending" && (
-                    <>
+                    <WriteOnly>
                       <button className="btn btn-sm" disabled={busyId === p.id} onClick={() => onApprove(p)}>
                         {t("approve", lang)}
                       </button>
                       <button className="btn btn-sm btn-danger" disabled={busyId === p.id} onClick={() => onReject(p)}>
                         {t("reject", lang)}
                       </button>
-                    </>
+                    </WriteOnly>
                   )}
-                  <button className={"stock-btn s-" + p.stock_status} type="button"
-                    disabled={busyId === p.id || p.stock_status === "out"}
-                    title={p.stock_status === "out"
-                      ? t("stockRestockHint", lang) : t("markOutOfStock", lang)}
-                    onClick={() => onMarkOut(p)}>
-                    {t(STOCK_KEY[p.stock_status], lang)}
-                  </button>
-                  <Link className="btn btn-sm btn-ghost" href={`/admin/p/${p.id}`}>{t("edit", lang)}</Link>
-                  <button className="btn btn-sm btn-ghost" type="button"
-                    disabled={busyId === p.id} onClick={() => onDuplicate(p)}>{t("duplicate", lang)}</button>
-                  <button className="btn btn-sm btn-ghost" type="button"
-                    disabled={busyId === p.id} onClick={() => onArchive(p)}>
-                    {p.archived ? t("restore", lang) : t("archive", lang)}
-                  </button>
+                  {/* Stock is a fact before it is a button. A reader needs
+                      to see "OUT OF STOCK" as much as anyone; they just
+                      cannot be the one to set it, so it loses the click and
+                      keeps the badge. */}
+                  <WriteOnly otherwise={
+                    <span className={"stock-btn s-" + p.stock_status}>
+                      {t(STOCK_KEY[p.stock_status], lang)}
+                    </span>
+                  }>
+                    <button className={"stock-btn s-" + p.stock_status} type="button"
+                      disabled={busyId === p.id || p.stock_status === "out"}
+                      title={p.stock_status === "out"
+                        ? t("stockRestockHint", lang) : t("markOutOfStock", lang)}
+                      onClick={() => onMarkOut(p)}>
+                      {t(STOCK_KEY[p.stock_status], lang)}
+                    </button>
+                  </WriteOnly>
+                  {/* The product page is where the full detail lives, so a
+                      reader still goes there -- to look, which is what the
+                      label now says. */}
+                  <Link className="btn btn-sm btn-ghost" href={`/admin/p/${p.id}`}>
+                    {t(canWrite ? "edit" : "view", lang)}
+                  </Link>
+                  <WriteOnly>
+                    <button className="btn btn-sm btn-ghost" type="button"
+                      disabled={busyId === p.id} onClick={() => onDuplicate(p)}>{t("duplicate", lang)}</button>
+                    <button className="btn btn-sm btn-ghost" type="button"
+                      disabled={busyId === p.id} onClick={() => onArchive(p)}>
+                      {p.archived ? t("restore", lang) : t("archive", lang)}
+                    </button>
+                  </WriteOnly>
                 </div>
               </div>
             );
@@ -187,7 +208,9 @@ export default function ProductList({
       ) : (
         <div className="empty">
           <p>{t("noResults", lang)}</p>
-          <Link className="btn" href="/admin/p/new">+ {t("newProduct", lang)}</Link>
+          <WriteOnly>
+            <Link className="btn" href="/admin/p/new">+ {t("newProduct", lang)}</Link>
+          </WriteOnly>
         </div>
       )}
     </>

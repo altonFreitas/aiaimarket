@@ -1,6 +1,7 @@
 import PayoutsAdmin from "@/components/admin/PayoutsAdmin";
 import { adminSellerLedgers, adminPayouts } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
+import { requireSection } from "@/lib/actions/guard";
 
 /** What the marketplace owes each seller, and what it has already paid.
  *
@@ -8,6 +9,7 @@ import { getLang } from "@/lib/lang";
  * adminSellerLedgers) rather than a per-seller query, so this page costs the
  * same whether the marketplace has three sellers or three hundred. */
 export default async function AdminPayoutsPage() {
+  await requireSection("sellers");
   const [lang, ledgers, payouts] = await Promise.all([
     getLang(), adminSellerLedgers(), adminPayouts(),
   ]);

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/settings";
 import { t } from "@/lib/i18n";
+import WriteOnly from "./Access";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 
 export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: Settings }) {
@@ -83,10 +84,12 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           <span>{t("sellerRegistrationEnabled", lang)}</span>
         </label>
         <p className="hint" style={{ marginTop: -4 }}>{t("sellerRegistrationEnabledHint", lang)}</p>
-        <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
-          onClick={() => run(() => saveSettings(f))}>
-          {t("save", lang)}
-        </button>
+        <WriteOnly>
+          <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
+            onClick={() => run(() => saveSettings(f))}>
+            {t("save", lang)}
+          </button>
+        </WriteOnly>
       </div>
 
       <div className="panel">
