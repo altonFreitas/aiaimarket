@@ -11,11 +11,32 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  * Async because every export from a "use server" file must be — this
  * is called directly from the client form. */
 export async function isAdminEmail(email: string): Promise<boolean> {
+  const typed = email.trim().toLowerCase();
+  if (!typed) return false;
+
   const configured = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
   // Unconfigured must never match — otherwise "" === "" routes an empty
   // login straight into the admin TOTP flow.
-  if (!configured) return false;
-  return email.trim().toLowerCase() === configured;
+  if (configured && typed === configured) return true;
+
+  // Staff accounts route the same way. Without this a staff member typing
+  // their email here fell through to the customer login, which has never
+  // heard of them, failed, and left them staring at the same form -- while
+  // the owner, whose email IS checked, sailed through.
+  //
+  // Only ACTIVE accounts. A disabled one cannot sign in to the admin
+  // anyway, so sending it there would be a dead end, and this way
+  // disabling somebody also stops their email answering this question.
+  try {
+    const admin = supabaseAdmin();
+    const { data, error } = await admin
+      .from("admin_users").select("id").ilike("email", typed).eq("active", true).maybeSingle();
+    return !error && !!data;
+  } catch {
+    // No admin_users table yet: only the owner exists, and they were
+    // already checked above.
+    return false;
+  }
 }
 
 /** Resolves who a signed-in Supabase Auth user actually is, without

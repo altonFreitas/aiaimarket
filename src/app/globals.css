@@ -1149,3 +1149,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    them: they answer a different question from the boxes below -- when, not
    what -- and running them together reads as one long row of controls. */
 .preset-bar{padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid var(--line-2)}
+
+/* Password box with the show/hide eye sitting inside its right edge. The
+   input reserves room for it so a long password never runs underneath. */
+.pw-wrap{position:relative}
+.pw-wrap input{width:100%;padding-right:40px}
+.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;border:0;background:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);border-radius:6px}
+.pw-eye:hover{color:var(--ink);background:var(--line-2)}
+
+/* The inline reset-password row inside a table cell. Right-aligned to sit
+   under the buttons that opened it, and the box is bounded so it does not
+   stretch the column it lives in. */
+.reset-bar{margin-top:8px;justify-content:flex-end}
+.reset-input{max-width:210px;flex:1 1 160px}

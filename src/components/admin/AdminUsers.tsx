@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { createAdminUser, setAdminUserActive, resetAdminUserPassword } from "@/lib/actions/adminUsers";
 import { MIN_PASSWORD_LEN } from "@/lib/passwordRules";
+import PasswordField from "@/components/PasswordField";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { AdminUserRow } from "@/lib/data/admin";
@@ -45,6 +46,14 @@ export default function AdminUsers({ lang, users }: { lang: Lang; users: AdminUs
         </button>
       </div>
 
+      {/* Where staff actually sign in. The person icon on the shop is the
+          CUSTOMER account and will never accept one of these -- which is
+          exactly the wrong door somebody walks into first. */}
+      <p className="note info">
+        {t("staffSignInHere", lang).split("{url}")[0]}
+        <a href="/admin/login" className="mono">/admin/login</a>
+        {t("staffSignInHere", lang).split("{url}")[1]}
+      </p>
       <p className="note info">{t("ownerLoginNote", lang)}</p>
 
       {adding && (
@@ -61,15 +70,14 @@ export default function AdminUsers({ lang, users }: { lang: Lang; users: AdminUs
                 onChange={(e) => setF({ ...f, email: e.target.value })} />
             </div>
           </div>
-          <div className="field">
-            <label htmlFor="au-pass">{t("password", lang)}</label>
-            <input id="au-pass" type="password" value={f.password}
-              onChange={(e) => setF({ ...f, password: e.target.value })} />
-            <p className="hint">
+          <PasswordField
+            id="au-pass" label={t("password", lang)} value={f.password}
+            onChange={(v) => setF({ ...f, password: v })}
+            hint={<>
               {t("passwordMin", lang).replace("{n}", String(MIN_PASSWORD_LEN))}
               {" "}{t("totpOnFirstLogin", lang)}
-            </p>
-          </div>
+            </>}
+          />
           <div className="bar">
             <button type="button" className="btn btn-primary" disabled={busy}
               onClick={() => run(async () => {
@@ -127,15 +135,24 @@ export default function AdminUsers({ lang, users }: { lang: Lang; users: AdminUs
                         </button>
                       </div>
                       {resetFor === u.id && (
-                        <div className="bar" style={{ marginTop: 8, justifyContent: "flex-end" }}>
-                          <input type="password" value={newPassword} placeholder={t("newPassword", lang)}
-                            onChange={(e) => setNewPassword(e.target.value)} style={{ maxWidth: 200 }} />
+                        <div className="bar reset-bar">
+                          <div className="reset-input">
+                            <PasswordField value={newPassword} onChange={setNewPassword}
+                              placeholder={t("newPassword", lang)} />
+                          </div>
                           <button type="button" className="btn btn-sm btn-primary" disabled={busy}
                             onClick={() => run(async () => {
                               await resetAdminUserPassword(u.id, newPassword);
                               setResetFor(null); setNewPassword("");
                             }, t("passwordReset", lang))}>
                             {t("save", lang)}
+                          </button>
+                          {/* A way out that is not "reload the page". Opening
+                              a password box by mistake should cost one click
+                              to close, not a lost train of thought. */}
+                          <button type="button" className="btn btn-sm btn-ghost" disabled={busy}
+                            onClick={() => { setResetFor(null); setNewPassword(""); }}>
+                            {t("cancel", lang)}
                           </button>
                         </div>
                       )}

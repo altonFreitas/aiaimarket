@@ -863,6 +863,8 @@ export const STR: Record<string, [string,string,string]> = {
   range_lastMonth:["Fulan kotuk","Mês passado","Last month"],
   range_quarter:["Trimestre ne'e","Este trimestre","This quarter"],
   range_year:["Tinan ne'e","Este ano","This year"],
+  adminLogin:["Tama iha admin","Entrada na administração","Admin sign in"],
+  staffSignInHere:["Ema ne'ebé Ita aumenta iha ne'e tama liu husi {url} — la'ós ikon ema iha loja. Sira sei rejista aplikasaun kodigu iha tama dahuluk.","Quem adicionar aqui entra por {url} — não pelo ícone de pessoa na loja. Configuram a aplicação de códigos no primeiro acesso.","People you add here sign in at {url} — not the person icon on the shop, which is the customer account. They set up their authenticator app the first time."],
   adminUsers:["Konta admin","Contas de administração","Admin users"],
   adminUsersSub:["Ema ne'ebé bele tama admin, no saida sira halo.","Quem pode entrar na administração, e o que fazem.","Who can sign in to the admin, and what they do."],
   addAdminUser:["Aumenta konta","Adicionar conta","Add account"],
