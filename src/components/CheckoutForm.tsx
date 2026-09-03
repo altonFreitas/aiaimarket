@@ -16,7 +16,7 @@ const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "card"];
 export default function CheckoutForm({
   lang, settings, cardAvailable = false,
 }: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
-  const { lines, subtotal, clear } = useBasket();
+  const { lines, ready, subtotal, clear } = useBasket();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -57,6 +57,16 @@ export default function CheckoutForm({
     }),
     [mode, cardAvailable]
   );
+
+  // Same as the cart: not-yet-read is not the same as empty, and this
+  // page told people their basket was empty on the way INTO paying for it.
+  if (!ready) {
+    return (
+      <div className="wrap" aria-busy="true">
+        <h1>{t("checkout", lang)}</h1>
+      </div>
+    );
+  }
 
   if (!lines.length) {
     return (
@@ -324,7 +334,13 @@ export default function CheckoutForm({
           <button className="btn btn-amber" type="submit" disabled={busy}>
             {busy ? "…" : t("confirmOrder", lang)}
           </button>
-          <a className="btn btn-ghost" href="/list">{t("cancel", lang)}</a>
+          {/* A Link, not a plain <a>. As an anchor this was a full page
+              load: the browser threw the app away, asked the server for
+              the cart, and painted the server's answer -- which cannot see
+              localStorage -- before rehydrating. That is the second half
+              of why Cancel flashed an empty basket, and the reason it felt
+              like it was loading. */}
+          <Link className="btn btn-ghost" href="/list">{t("cancel", lang)}</Link>
         </div>
       </form>
     </div>

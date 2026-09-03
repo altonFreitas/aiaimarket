@@ -6,7 +6,20 @@ import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
 export default function BasketView({ lang, storeName }: { lang: Lang; storeName: string }) {
-  const { lines, setQty, remove, subtotal } = useBasket();
+  const { lines, ready, setQty, remove, subtotal } = useBasket();
+
+  // Nothing is known about the basket until the browser's copy has been
+  // read. Saying "empty" here would be saying it about a basket nobody has
+  // looked in yet -- which is exactly what a shopper saw flash over their
+  // order every time they came back to this page. The heading is the same
+  // either way, so showing it alone costs no layout jump.
+  if (!ready) {
+    return (
+      <div className="wrap" aria-busy="true">
+        <h1>{t("list", lang)}</h1>
+      </div>
+    );
+  }
 
   if (!lines.length) {
     return (

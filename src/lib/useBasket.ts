@@ -37,6 +37,25 @@ function getSnapshot(): BasketLine[] {
 }
 function getServerSnapshot(): BasketLine[] { return EMPTY; }
 
+/* "Do we know what is in the basket yet?"
+ *
+ * The basket lives in localStorage, which the server cannot see. So the
+ * server render, and the first client render that hydrates it, both get an
+ * empty basket -- and a component that branches on lines.length announces
+ * "your cart is empty" for a frame before the real contents arrive.
+ *
+ * That is what a shopper saw every time they landed on the cart: their
+ * order, briefly replaced by a message saying they had not ordered
+ * anything.
+ *
+ * Empty and not-yet-known are different states and the difference has to
+ * survive as far as the component. This is the same mechanism the basket
+ * itself uses -- false while rendering on the server and while hydrating,
+ * true from the moment React re-reads on the client, which is the exact
+ * moment the real basket becomes available. */
+function readyOnClient(): boolean { return true; }
+function readyOnServer(): boolean { return false; }
+
 function subscribe(cb: () => void) {
   window.addEventListener(EVT, cb);
   window.addEventListener("storage", cb);
@@ -55,6 +74,10 @@ function write(lines: BasketLine[]) {
  * `orders` row in Postgres the moment placeOrder() runs. */
 export function useBasket() {
   const lines = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  /** False until the browser's own basket has been read. Anything that
+   * says "empty" must wait for this, or it says it about a basket it has
+   * not looked in. */
+  const ready = useSyncExternalStore(subscribe, readyOnClient, readyOnServer);
 
   const add = useCallback((line: BasketLine) => {
     const cur = getSnapshot().slice();
@@ -82,5 +105,5 @@ export function useBasket() {
   const count = lines.reduce((a, l) => a + l.qty, 0);
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
 
-  return { lines, add, setQty, remove, clear, count, subtotal };
+  return { lines, ready, add, setQty, remove, clear, count, subtotal };
 }

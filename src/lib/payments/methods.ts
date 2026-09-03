@@ -49,9 +49,17 @@ export const PAYMENT_METHODS: readonly MethodSpec[] = [
   {
     id: "card",
     labelKey: "payCard",
-    // The existing acquirer. lib/payments/registry.ts decides which
-    // provider is in play; these are what the default one needs.
-    requires: ["PAYMENT_PROVIDER", "MPGS_MERCHANT_ID", "MPGS_API_PASSWORD"],
+    // EXACTLY what the provider's own isConfigured() checks -- see
+    // lib/payments/providers/mpgs.ts. Any other list is a panel that
+    // disagrees with the thing it is reporting on, which is worse than no
+    // panel: it would call a shop with no MPGS_HOST ready, and cards would
+    // then fail at checkout with the buyer already committed.
+    //
+    // PAYMENT_PROVIDER is deliberately NOT here. registry.ts falls back to
+    // this provider when it is unset, so demanding it would report a
+    // correctly configured shop as broken and send somebody looking for a
+    // variable they do not need.
+    requires: ["MPGS_HOST", "MPGS_MERCHANT_ID", "MPGS_API_PASSWORD"],
   },
   {
     id: "applepay",

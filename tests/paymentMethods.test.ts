@@ -4,7 +4,7 @@ import {
 } from "@/lib/payments/methods";
 
 const CARD = {
-  PAYMENT_PROVIDER: "mpgs",
+  MPGS_HOST: "https://gateway.example",
   MPGS_MERCHANT_ID: "m1",
   MPGS_API_PASSWORD: "secret",
 };
@@ -17,6 +17,27 @@ describe("paymentMethodStatus", () => {
     const all = paymentMethodStatus({});
     expect(all.every((m) => !m.ready)).toBe(true);
     expect(readyMethods({})).toEqual([]);
+  });
+
+  it("asks for exactly what the gateway itself checks", () => {
+    // The panel and lib/payments/providers/mpgs.ts must agree. A panel that
+    // is more lenient calls a broken shop ready and the failure lands on a
+    // buyer at checkout; one that is stricter sends the owner hunting for a
+    // variable they do not need.
+    expect(statusOf({}, "card").missing)
+      .toEqual(["MPGS_HOST", "MPGS_MERCHANT_ID", "MPGS_API_PASSWORD"]);
+  });
+
+  it("does not demand PAYMENT_PROVIDER, which has a working default", () => {
+    // registry.ts falls back to the card provider when it is unset.
+    expect(statusOf(CARD, "card").ready).toBe(true);
+    expect(statusOf(CARD, "card").missing).toEqual([]);
+  });
+
+  it("is not fooled by a merchant id and password with no host", () => {
+    const half = { MPGS_MERCHANT_ID: "m1", MPGS_API_PASSWORD: "secret" };
+    expect(statusOf(half, "card").ready).toBe(false);
+    expect(statusOf(half, "card").missing).toEqual(["MPGS_HOST"]);
   });
 
   it("names exactly what is missing", () => {
