@@ -693,18 +693,30 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .ov-insights + .attn-links{margin-top:12px}
 
 /* ---------- two-series line chart (Home: sales against purchases) ----------
-   The two hues are NOT --ink and --amber. Those are the brand pair and they
-   fail as a categorical palette: navy sits at lightness .26 and amber at
-   .81, so one is nearly black and the other nearly invisible on white
-   (contrast 1.77:1, below the 3:1 floor). These are the same two hues
-   stepped into the passing band -- both inside L .43-.77, chroma above the
-   grey floor, 3:1 against the card, and 28 Delta-E apart under protanopia.
-   Checked with the palette validator rather than by eye; re-check before
-   changing either value.
+   Green for money coming in, red for money going out -- the convention
+   every ledger already uses, and the one this shop's own .up / .down
+   deltas use a few lines above.
 
-   Series colour carries identity ONLY. Every number and label on the chart
-   wears a text token, so the chart still reads with colour removed. */
-:root{--series-sales:#3358a8; --series-purchases:#b8860b}
+   THESE ARE NOT --green AND --red, AND THE REASON MATTERS.
+
+   Red against green is the single worst pair for colour blindness: it is
+   the axis that protanopia and deuteranopia collapse, which is about one
+   man in twelve. The shop's own tokens (#0e7a4f, #c43d2c) come out 7.9
+   Delta-E apart under protanopia -- below the floor of 8, meaning the two
+   lines converge into one for those readers.
+
+   So the pair is stepped apart by LIGHTNESS, which survives when the hue
+   does not: a lighter green and a distinctly darker red. That lands at
+   18.8 Delta-E under deuteranopia and 31.5 in normal vision, and passes
+   every check -- lightness band, chroma floor, and 3:1 against the card.
+   Measured with the palette validator, not judged by eye. If either value
+   is ever changed, run it again: a red and a green that merely look
+   different are not enough here.
+
+   Series colour carries identity ONLY. Every figure and label on the chart
+   wears a text token, and the legend names both series, so the chart still
+   reads with colour removed entirely. */
+:root{--series-sales:#39a06a; --series-purchases:#94210f}
 
 .linechart{position:relative}
 .linechart svg{display:block;width:100%;height:auto;overflow:visible}

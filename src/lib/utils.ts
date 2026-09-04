@@ -14,6 +14,30 @@ export function money(n: number | string): string {
   });
 }
 
+/** Money with the noise taken out, for a chart axis.
+ *
+ * An axis carries the same figure four or five times at nine pixels, where
+ * ".00" is two characters of nothing and every one of them widens the
+ * gutter the plot has to give up. Thousands become k, cents disappear, and
+ * a tick that is not a round thousand keeps one decimal so 1500 reads as
+ * $1.5k rather than collapsing into $2k beside a real $2k tick.
+ *
+ * Axis only. The tooltip and every table stay on money(), because that is
+ * where somebody reads an actual amount. */
+export function moneyAxis(n: number | string): string {
+  const v = Number(n) || 0;
+  const sign = v < 0 ? "-" : "";
+  const abs = Math.abs(v);
+  if (abs >= 1000) {
+    const k = abs / 1000;
+    // One decimal only when it says something: 1.5k, but 2k not 2.0k.
+    const shown = k >= 100 || Number.isInteger(k) ? Math.round(k) : Math.round(k * 10) / 10;
+    return `${sign}$${shown}k`;
+  }
+  // Under a thousand, whole dollars. Cents on an axis are never read.
+  return `${sign}$${Math.round(abs)}`;
+}
+
 /** Whole-number percent off, or null when there's no real discount
  * (missing/zero price, or discount_price not actually lower). Shared by
  * both product forms (bidirectional price<->percent entry) and both

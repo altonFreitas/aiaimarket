@@ -148,30 +148,59 @@ const PAD_L = 4;
 const PAD_R = 4;
 const PAD_T = 10;
 const PAD_B = 22;
+/** Width of one character of the tick font in viewBox units.
+ *
+ * Measured, not estimated: ui-monospace at 9px renders every character at
+ * 5.40 units ("0", "200", "$12,500" and "$1,000.00" all divide to 5.40).
+ * The gutter is sized from this, and the first guess of 5.1 was narrow
+ * enough to clip the figures against the plot. */
+const TICK_CHAR_W = 5.4;
 
-/** "Nice" round top for the axis, so the gridline labels are readable
- * numbers rather than 1837.4. */
-function niceMax(v: number): number {
-  if (v <= 0) return 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(v)));
-  const n = v / mag;
-  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
-  return step * mag;
+/** A scale whose gridlines land on round numbers.
+ *
+ * The step is chosen FIRST and the top follows from it, which is the whole
+ * trick. Rounding the top up on its own and then dividing it into four
+ * gives ticks like 12.5 and 37.5: 45 rounds to a top of 50, and a quarter
+ * of 50 is not a number anybody wants to read off an axis.
+ *
+ * Choosing the step first and taking the top as a whole number of steps
+ * means every tick is a multiple of it. Takings of 160 give a step of 50,
+ * a top of 200, and the axis reads 0 / 50 / 100 / 150 / 200. */
+export function niceScale(peak: number, targetTicks = 4): { max: number; ticks: number[] } {
+  if (!(peak > 0)) return { max: 1, ticks: [] };
+  const raw = peak / targetTicks;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / mag;
+  // 2.5 is in the list because money divides into quarters more often than
+  // it divides into halves: 250 is a better step than 200 for a peak of
+  // 900, and without it the axis jumps to 500 and shows three lines.
+  const step = (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+  const max = Math.ceil(peak / step) * step;
+  const ticks: number[] = [];
+  // Float steps such as 2.5 accumulate error; multiplying is exact enough
+  // and cannot drift past the top.
+  for (let i = 0; i * step <= max + step / 1000; i++) ticks.push(i * step);
+  return { max, ticks };
 }
 
 export function DualLine({
-  points, labelA, labelB, emptyLabel, format = money, note,
+  points, labelA, labelB, emptyLabel, format = money, axisFormat, note,
 }: {
   points: LinePoint[];
   labelA: string;
   labelB: string;
   emptyLabel: string;
   format?: (n: number) => string;
+  /** Compact form for the y figures, which repeat four or five times and
+   * would otherwise carry cents nobody reads at that size. Defaults to the
+   * full format when the caller has nothing shorter. */
+  axisFormat?: (n: number) => string;
   /** Shown beside the legend, for the resolution caveat. */
   note?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const uid = useId();
+  const axisFmt = axisFormat ?? format;
 
   const hasB = points.some((p) => p.b != null);
   const peak = Math.max(...points.map((p) => Math.max(p.a, p.b ?? 0)), 0);
@@ -187,16 +216,22 @@ export function DualLine({
    * replacement. Only a period with no BUCKETS at all -- which cannot
    * happen from a range -- has nothing to draw. */
   const flat = peak <= 0;
-  const max = flat ? 1 : niceMax(peak);
+  const { max, ticks } = niceScale(peak);
   if (!points.length) return <Empty label={emptyLabel} />;
 
   // Viewbox units, scaled to the container by width:100%. A single point
   // would divide by zero, so it is pinned to the middle.
   const W = 600;
-  const innerW = W - PAD_L - PAD_R;
+  /* Room for the y figures, from the widest one actually being drawn. The
+     tick font is the monospace stack at 9px, so a character is a known
+     width and the gutter can be computed rather than guessed at -- and it
+     shrinks for "200" as readily as it grows for "$12,500". */
+  const widest = flat ? 0 : Math.max(...ticks.map((v) => axisFmt(v).length), 0);
+  const gutter = flat ? PAD_L : PAD_L + widest * TICK_CHAR_W + 6;
+  const innerW = W - gutter - PAD_R;
   const innerH = LINE_H - PAD_T - PAD_B;
   const x = (i: number) =>
-    points.length === 1 ? PAD_L + innerW / 2 : PAD_L + (i / (points.length - 1)) * innerW;
+    points.length === 1 ? gutter + innerW / 2 : gutter + (i / (points.length - 1)) * innerW;
   const y = (v: number) => PAD_T + innerH - (v / max) * innerH;
 
   const path = (pick: (p: LinePoint) => number) =>
@@ -234,13 +269,21 @@ export function DualLine({
       <svg viewBox={`0 0 ${W} ${LINE_H}`} role="img"
         aria-label={`${labelA} and ${labelB}`}
         onMouseLeave={() => setHover(null)}>
-        {[0, 0.5, 1].map((f) => (
-          <line key={f} className="lc-grid"
-            x1={PAD_L} x2={W - PAD_R} y1={y(max * f)} y2={y(max * f)} />
+        {/* One line and one figure per tick, the figures right-aligned in
+            a gutter sized to the widest of them. A single label at the top
+            left the reader measuring every other point by eye. */}
+        {(flat ? [0] : ticks).map((v) => (
+          <line key={"g" + v} className="lc-grid"
+            x1={gutter} x2={W - PAD_R} y1={y(v)} y2={y(v)} />
         ))}
-        {/* No axis figure on a flat period: the scale is nominal, and
+        {/* No figures on a flat period: the scale is nominal there, and
             printing "$1.00" at the top of an empty day invents a number. */}
-        {!flat && <text className="lc-tick" x={PAD_L} y={y(max) - 3}>{format(max)}</text>}
+        {!flat && ticks.map((v) => (
+          <text key={"t" + v} className="lc-tick lc-ytick"
+            x={gutter - 5} y={y(v) + 3} textAnchor="end">
+            {axisFmt(v)}
+          </text>
+        ))}
 
         <defs>
           <linearGradient id={`${uid}-a`} x1="0" y1="0" x2="0" y2="1">

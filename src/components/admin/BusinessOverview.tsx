@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DualLine } from "./Charts";
-import { money } from "@/lib/utils";
+import { money, moneyAxis } from "@/lib/utils";
 import {
   overviewSeries, headlineMetrics, buildOverviewInsights, periodShape,
   purchasesResolvable, rangeSpec, METRIC_KEYS, RANGES,
@@ -43,6 +43,30 @@ const JUDGED: ReadonlySet<MetricKey> = new Set(["revenue", "qtySold", "grossProf
 
 function pct(n: number | null): string {
   return n == null ? "—" : `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)}%`;
+}
+
+/** The range row.
+ *
+ * Rendered above BOTH charts rather than only the first. They share one
+ * piece of state, so either row moves both -- and a second chart with no
+ * control of its own reads as a chart the range does not apply to, which
+ * is exactly backwards. One component so the two rows cannot drift apart
+ * as ranges are added. */
+function RangeTabs({ lang, range, onPick }: {
+  lang: Lang; range: RangeKey; onPick: (r: RangeKey) => void;
+}) {
+  return (
+    <div className="bar preset-bar" style={{ margin: 0 }}>
+      {RANGES.map((r) => (
+        <button key={r.key} type="button"
+          className={"chip" + (range === r.key ? " is-on" : "")}
+          aria-pressed={range === r.key}
+          onClick={() => onPick(r.key)}>
+          {t("rng_" + r.key, lang)}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function Delta({ label, value, judged }: {
@@ -158,19 +182,10 @@ export default function BusinessOverview({
                 against money out" would promise a comparison it is not
                 making. */}
             <h3>{showPurchases ? t("ovMoneyTrend", lang) : t("totalSalesRevenue", lang)}</h3>
-            {/* One control for both charts. The bucket comes with the
-                range rather than being a second picker: a day is read in
-                hours, a month in days, a year in months, and nobody can
-                ask for five years by the hour. */}
-            <div className="bar preset-bar" style={{ margin: 0 }}>
-              {RANGES.map((r) => (
-                <button key={r.key} type="button"
-                  className={"chip" + (range === r.key ? " is-on" : "")}
-                  onClick={() => setRange(r.key)}>
-                  {t("rng_" + r.key, lang)}
-                </button>
-              ))}
-            </div>
+            {/* The bucket comes with the range rather than being a second
+                picker: a day is read in hours, a month in days, a year in
+                months, and nobody can ask for five years by the hour. */}
+            <RangeTabs lang={lang} range={range} onPick={setRange} />
           </div>
           <DualLine
             points={points.map((p) => ({
@@ -181,6 +196,7 @@ export default function BusinessOverview({
             labelB={t("totalPurchaseValue", lang)}
             emptyLabel={t("ovNothingInRange", lang)}
             format={fmtMoney}
+            axisFormat={moneyAxis}
             note={showPurchases ? undefined : t("ovNoIntradayPurchases", lang)}
           />
           {/* The table view the contrast check obliges, and the thing a
@@ -217,7 +233,10 @@ export default function BusinessOverview({
 
       {hasHistory && bothSides && (
         <div className="panel">
-          <h3>{showPurchases ? t("ovStockTrend", lang) : t("quantitySold", lang)}</h3>
+          <div className="panel-head">
+            <h3>{showPurchases ? t("ovStockTrend", lang) : t("quantitySold", lang)}</h3>
+            <RangeTabs lang={lang} range={range} onPick={setRange} />
+          </div>
           <p className="hint" style={{ marginTop: -6 }}>{t("ovStockTrendHint", lang)}</p>
           <DualLine
             points={points.map((p) => ({
