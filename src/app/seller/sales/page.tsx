@@ -1,28 +1,36 @@
 import { requireSellerFeature } from "@/lib/actions/guard";
-import { getSellerOrders } from "@/lib/data/seller";
+import { sellerSalesData } from "@/lib/data/sellerSales";
 import { adminSettings } from "@/lib/data/admin";
-import { sellerSalesReport } from "@/lib/sellerSales";
+import { packSalesLines } from "@/lib/salesWire";
+import { todayIso } from "@/lib/sales";
 import SellerSales from "@/components/seller/SellerSales";
 import { getLang } from "@/lib/lang";
 
-/** The first of the owner's tools a store can be given.
+/** A store's own sales, on the owner's own engine.
  *
- * Everything here is the store's own money: what they sold, what the
- * marketplace took, what is left. Nothing is derived from the platform's
- * purchase costs -- those never reach a seller (see stripCost in
- * lib/data/seller.ts), which is why this is a revenue view rather than the
- * margin view the owner has on /admin/sales. */
+ * The lines come from lib/data/sellerSales.ts, which filters them to this
+ * store and removes the platform's purchase cost before anything is built.
+ * Nothing below re-checks that, because there is nothing to re-check: what
+ * arrives here has no cost in it. */
 export default async function SellerSalesPage() {
   const seller = await requireSellerFeature("sales");
-  const [lang, orders, settings] = await Promise.all([
-    getLang(), getSellerOrders(seller.id), adminSettings(),
+  const [lang, data, settings] = await Promise.all([
+    getLang(), sellerSalesData(seller), adminSettings(),
   ]);
 
   // Their own negotiated rate if they have one, otherwise the platform
   // default -- the same precedence computeSellerEarnings() uses, so this
   // screen and the dashboard's "still owed" cannot disagree.
-  const rate = seller.commission_rate ?? settings.commission_rate ?? 0;
-  const report = sellerSalesReport(orders, rate);
+  const rate = seller.commission_rate ?? settings?.commission_rate ?? 0;
 
-  return <SellerSales lang={lang} report={report} rate={rate} />;
+  return (
+    <SellerSales
+      lang={lang}
+      lines={packSalesLines(data.lines)}
+      categories={data.categories}
+      rate={rate}
+      unsold={data.unsold}
+      today={todayIso()}
+    />
+  );
 }

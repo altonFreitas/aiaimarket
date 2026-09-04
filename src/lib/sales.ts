@@ -1314,19 +1314,37 @@ function csvCell(v: string | number | null): string {
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function linesToCsv(lines: SalesLine[]): string {
-  const rows = [EXPORT_COLUMNS.join(",")];
+/** Columns that describe what the goods COST the marketplace. Dropped for a
+ * seller's own export: their lines carry no cost (see lib/data/sellerSales.ts),
+ * and three permanently empty columns headed "cost", "gross_profit" and
+ * "margin_pct" invite the reader to think the figures are missing rather
+ * than that they were never theirs. */
+const COST_COLUMNS: ReadonlySet<string> = new Set(["cost", "gross_profit", "margin_pct"]);
+
+export function exportColumns(includeCost = true): string[] {
+  return EXPORT_COLUMNS.filter((c) => includeCost || !COST_COLUMNS.has(c));
+}
+
+export function linesToCsv(lines: SalesLine[], includeCost = true): string {
+  const rows = [exportColumns(includeCost).join(",")];
   for (const l of lines) {
-    rows.push([
+    const cells: Array<string | number | null> = [
       l.ref, l.date, l.customerName, l.customerPhone, l.municipality, l.sellerName,
       l.productName, l.categoryName, l.qty, l.unitPrice.toFixed(2),
       l.discount.toFixed(2), l.netSales.toFixed(2),
-      l.cost == null ? "" : l.cost.toFixed(2),
-      l.grossProfit == null ? "" : l.grossProfit.toFixed(2),
-      l.margin == null ? "" : (l.margin * 100).toFixed(1),
+    ];
+    if (includeCost) {
+      cells.push(
+        l.cost == null ? "" : l.cost.toFixed(2),
+        l.grossProfit == null ? "" : l.grossProfit.toFixed(2),
+        l.margin == null ? "" : (l.margin * 100).toFixed(1),
+      );
+    }
+    cells.push(
       l.status, l.payStatus,
       l.expectedDelivery || "", l.deliveredAt || "", l.invoicedAt || "",
-    ].map(csvCell).join(","));
+    );
+    rows.push(cells.map(csvCell).join(","));
   }
   return rows.join("\n");
 }

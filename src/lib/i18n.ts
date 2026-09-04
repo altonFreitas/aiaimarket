@@ -239,6 +239,9 @@ export const STR: Record<string, [string,string,string]> = {
 
   /* what a store has been given access to -- see lib/sellerFeatures.ts */
   sellerSales:["Ha'u nia venda","As minhas vendas","My sales"],
+  sellerEarningsBasis:["Sura ba enkomenda ne'ebe entrega ona, hanesan painel.","Calculado sobre encomendas entregues, tal como no painel.","Charged on delivered orders, the same basis as your dashboard."],
+  returningCustomers:["Kliente ne'ebe fila fali","Clientes que voltaram","Returning customers"],
+  unsoldProductsHint:["Produtu sira ne'e la fa'an buat ida iha tempu ne'e. Karik presiza foto ka folin foun.","Estes produtos nao venderam nada neste periodo. Talvez precisem de outra foto ou preco.","These sold nothing in this period. They may need a different photo or price."],
   sellerStock:["Ha'u nia stock","O meu stock","My stock"],
   sellerAccess:["Asesu","Acesso","Access"],
   sellerAccessEdit:["Muda asesu","Alterar acesso","Change access"],

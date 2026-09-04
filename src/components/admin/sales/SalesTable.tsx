@@ -20,15 +20,21 @@ type SortKey =
   | "date" | "ref" | "customer" | "product" | "qty"
   | "netSales" | "grossProfit" | "margin" | "status";
 
-const COLUMNS: Array<{ key: SortKey; label: string; num?: boolean }> = [
+/* `cost: true` marks a column that reports what the goods cost the
+ * marketplace. The seller's own copy of this table is rendered with
+ * showCost={false} and drops them entirely rather than printing an em dash
+ * in each -- their lines genuinely have no cost (lib/data/sellerSales.ts
+ * removes it), and a column of dashes reads as data missing rather than as
+ * a number that was never theirs. */
+const COLUMNS: Array<{ key: SortKey; label: string; num?: boolean; cost?: boolean }> = [
   { key: "ref", label: "order" },
   { key: "date", label: "date" },
   { key: "customer", label: "customer" },
   { key: "product", label: "product" },
   { key: "qty", label: "qty", num: true },
   { key: "netSales", label: "netSales", num: true },
-  { key: "grossProfit", label: "grossProfit", num: true },
-  { key: "margin", label: "margin", num: true },
+  { key: "grossProfit", label: "grossProfit", num: true, cost: true },
+  { key: "margin", label: "margin", num: true, cost: true },
   { key: "status", label: "status", num: false },
 ];
 
@@ -49,8 +55,16 @@ function moneyOrDash(n: number | null): string {
 }
 
 export default function SalesTable({
-  lang, lines, today,
-}: { lang: Lang; lines: SalesLine[]; today: string }) {
+  lang, lines, today, showCost = true, hrefFor,
+}: {
+  lang: Lang; lines: SalesLine[]; today: string;
+  /** False on a seller's own screen: see COLUMNS above. */
+  showCost?: boolean;
+  /** Where an order reference links to. The admin and the seller have
+   * different order screens, and a hard-coded /admin/o/ link on a seller's
+   * table is a door that bounces them. */
+  hrefFor?: (orderId: string) => string | null;
+}) {
   const [sort, setSort] = useState<SortKey>("date");
   const [asc, setAsc] = useState(false);
   const [limit, setLimit] = useState(PAGE);
@@ -84,6 +98,7 @@ export default function SalesTable({
   }, [lines, sort, asc]);
 
   const shown = sorted.slice(0, limit);
+  const columns = useMemo(() => COLUMNS.filter((c) => showCost || !c.cost), [showCost]);
   const orders = useMemo(() => new Map(groupOrders(lines).map((o) => [o.orderId, o])), [lines]);
 
   function toggleSort(key: SortKey) {
@@ -95,7 +110,7 @@ export default function SalesTable({
    * filtered this set down, and a CSV of everything would silently discard
    * that work. Built from the same lines the table renders. */
   function exportCsv() {
-    const blob = new Blob([linesToCsv(sorted)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([linesToCsv(sorted, showCost)], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -121,7 +136,7 @@ export default function SalesTable({
         <table className="tbl tbl-compact">
           <thead>
             <tr>
-              {COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <th key={c.key} className={c.num ? "num" : ""}>
                   <button type="button" className="th-sort" onClick={() => toggleSort(c.key)}>
                     {t(c.label, lang)}
@@ -154,18 +169,22 @@ export default function SalesTable({
                     <td>{l.productName}</td>
                     <td className="num">{l.qty}</td>
                     <td className="num">{money(l.netSales)}</td>
-                    <td className="num">{moneyOrDash(l.grossProfit)}</td>
-                    <td className="num">{pct(l.margin)}</td>
+                    {showCost && <td className="num">{moneyOrDash(l.grossProfit)}</td>}
+                    {showCost && <td className="num">{pct(l.margin)}</td>}
                     <td><span className={"pill " + STATUS_PILL[l.status]}>{t("st_" + l.status, lang)}</span></td>
                   </tr>
                   {isOpen && order && (
                     <tr key={l.orderId + "-detail"} className="detail-row">
-                      <td colSpan={COLUMNS.length}>
+                      <td colSpan={columns.length}>
                         <div className="order-detail">
                           <section>
                             <h4>{t("orderInformation", lang)}</h4>
-                            <Kv label={t("order", lang)}
-                              value={<Link href={`/admin/o/${order.orderId}`} className="mono">{order.ref}</Link>} />
+                            <Kv label={t("order", lang)} value={(() => {
+                              const href = hrefFor ? hrefFor(order.orderId) : `/admin/o/${order.orderId}`;
+                              return href
+                                ? <Link href={href} className="mono">{order.ref}</Link>
+                                : <span className="mono">{order.ref}</span>;
+                            })()} />
                             <Kv label={t("orderDate", lang)} value={order.date} />
                             <Kv label={t("customer", lang)} value={`${order.customerName} · ${order.customerPhone}`} />
                             <Kv label={t("municipality", lang)} value={order.municipality || "—"} />
@@ -176,9 +195,9 @@ export default function SalesTable({
                           <section>
                             <h4>{t("financialInformation", lang)}</h4>
                             <Kv label={t("revenue", lang)} value={money(order.revenue)} />
-                            <Kv label={t("cost", lang)} value={moneyOrDash(order.cost)} />
-                            <Kv label={t("grossProfit", lang)} value={moneyOrDash(order.grossProfit)} />
-                            <Kv label={t("margin", lang)} value={pct(order.margin)} />
+                            {showCost && <Kv label={t("cost", lang)} value={moneyOrDash(order.cost)} />}
+                            {showCost && <Kv label={t("grossProfit", lang)} value={moneyOrDash(order.grossProfit)} />}
+                            {showCost && <Kv label={t("margin", lang)} value={pct(order.margin)} />}
                             <Kv label={t("paymentStatus", lang)} value={t("ps_" + order.payStatus, lang)} />
                             <Kv label={t("paymentMethod", lang)} value={t("pm_" + order.payMethod, lang)} />
                           </section>

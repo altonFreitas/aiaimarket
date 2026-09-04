@@ -649,7 +649,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .filters label>span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;
   text-transform:uppercase;color:var(--muted)}
 .filters input,.filters select{height:32px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);padding:0 8px;font-size:13px;width:100%}
+  background:var(--card);padding:0 8px;font-size:13px}
+/* Full width only inside the LABELLED GRID, which is what that layout is for.
+   Applied to every control under .filters it also hit the .bar rows on the
+   two sales dashboards -- and a 100%-wide child of a wrapping flex row takes
+   the whole row, so the search box, both dates and all three selects each
+   sat on a line of their own instead of in one bar. */
+.filters .filter-grid input,.filters .filter-grid select{width:100%}
 .filter-search{grid-column:span 2}
 
 /* KPI cards carry an optional comparison line; it is muted so the figure
