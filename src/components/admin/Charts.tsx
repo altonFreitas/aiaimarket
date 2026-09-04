@@ -183,6 +183,56 @@ export function niceScale(peak: number, targetTicks = 4): { max: number; ticks: 
   return { max, ticks };
 }
 
+/** How many labels to aim for. Six or seven reads as a scale; twenty reads
+ * as a wall of dates with a chart behind it. */
+const TARGET_LABELS = 6;
+
+/** Which points along the axis get a label.
+ *
+ * TWO RULES, AND THE SECOND ONE IS WHY THIS EXISTS.
+ *
+ * The first is density: about six labels, so a twenty-seven-week series
+ * does not print twenty-seven dates. That part worked.
+ *
+ * The second is that the LAST bucket is always labelled -- a reader looks
+ * at the right-hand end to see where the series finishes -- and the old
+ * code simply added it. When the count was not a multiple of the spacing,
+ * that final label landed one step from the one before it and the two were
+ * drawn on top of each other. On the six-month range it read "24/0808".
+ *
+ * So the last label displaces its neighbour rather than joining it: if the
+ * gap between them is too small to hold the text, the neighbour goes. The
+ * width is computed from the longest label and the known character width
+ * of the tick font, so it holds for "14:00" and for "2026-09" alike.
+ */
+export function axisLabelIndices(
+  count: number, spanUnits: number, labelChars: number
+): number[] {
+  if (count <= 0) return [];
+  if (count === 1) return [0];
+
+  const step = spanUnits / (count - 1);
+  // The text plus a gap, so two neighbours cannot touch.
+  const minGap = labelChars * TICK_CHAR_W + 10;
+  const every = Math.max(
+    1,
+    Math.ceil(minGap / step),               // never collide
+    Math.ceil(count / TARGET_LABELS)        // never crowd
+  );
+
+  const out: number[] = [];
+  for (let i = 0; i < count; i += every) out.push(i);
+
+  const last = count - 1;
+  if (out[out.length - 1] !== last) {
+    // Drop the neighbour if the end label would sit on top of it -- but
+    // never the first one, which anchors the other end of the axis.
+    if (out.length > 1 && (last - out[out.length - 1]) * step < minGap) out.pop();
+    out.push(last);
+  }
+  return out;
+}
+
 export function DualLine({
   points, labelA, labelB, emptyLabel, format = money, axisFormat, note,
 }: {
@@ -243,9 +293,12 @@ export function DualLine({
     `${path(pick)} L${x(points.length - 1).toFixed(1)},${(PAD_T + innerH).toFixed(1)}`
     + ` L${x(0).toFixed(1)},${(PAD_T + innerH).toFixed(1)} Z`;
 
-  // At most six labels along the axis, so a thirty-month series does not
-  // print thirty overlapping dates.
-  const every = Math.max(1, Math.ceil(points.length / 6));
+  // Which points get a date under them. See axisLabelIndices.
+  const labelled = axisLabelIndices(
+    points.length,
+    innerW,
+    Math.max(...points.map((p) => p.label.length), 1)
+  );
   const active = hover != null ? points[hover] : null;
 
   return (
@@ -311,7 +364,7 @@ export function DualLine({
         {points.map((p, i) => (
           <text key={p.label} className="lc-tick" x={x(i)} y={LINE_H - 6}
             textAnchor={i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"}
-            opacity={i % every === 0 || i === points.length - 1 ? 1 : 0}>
+            opacity={labelled.includes(i) ? 1 : 0}>
             {p.label}
           </text>
         ))}

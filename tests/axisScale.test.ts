@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { niceScale } from "@/components/admin/Charts";
+import { niceScale, axisLabelIndices } from "@/components/admin/Charts";
 import fs from "node:fs";
 import path from "node:path";
 import { money, moneyAxis } from "@/lib/utils";
@@ -212,5 +212,109 @@ describe("the two series colours", () => {
       const ratio = (1.0 + 0.05) / (luminance(token(name)) + 0.05);
       expect([name, ratio >= 3]).toEqual([name, true]);
     }
+  });
+});
+
+describe("axisLabelIndices", () => {
+  /* THE BUG. The last bucket is always labelled, and the old code simply
+   * added it to the evenly spaced set. When the count was not a multiple of
+   * the spacing, that final label landed one step from its neighbour and
+   * the two were drawn over each other -- on the six-month range the axis
+   * read "24/0808".
+   *
+   * Character width is 5.4 units (see TICK_CHAR_W), so a five-character
+   * date like "24/08" needs 27 units plus a gap. */
+  const CHAR = 5.4;
+  const gapOf = (chars: number) => chars * CHAR + 10;
+
+  /** Do any two chosen labels sit closer than their own width? */
+  const collides = (idx: number[], count: number, span: number, chars: number) => {
+    const step = span / (count - 1);
+    for (let i = 1; i < idx.length; i++) {
+      if ((idx[i] - idx[i - 1]) * step < gapOf(chars) - 0.001) return true;
+    }
+    return false;
+  };
+
+  it("does not let the end label land on its neighbour", () => {
+    // 27 weekly buckets across 564 units: exactly the six-month case.
+    const idx = axisLabelIndices(27, 564, 5);
+    expect(idx[idx.length - 1]).toBe(26);
+    expect(collides(idx, 27, 564, 5)).toBe(false);
+  });
+
+  it("would have collided under the old rule, which is the point", () => {
+    // Every 5th plus the last: ...20, 25, 26. One step apart at 21.7 units,
+    // where the text needs 37.
+    const old = [0, 5, 10, 15, 20, 25, 26];
+    expect(collides(old, 27, 564, 5)).toBe(true);
+  });
+
+  it("always labels both ends", () => {
+    for (const n of [2, 5, 12, 24, 27, 30, 60, 120]) {
+      const idx = axisLabelIndices(n, 564, 5);
+      expect([n, idx[0]]).toEqual([n, 0]);
+      expect([n, idx[idx.length - 1]]).toEqual([n, n - 1]);
+    }
+  });
+
+  it("never collides at any series length", () => {
+    for (let n = 2; n <= 200; n++) {
+      const idx = axisLabelIndices(n, 564, 5);
+      expect([n, collides(idx, n, 564, 5)]).toEqual([n, false]);
+    }
+  });
+
+  it("never collides for any label width or chart width either", () => {
+    /* THE VERSION THAT ACTUALLY BITES.
+     *
+     * The test above uses five-character dates on a full-width chart,
+     * where aiming for six labels happens to leave enough room by itself
+     * -- so deleting the collision rule entirely still passed it. The
+     * property is not "six labels are far enough apart at one size", it is
+     * "labels never touch, whatever their width and whatever the span". A
+     * short series of long labels in a narrow plot is where density alone
+     * fails: eight points across 200 units with ten-character labels wants
+     * 64 units and gets 57. */
+    for (const span of [160, 200, 320, 564]) {
+      for (const chars of [3, 5, 7, 10, 12]) {
+        for (const n of [2, 3, 5, 8, 13, 21, 34, 60, 120]) {
+          const idx = axisLabelIndices(n, span, chars);
+          expect([span, chars, n, collides(idx, n, span, chars)])
+            .toEqual([span, chars, n, false]);
+        }
+      }
+    }
+  });
+
+  it("keeps the axis readable rather than dense", () => {
+    // Collision-free alone would allow fourteen labels on the six-month
+    // range. Six or seven reads as a scale.
+    for (const n of [12, 24, 27, 30, 60, 120]) {
+      const idx = axisLabelIndices(n, 564, 5);
+      expect([n, idx.length <= 8]).toEqual([n, true]);
+    }
+  });
+
+  it("gives wider labels more room", () => {
+    // "2026-09-04" needs nearly twice what "24/08" does, so fewer fit.
+    const narrow = axisLabelIndices(60, 564, 5);
+    const wide = axisLabelIndices(60, 564, 10);
+    expect(wide.length).toBeLessThanOrEqual(narrow.length);
+    expect(collides(wide, 60, 564, 10)).toBe(false);
+  });
+
+  it("handles the degenerate cases", () => {
+    expect(axisLabelIndices(0, 564, 5)).toEqual([]);
+    expect(axisLabelIndices(1, 564, 5)).toEqual([0]);
+    expect(axisLabelIndices(2, 564, 5)).toEqual([0, 1]);
+  });
+
+  it("does not drop the first label to make room for the last", () => {
+    // With only two labels the end must displace nothing -- an axis with
+    // no left-hand anchor is worse than a crowded one.
+    const idx = axisLabelIndices(3, 40, 8);
+    expect(idx[0]).toBe(0);
+    expect(idx).toContain(2);
   });
 });

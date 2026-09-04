@@ -1,4 +1,5 @@
 import { schemaStatus } from "@/lib/data/schema";
+import Fold from "./Fold";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -30,9 +31,19 @@ export default async function SchemaHealth({ lang }: { lang: Lang }) {
 
   const outstanding = status.features.filter((f) => !f.applied);
 
+  const done = status.features.length - outstanding.length;
+
   return (
-    <div className="panel">
-      <h2 className="crumb">{t("database", lang)}</h2>
+    <Fold
+      lang={lang}
+      title={t("database", lang)}
+      status={`${done}/${status.features.length} ${t("schemaAppliedCount", lang)}`}
+      tone={outstanding.length === 0 ? "ok" : "warn"}
+      /* A file that has not been run is the thing that breaks a screen with
+         no other warning, so this one opens itself when there is one. A
+         drawer nobody opens is where that fact would go to be missed. */
+      defaultOpen={outstanding.length > 0}
+    >
       <p className="hint" style={{ marginTop: 0 }}>
         {outstanding.length === 0
           ? t("schemaAllApplied", lang)
@@ -59,6 +70,6 @@ export default async function SchemaHealth({ lang }: { lang: Lang }) {
           </div>
         ))}
       </div>
-    </div>
+    </Fold>
   );
 }

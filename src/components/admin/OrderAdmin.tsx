@@ -19,7 +19,7 @@ function PencilIcon() {
 }
 
 export default function OrderAdmin({
-  lang, order: o, settings: _settings,
+  lang, order: o, settings,
 }: { lang: Lang; order: Order; settings: Settings }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -41,6 +41,17 @@ export default function OrderAdmin({
     setBusy(false);
   }
 
+  async function printSlip() {
+    setBusy(true);
+    try {
+      const mod = await import("@/lib/pdfPackingSlip");
+      await mod.downloadPackingSlip(o, settings);
+    } catch (e) {
+      toast(String((e as Error).message), true);
+    }
+    setBusy(false);
+  }
+
   return (
     <>
       <p className="crumb">
@@ -55,6 +66,13 @@ export default function OrderAdmin({
           WhatsApp
         </a>
         <a className="btn btn-ghost btn-sm" href={`tel:${o.buyer_phone}`}>{t("call", lang)}</a>
+        {/* The paper that goes with the parcel. Imported on the click, not
+            at the top: jsPDF and the QR encoder are a large pair to put in
+            the bundle of a screen most visits never print from. */}
+        <button className="btn btn-ghost btn-sm" type="button" disabled={busy}
+          onClick={() => { void printSlip(); }}>
+          {t("deliveryNote", lang)}
+        </button>
       </div>
 
       {/* F4 status machine */}

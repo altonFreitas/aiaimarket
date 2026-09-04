@@ -166,19 +166,18 @@ export function bucketLabels(bucket: Bucket, key: string): { label: string; full
  * closing it would run the line straight through as though trade had been
  * continuous. */
 function bucketsFor(
-  spec: RangeSpec, earliest: string | null, today: string, nowMs: number
+  spec: RangeSpec, earliest: string | null, today: string
 ): string[] {
   const out: string[] = [];
 
   if (spec.bucket === "hour") {
-    // The last 24 store hours, ending at the current one.
-    const end = storeHourKey(nowMs);
-    const endMs = Date.parse(end.slice(0, 10) + "T00:00:00Z") + Number(end.slice(11, 13)) * 3_600_000;
-    for (let i = 23; i >= 0; i--) {
-      const at = new Date(endMs - i * 3_600_000);
-      const iso = at.toISOString();
-      out.push(`${iso.slice(0, 10)}T${iso.slice(11, 13)}`);
-    }
+    /* TODAY, 00:00 to 23:00 -- not a rolling twenty-four hours.
+     *
+     * A rolling window crosses midnight, so "1D" would cover part of
+     * yesterday and the headline figure beside it could not be "today's
+     * takings" without disagreeing with its own chart. A shop asks "how
+     * are we doing today", and today is a calendar day. */
+    for (let h = 0; h < 24; h++) out.push(`${today}T${String(h).padStart(2, "0")}`);
     return out;
   }
 
@@ -244,10 +243,10 @@ export function earliestActivity(
 /** Both sides over one range, bucketed to match it. */
 export function overviewSeries(
   lines: readonly SalesLine[], pos: readonly PurchaseOrder[],
-  range: RangeKey, today: string, nowMs: number = Date.now()
+  range: RangeKey, today: string
 ): PeriodPoint[] {
   const spec = rangeSpec(range);
-  const keys = bucketsFor(spec, earliestActivity(lines, pos), today, nowMs);
+  const keys = bucketsFor(spec, earliestActivity(lines, pos), today);
   const index = new Map<string, PeriodPoint>();
   for (const k of keys) {
     const { label, full } = bucketLabels(spec.bucket, k);
@@ -308,45 +307,83 @@ export function compare(current: number, previous: number): Comparison {
 }
 
 /* ---------------------------------------------------------------------------
- * Like for like
+ * The headline figures, over whatever range is on screen
  *
- * THE TRAP THIS EXISTS TO AVOID. On the 4th of September, comparing all of
- * September against all of August reports a 90% collapse in a business that
- * is doing fine. It is the single commonest way a management dashboard
- * misleads the person reading it, and it misleads them downward, which is
- * the direction that causes bad decisions.
+ * THE FIGURE AND THE CHART BENEATH IT MUST COVER THE SAME GROUND. They did
+ * not: the cards always reported the current calendar month while the
+ * chart showed whatever range was picked, so "total sales revenue" sat
+ * above a chart of the last five days saying something else entirely, and
+ * neither matched the orders screen. One window now feeds both.
  *
- * So a part-finished period is compared against the SAME PART of the period
- * before it: the 1st to the 4th of September against the 1st to the 4th of
- * August, and against the 1st to the 4th of September last year. A finished
- * period is compared whole. The screen says which it is doing.
+ * IT ALSO RETIRES A WHOLE CLASS OF BUG. Comparing part of a month against
+ * a whole one reports a healthy business as collapsing, so the old version
+ * carried careful machinery to compare the 1st-to-4th against the
+ * 1st-to-4th. A range is a fixed number of days by construction, and the
+ * period before it is the same number of days, so like-for-like is no
+ * longer something to arrange -- it is what a range IS.
  * ------------------------------------------------------------------------ */
-
-/** The last day of a month, 28-31. */
-function daysInMonth(year: number, month1: number): number {
-  return new Date(Date.UTC(year, month1, 0)).getUTCDate();
-}
 
 export interface WindowSpec {
   from: string;
   to: string;
+  /** Inclusive length in days, so the period before it is the same size. */
+  days: number;
 }
 
-/** Days 1..n of a month, clamped to months that are shorter. */
-export function partialMonth(monthKey: string, dayOfMonth: number): WindowSpec {
-  const [y, m] = monthKey.split("-").map(Number);
-  const last = daysInMonth(y, m);
-  const day = Math.min(Math.max(1, dayOfMonth), last);
-  return { from: `${monthKey}-01`, to: `${monthKey}-${String(day).padStart(2, "0")}` };
+const DAY = 86_400_000;
+
+function daysApart(from: string, to: string): number {
+  const a = storeDayStart(from);
+  const b = storeDayStart(to);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 1;
+  return Math.max(1, Math.round((b - a) / DAY) + 1);
 }
 
-/** Shifts a month key by n months. */
-export function shiftMonth(monthKey: string, months: number): string {
-  const [y, m] = monthKey.split("-").map(Number);
-  const total = y * 12 + (m - 1) + months;
-  const ny = Math.floor(total / 12);
-  const nm = (total % 12 + 12) % 12 + 1;
-  return `${ny}-${String(nm).padStart(2, "0")}`;
+/** The date span a range covers, as whole store days.
+ *
+ * Derived from the same bucket list the chart draws, so the two cannot
+ * describe different periods -- which is the bug this replaced. */
+export function rangeWindow(
+  lines: readonly SalesLine[], pos: readonly PurchaseOrder[],
+  range: RangeKey, today: string
+): WindowSpec {
+  const points = overviewSeries(lines, pos, range, today);
+  if (!points.length) return { from: today, to: today, days: 1 };
+  const from = points[0].key.slice(0, 10).length === 10 && points[0].key.includes("T")
+    ? points[0].key.slice(0, 10)
+    : expandKey(points[0].key, "start");
+  const to = points[points.length - 1].key.includes("T")
+    ? points[points.length - 1].key.slice(0, 10)
+    : expandKey(points[points.length - 1].key, "end", today);
+  return { from, to, days: daysApart(from, to) };
+}
+
+/** A bucket key back to a real date. A month key is the whole month, and
+ * the last bucket never runs past today -- a range ending mid-month must
+ * not claim the rest of it. */
+function expandKey(key: string, edge: "start" | "end", today?: string): string {
+  if (key.length === 7) {
+    if (edge === "start") return `${key}-01`;
+    const [y, m] = key.split("-").map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const full = `${key}-${String(last).padStart(2, "0")}`;
+    return today && full > today ? today : full;
+  }
+  return key;
+}
+
+/** Shifts a window back by n days, keeping its length. */
+export function shiftWindow(w: WindowSpec, days: number): WindowSpec {
+  const from = storeDay(storeDayStart(w.from) - days * DAY);
+  const to = storeDay(storeDayStart(w.to) - days * DAY);
+  return { from, to, days: w.days };
+}
+
+/** The same window a year earlier. Shifted by whole days rather than by a
+ * calendar year so the two spans are the same length even across a leap
+ * year -- 366 days against 365 would flatter or punish by a day's trade. */
+export function lastYearWindow(w: WindowSpec): WindowSpec {
+  return shiftWindow(w, 365);
 }
 
 export interface Totals {
@@ -361,7 +398,7 @@ export interface Totals {
 
 /** Both sides over one date window, inclusive. */
 export function totalsIn(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[], w: WindowSpec
+  lines: readonly SalesLine[], pos: readonly PurchaseOrder[], w: { from: string; to: string }
 ): Totals {
   const inWindow = lines.filter((l) => l.date >= w.from && l.date <= w.to);
   const sold = totals(inWindow.filter(isLive));
@@ -384,26 +421,10 @@ export type MetricKey =
 export interface MetricRow {
   key: MetricKey;
   current: number | null;
-  /** Against the same span of the previous month. */
-  mom: Comparison | null;
-  /** Against the same span of the same month last year. */
+  /** Against the period of the same length immediately before this one. */
+  prev: Comparison | null;
+  /** Against the same span a year earlier. */
   yoy: Comparison | null;
-}
-
-/** How much of the month is done. Money in on 40% of a month should not be
- * read against a whole one. */
-export interface PeriodShape {
-  monthKey: string;
-  dayOfMonth: number;
-  /** True once the month is over, so the comparison is whole-to-whole. */
-  complete: boolean;
-}
-
-export function periodShape(today: string): PeriodShape {
-  const monthKey = today.slice(0, 7);
-  const day = Number(today.slice(8, 10));
-  const [y, m] = monthKey.split("-").map(Number);
-  return { monthKey, dayOfMonth: day, complete: day >= daysInMonth(y, m) };
 }
 
 /** Sales over purchases. Above 1 means more came in than went out on stock
@@ -428,27 +449,26 @@ export const METRIC_KEYS: readonly MetricKey[] = [
   "revenue", "purchaseCost", "qtySold", "qtyPurchased", "grossProfit", "ratio",
 ];
 
-/** The six headline numbers, each with its month-over-month and
- * year-over-year comparison, all measured over the same span. */
+/** The six headline numbers for a range, each against the period before it
+ * and against the same span last year. */
 export function headlineMetrics(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[], today: string
+  lines: readonly SalesLine[], pos: readonly PurchaseOrder[],
+  range: RangeKey, today: string
 ): MetricRow[] {
-  const shape = periodShape(today);
-  const span = shape.complete ? 31 : shape.dayOfMonth;
-
-  const now = totalsIn(lines, pos, partialMonth(shape.monthKey, span));
-  const prevMonth = totalsIn(lines, pos, partialMonth(shiftMonth(shape.monthKey, -1), span));
-  const lastYear = totalsIn(lines, pos, partialMonth(shiftMonth(shape.monthKey, -12), span));
+  const w = rangeWindow(lines, pos, range, today);
+  const now = totalsIn(lines, pos, w);
+  const before = totalsIn(lines, pos, shiftWindow(w, w.days));
+  const year = totalsIn(lines, pos, lastYearWindow(w));
 
   return METRIC_KEYS.map((key) => {
     const current = metricValue(now, key);
-    const prev = metricValue(prevMonth, key);
-    const year = metricValue(lastYear, key);
+    const p = metricValue(before, key);
+    const y = metricValue(year, key);
     return {
       key,
       current,
-      mom: current == null || prev == null ? null : compare(current, prev),
-      yoy: current == null || year == null ? null : compare(current, year),
+      prev: current == null || p == null ? null : compare(current, p),
+      yoy: current == null || y == null ? null : compare(current, y),
     };
   });
 }
@@ -534,11 +554,12 @@ export function buildOverviewInsights(input: InsightInput): Insight[] {
     });
   }
 
-  if (revenue?.mom?.pct != null) {
+  // Against the period before this one, whatever length the reader chose.
+  if (revenue?.prev?.pct != null) {
     out.push({
-      kind: revenue.mom.pct >= 0 ? "month_better" : "month_worse",
-      vars: { pct: PCT(revenue.mom.pct) },
-      tone: revenue.mom.pct >= 0 ? "good" : "bad",
+      kind: revenue.prev.pct >= 0 ? "month_better" : "month_worse",
+      vars: { pct: PCT(revenue.prev.pct) },
+      tone: revenue.prev.pct >= 0 ? "good" : "bad",
     });
   }
 

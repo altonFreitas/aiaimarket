@@ -674,6 +674,31 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .kpi-delta.up{color:var(--green)}
 .kpi-delta.down{color:var(--red)}
 
+/* ---------- a panel that folds away ---------- */
+/* <details>, so this is behaviour the browser already has: keyboard,
+   focus and ARIA for free, and it still works with scripting off. */
+.fold{padding:0}
+.fold-head{display:flex;align-items:center;gap:9px;padding:13px 14px;cursor:pointer;
+  list-style:none;user-select:none;border-radius:var(--r)}
+.fold-head::-webkit-details-marker{display:none}
+.fold-head:hover{background:var(--line-2)}
+.fold-head:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.fold-title{font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);font-weight:700}
+/* The chevron claims the gap, so the status pill sits with the title. */
+.fold-toggle{margin-left:auto;display:inline-flex;color:var(--muted-2);
+  transition:transform .15s ease}
+.fold[open] .fold-toggle{transform:rotate(180deg)}
+.fold-head:hover .fold-toggle{color:var(--ink)}
+.fold-body{padding:0 14px 14px}
+/* The panel's own heading is the summary now; a second one inside would
+   say the same thing twice. */
+.fold-body > .crumb:first-child{display:none}
+
+/* Visible to a screen reader, not on screen. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
 /* ---------- Home: the business overview ---------- */
 .ov-head{margin:22px 0 10px;align-items:flex-start}
 .ov-head h2{margin:0;font-size:19px}
@@ -1048,7 +1073,29 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    tabs of whichever one is open. The sub row is deliberately quieter --
    same shape, paper background instead of ink -- so the eye reads it as
    "inside" the row above rather than as a second, competing bar. */
-.adm-nav-sub{background:var(--line-2);padding:5px;margin:-6px 0 12px}
+/* STICKY, ALL FOUR LAYERS. The admin pages are long -- a sales dashboard
+   runs to several screens -- and changing section meant scrolling all the
+   way back up first.
+
+   THE OFFSET IS NOT ZERO, AND THAT IS THE WHOLE PROBLEM. Two things above
+   this are ALREADY sticky: .hd at top:0 (z-index 40) and .searchbar at
+   top:var(--hd) (z-index 39). Sticking the nav at top:0 as well parks it
+   underneath both of them, where it is invisible -- which is exactly what
+   happened, and what a harness without the site header could not show.
+
+   So each row parks below the one before it. The heights are measured, not
+   derived from the stylesheet by hand: .hd is 52px and .searchbar 54px
+   (8px + a 38px input + 8px), identical at every width, and the top nav
+   row is 45px. --adm-nav-h is a point over that so the sub row leaves a
+   hairline rather than overlapping if a font renders a pixel taller. */
+:root{--adm-nav-h:46px; --admin-chrome-h:106px}
+.adm-nav-top{position:sticky;top:var(--admin-chrome-h);z-index:30}
+.adm-nav-sub{position:sticky;top:calc(var(--admin-chrome-h) + var(--adm-nav-h));z-index:29}
+/* The rounded corners look wrong once a row is pinned against the top of
+   the viewport, and the shadow says it is floating over the content. */
+.adm-nav-top{box-shadow:0 2px 8px rgba(11,20,36,.18)}
+.adm-nav-sub{background:var(--line-2);padding:5px;margin:-6px 0 12px;
+  box-shadow:0 2px 6px rgba(11,20,36,.08)}
 .adm-nav-sub a{color:var(--muted);font-size:12.5px;padding:6px 10px}
 .adm-nav-sub a:hover{color:var(--ink);background:var(--line)}
 .adm-nav-sub a[aria-current=true]{background:var(--card);color:var(--ink);

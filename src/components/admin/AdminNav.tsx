@@ -116,6 +116,22 @@ export default function AdminNav({ lang, access }: {
   access: Access & { label?: string };
 }) {
   const pathname = usePathname();
+
+  /* THE LOGIN PAGE GETS NO NAVIGATION, EVEN THOUGH THE LAYOUT ALREADY SAYS SO.
+   *
+   * app/admin/layout.tsx renders this only when there is a verified
+   * session, which is correct and is not enough. A layout is NOT re-rendered
+   * when the router moves between two pages that share it, and
+   * /admin/login shares it with every other admin page -- so when a session
+   * expired and the middleware sent the tab to the login screen, the nav
+   * the layout had already produced stayed mounted above it. Tabs to
+   * Sales and Settings, sitting over a sign-in form, until the page was
+   * reloaded by hand.
+   *
+   * Checking the path here fixes it wherever the render came from, because
+   * this component is the thing that must not appear. */
+  if (pathname === "/admin/login") return null;
+
   // Only the sections this account holds. Cosmetic -- every page checks for
   // itself, so a link removed here is a courtesy, not the lock. Showing the
   // other five and bouncing them off each one is just a worse way to say

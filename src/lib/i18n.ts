@@ -242,11 +242,14 @@ export const STR: Record<string, [string,string,string]> = {
 
   /* Home: the business overview -- see lib/overview.ts */
   ovTitle:["Oinsa negosiu la'o","Como vai o negocio","How the business is doing"],
-  ovBasisWhole:["Kompara fulan tomak ho fulan molok ne'e, no ho tinan kotuk.","Compara o mes completo com o anterior e com o ano passado.","Comparing the full month with the one before, and with last year."],
-  ovBasisPartial:["Kompara loron 1-{d} ho loron 1-{d} fulan molok ne'e, no tinan kotuk.","Compara os dias 1-{d} com os dias 1-{d} do mes anterior e do ano passado.","Comparing days 1-{d} with days 1-{d} of last month and of last year."],
+  ovBasis:["{from} to {to}. Kompara ho loron {days} molok ne'e, no ho tempu hanesan tinan kotuk.","{from} a {to}. Comparado com os {days} dias anteriores e com o mesmo periodo do ano passado.","{from} to {to}. Compared with the {days} days before it, and with the same span last year."],
   ovMoneyTrend:["Osan tama kontra osan sai","Dinheiro que entra e que sai","Money in against money out"],
   ovStockTrend:["Sasan fa'an kontra sasan sosa","Produtos vendidos e comprados","Units sold against units bought"],
   ovStockTrendHint:["Sasan ba fa'an de'it. Karamba, servisu no ekipamentu la sura.","Apenas mercadoria para revenda. Embalagem, servicos e equipamento nao contam.","Goods for resale only. Packaging, services and equipment are not counted."],
+  payReadyCount:["pronto","prontos","ready"],
+  schemaAppliedCount:["hala'o ona","aplicados","applied"],
+  deliveryNote:["Nota entrega","Nota de entrega","Delivery note"],
+  foldToggle:["Loke ka taka","Abrir ou fechar","Show or hide"],
   ovSummary:["Rezumu","Resumo","Summary"],
   salesToPurchaseRatio:["Fa'an / sosa","Vendas / compras","Sales / purchases"],
   difference:["Diferensa","Diferenca","Difference"],
@@ -266,7 +269,7 @@ export const STR: Record<string, [string,string,string]> = {
   bkt_month:["Fulan","Mes","Month"],
   ovNothingInRange:["Laiha movimentu iha tempu ne'e.","Sem movimento neste periodo.","Nothing happened in this period."],
   ovNoIntradayPurchases:["Sosa iha data de'it, laiha oras -- tan ne'e la mosu iha vizaun loron ida.","As compras tem data mas nao hora, por isso nao aparecem na vista de um dia.","Purchase orders carry a date but no time, so they cannot be shown by the hour."],
-  mom:["fulan","mes","MoM"],
+  vsPrev:["molok","anterior","vs prev"],
   yoy:["tinan","ano","YoY"],
 
   /* One sentence per insight. Keys are ovi_ + InsightKind; the union is

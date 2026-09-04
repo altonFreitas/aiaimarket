@@ -218,6 +218,29 @@ describe("every admin page is accounted for", () => {
   });
 });
 
+describe("the sign-in page gets no navigation", () => {
+  /* A layout is not re-rendered when the router moves between two pages
+   * that share it. /admin/login shares the admin layout with every other
+   * admin page, so when a session expired and the middleware sent the tab
+   * to the login screen, the nav the layout had already produced stayed
+   * mounted above the sign-in form until somebody reloaded by hand.
+   *
+   * The layout's own check is correct and is not sufficient; the component
+   * has to refuse as well. */
+  it("returns null on the login route", () => {
+    const NAV = fs.readFileSync(
+      path.join(__dirname, "..", "src", "components", "admin", "AdminNav.tsx"), "utf8");
+    expect(NAV).toMatch(/pathname === "\/admin\/login"\)\s*return null/);
+  });
+
+  it("does the same for the seller's ways in", () => {
+    const NAV = fs.readFileSync(
+      path.join(__dirname, "..", "src", "components", "seller", "SellerNav.tsx"), "utf8");
+    expect(NAV).toMatch(/pathname === "\/seller\/login"/);
+    expect(NAV).toMatch(/return null/);
+  });
+});
+
 describe("the navigation offers no door that refuses", () => {
   const NAV = fs.readFileSync(
     path.join(__dirname, "..", "src", "components", "admin", "AdminNav.tsx"), "utf8");

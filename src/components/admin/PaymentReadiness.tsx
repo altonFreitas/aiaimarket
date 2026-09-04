@@ -1,4 +1,5 @@
 import { paymentMethodStatus, type MethodStatus } from "@/lib/payments/methods";
+import Fold from "./Fold";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -12,9 +13,18 @@ import type { Lang } from "@/lib/types";
 export default function PaymentReadiness({ lang }: { lang: Lang }) {
   const rows = paymentMethodStatus(process.env as Record<string, string | undefined>);
 
+  // The headline stays readable with the panel shut. "Payment methods" on
+  // a closed drawer says nothing; "3 of 5 ready" is the reason to open it.
+  const ready = rows.filter((r) => r.ready).length;
+  const allReady = ready === rows.length;
+
   return (
-    <div className="panel">
-      <h2 className="crumb">{t("payGateways", lang)}</h2>
+    <Fold
+      lang={lang}
+      title={t("payGateways", lang)}
+      status={`${ready}/${rows.length} ${t("payReadyCount", lang)}`}
+      tone={allReady ? "ok" : "warn"}
+    >
       <p className="hint" style={{ marginTop: 0 }}>{t("payGatewaysHint", lang)}</p>
 
       <div className="pay-ready">
@@ -23,7 +33,7 @@ export default function PaymentReadiness({ lang }: { lang: Lang }) {
 
       {/* The thing that saves the most time, said once. */}
       <p className="note info" style={{ marginTop: 12 }}>{t("payWalletNote", lang)}</p>
-    </div>
+    </Fold>
   );
 }
 

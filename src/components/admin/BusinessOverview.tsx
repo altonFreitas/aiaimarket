@@ -4,7 +4,7 @@ import Link from "next/link";
 import { DualLine } from "./Charts";
 import { money, moneyAxis } from "@/lib/utils";
 import {
-  overviewSeries, headlineMetrics, buildOverviewInsights, periodShape,
+  overviewSeries, headlineMetrics, buildOverviewInsights, rangeWindow,
   purchasesResolvable, rangeSpec, METRIC_KEYS, RANGES,
   type MetricKey, type MetricRow, type PeriodPoint, type RangeKey,
 } from "@/lib/overview";
@@ -100,9 +100,15 @@ export default function BusinessOverview({
     () => overviewSeries(lines, purchases, range, today),
     [lines, purchases, range, today]);
 
+  /* The figures and the chart run off the SAME range. They used to
+     disagree -- the cards always reported the current calendar month while
+     the chart showed whatever was picked. */
   const metrics = useMemo(
-    () => headlineMetrics(lines, purchases, today), [lines, purchases, today]);
-  const shape = useMemo(() => periodShape(today), [today]);
+    () => headlineMetrics(lines, purchases, range, today),
+    [lines, purchases, range, today]);
+  const window = useMemo(
+    () => rangeWindow(lines, purchases, range, today),
+    [lines, purchases, range, today]);
 
   const insights = useMemo(() => buildOverviewInsights({
     metrics, topCustomer, topSupplier, money,
@@ -149,10 +155,14 @@ export default function BusinessOverview({
       <div className="panel-head ov-head">
         <div>
           <h2>{t("ovTitle", lang)}</h2>
+          {/* Says exactly what the two comparisons mean for the range on
+              screen. The old line carried a {d} placeholder substituted
+              with String.replace, which swaps only the FIRST occurrence --
+              so the second one rendered as literal "{d}" to the reader. */}
           <p className="sub">
-            {shape.complete
-              ? t("ovBasisWhole", lang)
-              : t("ovBasisPartial", lang).replace("{d}", String(shape.dayOfMonth))}
+            {fill(t("ovBasis", lang), {
+              from: window.from, to: window.to, days: String(window.days),
+            })}
           </p>
         </div>
       </div>
@@ -166,7 +176,7 @@ export default function BusinessOverview({
             <div key={k}>
               <b>{value(row)}</b>
               <span>{t(METRIC_LABEL[k], lang)}</span>
-              <Delta label={t("mom", lang)} value={row?.mom?.pct ?? null} judged={judged} />
+              <Delta label={t("vsPrev", lang)} value={row?.prev?.pct ?? null} judged={judged} />
               <Delta label={t("yoy", lang)} value={row?.yoy?.pct ?? null} judged={judged} />
             </div>
           );

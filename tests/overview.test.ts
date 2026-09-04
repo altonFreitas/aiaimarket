@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   overviewSeries, earliestActivity, resaleQty, bucketKey, bucketLabels,
   weekStart, rangeSpec, purchasesResolvable, RANGES,
-  compare, totalsIn, partialMonth, shiftMonth, periodShape,
+  compare, totalsIn, rangeWindow, shiftWindow, lastYearWindow,
   salesToPurchaseRatio, headlineMetrics, buildOverviewInsights,
   METRIC_KEYS, type MetricRow,
 } from "@/lib/overview";
@@ -207,9 +207,7 @@ describe("overviewSeries", () => {
      * 01:00 UTC is 10:00 in Dili. */
     const sale = line("2026-09-04", 42, 2);
     sale.createdAt = "2026-09-04T01:00:00Z";
-    // 12:00 UTC = 21:00 Dili, so the last 24 hours include 10:00 that day.
-    const s = overviewSeries([sale], [], "1d", "2026-09-04",
-      Date.parse("2026-09-04T12:00:00Z"));
+    const s = overviewSeries([sale], [], "1d", "2026-09-04");
 
     const atTen = s.find((p) => p.label === "10:00");
     expect(atTen).toBeTruthy();
@@ -283,102 +281,123 @@ describe("compare", () => {
   });
 });
 
-describe("like for like", () => {
-  it("clamps a part-month window to days already elapsed", () => {
-    expect(partialMonth("2026-09", 4)).toEqual({ from: "2026-09-01", to: "2026-09-04" });
+describe("windows", () => {
+  const lines = [line("2026-09-02", 30, 3), line("2026-09-04", 10, 1)];
+
+  it("gives the span the chart actually draws", () => {
+    const w = rangeWindow(lines, [], "5d", "2026-09-04");
+    expect(w).toEqual({ from: "2026-08-31", to: "2026-09-04", days: 5 });
   });
 
-  it("clamps to a shorter month rather than inventing a 31st of February", () => {
-    expect(partialMonth("2026-02", 31)).toEqual({ from: "2026-02-01", to: "2026-02-28" });
-    expect(partialMonth("2024-02", 31).to).toBe("2024-02-29");
+  it("covers exactly today on the intraday range", () => {
+    // 1D is today's calendar day, not a rolling twenty-four hours, so the
+    // headline figure beside it can honestly say "today".
+    expect(rangeWindow(lines, [], "1d", "2026-09-04"))
+      .toEqual({ from: "2026-09-04", to: "2026-09-04", days: 1 });
   });
 
-  it("shifts months across year boundaries in both directions", () => {
-    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
-    expect(shiftMonth("2026-09", -12)).toBe("2025-09");
-    expect(shiftMonth("2025-12", 1)).toBe("2026-01");
+  it("never claims the rest of a month that has not happened", () => {
+    // A month-bucketed range ends on today, not on the 30th.
+    const w = rangeWindow([line("2026-07-01", 10, 1)], [], "ytd", "2026-09-04");
+    expect(w.from).toBe("2026-01-01");
+    expect(w.to).toBe("2026-09-04");
   });
 
-  it("knows when a month is finished", () => {
-    expect(periodShape("2026-09-04")).toMatchObject({ dayOfMonth: 4, complete: false });
-    expect(periodShape("2026-09-30").complete).toBe(true);
-    expect(periodShape("2026-02-28").complete).toBe(true);
+  it("shifts back by whole days, keeping the length", () => {
+    const w = { from: "2026-09-01", to: "2026-09-05", days: 5 };
+    expect(shiftWindow(w, 5)).toEqual({ from: "2026-08-27", to: "2026-08-31", days: 5 });
+  });
+
+  it("uses 365 days for last year, not a calendar year", () => {
+    // A calendar year across a leap year is 366 days on one side and 365
+    // on the other, which flatters or punishes by a day of trade.
+    const w = { from: "2026-03-01", to: "2026-03-07", days: 7 };
+    const y = lastYearWindow(w);
+    const span = (Date.parse(y.to) - Date.parse(y.from)) / 86400000;
+    expect(span).toBe(6);
+    expect(y.to).toBe("2025-03-07");
   });
 });
 
-describe("headlineMetrics", () => {
-  /* THE TRAP. Four days into September, a whole-month comparison reports a
-   * business doing exactly as well as last month as having collapsed. */
+describe("headlineMetrics follow the range", () => {
+  /* THE BUG THIS REPLACED. The cards always reported the current calendar
+   * month while the chart showed whatever range was picked, so the figure
+   * and the chart under it described different periods -- and neither
+   * matched the orders screen. */
   const lines = [
-    // August: $100 over the first four days, $900 over the rest.
-    line("2026-08-02", 50, 5), line("2026-08-03", 50, 5),
-    line("2026-08-20", 900, 90),
-    // September: $100 over the first four days. Same pace as August.
-    line("2026-09-02", 50, 5), line("2026-09-03", 50, 5),
+    line("2026-08-20", 900, 90),   // outside a 5-day window
+    line("2026-09-02", 30, 3),
+    line("2026-09-04", 10, 1),
   ];
 
-  it("compares the same span of each month, not part against whole", () => {
-    const m = headlineMetrics(lines, [], "2026-09-04");
+  it("reports the range on screen, not the calendar month", () => {
+    const five = headlineMetrics(lines, [], "5d", "2026-09-04");
+    expect(five.find((m) => m.key === "revenue")!.current).toBe(40);
+
+    const month = headlineMetrics(lines, [], "1m", "2026-09-04");
+    expect(month.find((m) => m.key === "revenue")!.current).toBe(940);
+  });
+
+  it("agrees exactly with the chart it sits above", () => {
+    // The one property that matters: same range in, same total out.
+    for (const range of ["1d", "5d", "1m", "ytd", "max"] as const) {
+      const points = overviewSeries(lines, [], range, "2026-09-04");
+      const charted = points.reduce((a, p) => a + p.revenue, 0);
+      const card = headlineMetrics(lines, [], range, "2026-09-04")
+        .find((m) => m.key === "revenue")!.current;
+      expect([range, card]).toEqual([range, Math.round(charted * 100) / 100]);
+    }
+  });
+
+  it("compares against the period of the same length before it", () => {
+    // 1-5 Sep against 27-31 Aug, both five days. No part-month against
+    // whole-month arithmetic left to get wrong.
+    const m = headlineMetrics(
+      [...lines, line("2026-08-29", 20, 2)], [], "5d", "2026-09-04");
     const revenue = m.find((x) => x.key === "revenue")!;
-    // 1-4 Sep ($100) against 1-4 Aug ($100): flat, which is the truth.
-    expect(revenue.current).toBe(100);
-    expect(revenue.mom!.previous).toBe(100);
-    expect(revenue.mom!.pct).toBe(0);
+    expect(revenue.current).toBe(40);
+    expect(revenue.prev!.previous).toBe(20);
+    expect(revenue.prev!.pct).toBe(1);
   });
 
-  it("would have reported a collapse if it compared whole months", () => {
-    // Proof the guard above is doing something: the whole of August is
-    // $1000 against September's $100.
-    const whole = totalsIn(lines, [], { from: "2026-08-01", to: "2026-08-31" });
-    expect(whole.revenue).toBe(1000);
-    expect(compare(100, whole.revenue).pct).toBeCloseTo(-0.9, 5);
+  it("compares against the same span a year earlier", () => {
+    const withLastYear = [...lines, line("2025-09-04", 8, 1)];
+    const m = headlineMetrics(withLastYear, [], "5d", "2026-09-04");
+    expect(m.find((x) => x.key === "revenue")!.yoy!.previous).toBe(8);
   });
 
-  it("compares whole months once the month is over", () => {
-    const m = headlineMetrics(lines, [], "2026-08-31");
-    expect(m.find((x) => x.key === "revenue")!.current).toBe(1000);
-  });
-
-  it("compares against the same span last year", () => {
-    const withLastYear = [...lines, line("2025-09-02", 80, 8)];
-    const m = headlineMetrics(withLastYear, [], "2026-09-04");
-    const revenue = m.find((x) => x.key === "revenue")!;
-    expect(revenue.yoy!.previous).toBe(80);
-    expect(revenue.yoy!.pct).toBeCloseTo(0.25, 5);
-  });
-
-  it("returns every headline metric", () => {
-    const m = headlineMetrics(lines, [], "2026-09-04");
-    expect(m.map((x) => x.key)).toEqual([...METRIC_KEYS]);
-  });
-
-  it("reports no comparison rather than a wrong one on a new shop", () => {
-    const m = headlineMetrics([line("2026-09-02", 50, 5)], [], "2026-09-04");
+  it("says nothing rather than something wrong on a new shop", () => {
+    const m = headlineMetrics([line("2026-09-02", 50, 5)], [], "5d", "2026-09-04");
     const revenue = m.find((x) => x.key === "revenue")!;
     expect(revenue.current).toBe(50);
-    expect(revenue.mom!.pct).toBeNull();
+    expect(revenue.prev!.pct).toBeNull();
     expect(revenue.yoy!.pct).toBeNull();
   });
 
+  it("returns every headline metric", () => {
+    expect(headlineMetrics(lines, [], "1m", "2026-09-04").map((x) => x.key))
+      .toEqual([...METRIC_KEYS]);
+  });
+
   it("carries the purchase side through the same windows", () => {
-    const m = headlineMetrics(
-      [], [po("2026-09-02", [item(10, 5)]), po("2026-08-02", [item(20, 5)])], "2026-09-04");
+    const m = headlineMetrics([],
+      [po("2026-09-02", [item(10, 5)]), po("2026-08-28", [item(20, 5)])],
+      "5d", "2026-09-04");
     const spend = m.find((x) => x.key === "purchaseCost")!;
     expect(spend.current).toBe(50);
-    expect(spend.mom!.previous).toBe(100);
-    expect(spend.mom!.pct).toBe(-0.5);
+    expect(spend.prev!.previous).toBe(100);
   });
 });
 
 describe("the written summary", () => {
   const metrics = (over: Partial<Record<string, MetricRow>>): MetricRow[] =>
-    METRIC_KEYS.map((key) => over[key] ?? { key, current: 0, mom: null, yoy: null });
+    METRIC_KEYS.map((key) => over[key] ?? { key, current: 0, prev: null, yoy: null });
   const money = (n: number) => `$${n.toFixed(2)}`;
 
-  const row = (key: string, yoyPct: number | null, momPct: number | null = null): MetricRow => ({
+  const row = (key: string, yoyPct: number | null, prevPct: number | null = null): MetricRow => ({
     key: key as MetricRow["key"], current: 100,
     yoy: yoyPct == null ? null : { current: 100, previous: 80, diff: 20, pct: yoyPct },
-    mom: momPct == null ? null : { current: 100, previous: 90, diff: 10, pct: momPct },
+    prev: prevPct == null ? null : { current: 100, previous: 90, diff: 10, pct: prevPct },
   });
 
   it("says nothing at all with nothing to compare", () => {

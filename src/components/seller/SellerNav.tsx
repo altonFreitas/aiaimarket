@@ -22,6 +22,13 @@ export default function SellerNav({
   lang, features,
 }: { lang: Lang; features: readonly string[] }) {
   const pathname = usePathname();
+
+  /* The ways IN get no navigation. Same reasoning as AdminNav: a layout is
+   * not re-rendered when the router moves between two pages that share it,
+   * so a nav produced for a signed-in store can outlive the session and sit
+   * above a sign-in or sign-up form until the page is reloaded. */
+  if (pathname === "/seller/login" || pathname === "/seller/register") return null;
+
   const tabs = SELLER_FEATURES.filter((f) => sellerCanUse(features, f.key));
 
   return (
