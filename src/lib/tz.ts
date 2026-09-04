@@ -115,3 +115,23 @@ export function storeDayRange(daysAgo: number, from: Date | number = Date.now())
   const end = storeDayStart(storeDay(start + 36 * 3_600_000));
   return [start, end];
 }
+
+/** The hour a moment falls in, in the shop's timezone, as "YYYY-MM-DDTHH".
+ *
+ * For the intraday view on the Home chart. Bucketing by UTC hour would put
+ * a nine-in-the-morning sale in Dili at midnight, so the busiest hour of
+ * the shop's day would be drawn nine hours from where it happened. */
+export function storeHourKey(at: Date | number = Date.now()): string {
+  const ms = typeof at === "number" ? at : at.getTime();
+  if (!Number.isFinite(ms)) return "";
+  const w = wallClock(ms);
+  return `${w.year}-${pad(w.month)}-${pad(w.day)}T${pad(w.hour)}`;
+}
+
+/** The first millisecond of a store hour, from a key made above. */
+export function storeHourStart(key: string): number {
+  const day = key.slice(0, 10);
+  const hour = Number(key.slice(11, 13));
+  const start = storeDayStart(day);
+  return Number.isFinite(start) ? start + hour * 3_600_000 : NaN;
+}

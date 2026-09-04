@@ -132,6 +132,16 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .chip .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
 .chip[aria-current=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
 .chip[aria-current=true] .n{color:rgba(255,255,255,.7)}
+/* THE SELECTED ONE, FILLED.
+   .chip.is-on had no rule at all, so every range and period button on the
+   Home overview, the Sales dashboard and the seller's Sales screen looked
+   exactly like the six beside it -- there was no way to see which one was
+   chosen. The links in this row set aria-current instead, which is why the
+   gap went unnoticed: only the <button> rows were affected.
+   Matched to .stock-chip.is-on so the two read as the same control. */
+.chip.is-on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+.chip.is-on .n{color:rgba(255,255,255,.7)}
+.chip.is-on:hover{background:var(--ink-3)}
 .side-list{list-style:none;margin:0;padding:0}
 .side-list a,.side-cat-btn{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;text-decoration:none;border-radius:var(--r-s);font-size:14px;
   width:100%;border:0;background:transparent;color:inherit;font-family:inherit;text-align:left;cursor:pointer}
@@ -663,6 +673,84 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .kpi-delta{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;margin-top:3px}
 .kpi-delta.up{color:var(--green)}
 .kpi-delta.down{color:var(--red)}
+
+/* ---------- Home: the business overview ---------- */
+.ov-head{margin:22px 0 10px;align-items:flex-start}
+.ov-head h2{margin:0;font-size:19px}
+.ov-head .sub{margin:2px 0 0}
+/* Two deltas stack under each figure; .kpi-delta already colours them. */
+.stat > div > .kpi-delta + .kpi-delta{margin-top:1px}
+
+.ov-insights{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.ov-insight{position:relative;padding-left:15px;font-size:13.5px;line-height:1.45}
+/* A dot, not a coloured sentence: the text stays in the ink token so the
+   line is readable with colour removed, and the mark beside it carries the
+   verdict. */
+.ov-insight::before{content:"";position:absolute;left:0;top:.5em;width:7px;height:7px;
+  border-radius:50%;background:var(--muted-2)}
+.ov-good::before{background:var(--green)}
+.ov-bad::before{background:var(--red)}
+.ov-insights + .attn-links{margin-top:12px}
+
+/* ---------- two-series line chart (Home: sales against purchases) ----------
+   The two hues are NOT --ink and --amber. Those are the brand pair and they
+   fail as a categorical palette: navy sits at lightness .26 and amber at
+   .81, so one is nearly black and the other nearly invisible on white
+   (contrast 1.77:1, below the 3:1 floor). These are the same two hues
+   stepped into the passing band -- both inside L .43-.77, chroma above the
+   grey floor, 3:1 against the card, and 28 Delta-E apart under protanopia.
+   Checked with the palette validator rather than by eye; re-check before
+   changing either value.
+
+   Series colour carries identity ONLY. Every number and label on the chart
+   wears a text token, so the chart still reads with colour removed. */
+:root{--series-sales:#3358a8; --series-purchases:#b8860b}
+
+.linechart{position:relative}
+.linechart svg{display:block;width:100%;height:auto;overflow:visible}
+.lc-grid{stroke:var(--line-2);stroke-width:1}
+.lc-axis{stroke:var(--line);stroke-width:1}
+.lc-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+/* A 2px surface ring, so where the two lines cross the marker on top still
+   reads as one mark rather than a muddle. */
+.lc-dot{stroke:var(--card);stroke-width:2}
+.lc-tick{font-family:var(--mono);font-size:9px;fill:var(--muted-2)}
+.lc-crosshair{stroke:var(--muted-2);stroke-width:1;stroke-dasharray:3 3}
+/* Full-height columns that catch the pointer: the hit target is the whole
+   band, not the 8px marker, so a value is readable without taking aim. */
+.lc-hit{fill:transparent}
+.lc-hit:hover{fill:var(--line-2);fill-opacity:.5}
+
+.lc-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
+.lc-key{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+/* The resolution caveat, beside the legend rather than under the chart:
+   it explains why a series is absent, so it has to be read before the
+   chart, not after. */
+.lc-note{font-size:11.5px;color:var(--muted-2);flex:1 1 220px;min-width:0}
+/* The "nothing happened in this period" note, sitting in the middle of a
+   drawn plot rather than replacing it. */
+.lc-flat{font-size:11.5px;fill:var(--muted-2)}
+.lc-swatch{width:11px;height:11px;border-radius:3px;flex:none}
+
+.lc-tip{position:absolute;pointer-events:none;z-index:3;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r-s);box-shadow:var(--sh);
+  padding:7px 9px;font-size:12px;min-width:132px}
+.lc-tip b{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted);
+  font-weight:600;margin-bottom:4px}
+.lc-tip-row{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.lc-tip-row span{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.lc-tip-row em{font-style:normal;font-weight:600;font-family:var(--mono);color:var(--ink)}
+/* No hover, no hover layer. On a touch screen the chart is about 110px
+   tall and the tooltip is 132px wide, so a stray tap covered the thing it
+   was describing. The table under the chart carries the exact figures on
+   every device, which is what makes dropping this safe rather than a loss.
+   (hover: none) is the state this is actually about -- not a width. */
+@media (hover: none){
+  .lc-tip,.lc-crosshair,.lc-dot{display:none}
+  .lc-hit:hover{fill:transparent}
+}
+/* "2025-10" is one value and must not break across two lines. */
+.ov-period{white-space:nowrap}
 
 /* Vertical bar series */
 .chart-bars{display:flex;align-items:flex-end;gap:4px}

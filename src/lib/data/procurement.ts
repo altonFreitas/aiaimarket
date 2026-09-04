@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier } from "@/lib/types";
 import type { OnOrderFact, ReceiptFact } from "@/lib/stockReport";
@@ -37,7 +38,9 @@ export async function adminSuppliers(): Promise<Supplier[]> {
  * One query with a nested select rather than a query per order: the totals,
  * the category split and the product analysis all need the lines, and
  * fetching them per row would be an N+1 across the entire purchasing book. */
-export async function adminPurchaseOrders(): Promise<PurchaseOrder[]> {
+/* Deduped per request, same reason as adminOrders(): Home reads the
+ * purchase book for the to-do list and again for the overview. */
+export const adminPurchaseOrders = cache(async (): Promise<PurchaseOrder[]> => {
   try {
     const sb = supabaseAdmin();
     const { data, error } = await sb
@@ -48,7 +51,7 @@ export async function adminPurchaseOrders(): Promise<PurchaseOrder[]> {
     if (error) return [];
     return (data as PurchaseOrder[]) || [];
   } catch { return []; }
-}
+});
 
 export async function adminPurchaseOrder(id: string): Promise<PurchaseOrder | null> {
   try {

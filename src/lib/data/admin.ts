@@ -1,4 +1,13 @@
+/* WRAPPED IN React cache(): deduped for the length of ONE request.
+ *
+ * The Home page reads the order book twice -- once for the to-do list and
+ * once for the sales-against-purchases overview -- and each of those is a
+ * few thousand rows. Without this the page did the work twice on every
+ * load. cache() makes the second call return the first one's promise, so
+ * the two callers can each ask for what they need without either having to
+ * know the other exists. Nothing is held between requests. */
 import "server-only";
+import { cache } from "react";
 import {
   normalizeRole, normalizeSections, type AdminRole, type SectionKey,
 } from "@/lib/adminSections";
@@ -15,12 +24,12 @@ const MAX_ADMIN_PRODUCTS = 5000;
 const MAX_ADMIN_PAYOUTS = 5000;
 const MAX_ADMIN_NOTIFICATIONS = 500;
 
-export async function adminProducts(): Promise<Product[]> {
+export const adminProducts = cache(async (): Promise<Product[]> => {
   const sb = supabaseAdmin();
   const { data } = await sb.from("products").select("*")
     .order("created_at", { ascending: false }).limit(MAX_ADMIN_PRODUCTS);
   return (data as Product[]) || [];
-}
+});
 export async function adminProduct(id: string): Promise<Product | null> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("products").select("*").eq("id", id).maybeSingle();
@@ -60,14 +69,14 @@ export async function adminPromotions(): Promise<Promotion[]> {
  * Callers that only want the rows use adminOrders(); anything that PRESENTS
  * these numbers as a total should use this and say so, because the rows
  * that fall off the end are the oldest ones. */
-export async function adminOrdersCapped(): Promise<Capped<Order>> {
+export const adminOrdersCapped = cache(async (): Promise<Capped<Order>> => {
   const sb = supabaseAdmin();
   return readCapped<Order>(MAX_ADMIN_ORDERS, async (limit) => {
     const { data } = await sb.from("orders").select("*")
       .order("created_at", { ascending: false }).limit(limit);
     return data as Order[] | null;
   });
-}
+});
 
 export async function adminOrders(): Promise<Order[]> {
   return (await adminOrdersCapped()).rows;

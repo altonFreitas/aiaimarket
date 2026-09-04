@@ -239,6 +239,49 @@ export const STR: Record<string, [string,string,string]> = {
 
   /* what a store has been given access to -- see lib/sellerFeatures.ts */
   sellerSales:["Ha'u nia venda","As minhas vendas","My sales"],
+
+  /* Home: the business overview -- see lib/overview.ts */
+  ovTitle:["Oinsa negosiu la'o","Como vai o negocio","How the business is doing"],
+  ovBasisWhole:["Kompara fulan tomak ho fulan molok ne'e, no ho tinan kotuk.","Compara o mes completo com o anterior e com o ano passado.","Comparing the full month with the one before, and with last year."],
+  ovBasisPartial:["Kompara loron 1-{d} ho loron 1-{d} fulan molok ne'e, no tinan kotuk.","Compara os dias 1-{d} com os dias 1-{d} do mes anterior e do ano passado.","Comparing days 1-{d} with days 1-{d} of last month and of last year."],
+  ovMoneyTrend:["Osan tama kontra osan sai","Dinheiro que entra e que sai","Money in against money out"],
+  ovStockTrend:["Sasan fa'an kontra sasan sosa","Produtos vendidos e comprados","Units sold against units bought"],
+  ovStockTrendHint:["Sasan ba fa'an de'it. Karamba, servisu no ekipamentu la sura.","Apenas mercadoria para revenda. Embalagem, servicos e equipamento nao contam.","Goods for resale only. Packaging, services and equipment are not counted."],
+  ovSummary:["Rezumu","Resumo","Summary"],
+  salesToPurchaseRatio:["Fa'an / sosa","Vendas / compras","Sales / purchases"],
+  difference:["Diferensa","Diferenca","Difference"],
+  /* Range tabs on the Home chart. Short by design -- they sit in a row of
+     eight and are the same abbreviations a price chart uses. */
+  rng_1d:["1D","1D","1D"],
+  rng_5d:["5D","5D","5D"],
+  rng_1m:["1F","1M","1M"],
+  rng_6m:["6F","6M","6M"],
+  rng_ytd:["TN","AAD","YTD"],
+  rng_1y:["1T","1A","1Y"],
+  rng_5y:["5T","5A","5Y"],
+  rng_max:["Tomak","Max.","Max"],
+  bkt_hour:["Oras","Hora","Hour"],
+  bkt_day:["Loron","Dia","Day"],
+  bkt_week:["Semana","Semana","Week"],
+  bkt_month:["Fulan","Mes","Month"],
+  ovNothingInRange:["Laiha movimentu iha tempu ne'e.","Sem movimento neste periodo.","Nothing happened in this period."],
+  ovNoIntradayPurchases:["Sosa iha data de'it, laiha oras -- tan ne'e la mosu iha vizaun loron ida.","As compras tem data mas nao hora, por isso nao aparecem na vista de um dia.","Purchase orders carry a date but no time, so they cannot be shown by the hour."],
+  mom:["fulan","mes","MoM"],
+  yoy:["tinan","ano","YoY"],
+
+  /* One sentence per insight. Keys are ovi_ + InsightKind; the union is
+     checked against this table by tests/overview.test.ts. */
+  ovi_revenue_up:["Venda sa'e {pct} kompara tinan kotuk.","As vendas subiram {pct} face ao ano passado.","Sales are up {pct} on last year."],
+  ovi_revenue_down:["Venda tun {pct} kompara tinan kotuk.","As vendas desceram {pct} face ao ano passado.","Sales are down {pct} on last year."],
+  ovi_spend_up:["Sosa sa'e {pct} kompara tinan kotuk.","As compras subiram {pct} face ao ano passado.","Purchasing is up {pct} on last year."],
+  ovi_spend_down:["Sosa tun {pct} kompara tinan kotuk.","As compras desceram {pct} face ao ano passado.","Purchasing is down {pct} on last year."],
+  ovi_growing_well:["Venda sa'e ({sales}) lalais liu duke sosa ({spend}).","As vendas ({sales}) crescem mais que as compras ({spend}).","Sales ({sales}) are growing faster than purchasing ({spend})."],
+  ovi_spending_faster:["Sosa sa'e ({spend}) lalais liu duke venda ({sales}).","As compras ({spend}) crescem mais que as vendas ({sales}).","Purchasing ({spend}) is growing faster than sales ({sales})."],
+  ovi_buying_more_selling_less:["Sosa aumenta {bought} maibe fa'an tun {sold}.","Compras {bought} mas vendas {sold} em quantidade.","Buying {bought} more units while selling {sold}."],
+  ovi_month_better:["Fulan ne'e di'ak liu fulan molok ne'e ({pct}).","Este mes esta melhor que o anterior ({pct}).","This month is ahead of last month ({pct})."],
+  ovi_month_worse:["Fulan ne'e menus duke fulan molok ne'e ({pct}).","Este mes esta abaixo do anterior ({pct}).","This month is behind last month ({pct})."],
+  ovi_top_customer:["Kliente boot liu: {name} ({value}).","Maior cliente: {name} ({value}).","Biggest customer: {name} ({value})."],
+  ovi_top_supplier:["Fornesedor boot liu: {name} ({value}).","Maior fornecedor: {name} ({value}).","Biggest supplier: {name} ({value})."],
   sellerEarningsBasis:["Sura ba enkomenda ne'ebe entrega ona, hanesan painel.","Calculado sobre encomendas entregues, tal como no painel.","Charged on delivered orders, the same basis as your dashboard."],
   returningCustomers:["Kliente ne'ebe fila fali","Clientes que voltaram","Returning customers"],
   unsoldProductsHint:["Produtu sira ne'e la fa'an buat ida iha tempu ne'e. Karik presiza foto ka folin foun.","Estes produtos nao venderam nada neste periodo. Talvez precisem de outra foto ou preco.","These sold nothing in this period. They may need a different photo or price."],

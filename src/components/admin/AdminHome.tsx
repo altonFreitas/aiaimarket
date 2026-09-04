@@ -1,18 +1,43 @@
 import Link from "next/link";
+import BusinessOverview from "./BusinessOverview";
 import { t } from "@/lib/i18n";
+import type { PackedSalesLines } from "@/lib/salesWire";
 import type { AttentionItem } from "@/lib/attention";
-import type { Lang } from "@/lib/types";
+import type { Lang, PurchaseOrder } from "@/lib/types";
 
-/* A to-do list, not a dashboard. Every card is a count of things waiting
- * and a way to get to them. Takings, margin and trends are on the sales
- * dashboard and are deliberately not repeated here -- two screens saying
- * the same thing in different words is the problem Statistics had. */
+/* Two things, in this order: what needs doing today, then how the business
+ * is doing.
+ *
+ * THE TO-DO LIST STAYS FIRST, AND STAYS A TO-DO LIST. It is the only thing
+ * on this page that is actionable this morning, and a trend chart above it
+ * would push the work below the fold to make room for a number nobody can
+ * act on. Every card is still a count of things waiting and a way to get to
+ * them, and it still repeats nothing: takings and margin are not on it.
+ *
+ * THE OVERVIEW BELOW IT IS NOT A SECOND DASHBOARD EITHER. It computes one
+ * thing the other screens cannot -- sales measured against purchases on one
+ * timeline -- and links out for every breakdown rather than redrawing it.
+ * Two screens saying the same thing in different words is the problem the
+ * Statistics page was deleted for, and the rule has not changed. */
 
 const SEVERITY_CLASS: Record<AttentionItem["severity"], string> = {
   urgent: "attn-urgent", warn: "attn-warn", info: "attn-info",
 };
 
-export default function AdminHome({ lang, items }: { lang: Lang; items: AttentionItem[] }) {
+export default function AdminHome({
+  lang, items, lines, purchases, today, canSales, canProcurement,
+  topCustomer, topSupplier,
+}: {
+  lang: Lang;
+  items: AttentionItem[];
+  lines: PackedSalesLines;
+  purchases: PurchaseOrder[];
+  today: string;
+  canSales: boolean;
+  canProcurement: boolean;
+  topCustomer: { label: string; value: number } | null;
+  topSupplier: { label: string; value: number } | null;
+}) {
   const urgent = items.filter((i) => i.severity === "urgent");
 
   return (
@@ -71,6 +96,17 @@ export default function AdminHome({ lang, items }: { lang: Lang; items: Attentio
           <Link className="btn btn-ghost" href="/admin/procurement">{t("procurement", lang)}</Link>
         </div>
       </div>
+
+      {/* An account holding neither Sales nor Procurement has nothing to
+          compare, and gets the to-do list alone -- exactly the screen it
+          had before. */}
+      {(canSales || canProcurement) && (
+        <BusinessOverview
+          lang={lang} lines={lines} purchases={purchases} today={today}
+          canSales={canSales} canProcurement={canProcurement}
+          topCustomer={topCustomer} topSupplier={topSupplier}
+        />
+      )}
     </>
   );
 }
