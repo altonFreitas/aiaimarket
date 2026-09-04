@@ -1257,3 +1257,19 @@ span.stock-btn:hover{filter:none}
   .pay-row{grid-template-columns:1fr auto;row-gap:6px}
   .pay-todo{grid-column:1 / -1}
 }
+
+/* Policy pages, and their footer links. Long prose needs a narrower
+   measure than the catalog grid: past about 70 characters a line the eye
+   loses its place returning to the next one. */
+.legal{max-width:44rem}
+.legal h2{font-size:15px;margin:20px 0 6px}
+.legal p{line-height:1.65;margin:0 0 10px;color:var(--ink)}
+.legal .sub{margin-bottom:14px}
+.foot-legal{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:8px}
+.foot-legal a{color:inherit;text-decoration:underline;text-underline-offset:2px;font-size:12px}
+
+/* Actions on an empty/error screen: a centred row of natural-width
+   buttons. Not .btn-row, which is a full-width column stack meant for the
+   bottom of a form -- two buttons the width of the page read as a mistake
+   rather than as a choice. */
+.empty-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}

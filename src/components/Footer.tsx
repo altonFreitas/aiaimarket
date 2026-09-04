@@ -58,6 +58,15 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
           WhatsApp {settings.wa_number}
         </a>
       </div> */}
+      {/* The policy pages. A shop taking money and holding addresses needs
+          these reachable from every page, and most payment providers ask
+          to see them before approving a merchant account. */}
+      <nav className="foot-legal">
+        <Link href="/legal/terms">{t("termsTitle", lang)}</Link>
+        <Link href="/legal/privacy">{t("privacyTitle", lang)}</Link>
+        <Link href="/legal/returns">{t("returnsTitle", lang)}</Link>
+      </nav>
+
       <div style={{ marginTop: 6 }}>
         {settings.seller_registration_enabled && (
           // Only shown when new applications are open. When closed,

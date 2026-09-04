@@ -1,5 +1,6 @@
 import SettingsAdmin from "@/components/admin/SettingsAdmin";
 import PaymentReadiness from "@/components/admin/PaymentReadiness";
+import SchemaHealth from "@/components/admin/SchemaHealth";
 import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
@@ -14,6 +15,7 @@ export default async function SettingsPage() {
           it: it reads process.env, and only the NAMES of missing variables
           and a yes/no ever reach the browser. */}
       <PaymentReadiness lang={lang} />
+      <SchemaHealth lang={lang} />
     </>
   );
 }
