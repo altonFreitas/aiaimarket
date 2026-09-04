@@ -1,12 +1,12 @@
 "use server";
 import { revalidatePath, updateTag } from "next/cache";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { CACHE_TAGS } from "@/lib/cache";
+import { moveStockTo } from "@/lib/stockLedger";
 import type { StockMovementReason } from "@/lib/types";
 
-/* Every change to a product's stock is written here, as a movement, and
+/* Every change to a product's stock is written as a movement, and
  * products.qty is moved by the database trigger that reads it. Nothing else
  * in the application may write products.qty.
  *
@@ -14,40 +14,31 @@ import type { StockMovementReason } from "@/lib/types";
  * sale went through one trigger, marking a line sold out went through an
  * UPDATE in cycleStock(), and typing a number into the product form
  * overwrote the balance outright -- so the ledger described only purchases
- * and could never answer "why does this say 7?". */
+ * and could never answer "why does this say 7?".
+ *
+ * The movement itself is written by moveStockTo() in lib/stockLedger.ts,
+ * which the seller actions use too. It is not exported from this file
+ * because this file is "use server": everything exported from here is a
+ * public endpoint, and a stock writer that checks nothing must not be one.
+ * What this file adds is the part that is specific to an admin doing it --
+ * the permission check, and the record of who. */
 
 /** Writes the movement that takes a product from where it is to `nextQty`.
- * Returns the delta written, or 0 when the balance already matched.
- *
- * Takes a target rather than a delta on purpose: the admin knows what is on
- * the shelf, not the difference between the shelf and a number they cannot
- * see. Reading the current balance first also means two people counting the
- * same shelf cannot both add their count. */
+ * Returns the delta written, or 0 when the balance already matched. */
 export async function setStock(
   productId: string, nextQty: number, note = "", reason: StockMovementReason = "adjustment"
 ): Promise<number> {
   const actor = await requireAdmin();
-  const sb = supabaseAdmin();
 
-  const { data: current, error: readErr } = await sb
-    .from("products").select("qty").eq("id", productId).single();
-  if (readErr) throw readErr;
-
-  const target = Math.round(Number(nextQty) || 0);
-  const delta = target - Number(current.qty ?? 0);
+  const { from, to, delta } = await moveStockTo(productId, nextQty, note, reason);
   if (delta === 0) return 0;
-
-  const { error } = await sb.from("stock_movements").insert({
-    product_id: productId, delta, reason, note,
-  });
-  if (error) throw error;
 
   // The ledger already says WHAT moved and why. This says who moved it --
   // the one question a counted shelf cannot answer about itself.
   await audit(actor, {
     action: "stock.adjust", entity: "product", entityId: productId,
-    summary: `${note || "stock adjusted"}: ${change(current.qty ?? 0, target)}`,
-    meta: { from: current.qty ?? 0, to: target, delta, reason },
+    summary: `${note || "stock adjusted"}: ${change(from, to)}`,
+    meta: { from, to, delta, reason },
   });
 
   revalidatePath("/", "layout");

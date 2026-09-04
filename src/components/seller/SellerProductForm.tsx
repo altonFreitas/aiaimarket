@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { saveSellerProduct, uploadSellerProductImage } from "@/lib/actions/seller-products";
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
+import { statusForQty } from "@/lib/stockReport";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, StockStatus } from "@/lib/types";
 
@@ -13,6 +14,13 @@ function rootIdOf(id: string, cats: Category[]): string {
   const c = cats.find((x) => x.id === id);
   return c?.parent_id || id;
 }
+
+const STOCK_LABEL: Record<StockStatus, string> = {
+  in: "stockIn", low: "stockLow", out: "stockOut",
+};
+const STOCK_PILL: Record<StockStatus, string> = {
+  in: "ok", low: "warn", out: "bad",
+};
 
 /** Seller's own product form — same field set as the admin ProductForm,
  * minus two things that don't belong here: no "create category" quick-
@@ -35,12 +43,14 @@ export default function SellerProductForm({
     name: product?.name || "",
     price: product ? String(product.price) : "",
     qty: product ? String(product.qty) : "1",
-    stock_status: (product?.stock_status || "in") as StockStatus,
     description: product?.description || "",
     category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
     sizes: (product?.sizes || []).join(", "),
     tags: (product?.tags || []).join(", "),
   });
+
+  // Derived here exactly as the database derives it on save.
+  const derivedStatus = statusForQty(Number(f.qty) || 0);
   const [pay, setPay] = useState({
     cod: product?.pay_cod ?? true,
     cop: product?.pay_cop ?? true,
@@ -130,7 +140,6 @@ export default function SellerProductForm({
         price: Number(f.price),
         discount_price: discountPrice.trim() && Number(discountPrice) > 0 ? Number(discountPrice) : null,
         qty: Number(f.qty) || 0,
-        stock_status: f.stock_status,
         description: f.description,
         category_id: f.category_id,
         sizes: f.sizes.split(",").map((s) => s.trim()).filter(Boolean),
@@ -188,14 +197,17 @@ export default function SellerProductForm({
                 onChange={(e) => onDiscountPctChange(e.target.value)} placeholder="%" />
             </div>
           </div>
+          {/* Read out, not chosen. The quantity decides the status, and
+              two controls for one fact is how a product ends up advertised
+              as in stock with nothing behind it. */}
           <div className="field">
-            <label htmlFor="stock_status">{t("qStock", lang)}</label>
-            <select id="stock_status" value={f.stock_status}
-              onChange={(e) => set("stock_status", e.target.value)}>
-              <option value="in">{t("stockIn", lang)}</option>
-              <option value="low">{t("stockLow", lang)}</option>
-              <option value="out">{t("stockOut", lang)}</option>
-            </select>
+            <label>{t("qStock", lang)}</label>
+            <p className="stock-derived">
+              <span className={"pill " + STOCK_PILL[derivedStatus]}>
+                {t(STOCK_LABEL[derivedStatus], lang)}
+              </span>
+              <span className="hint">{t("stockDerivedHint", lang)}</span>
+            </p>
           </div>
           <div className="field">
             <label htmlFor="description">{t("description", lang)}</label>

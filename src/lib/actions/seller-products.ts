@@ -5,7 +5,17 @@ import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
-import type { StockStatus } from "@/lib/types";
+import { moveStockTo } from "@/lib/stockLedger";
+
+/* A seller's stock goes through the same ledger the admin's does.
+ *
+ * It did not used to. Saving a seller product wrote qty and stock_status
+ * straight onto the row, and the stock button set qty to 0 the same way --
+ * so products.qty moved with nothing in stock_movements to explain it,
+ * every seller-owned product showed drift in stock_reconciliation, and the
+ * restock alert measured against a reference the ledger had never seen.
+ * See lib/stockLedger.ts for why the shared writer lives outside this file.
+ */
 
 async function nextRef(): Promise<string> {
   const sb = supabaseAdmin();
@@ -56,8 +66,10 @@ export interface SellerProductFormInput {
   name: string;
   price: number;
   discount_price: number | null;
+  /** The count on the shelf. Recorded as a ledger adjustment, not written
+   * over the balance -- and the only thing that decides stock_status, which
+   * the database derives and nobody types. */
   qty: number;
-  stock_status: StockStatus;
   description: string;
   category_id: string;
   sizes: string[];
@@ -85,31 +97,55 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
     if (!existing || existing.seller_id !== seller.id) throw new Error("Not your product");
 
     const slug = await uniqueSlug(baseSlug, input.id);
+    // qty and stock_status are deliberately absent from this patch. The
+    // quantity moves through the ledger below, and the status is derived
+    // from the quantity by the database. Writing either here would put the
+    // balance and its history out of step -- which is what this form used
+    // to do every time it was saved.
     const { error } = await sb.from("products").update({
-      name: input.name, slug, price: input.price, qty: input.qty,
+      name: input.name, slug, price: input.price,
       discount_price: input.discount_price,
-      stock_status: input.stock_status, description: input.description,
+      description: input.description,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
     }).eq("id", input.id);
     if (error) throw error;
+
+    // A counted shelf, recorded as what it is: an adjustment, with a
+    // reason, naming the seller who counted it. The ledger's note is where
+    // that name goes -- audit_log is the admin's record and its actor_kind
+    // accepts owner, staff and system only.
+    await moveStockTo(
+      input.id, input.qty,
+      `counted on the seller product form by ${seller.store_name || seller.full_name}`
+    );
   } else {
     const ref = await nextRef();
     const slug = await uniqueSlug(baseSlug);
-    const { error } = await sb.from("products").insert({
-      ref, name: input.name, slug, price: input.price, qty: input.qty,
+    // Created empty and stocked by a movement, so a product's history
+    // starts at its first unit rather than at some number that was already
+    // there when the ledger began.
+    const { data: made, error } = await sb.from("products").insert({
+      ref, name: input.name, slug, price: input.price, qty: 0,
       discount_price: input.discount_price,
-      stock_status: input.stock_status, description: input.description,
+      stock_status: "out", description: input.description,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
       seller_id: seller.id,
       status: "approved",
-    });
+    }).select("id").single();
     if (error) throw error;
+    // The insert asked for the id back, so a success without one means the
+    // row is not there and stocking it would write against nothing.
+    if (!made) throw new Error("The product was not created.");
+
+    if (input.qty) {
+      await moveStockTo(made.id, input.qty, "opening balance", "correction");
+    }
   }
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
@@ -130,23 +166,30 @@ export async function uploadSellerProductImage(dataUrl: string, filenameHint: st
   return data.publicUrl;
 }
 
-/** Quick stock cycle, mirrors admin's cycleStock but ownership-checked. */
-export async function cycleSellerStock(id: string, current: StockStatus) {
+/** The quick action on the seller's product list: this shelf is empty.
+ *
+ * Ownership-checked, and one-way, exactly as the admin's markOutOfStock().
+ * It replaced a three-way in -> low -> out cycle that was wrong twice over:
+ * it set qty to 0 with no movement behind it, and cycling round to "in
+ * stock" left the product advertised as available with a quantity of zero.
+ * Putting a line back means saying how many, which is a count typed on the
+ * product itself -- a button cannot invent the number. */
+export async function markSellerProductOutOfStock(id: string): Promise<void> {
   const seller = await requireApprovedSeller();
   const sb = supabaseAdmin();
   const { data: existing } = await sb.from("products").select("seller_id").eq("id", id).maybeSingle();
   if (!existing || existing.seller_id !== seller.id) throw new Error("Not your product");
 
-  const order: StockStatus[] = ["in", "low", "out"];
-  const next = order[(order.indexOf(current) + 1) % order.length];
-  const patch: Record<string, unknown> = { stock_status: next };
-  if (next === "out") patch.qty = 0;
-  const { error } = await sb.from("products").update(patch).eq("id", id);
-  if (error) throw error;
+  // Nothing sets stock_status: taking the balance to zero is what makes it
+  // "out", by way of apply_stock_movement().
+  await moveStockTo(
+    id, 0,
+    `marked out of stock by ${seller.store_name || seller.full_name}`
+  );
+
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);
   revalidatePath("/seller/products");
-  return next;
 }
 
 /** Soft delete only (same B3 rule as admin) — ownership-checked. */

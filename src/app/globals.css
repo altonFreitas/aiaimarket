@@ -384,6 +384,10 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .stock-btn.s-in{background:var(--green-soft);color:var(--green);border-color:#b7e0cb}
 .stock-btn.s-low{background:var(--amber-soft);color:var(--amber-ink);border-color:#ecd48c}
 .stock-btn.s-out{background:var(--red-soft);color:var(--red);border-color:#f0c2ba}
+/* Out of stock is the end of the one-way trip: the button is disabled and
+   should stop inviting the click. .btn[disabled] does not reach here --
+   this is not a .btn. */
+.stock-btn:disabled{cursor:default}
 .pill{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:20px;
   background:var(--line-2);color:var(--muted);font-weight:700;white-space:nowrap}
 .pill.ok{background:var(--green-soft);color:var(--green)}

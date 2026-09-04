@@ -3,7 +3,9 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { cycleSellerStock, toggleSellerProductArchive } from "@/lib/actions/seller-products";
+import {
+  markSellerProductOutOfStock, toggleSellerProductArchive,
+} from "@/lib/actions/seller-products";
 import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -39,10 +41,10 @@ export default function SellerProductList({
     return a;
   }, [products, q, statusFilter, showArchived]);
 
-  async function onCycle(p: Product) {
+  async function onMarkOut(p: Product) {
     setBusyId(p.id);
     try {
-      await cycleSellerStock(p.id, p.stock_status);
+      await markSellerProductOutOfStock(p.id);
       startTransition(() => router.refresh());
     } catch (e) { toast(String((e as Error).message), true); }
     setBusyId(null);
@@ -100,8 +102,14 @@ export default function SellerProductList({
                 </div>
                 <div className="acts">
                   <span className={"pill " + STATUS_PILL[p.status]}>{t("productStatus_" + p.status, lang)}</span>
+                  {/* One-way, like the admin's. Putting a line back means
+                      saying how many, which is the quantity on the edit
+                      form -- a button cannot invent the number. */}
                   <button className={"stock-btn s-" + p.stock_status} type="button"
-                    disabled={busyId === p.id} onClick={() => onCycle(p)}>
+                    disabled={busyId === p.id || p.stock_status === "out"}
+                    title={p.stock_status === "out"
+                      ? t("stockRestockHint", lang) : t("markOutOfStock", lang)}
+                    onClick={() => onMarkOut(p)}>
                     {t(STOCK_KEY[p.stock_status], lang)}
                   </button>
                   <Link className="btn btn-sm btn-ghost" href={`/seller/products/${p.id}`}>{t("edit", lang)}</Link>
