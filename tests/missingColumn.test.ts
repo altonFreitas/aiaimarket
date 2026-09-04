@@ -112,3 +112,29 @@ describe("writeTolerating", () => {
     expect(out.data).toEqual({ id: "p2" });
   });
 });
+
+describe("the seller features column, which is the newest one", () => {
+  // setSellerFeatures() turns these two into a message naming the SQL file
+  // to run, because "column does not exist" on a screen tells the owner
+  // nothing about what to do next.
+  it("recognises both shapes a database gives before seller-features.sql", () => {
+    expect(isMissingColumnError(
+      { code: "PGRST204", message: "Could not find the 'features' column of 'sellers' in the schema cache" },
+      "features"
+    )).toBe(true);
+    expect(isMissingColumnError(
+      { code: "42703", message: 'column "features" of relation "sellers" does not exist' },
+      "features"
+    )).toBe(true);
+  });
+
+  it("does not swallow a value the constraint refused", () => {
+    // A key outside the catalogue is a real failure and must surface as
+    // itself -- silently reporting it as "the migration has not run" would
+    // send the owner to run a file that is already there.
+    expect(isMissingColumnError(
+      { code: "23514", message: 'new row for relation "sellers" violates check constraint "sellers_features_check"' },
+      "features"
+    )).toBe(false);
+  });
+});

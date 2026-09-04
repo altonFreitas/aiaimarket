@@ -30,6 +30,7 @@ const EVERYTHING = snap([
   "products.preorder_enabled", "orders.is_preorder",
   "settings.reorder_window_days",
   "admin_users", "audit_log", "admin_users.role", "admin_users.sections",
+  "sellers.features",
   "products.audience", "products.restock_level", "settings.restock_alert_pct",
 ]);
 

@@ -1,4 +1,4 @@
-/* Which of the nineteen SQL files in supabase/ have actually been run.
+/* Which of the SQL files in supabase/ have actually been run.
  *
  * WHY THIS PROBES THE DATABASE RATHER THAN KEEPING A LIST.
  *
@@ -94,6 +94,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
   {
     file: "admin-roles.sql", labelKey: "featAdminRoles",
     columns: [["admin_users", "role"], ["admin_users", "sections"]],
+  },
+  {
+    file: "seller-features.sql", labelKey: "featSellerFeatures",
+    columns: [["sellers", "features"]],
   },
   {
     file: "audience-restock.sql", labelKey: "featAudienceRestock",

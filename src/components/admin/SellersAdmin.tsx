@@ -2,7 +2,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { approveSeller, rejectSeller, suspendSeller, reactivateSeller, resetSellerTotpAction } from "@/lib/actions/sellers-admin";
+import { approveSeller, rejectSeller, suspendSeller, reactivateSeller, resetSellerTotpAction, setSellerFeatures } from "@/lib/actions/sellers-admin";
+import SellerFeaturePicker from "./SellerFeaturePicker";
+import {
+  normalizeFeatures, featureSummary, type SellerFeatureKey,
+} from "@/lib/sellerFeatures";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
@@ -31,6 +35,12 @@ export default function SellersAdmin({
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"" | SellerStatus>("");
+  /* Which store's access is open for editing, and the ticks as they stand
+     before saving. Only one at a time: this is a deliberate change to what
+     somebody is paying for, and a screen full of half-edited checklists is
+     how the wrong store gets granted the wrong thing. */
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState<SellerFeatureKey[]>([]);
 
   const list = filter ? sellers.filter((s) => s.status === filter) : sellers;
   const pendingCount = sellers.filter((s) => s.status === "pending").length;
@@ -56,6 +66,31 @@ export default function SellersAdmin({
     if (!window.confirm(t("confirmResetSellerTotp", lang).replace("{store}", s.store_name))) return;
     run(() => resetSellerTotpAction(s.id), t("sellerTotpResetToast", lang) + ": " + s.store_name);
   }
+
+  function openAccess(s: Seller) {
+    setEditing(s.id);
+    setDraft(normalizeFeatures(s.features));
+  }
+
+  async function saveAccess(s: Seller) {
+    setBusy(true);
+    try {
+      await setSellerFeatures(s.id, draft);
+      toast(t("sellerAccessSaved", lang) + ": " + s.store_name);
+      setEditing(null);
+      router.refresh();
+    } catch (e) {
+      toast(String((e as Error).message), true);
+    }
+    setBusy(false);
+  }
+
+  const summaryOf = (s: Seller) => featureSummary(
+    normalizeFeatures(s.features),
+    (key) => t(key, lang),
+    t("sellerAccessNone", lang),
+    t("sellerAccessAll", lang)
+  );
 
   return (
     <>
@@ -89,13 +124,20 @@ export default function SellersAdmin({
       {list.length ? (
         <div className="list">
           {list.map((s) => (
-            <div className="item" key={s.id}>
+            <div className={"item" + (editing === s.id ? " item-open" : "")} key={s.id}>
               <div className="g">
                 <b>{s.store_name}</b>
                 <span>
                   {s.full_name} · {s.email}{s.phone ? " · " + s.phone : ""}
                   {" · "}{t(s.seller_type === "individual" ? "sellerTypeIndividual" : "sellerTypeBusiness", lang)}
                   {" · "}{nowIso(s.created_at)}
+                </span>
+                {/* What this store has, on the row rather than only behind
+                    the button: "who is paying for what" is the question
+                    this screen is read for, and answering it should not
+                    need a click per store. */}
+                <span className="access-cell">
+                  {t("sellerAccess", lang)}: {summaryOf(s)}
                 </span>
               </div>
               <div className="acts">
@@ -132,8 +174,30 @@ export default function SellersAdmin({
                     {t("resetSellerTotp", lang)}
                   </button>
                 )}
+                {/* Only for a store that is actually trading. Granting a
+                    sales dashboard to a rejected application is a control
+                    with nothing behind it. */}
+                {s.status === "approved" && (
+                  <button className="btn btn-sm btn-ghost" disabled={busy}
+                    onClick={() => (editing === s.id ? setEditing(null) : openAccess(s))}>
+                    {t("sellerAccessEdit", lang)}
+                  </button>
+                )}
                 </WriteOnly>
               </div>
+
+              {editing === s.id && (
+                <div className="access-edit">
+                  <SellerFeaturePicker lang={lang} features={draft}
+                    onChange={setDraft} disabled={busy} />
+                  <div className="access-quick">
+                    <button className="btn btn-sm btn-amber" disabled={busy}
+                      onClick={() => saveAccess(s)}>{t("save", lang)}</button>
+                    <button className="btn btn-sm btn-ghost" disabled={busy}
+                      onClick={() => setEditing(null)}>{t("cancel", lang)}</button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

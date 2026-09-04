@@ -42,6 +42,11 @@ export interface Seller {
   delivery_fee: number | null;
   delivery_area: string;
   totp_enabled: boolean;
+  /** Which of the owner's tools this store has been given, beyond the four
+   * screens every seller has. Keys from lib/sellerFeatures.ts. Optional
+   * because a shop that has not run supabase/seller-features.sql yet has
+   * no such column -- which reads as "nothing extra", the safe answer. */
+  features?: string[] | null;
   created_at: string;
 }
 

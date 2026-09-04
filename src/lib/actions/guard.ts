@@ -4,6 +4,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
 import { canSee, canWrite, type SectionKey } from "@/lib/adminSections";
+import {
+  normalizeFeatures, sellerCanUse, type SellerFeatureKey,
+} from "@/lib/sellerFeatures";
+import { getCurrentSellerOrRedirect } from "@/lib/data/seller";
 import { redirect } from "next/navigation";
 import { PermissionError } from "@/lib/permissionError";
 import type { Seller } from "@/lib/types";
@@ -110,5 +114,34 @@ export async function requireSeller(): Promise<Seller> {
 export async function requireApprovedSeller(): Promise<Seller> {
   const seller = await requireSeller();
   if (seller.status !== "approved") throw new Error("Seller account is not approved");
+  return seller;
+}
+
+/** Every seller PAGE that is not one of the four included screens calls
+ * this. It refuses a store that has not been granted that feature, so a
+ * URL typed straight into the address bar meets the same rule that kept
+ * the tab out of their navigation.
+ *
+ * Redirects rather than throws, for the same reason requireSection() does:
+ * a thrown error in a page renders a stack-trace screen with no navigation,
+ * which tells a seller their shop is broken rather than that this part is
+ * not included in what they have. /seller/no-access is a plain sentence
+ * with the tabs still above it.
+ *
+ * Returns the seller, so the page can go straight on to reading their data
+ * without a second lookup.
+ *
+ * A missing call here is caught by tests/sellerFeatures.test.ts, which
+ * reads every page.tsx under src/app/seller and fails if one that belongs
+ * to a sellable feature does not guard itself. */
+export async function requireSellerFeature(feature: SellerFeatureKey): Promise<Seller> {
+  const seller = await getCurrentSellerOrRedirect();
+  // Suspended or still pending: not a features question. Those screens are
+  // gated by SellerStatusGate, which explains the status; falling through
+  // to "not included in your plan" would be the wrong sentence entirely.
+  if (seller.status !== "approved") redirect("/seller/dashboard");
+  if (!sellerCanUse(normalizeFeatures(seller.features), feature)) {
+    redirect("/seller/no-access");
+  }
   return seller;
 }

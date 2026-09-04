@@ -1106,6 +1106,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    1px separator. */
 :root{--adm-item-h:63px; --adm-max-items:5}
 .list{max-height:calc(var(--adm-item-h) * var(--adm-max-items));overflow-y:auto}
+/* Same exception the admin-users table gets (.scroll-x:has(.detail-row)):
+   a list with an editor open is allowed its full height again. Without it
+   the five-row window scrolls, and the Save button for a store near the
+   bottom opens below the fold of a box the reader has to find first.
+   Where :has() is unsupported the list simply stays capped and scrolls --
+   the editor is still reachable, just in a smaller window. */
+.list:has(.item-open){max-height:none}
 
 /* Pre-order notice on the product page: what it is, and when to expect it,
    above the button that asks for the commitment. */
@@ -1225,6 +1232,21 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    wrapped to three lines. */
 .access-edit{padding:4px 14px 14px;text-align:left}
 .access-edit .access{margin-top:10px}
+
+/* The seller access editor opens as a full-width block BENEATH the store,
+   not beside it. .item is a flex row with align-items:center, so an
+   unqualified child lands in the row and squeezes the store name and the
+   action buttons into slivers -- the same mistake the admin-users editor
+   made inside a table cell, in a different layout. */
+.item-open{flex-wrap:wrap}
+.item-open > .access-edit{flex:1 0 100%;padding:0 0 6px}
+/* Each feature carries a line saying what it is, so the box is two rows
+   rather than one and the checkbox aligns to the first. */
+.feat-box{align-items:flex-start}
+.feat-box input{margin-top:3px}
+.feat-box span{display:flex;flex-direction:column;gap:1px;line-height:1.3}
+.feat-box em{font-style:normal;font-size:11.5px;color:var(--muted)}
+.feat-box.on em{color:var(--amber-ink)}
 
 /* The signed-in name, then the read-only badge if there is one, then the
    link out. Whichever of the first two comes first claims the gap. */
