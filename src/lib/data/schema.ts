@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { checkSchema, type FeatureStatus, type SchemaSnapshot } from "@/lib/schemaHealth";
+import { checkSchema, snapshotFromRows, type FeatureStatus, type SchemaRow } from "@/lib/schemaHealth";
 
 /* Reads what the database actually has, via a function installed by
  * supabase/schema-health.sql.
@@ -12,7 +12,14 @@ import { checkSchema, type FeatureStatus, type SchemaSnapshot } from "@/lib/sche
  *
  * If that function is not installed the screen says so rather than
  * pretending everything is fine, because "I cannot tell" and "all good"
- * are the two answers that must never look alike here. */
+ * are the two answers that must never look alike here.
+ *
+ * The rows are folded into a snapshot by snapshotFromRows(), which is in
+ * lib/schemaHealth.ts with the rest of the logic that can be tested without
+ * a database -- including the part that tells the function's two return
+ * shapes apart. This file is the call and nothing else.
+ */
+
 export async function schemaStatus(): Promise<
   { ok: true; features: FeatureStatus[] } | { ok: false; reason: string }
 > {
@@ -21,14 +28,10 @@ export async function schemaStatus(): Promise<
     const { data, error } = await sb.rpc("schema_inventory");
     if (error) return { ok: false, reason: error.message || "schema_inventory failed" };
 
-    const rows = (data as Array<{ table_name: string; column_name: string }>) || [];
+    const rows = (data as SchemaRow[]) || [];
     if (!rows.length) return { ok: false, reason: "schema_inventory returned nothing" };
 
-    const snapshot: SchemaSnapshot = {
-      tables: new Set(rows.map((r) => r.table_name.toLowerCase())),
-      columns: new Set(rows.map((r) => `${r.table_name}.${r.column_name}`.toLowerCase())),
-    };
-    return { ok: true, features: checkSchema(snapshot) };
+    return { ok: true, features: checkSchema(snapshotFromRows(rows)) };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : "unreachable" };
   }
