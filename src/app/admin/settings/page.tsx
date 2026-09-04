@@ -1,4 +1,5 @@
 import SettingsAdmin from "@/components/admin/SettingsAdmin";
+import OpenReadiness from "@/components/admin/OpenReadiness";
 import PaymentReadiness from "@/components/admin/PaymentReadiness";
 import SchemaHealth from "@/components/admin/SchemaHealth";
 import { adminSettings } from "@/lib/data/admin";
@@ -14,6 +15,7 @@ export default async function SettingsPage() {
       {/* A server component, deliberately below the form rather than inside
           it: it reads process.env, and only the NAMES of missing variables
           and a yes/no ever reach the browser. */}
+      <OpenReadiness lang={lang} settings={settings} />
       <PaymentReadiness lang={lang} />
       <SchemaHealth lang={lang} />
     </>
