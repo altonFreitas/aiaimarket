@@ -45,4 +45,3 @@ comment on column hero_slides.video_url is
 -- Action carries its payload in the request body, which is capped at a
 -- couple of megabytes, and no useful video fits in that.
 -- ---------------------------------------------------------------------------
-<CircleArrowUp2 /><CircleArrowsLeft /><CircleArrowUp2 /><CircleArrowUp2 />

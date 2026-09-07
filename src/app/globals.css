@@ -121,15 +121,26 @@ button,input,select,textarea{font:inherit;color:inherit}
    desktop breakpoint where .nav itself is hidden, same pattern as
    .hd-track just above. */
 .hd-cart{display:none}
-/* Hidden in the header on a phone: two icons, a logo and an account button
-   already fill 390px, and three language buttons beside them left nothing
-   for the shop's name. It reappears at the foot of the menu screen. */
-.lang{display:none;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);overflow:hidden;height:34px}
-.msheet .lang{display:flex;border-color:var(--line)}
-.msheet .lang button{color:var(--muted)}
-.lang button{background:transparent;border:0;color:rgba(255,255,255,.62);padding:0 8px;font-size:11px;font-family:var(--mono);
-  letter-spacing:.06em;cursor:pointer}
-.lang button[aria-pressed=true]{background:var(--amber);color:#3a2b00;font-weight:700}
+/* ONE BUTTON, NOT THREE. TET|PT|EN cost about 90px of a header that also
+   holds a logo, a search box, an account button and a basket -- and two of
+   the three were always the wrong answer, sitting there being ignored. This
+   shows the language in use and opens the others on demand, which fits the
+   phone's header as well as the desktop's. */
+.lang{position:relative;flex:0 0 auto}
+.lang-btn{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 9px;cursor:pointer;
+  background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);color:#fff}
+.lang-btn:hover{background:rgba(255,255,255,.1)}
+.lang-btn b{font-family:var(--mono);font-size:11px;letter-spacing:.06em;font-weight:700}
+.lang-btn[aria-expanded=true]{background:rgba(255,255,255,.14)}
+.lang-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:168px;
+  background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--r-s);
+  box-shadow:var(--sh);overflow:hidden;animation:megaDown .12s ease-out}
+.lang-menu button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 12px;background:transparent;border:0;cursor:pointer;font-size:14px;color:var(--ink);text-align:left}
+.lang-menu button:hover{background:var(--line-2)}
+.lang-menu button[aria-checked=true]{font-weight:700;background:var(--amber-soft);color:var(--amber-ink)}
+.lang-code{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.lang-menu button[aria-checked=true] .lang-code{color:var(--amber-ink)}
 /* The search box, wherever it is standing. Two copies exist -- one in the
    header for a desktop, one under the categories for a phone -- and CSS
    shows exactly one of them, so this styles both. */
@@ -597,7 +608,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      and nothing on the other reads as a mistake. */
   .hd-logo{position:static;transform:none}
   .hd-logo b{display:inline}
-  .lang{display:flex}
   .grid{grid-template-columns:repeat(3,1fr);gap:14px}
   /* The rail runs to the viewport's LEFT EDGE.
      .wrap centres its children inside --content-w, so on a wide screen
@@ -1780,4 +1790,30 @@ span.stock-btn:hover{filter:none}
 .msheet-kids a:active{background:var(--line)}
 .msheet-kids .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
 
-.msheet-foot{padding:18px 16px;display:flex;justify-content:center}
+/* The homepage banners, as a row you swipe. Cards rather than a single
+   full-width image so the second one peeks in at the edge and says there is
+   more -- the same reason the product rails on the homepage are sized the
+   way they are. */
+.msheet-slides{display:grid;grid-auto-flow:column;grid-auto-columns:72%;gap:10px;
+  overflow-x:auto;scroll-snap-type:x proximity;padding:14px 16px 4px;
+  /* Snap positions are measured from the SCROLLPORT edge, which is the
+     padding box -- so without this the browser scrolled the strip 16px to
+     sit the first card flush against the window and the gutter vanished. */
+  scroll-padding-inline:16px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.msheet-slides::-webkit-scrollbar{display:none}
+.msheet-slide{position:relative;display:block;scroll-snap-align:start;overflow:hidden;
+  border-radius:var(--r);background:var(--ink);text-decoration:none}
+.msheet-slide img{width:100%;height:100%;aspect-ratio:16/10;object-fit:cover}
+.msheet-slide-t{position:absolute;left:0;right:0;bottom:0;padding:22px 12px 10px;color:#fff;
+  font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;
+  background:linear-gradient(0deg,rgba(11,20,36,.88),transparent)}
+
+.msheet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:4px 16px 16px}
+.msheet-card{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:var(--ink)}
+.msheet-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
+  border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
+.msheet-card-nm{font-size:12.5px;font-weight:600;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.msheet-card-pr{font-size:12.5px;color:var(--ink-3)}
+.msheet-card-pr b{color:var(--red)}

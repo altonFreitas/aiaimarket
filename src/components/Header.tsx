@@ -5,7 +5,7 @@ import BasketBadge from "./BasketBadge";
 import SearchBar from "./SearchBar";
 import MegaNav from "./MegaNav";
 import MobileNav from "./MobileNav";
-import { getCategories, getLiveProducts } from "@/lib/data/public";
+import { getCategories, getHeroSlides, getLiveProducts } from "@/lib/data/public";
 import { buildNav } from "@/lib/nav";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
@@ -17,7 +17,9 @@ export default async function Header({ settings }: { settings: Settings }) {
   // lib/data/public.ts), so putting the navigation in the header costs the
   // pages that already load them nothing at all -- and one shared query
   // every few minutes for the ones that did not.
-  const [cats, products] = await Promise.all([getCategories(), getLiveProducts()]);
+  const [cats, products, slides] = await Promise.all([
+    getCategories(), getLiveProducts(), getHeroSlides(),
+  ]);
   const navRoots = buildNav(cats, products, lang);
   return (
     <>
@@ -27,7 +29,7 @@ export default async function Header({ settings }: { settings: Settings }) {
               and the search strip below the header. Hidden from 768px up,
               where MegaNav's bar and .hd-search do the same jobs with room
               to spell them out. */}
-          <MobileNav roots={navRoots} lang={lang} />
+          <MobileNav roots={navRoots} slides={slides} lang={lang} />
 
           <Link className="hd-logo" href="/" aria-label="Home">
             <Image src="/logo-mark.webp" alt="" width={280} height={115} priority style={{ height: 18, width: "auto" }} />

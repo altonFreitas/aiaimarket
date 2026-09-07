@@ -3,17 +3,69 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import LangSwitch from "./LangSwitch";
+import Image from "next/image";
 import SearchBar from "./SearchBar";
+import { placeholder } from "@/lib/placeholder";
+import { money, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import type { NavRoot } from "@/lib/nav";
-import type { Lang } from "@/lib/types";
+import type { NavProduct, NavRoot } from "@/lib/nav";
+import type { HeroSlide, Lang } from "@/lib/types";
 
 /** Where the shop's own navigation is not what someone is navigating.
  * Same list MegaNav uses -- see the note there. */
 const STAFF_PATHS = ["/admin", "/seller"];
 
 type View = "menu" | "search";
+
+/** How many products either screen shows. Four is two rows of two on a
+ * phone -- enough to be worth scrolling to, few enough not to bury the
+ * navigation above it. */
+const SHOWCASE = 4;
+
+/** The banners, as a row of cards. Same slides as the homepage hero, from
+ * the same table; a video slide shows its poster frame, because a menu is
+ * not the place to start a download. */
+function SlideStrip({ slides, onPick }: { slides: HeroSlide[]; onPick: () => void }) {
+  if (!slides.length) return null;
+  return (
+    <div className="msheet-slides">
+      {slides.map((s) => {
+        const img = s.image_url || placeholder(s.headline || "AIAI");
+        return (
+          <Link key={s.id} href={s.cta_href || "/shop"} className="msheet-slide" onClick={onPick}>
+            <Image src={img} alt="" width={520} height={320} sizes="70vw"
+              unoptimized={img.startsWith("data:")} />
+            {s.headline && <span className="msheet-slide-t">{s.headline}</span>}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Real stock, from the same nav model the categories come from. */
+function Showcase({ items, onPick }: { items: NavProduct[]; onPick: () => void }) {
+  if (!items.length) return null;
+  return (
+    <div className="msheet-grid">
+      {items.map((p) => {
+        const img = p.image || placeholder(p.name);
+        const pct = discountPercent(p.price, p.discount);
+        return (
+          <Link key={p.id} href={`/p/${p.slug}`} className="msheet-card" onClick={onPick}>
+            <Image src={img} alt="" width={260} height={260} sizes="45vw"
+              unoptimized={img.startsWith("data:")} />
+            <span className="msheet-card-nm">{p.name}</span>
+            <span className="msheet-card-pr">
+              {money(p.discount ?? p.price)}
+              {pct != null && <b> -{pct}%</b>}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
 
 /** The phone's navigation: two icons in the header, and a full screen
  * behind each.
@@ -36,7 +88,9 @@ type View = "menu" | "search";
  * portal puts the screens on <body>, where their own z-index means what it
  * says. It is only ever created after a tap, so there is no server/browser
  * mismatch to guard against. */
-export default function MobileNav({ roots, lang }: { roots: NavRoot[]; lang: Lang }) {
+export default function MobileNav({
+  roots, slides, lang,
+}: { roots: NavRoot[]; slides: HeroSlide[]; lang: Lang }) {
   const pathname = usePathname();
   const [view, setView] = useState<View | null>(null);
   const [tab, setTab] = useState<string | null>(null);
@@ -52,6 +106,21 @@ export default function MobileNav({ roots, lang }: { roots: NavRoot[]; lang: Lan
   }
 
   const active = roots.find((r) => r.id === tab) || roots[0] || null;
+
+  /* The search screen has no chosen aisle to draw from, so it takes one
+   * product from each in turn -- a spread of the shop rather than four of
+   * whatever happens to be first. Deduplicated, because a product filed
+   * under Women is also under Sapatu. */
+  const mixed: NavProduct[] = [];
+  const seen = new Set<string>();
+  for (let rank = 0; mixed.length < SHOWCASE && rank < SHOWCASE; rank++) {
+    for (const r of roots) {
+      const p = r.feature[rank];
+      if (!p || seen.has(p.id) || mixed.length >= SHOWCASE) continue;
+      seen.add(p.id);
+      mixed.push(p);
+    }
+  }
 
   // Esc closes, same as every other overlay in the app. The panel also
   // takes the page's scroll while it is open -- without that, dragging the
@@ -169,13 +238,17 @@ export default function MobileNav({ roots, lang }: { roots: NavRoot[]; lang: Lan
               {t("navShopAll", lang)}<span aria-hidden="true"> →</span>
             </Link>
 
-            {/* The language switch lives here rather than in the header. At
-                390px the header holds two icons, the logo and an account
-                button, and three language buttons beside them left nothing
-                for the shop's name. */}
-            <div className="msheet-foot">
-              <LangSwitch current={lang} />
-            </div>
+            {/* Everything below the aisles: the same banners as the
+                homepage hero, then real stock from the aisle that is open.
+                The screen used to end at "Shop all" with two thirds of a
+                phone left blank under it. */}
+            <SlideStrip slides={slides} onPick={() => setView(null)} />
+            {active && active.feature.length > 0 && (
+              <>
+                <p className="msheet-hd">{active.label}</p>
+                <Showcase items={active.feature} onPick={() => setView(null)} />
+              </>
+            )}
           </div>
         </div>,
         document.body
@@ -198,24 +271,34 @@ export default function MobileNav({ roots, lang }: { roots: NavRoot[]; lang: Lan
 
           {/* No invented "trending searches" -- this shop does not record
               what people search for. What it does have is its own aisles,
-              which is a real answer to "what is in here". */}
-          {roots.length > 0 && (
-            <div className="msheet-body">
-              <p className="msheet-hd">{t("categories", lang)}</p>
-              <ul className="msheet-list">
-                {roots.map((r) => (
-                  <li key={r.id}>
-                    <div className="msheet-row">
-                      <Link href={r.href} onClick={() => setView(null)}>
-                        <span>{r.label}</span>
-                        <span className="n">{r.count}</span>
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+              its banners and its stock, which are a real answer to "what is
+              in here" while the field is still empty. */}
+          <div className="msheet-body">
+            {roots.length > 0 && (
+              <>
+                <p className="msheet-hd">{t("categories", lang)}</p>
+                <ul className="msheet-list">
+                  {roots.map((r) => (
+                    <li key={r.id}>
+                      <div className="msheet-row">
+                        <Link href={r.href} onClick={() => setView(null)}>
+                          <span>{r.label}</span>
+                          <span className="n">{r.count}</span>
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <SlideStrip slides={slides} onPick={() => setView(null)} />
+            {mixed.length > 0 && (
+              <>
+                <p className="msheet-hd">{t("newArrivals", lang)}</p>
+                <Showcase items={mixed} onPick={() => setView(null)} />
+              </>
+            )}
+          </div>
         </div>,
         document.body
       )}
