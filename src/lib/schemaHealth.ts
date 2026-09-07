@@ -127,6 +127,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     tables: ["promotions"],
   },
   {
+    file: "hero-video.sql", labelKey: "featHeroVideo",
+    columns: [["hero_slides", "video_url"]],
+  },
+  {
     file: "preorders.sql", labelKey: "featPreorders",
     columns: [["products", "preorder_enabled"], ["orders", "is_preorder"]],
   },

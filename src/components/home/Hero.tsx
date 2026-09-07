@@ -1,15 +1,36 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { t } from "@/lib/i18n";
 import type { HeroSlide, Lang, Settings } from "@/lib/types";
 
-const AUTOPLAY_MS = 5000;
+/** How long a photo slide holds the screen. */
+const AUTOPLAY_MS = 6000;
+/** How long a video slide holds the screen when its length is not known --
+ * a browser that refused to autoplay, a file that will not decode, a phone
+ * on a data saver. Without a backstop a carousel can park on a black
+ * rectangle forever, and nothing on screen would say why.
+ *
+ * Once the browser HAS read the file's metadata the slide waits for the
+ * real duration instead (see `dwell` below); a fixed number here would cut
+ * a 45-second film off at 20. */
+const VIDEO_FALLBACK_MS = 20000;
+
+/** And a ceiling on that, for a file whose metadata claims something
+ * absurd. Five minutes is far longer than any shop banner and still
+ * finite. */
+const VIDEO_CEILING_MS = 5 * 60000;
+
+/** A slide is a video when it names one. There is no media_type column to
+ * disagree with the URL -- see supabase/hero-video.sql. */
+function videoSrc(s: HeroSlide): string {
+  return (s.video_url || "").trim();
+}
 
 /** Inline SVG visual — same "no photo yet" visual language as
  * lib/placeholder.ts (layered navy/amber shapes, zero network requests),
  * used as the hero's brand visual until the admin uploads real photos
- * (see /admin/hero). */
+ * or a video (see /admin/hero). */
 function HeroArt() {
   return (
     <svg viewBox="0 0 480 480" role="img" aria-hidden="true" style={{ width: "100%", height: "auto" }}>
@@ -43,45 +64,137 @@ function DefaultHero({ lang, settings }: { lang: Lang; settings: Settings }) {
   );
 }
 
-/** Photo carousel: one or more slides uploaded in /admin/hero. Slide
- * images always crossfade in the background; only the *active* slide's
- * headline/subtext/CTA are ever rendered, so there's never a hidden-but-
- * focusable link sitting in an aria-hidden slide. A single visually-
- * hidden <h1> keeps the page's heading hierarchy intact regardless of
- * whether any slide has a headline (SEO/accessibility — a page should
- * have exactly one h1; slide headlines render as a styled paragraph
- * instead, not literal heading tags, since there can be several of them
- * across slides). */
+/** Media carousel: photos, videos, or a mix, uploaded in /admin/hero.
+ *
+ * PHOTOS ALL RENDER, THE VIDEO ONLY WHEN IT IS SHOWING. Slide photos are
+ * stacked and crossfaded, which costs one <img> each; a <video> costs a
+ * download measured in megabytes, so only the active slide's video is ever
+ * put in the document. On the mobile connections this store is built for,
+ * that difference is the whole feature.
+ *
+ * HOW A VIDEO SLIDE HANDS OVER. It plays once and advances when it ends,
+ * rather than being cut off mid-shot by a timer -- unless it is the only
+ * slide, in which case it loops. A mixed set works the same way: photos
+ * take their six seconds, videos take exactly as long as they are, and the
+ * carousel goes round in the order set in /admin/hero.
+ *
+ * The timer is a backstop, not the mechanism. It is set to the video's own
+ * duration once the browser reports it, and to VIDEO_FALLBACK_MS until
+ * then -- so a video that never reports ending (autoplay refused, a file
+ * that will not decode) still hands over, and one that is longer than the
+ * fallback is not cut off at it.
+ *
+ * MUTED, AND SAYING SO. Autoplay with sound is refused by every browser and
+ * resented by every visitor, so a hero video starts silent with the control
+ * to unmute it sitting on the video. Someone who has asked their system for
+ * reduced motion gets the poster frame and a play button instead, and the
+ * carousel stops advancing on its own.
+ *
+ * Only the ACTIVE slide's headline/subtext/CTA are ever rendered, so there
+ * is never a hidden-but-focusable link inside an aria-hidden slide. A
+ * single visually-hidden <h1> keeps the page's heading hierarchy intact
+ * regardless of whether any slide has a headline (a page should have
+ * exactly one h1; slide headlines render as a styled paragraph instead,
+ * since there can be several of them across slides). */
 function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Settings; slides: HeroSlide[] }) {
   const [i, setI] = useState(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const active = slides[i];
+  const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [reduced, setReduced] = useState(false);
+  /** The active video's real length, once the browser has read it. Keyed by
+   * slide id rather than reset on every change, so a stale reading from the
+   * previous slide can never be mistaken for this one's -- and so nothing
+   * has to call setState from an effect to clear it. */
+  const [videoLen, setVideoLen] = useState<{ id: string; ms: number } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  const active = slides[Math.min(i, slides.length - 1)];
+  const src = videoSrc(active);
   const tagline = lang === "pt" ? settings.tagline_pt : lang === "en" ? settings.tagline_en : settings.tagline_tet;
   const srTitle = settings.store_name + (tagline ? " — " + tagline : "");
 
-  useEffect(() => {
-    if (slides.length < 2) return;
-    timer.current = setInterval(() => setI((cur) => (cur + 1) % slides.length), AUTOPLAY_MS);
-    return () => { if (timer.current) clearInterval(timer.current); };
-  }, [slides.length]);
+  const next = useCallback(() => setI((cur) => (cur + 1) % slides.length), [slides.length]);
 
-  function goTo(next: number) {
-    if (timer.current) clearInterval(timer.current);
-    setI(((next % slides.length) + slides.length) % slides.length);
-    if (slides.length > 1) {
-      timer.current = setInterval(() => setI((cur) => (cur + 1) % slides.length), AUTOPLAY_MS);
-    }
+  /* How long this slide gets. A photo gets a fixed turn; a video gets its
+   * own length, because the point of a video slide is that it finishes. */
+  const dwell = !src
+    ? AUTOPLAY_MS
+    : videoLen && videoLen.id === active.id ? videoLen.ms : VIDEO_FALLBACK_MS;
+
+  // "Reduce motion" is a system setting, not a one-time reading: someone
+  // can turn it on while the page is open, and the carousel should stop.
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  // One timeout per slide rather than a running interval: a manual jump
+  // changes `i`, which re-runs this, which gives the new slide its full
+  // turn on screen instead of whatever was left of the previous one's.
+  useEffect(() => {
+    if (slides.length < 2 || paused || reduced) return;
+    const id = setTimeout(next, dwell);
+    return () => clearTimeout(id);
+  }, [i, paused, reduced, dwell, slides.length, next]);
+
+  // React does not reliably set `muted` from the attribute, and an unmuted
+  // autoplay is refused outright -- so the property is set on the element
+  // itself before play() is ever called.
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = muted;
+    if (paused || reduced) { el.pause(); return; }
+    // A refusal to autoplay is not an error worth reporting: the poster
+    // frame is still there, and the play button still works.
+    void el.play().catch(() => {});
+  }, [i, muted, paused, reduced]);
+
+  function goTo(nextIndex: number) {
+    setI(((nextIndex % slides.length) + slides.length) % slides.length);
   }
+
+  const showPlayPause = slides.length > 1 || src !== "";
 
   return (
     <section className="hero-carousel" aria-roledescription="carousel" aria-label={srTitle}>
       <h1 className="sr">{srTitle}</h1>
 
       {slides.map((s, idx) => (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img key={s.id} src={s.image_url} alt="" aria-hidden="true"
-          className={"hero-slide-img" + (idx === i ? " active" : "")} />
+        videoSrc(s) ? null : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={s.id} src={s.image_url} alt="" aria-hidden="true"
+            className={"hero-slide-img" + (idx === i ? " active" : "")} />
+        )
       ))}
+
+      {src && (
+        <video
+          key={active.id}
+          ref={videoRef}
+          className="hero-slide-img active hero-slide-video"
+          poster={active.image_url || undefined}
+          playsInline
+          loop={slides.length === 1}
+          preload="metadata"
+          aria-hidden="true"
+          tabIndex={-1}
+          onLoadedMetadata={(e) => {
+            const seconds = e.currentTarget.duration;
+            if (!Number.isFinite(seconds) || seconds <= 0) return;
+            // A second and a half of slack past the end, so the handover
+            // happens on `ended` in the normal case and this only ever
+            // catches a video that stalled on its last frame.
+            setVideoLen({ id: active.id, ms: Math.min(seconds * 1000 + 1500, VIDEO_CEILING_MS) });
+          }}
+          onEnded={() => { if (slides.length > 1) next(); }}
+        >
+          <source src={src} />
+        </video>
+      )}
 
       {(active.headline || active.subtext || (active.cta_label && active.cta_href)) && (
         <div className="hero-slide-overlay">
@@ -94,6 +207,21 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
           </div>
         </div>
       )}
+
+      <div className="hero-ctrls">
+        {src !== "" && (
+          <button type="button" className="hero-ctrl" onClick={() => setMuted((m) => !m)}
+            aria-label={t(muted ? "heroUnmute" : "heroMute", lang)}>
+            {muted ? <MutedIcon /> : <SoundIcon />}
+          </button>
+        )}
+        {showPlayPause && (
+          <button type="button" className="hero-ctrl" onClick={() => setPaused((p) => !p)}
+            aria-label={t(paused ? "heroPlay" : "heroPause", lang)}>
+            {paused ? <PlayIcon /> : <PauseIcon />}
+          </button>
+        )}
+      </div>
 
       {slides.length > 1 && (
         <>
@@ -110,6 +238,37 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
         </>
       )}
     </section>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" />
+    </svg>
+  );
+}
+function PlayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+function SoundIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
+      <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+    </svg>
+  );
+}
+function MutedIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
+      <path d="m16 9 5 6M21 9l-5 6" />
+    </svg>
   );
 }
 

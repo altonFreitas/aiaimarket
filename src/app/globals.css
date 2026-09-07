@@ -18,9 +18,22 @@
      leaving large idle margins on both sides -- most visible as the gap
      that pushed the category sidebar toward the middle of the screen
      instead of using the space next to it. */
-  --content-w:1440px;
+  /* Raised again, from 1440px. At 1440 a 1920px monitor showed 240px of
+     empty margin down each side and the shop read as a column floating in
+     the middle of the screen rather than as a storefront. The header, the
+     navigation bar, the product rows and the footer all measure themselves
+     against this, so they widen together and stay aligned with each other
+     and with the full-bleed hero. */
+  --content-w:1720px;
   --sh:0 1px 2px rgba(11,20,36,.08),0 8px 24px -16px rgba(11,20,36,.25);
   --hd:52px;
+  /* The main navigation bar (MegaNav). There is no separate search strip
+     any more -- the box is in the header on a desktop and inside this bar
+     on a phone. Zero here because on a phone the bar scrolls away with the
+     page rather than pinning: stacked sticky strips are most of a 640px
+     screen. Raised to its real height in the desktop block below, where it
+     does pin. */
+  --nav-h:0px;
   /* Strength of the tais cloth behind the page. The one knob: raise it to
      make the weave more present, drop it toward 0 to fade it out entirely.
      Below ~.06 it is invisible on most screens; past ~.16 it starts
@@ -69,6 +82,19 @@ body::before{
 @media(max-width:700px){
   body::before{background-size:150px auto}
 }
+/* Everything pinned to the top of the window, added up. The catalogue
+   sidebar and the admin's own sticky rows park below it, so there is one
+   number to change rather than several that quietly drift apart.
+
+   DECLARED ON BODY, NOT :root, AND THAT IS THE WHOLE POINT. A custom
+   property's var()s are substituted on the element that DECLARES it, and
+   the answer is then inherited as a fixed value. Declared on :root this
+   calc() froze --nav-h at 44px, so the body:not(:has(.mainnav)) override
+   below -- which is what tells an admin page there is no navigation bar --
+   could never reach it, and the admin's sticky rows parked 44px below where
+   they belonged with the page scrolling through the gap. On body, both are
+   resolved against the same element. */
+body{--chrome-h:calc(var(--hd) + var(--nav-h));--admin-chrome-h:var(--chrome-h)}
 #view{flex:1 0 auto}
 img{max-width:100%;display:block}
 a{color:inherit}
@@ -80,8 +106,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* ---------- header ---------- */
 .hd{position:sticky;top:0;z-index:40;background:var(--ink);color:#fff}
-.hd-in{display:flex;align-items:center;gap:10px;height:var(--hd);padding:0 12px;max-width:var(--content-w);margin:0 auto}
-.hd-logo{display:flex;align-items:center;gap:8px;text-decoration:none;flex:0 0 auto}
+.hd-in{position:relative;display:flex;align-items:center;gap:10px;height:var(--hd);padding:0 12px;max-width:var(--content-w);margin:0 auto}
+.hd-logo{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;text-decoration:none;flex:0 0 auto}
 .hd-logo img{height:18px;width:auto;filter:brightness(0) invert(1)}
 .hd-logo b{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;opacity:.85;display:none}
 .hd-sp{flex:1}
@@ -95,14 +121,36 @@ button,input,select,textarea{font:inherit;color:inherit}
    desktop breakpoint where .nav itself is hidden, same pattern as
    .hd-track just above. */
 .hd-cart{display:none}
-.lang{display:flex;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);overflow:hidden;height:34px}
+/* Hidden in the header on a phone: two icons, a logo and an account button
+   already fill 390px, and three language buttons beside them left nothing
+   for the shop's name. It reappears at the foot of the menu screen. */
+.lang{display:none;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);overflow:hidden;height:34px}
+.msheet .lang{display:flex;border-color:var(--line)}
+.msheet .lang button{color:var(--muted)}
 .lang button{background:transparent;border:0;color:rgba(255,255,255,.62);padding:0 8px;font-size:11px;font-family:var(--mono);
   letter-spacing:.06em;cursor:pointer}
 .lang button[aria-pressed=true]{background:var(--amber);color:#3a2b00;font-weight:700}
-.searchbar{position:sticky;top:var(--hd);z-index:39;background:var(--ink-2);padding:8px 12px}
-.searchbar form{display:flex;gap:6px;max-width:var(--content-w);margin:0 auto}
-.searchbar input{flex:1;height:38px;border-radius:var(--r-s);border:1px solid var(--ink-3);background:#fff;color:var(--ink);padding:0 12px}
-.searchbar button{height:38px;border:0;border-radius:var(--r-s);background:var(--amber);color:#3a2b00;font-weight:700;padding:0 14px;cursor:pointer}
+/* The search box, wherever it is standing. Two copies exist -- one in the
+   header for a desktop, one under the categories for a phone -- and CSS
+   shows exactly one of them, so this styles both. */
+.site-search form{display:flex;gap:6px}
+.site-search input{flex:1;min-width:0;height:38px;border-radius:var(--r-s);border:1px solid var(--ink-3);
+  background:#fff;color:var(--ink);padding:0 12px}
+.site-search button{flex:0 0 auto;height:38px;border:0;border-radius:var(--r-s);background:var(--amber);
+  color:#3a2b00;font-weight:700;padding:0 14px;cursor:pointer}
+/* In the header it stands beside .icon-btn, which is 34px. A 38px field
+   next to them would sit proud of the row. */
+/* The phone's menu and search. Same size and border as .icon-btn on the
+   right of the header, so the row reads as one set of controls rather than
+   two. Gone from 768px up, where the categories have their own bar and the
+   search box its own place beside Track order. */
+.hd-mob{display:inline-flex;align-items:center;justify-content:center;
+  width:34px;height:34px;flex:0 0 auto;padding:0;cursor:pointer;
+  background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);color:#fff}
+.hd-mob:hover{background:rgba(255,255,255,.1)}
+.hd-search{display:none;flex:0 1 auto;min-width:0}
+.hd-search input,.hd-search button{height:34px}
+.hd-search button{padding:0 12px;font-size:13px}
 
 /* ---------- shell ---------- */
 /* width:100% is load-bearing, not decoration. <body> is a column flex
@@ -451,8 +499,18 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .ft .mono{font-size:11px;color:var(--muted-2)}
 
 /* ---------- homepage ---------- */
+/* THE HERO RUNS TO BOTH EDGES OF THE WINDOW.
+   It used to sit in a rounded card inside the content column, beside the
+   category sidebar. The categories moved into the header's navigation bar,
+   which freed the top of the homepage for one full-width piece of
+   merchandising -- the shape every storefront of this kind uses.
+   Only the TEXT comes back in line with the rest of the page, and
+   --bleed-pad is how: the gutter the element would have had if it were
+   inside .wrap, so a headline lines up with the product rows below it at
+   every window width. */
+:root{--bleed-pad:max(12px, calc((100% - var(--content-w)) / 2 + 12px))}
 .home .hero{display:flex;flex-direction:column-reverse;gap:18px;background:var(--ink);color:#fff;
-  border-radius:var(--r);padding:22px 18px;margin-bottom:26px;overflow:hidden}
+  padding:26px var(--bleed-pad);overflow:hidden}
 .home .hero-copy h1{color:#fff;font-size:24px;line-height:1.15;margin:0 0 10px;letter-spacing:-.01em}
 .home .hero-sub{color:rgba(255,255,255,.75);font-size:14px;margin:0 0 16px;max-width:46ch}
 .home .hero-cta{display:flex;flex-direction:column;gap:8px}
@@ -462,14 +520,25 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .home .hero-art{max-width:220px;margin:0 auto}
 
 /* photo carousel hero (populated via /admin/hero) */
-.hero-carousel{position:relative;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;
-  background:var(--ink);margin-bottom:26px}
+.hero-carousel{position:relative;aspect-ratio:4/5;max-height:76vh;overflow:hidden;
+  background:var(--ink)}
 .hero-slide-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;
   transition:opacity .6s ease}
 .hero-slide-img.active{opacity:1}
 .hero-slide-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;pointer-events:none;
+  padding:0 var(--bleed-pad);
   background:linear-gradient(0deg,rgba(11,20,36,.82) 0%,rgba(11,20,36,.35) 50%,transparent 80%)}
-.hero-slide-content{pointer-events:auto;padding:18px;max-width:420px;color:#fff}
+.hero-slide-content{pointer-events:auto;padding:22px 0 46px;max-width:420px;color:#fff}
+/* A video fills its frame exactly like a slide photo; the black behind it
+   is what shows for the moment between the poster and the first frame. */
+.hero-slide-video{background:#000}
+/* Sound and pause, on the video itself -- the two controls a visitor
+   reaches for when a banner starts moving at them. */
+.hero-ctrls{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;z-index:2}
+.hero-ctrl{width:32px;height:32px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+  background:rgba(11,20,36,.45);color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;padding:0}
+.hero-ctrl:hover{background:rgba(11,20,36,.78)}
 .hero-slide-h{font-size:22px;font-weight:800;line-height:1.15;margin:0 0 6px;letter-spacing:-.01em}
 .hero-slide-sub{font-size:13.5px;color:rgba(255,255,255,.85);margin:0 0 12px}
 .hero-arrow{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;
@@ -509,8 +578,26 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 
 /* ---------- desktop ---------- */
 @media(min-width:768px){
+  /* The navigation bar pins at desktop widths, so from here on it is part
+     of the chrome everything else parks below. */
+  :root{--nav-h:44px}
+  /* Except where there is no navigation bar. MegaNav renders nothing on the
+     admin and seller screens -- the shop's aisles are not what someone
+     managing stock is navigating -- and the 44px it would have occupied has
+     to come back out of the sticky stack, or everything below it pins 44px
+     too low and the page scrolls through the gap above it.
+     :has() is doing real work here rather than being clever: the element
+     whose absence matters is a SIBLING of everything that has to react to
+     it, so no ancestor knows. On a browser without :has() the fallback is
+     that gap -- loose, not broken. */
+  body:not(:has(.mainnav)){--nav-h:0px}
   body{font-size:15.5px}
+  /* Back to the start of the row from 768px up: there is room for the name
+     beside the mark, and a centred wordmark with a search box on one side
+     and nothing on the other reads as a mistake. */
+  .hd-logo{position:static;transform:none}
   .hd-logo b{display:inline}
+  .lang{display:flex}
   .grid{grid-template-columns:repeat(3,1fr);gap:14px}
   /* The rail runs to the viewport's LEFT EDGE.
      .wrap centres its children inside --content-w, so on a wide screen
@@ -531,7 +618,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      category LIST near the top while the page scrolls, because sticky only
      affects where a box's top edge sits, not how tall the box is. */
   .side{display:flex;flex-direction:column;flex:1;min-width:0;
-    position:sticky;top:calc(var(--hd) + 12px);
+    position:sticky;top:calc(var(--chrome-h) + 12px);
     background:var(--card);border:0;border-radius:0;
     border-right:1px solid var(--line);
     box-shadow:none;margin:0;padding:14px 14px 18px 16px}
@@ -553,6 +640,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .cat-rail{display:none}
   .nav{display:none}
   .ft{padding-bottom:16px}
+  .hd-mob{display:none}
+  .hd-search{display:block;width:min(340px, 26vw)}
   .hd-track{display:inline-flex}
   .hd-cart{display:inline-flex}
   .wrap{padding-bottom:30px}
@@ -561,14 +650,18 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .btn-row .btn{width:auto;flex:1;min-width:200px}
   .aab-row{grid-template-columns:132px 1fr;padding:11px 14px}
   .gal .main{aspect-ratio:1/1;max-height:none}
-  .searchbar form{max-width:620px;margin:0 auto 0 0}
+  /* The FORM keeps the content width so its left edge lines up with the
+     logo, the navigation bar and the product rows; the INPUT is what stops
+     at 620px. Capping the form instead pinned the search box to the window
+     edge, which only became visible once the content stopped running to
+     the edge itself. */
   .aab-price{font-size:34px}
   .stat{grid-template-columns:repeat(4,1fr)}
   .sheet{border-radius:12px;margin:auto;max-height:84vh}
   .scrim{align-items:center}
   .pdp{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
 
-  .home .hero{flex-direction:row;align-items:center;padding:36px;gap:32px}
+  .home .hero{flex-direction:row;align-items:center;padding:52px var(--bleed-pad);gap:40px}
   .home .hero-copy{flex:1}
   .home .hero-copy h1{font-size:34px}
   .home .hero-sub{font-size:15.5px;max-width:52ch}
@@ -579,8 +672,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .home-section-more-mobile{display:none}
   .promo{flex-direction:row;align-items:center;justify-content:space-between;padding:26px 30px}
 
-  .hero-carousel{aspect-ratio:2.6/1}
-  .hero-slide-content{padding:36px;max-width:520px}
+  .hero-carousel{aspect-ratio:auto;height:min(74vh,720px);max-height:none}
+  .hero-slide-content{padding:0 0 56px;max-width:560px}
   .hero-slide-h{font-size:36px}
   .hero-slide-sub{font-size:15.5px;max-width:52ch}
   .hero-arrow{width:42px;height:42px;font-size:24px}
@@ -988,7 +1081,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 /* body::before too: an invoice printed on a customer's receipt is not the
    place to spend their toner on background cloth. */
-@media print{.hd,.nav,.searchbar,.btn-row,.adm-nav,body::before{display:none}}
+@media print{.hd,.mainnav,.nav,.btn-row,.adm-nav,body::before{display:none}}
 
 /* ============================================================
    Dense marketplace layer — utility top bar + promo strip.
@@ -1001,7 +1094,10 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    ============================================================ */
 
 /* ---------- utility top bar ---------- */
-.topbar{background:var(--ink-2);color:rgba(255,255,255,.72);font-size:12px;display:none}
+/* Above the mega menu's scrim (z 39 inside .mainnav) so the strip is not
+   blurred along with the page when the menu opens at the top of it. */
+.topbar{background:var(--ink-2);color:rgba(255,255,255,.72);font-size:12px;display:none;
+  position:relative;z-index:41}
 .topbar-in{max-width:var(--content-w);margin:0 auto;padding:6px 12px;display:flex;align-items:center;gap:14px}
 .topbar-note{white-space:nowrap}
 .topbar-hours{color:rgba(255,255,255,.5)}
@@ -1077,18 +1173,22 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    runs to several screens -- and changing section meant scrolling all the
    way back up first.
 
-   THE OFFSET IS NOT ZERO, AND THAT IS THE WHOLE PROBLEM. Two things above
-   this are ALREADY sticky: .hd at top:0 (z-index 40) and .searchbar at
-   top:var(--hd) (z-index 39). Sticking the nav at top:0 as well parks it
-   underneath both of them, where it is invisible -- which is exactly what
-   happened, and what a harness without the site header could not show.
+   THE OFFSET IS NOT ZERO, AND THAT IS THE WHOLE PROBLEM. The site header
+   above this is ALREADY sticky (.hd at top:0, z-index 40). Sticking the
+   admin nav at top:0 as well parks it underneath, where it is invisible --
+   which is exactly what happened, and what a harness without the site
+   header could not show.
 
-   So each row parks below the one before it. The heights are measured, not
-   derived from the stylesheet by hand: .hd is 52px and .searchbar 54px
-   (8px + a 38px input + 8px), identical at every width, and the top nav
-   row is 45px. --adm-nav-h is a point over that so the sub row leaves a
-   hairline rather than overlapping if a font renders a pixel taller. */
-:root{--adm-nav-h:46px; --admin-chrome-h:106px}
+   So each row parks below the one before it, and the offset is read from
+   --chrome-h rather than measured by hand: the admin screens render no
+   MegaNav, so --chrome-h there is just .hd. --adm-nav-h is a point over the
+   top row's height so the sub row leaves a hairline rather than overlapping
+   if a font renders a pixel taller. */
+/* Was a hardcoded 106px, which was --hd plus the search row measured by
+   hand. It is now the same --chrome-h every other pinned thing uses, so
+   adding the navigation bar moved the admin's rows with it instead of
+   parking them under it. */
+:root{--adm-nav-h:46px}
 .adm-nav-top{position:sticky;top:var(--admin-chrome-h);z-index:30}
 .adm-nav-sub{position:sticky;top:calc(var(--admin-chrome-h) + var(--adm-nav-h));z-index:29}
 /* The rounded corners look wrong once a row is pinned against the top of
@@ -1452,3 +1552,232 @@ span.stock-btn:hover{filter:none}
    bottom of a form -- two buttons the width of the page read as a mistake
    rather than as a choice. */
 .empty-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+
+/* ============================================================
+   MAIN NAVIGATION — the bar under the logo, and its mega panel
+   ============================================================
+   Three levels, one bar: Women / Men / the shop's other categories, each
+   opening a panel of categories, each category revealing its own
+   subcategories. See src/lib/nav.ts for where the entries come from and
+   src/components/MegaNav.tsx for the behaviour.
+
+   STACKING, WHICH IS THE WHOLE TRICK HERE. .mainnav is one stacking
+   context at z-index 39, which puts everything inside it above the page
+   and below the header (40) and the top strip (41). Inside it the order is
+   scrim (0) → the bar itself (1) → the open panel (2). Nothing needs a
+   z-index in the thousands, and nothing outside this block had to move. */
+/* Hidden on a phone -- see MobileNav, which replaces it with a menu button
+   and a full screen. It stays in the document rather than being dropped in
+   JavaScript so that body:has(.mainnav) still answers correctly for the
+   sticky stack, and so nothing depends on a breakpoint being read the same
+   way twice. */
+.mainnav{display:none;position:relative;z-index:39;background:var(--ink);color:#fff;
+  border-top:1px solid rgba(255,255,255,.09)}
+.mainnav-in{position:relative;z-index:1;background:var(--ink);
+  max-width:var(--content-w);margin:0 auto;padding:0 12px}
+.mainnav-row{min-width:0;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.mainnav-row::-webkit-scrollbar{display:none}
+.mainnav-item{flex:0 0 auto;display:inline-flex;align-items:center;height:44px;padding:0 13px;
+  background:transparent;border:0;border-bottom:2px solid transparent;color:rgba(255,255,255,.82);
+  font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  text-decoration:none;white-space:nowrap;cursor:pointer}
+.mainnav-item:hover{color:#fff}
+.mainnav-item.is-on{color:#fff;border-bottom-color:var(--amber)}
+.mainnav-all{color:var(--amber)}
+.mainnav-all:hover{color:var(--amber)}
+
+/* The page, pushed back. Dimming and blurring what is not being chosen
+   from is what makes a wide panel readable over a busy catalogue without
+   an opaque sheet across the whole window. Both spellings of the property:
+   Safari still wants the prefixed one, and on a browser that supports
+   neither this degrades to the dim alone, which is enough. */
+.mega-scrim{position:fixed;inset:0;z-index:0;background:rgba(11,20,36,.42);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);animation:megaFade .15s ease-out}
+@keyframes megaFade{from{opacity:0}to{opacity:1}}
+@keyframes megaDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+.mega{position:absolute;left:0;right:0;top:100%;z-index:2;
+  background:var(--card);color:var(--ink);border-top:1px solid var(--line);
+  box-shadow:var(--sh);max-height:min(70vh,560px);overflow-y:auto;
+  animation:megaDown .14s ease-out}
+.mega-in{max-width:var(--content-w);margin:0 auto;padding:14px 12px 18px;
+  display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+
+.mega-all{display:block;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink);text-decoration:none;padding:4px 8px 10px;
+  border-bottom:1px solid var(--line-2);margin-bottom:6px}
+.mega-all:hover{color:var(--ink-3);text-decoration:underline}
+.mega-groups{list-style:none;margin:0;padding:0}
+.mega-groups li{display:flex;flex-wrap:wrap;align-items:center}
+.mega-group{flex:1;min-width:0;display:flex;justify-content:space-between;gap:8px;align-items:center;
+  padding:9px 8px;border-radius:var(--r-s);text-decoration:none;font-size:14px;font-weight:600}
+.mega-groups li.is-on .mega-group,.mega-group:hover{background:var(--line-2)}
+.mega-groups .n{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400}
+/* Touch has no hover, so this chevron is what opens a category on a phone.
+   On a desktop it is the same control, and pointing at the row does it
+   anyway -- so it reads as the affordance it is either way. */
+.mega-exp{flex:0 0 auto;width:32px;height:32px;padding:0;border:0;background:transparent;
+  color:var(--muted);font-size:17px;line-height:1;cursor:pointer;border-radius:var(--r-s)}
+.mega-exp:hover{background:var(--line-2);color:var(--ink)}
+.mega-exp[aria-expanded=true]{color:var(--ink);transform:rotate(90deg)}
+.mega-empty{padding:8px;font-size:13px;color:var(--muted)}
+
+/* The subcategories. Twice in the markup, once visible: inline under their
+   category on a phone, in the column beside it on a desktop. One list to
+   maintain, no second menu to drift out of step. */
+.mega-kids-inline{list-style:none;margin:0 0 6px;padding:0 0 4px 16px;flex-basis:100%}
+.mega-col-kids{display:none}
+.mega-kids-hd{margin:0 0 8px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mega-kids{list-style:none;margin:0;padding:0}
+.mega-kids-inline a,.mega-kids a{display:flex;justify-content:space-between;gap:8px;
+  padding:6px 6px;text-decoration:none;font-size:13.5px;color:var(--ink-3);border-radius:var(--r-s)}
+.mega-kids-inline a:hover,.mega-kids a:hover{color:var(--ink);background:var(--line-2)}
+.mega-kids-inline .n,.mega-kids .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+
+/* Real stock from behind the entry. It carries the panel on a catalogue
+   with no subcategories yet, and stays worth its space once there are
+   some -- four products say more than four more names. */
+/* Hidden on a phone. The panel there is a list to move through, and four
+   product cards push the categories under it off the screen -- the one
+   thing the menu exists to show. The same products are one tap away in the
+   rows on the page behind it. */
+.mega-col-feature{display:none}
+.mega-card{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+.mega-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
+  border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
+.mega-card-nm{font-size:12.5px;font-weight:600;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mega-card-pr{font-size:12.5px;color:var(--ink-3)}
+.mega-card-pr b{color:var(--red)}
+
+@media(min-width:768px){
+  .mainnav{display:block;position:sticky;top:var(--hd)}
+  .mega-in{grid-template-columns:minmax(210px,250px) minmax(170px,230px) minmax(0,1fr);
+    gap:26px;padding:18px 12px 22px}
+  .mega-col-kids{display:block}
+  .mega-kids-inline{display:none}
+  .mega-col-feature{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+}
+
+/* ---------- homepage rails, audience tiles ---------- */
+/* A gap between the navigation bar and the hero. Both are near-black navy,
+   and butted together they read as one enormous block with the categories
+   floating inside it; a few pixels of paper is all it takes to separate the
+   chrome from the content. */
+.home{padding-top:10px}
+/* The body of the homepage, under the full-bleed hero. */
+.home-body{padding-top:22px}
+.home-section-acts{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+
+/* A row that scrolls sideways rather than a grid that grows downwards --
+   see the note in components/home/ProductSection.tsx. grid-auto-columns is
+   what fixes how many cards a screen shows; scroll-snap makes the swipe
+   land on a card edge instead of half of one. */
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:64%;gap:10px;
+  overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.rail::-webkit-scrollbar{display:none}
+.rail>*{scroll-snap-align:start}
+.rail-arrows{display:none;gap:6px}
+.rail-arrow{width:32px;height:32px;padding:0;border-radius:50%;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);font-size:18px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.rail-arrow:hover:not(:disabled){background:var(--line-2)}
+.rail-arrow:disabled{opacity:.35;cursor:default}
+@media(min-width:520px){.rail{grid-auto-columns:42%}}
+@media(min-width:768px){
+  .rail{grid-auto-columns:calc((100% - 3 * 14px) / 4);gap:14px}
+  .rail-arrows{display:flex}
+}
+@media(min-width:1100px){.rail{grid-auto-columns:calc((100% - 4 * 14px) / 5)}}
+
+/* Women / Men, given the room a hover menu cannot. The picture on each is
+   a real product from behind it -- this store has no art department, and a
+   tile showing what is actually in the shop beats one showing what is not. */
+.aud-tiles{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.aud-tile{position:relative;display:block;overflow:hidden;border-radius:var(--r);
+  text-decoration:none;background:var(--ink)}
+.aud-tile img{width:100%;height:100%;aspect-ratio:16/10;object-fit:cover;transition:transform .35s ease}
+.aud-tile:hover img{transform:scale(1.04)}
+.aud-tile-in{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:2px;
+  padding:16px 18px;color:#fff;
+  background:linear-gradient(0deg,rgba(11,20,36,.88) 0%,rgba(11,20,36,.35) 60%,transparent 100%)}
+.aud-tile-in b{font-size:21px;letter-spacing:.04em;text-transform:uppercase;line-height:1.1}
+.aud-tile-in em{font-style:normal;font-family:var(--mono);font-size:11px;opacity:.8}
+@media(min-width:640px){
+  .aud-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* Wider than tall once there are two side by side: a banner, not a
+     poster. At 16/10 each tile was taller than the product rows below it
+     and pushed them off the first screen. */
+  .aud-tile img{aspect-ratio:2/1}
+}
+
+/* ---------- hero slides admin ---------- */
+.hero-slide-kind{margin:0;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted)}
+
+/* ============================================================
+   THE PHONE'S MENU AND SEARCH SCREENS (MobileNav)
+   ============================================================
+   Full-screen, not a drawer sliding in from the side: at 390px a side
+   drawer is the whole screen anyway, minus a strip of dimmed page nobody
+   is aiming for. z-index 60 clears the bottom navigation at 50; these are
+   portalled onto <body> so that number means what it says (see the note in
+   MobileNav.tsx). Desktop never sees them -- the buttons that open them are
+   display:none there. */
+.msheet{position:fixed;inset:0;z-index:60;background:var(--card);color:var(--ink);
+  display:flex;flex-direction:column;overscroll-behavior:contain;
+  animation:msheetIn .16s ease-out}
+@keyframes msheetIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+.msheet-top{flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-bottom:1px solid var(--line-2)}
+.msheet-x{width:40px;height:40px;flex:0 0 auto;padding:0;display:flex;align-items:center;
+  justify-content:center;background:transparent;border:0;color:var(--ink);cursor:pointer;
+  border-radius:var(--r-s)}
+.msheet-x:hover{background:var(--line-2)}
+.msheet-top-search{gap:6px}
+.msheet-field{flex:1;min-width:0}
+
+/* The aisles across the top, one tab each -- the same entries as the
+   desktop bar, from the same nav model. Scrolls sideways only when there
+   are more than fit, and unlike the row this replaced nothing is hidden by
+   that: everything a tab holds is on the screen below it. */
+.msheet-tabs{flex:0 0 auto;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
+  padding:0 8px;border-bottom:1px solid var(--line-2)}
+.msheet-tabs::-webkit-scrollbar{display:none}
+.msheet-tab{flex:0 0 auto;background:transparent;border:0;border-bottom:2px solid transparent;
+  padding:12px 10px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.msheet-tab.is-on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
+
+.msheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:6px 0 calc(90px + env(safe-area-inset-bottom))}
+.msheet-hd{margin:14px 16px 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.msheet-all{display:block;padding:14px 16px;font-size:12.5px;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink);text-decoration:none}
+.msheet-all-shop{border-top:1px solid var(--line-2);color:var(--amber-ink)}
+
+.msheet-list{list-style:none;margin:0;padding:0}
+/* Rows sized for a thumb: 52px is the smallest a target can be and still be
+   hit without aiming. */
+.msheet-row{display:flex;align-items:center;border-bottom:1px solid var(--line-2)}
+.msheet-row>a{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:15px 16px;text-decoration:none;font-size:15px;color:var(--ink)}
+.msheet-row>a:active{background:var(--line-2)}
+.msheet-row .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+.msheet-exp{flex:0 0 auto;width:52px;align-self:stretch;padding:0;background:transparent;border:0;
+  border-left:1px solid var(--line-2);color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.msheet-exp svg{transition:transform .15s ease}
+.msheet-exp[aria-expanded=true]{color:var(--ink)}
+.msheet-exp[aria-expanded=true] svg{transform:rotate(90deg)}
+.msheet-exp:active{background:var(--line-2)}
+
+.msheet-kids{list-style:none;margin:0;padding:0;background:var(--paper)}
+.msheet-kids a{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:13px 16px 13px 30px;text-decoration:none;font-size:14px;color:var(--ink-3);
+  border-bottom:1px solid var(--line-2)}
+.msheet-kids a:active{background:var(--line)}
+.msheet-kids .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+
+.msheet-foot{padding:18px 16px;display:flex;justify-content:center}

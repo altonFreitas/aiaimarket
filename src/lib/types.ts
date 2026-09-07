@@ -60,7 +60,13 @@ export interface Category {
 
 export interface HeroSlide {
   id: string;
+  /** The photo, or on a video slide the POSTER frame shown until the video
+   * plays (and on any connection that never plays it). May be "". */
   image_url: string;
+  /** MP4/WebM URL when this slide is a video, "" when it is a photo.
+   * Optional: a database that has not run supabase/hero-video.sql has no
+   * column, and a missing value reads as "photo" -- the safe answer. */
+  video_url?: string | null;
   headline: string;
   subtext: string;
   cta_label: string;

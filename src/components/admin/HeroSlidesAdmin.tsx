@@ -3,8 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { compressImage } from "@/lib/compressImage";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import {
-  createHeroSlide, deleteHeroSlide, moveHeroSlide, updateHeroSlide, uploadHeroImage,
+  createHeroSlide, createHeroVideoUpload, deleteHeroSlide, moveHeroSlide, updateHeroSlide, uploadHeroImage,
 } from "@/lib/actions/hero";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
@@ -52,17 +53,68 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
     setBusy(false);
   }
 
+  /** A video never passes through the server.
+   *
+   * The action hands back a token good for exactly one Storage path, the
+   * browser PUTs the file straight there, and only the resulting URL comes
+   * back through an action. That is the only shape that works: a Server
+   * Action carries its arguments in the request body, and no video worth
+   * showing fits in one. */
+  async function onUploadVideo(files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const { path, token, publicUrl } = await createHeroVideoUpload(file.name, file.type, file.size);
+      const { error } = await supabaseBrowser()
+        .storage.from("product-images")
+        .uploadToSignedUrl(path, token, file);
+      if (error) throw error;
+      await createHeroSlide("", publicUrl);
+      toast(`${file.name} → ${Math.round(file.size / 1024)} KB`);
+      router.refresh();
+    } catch (e) {
+      toast(String((e as Error).message), true);
+    }
+    setBusy(false);
+  }
+
+  /** The still frame behind a video: what a visitor sees while it loads,
+   * and all a visitor on a metered connection may ever see. Same
+   * compression path as a photo slide. */
+  async function onUploadPoster(slideId: string, files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const r = await compressImage(file, 1600, 300);
+      const url = await uploadHeroImage(r.data, file.name);
+      await updateHeroSlide(slideId, { image_url: url });
+      toast(`${file.name} → ${r.kb} KB`);
+      router.refresh();
+    } catch (e) {
+      toast(String((e as Error).message), true);
+    }
+    setBusy(false);
+  }
+
   return (
     <>
       <h1>{t("heroSlides", lang)}</h1>
       <p className="sub">{t("heroSlidesSub", lang)}</p>
 
-      <div className="panel">
+      <div className="panel" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <label className="btn btn-sm" style={{ display: "inline-flex", cursor: busy ? "not-allowed" : "pointer" }}>
           {t("addSlide", lang)}
           <input type="file" accept="image/*" multiple hidden disabled={busy}
             onChange={(e) => onUpload(e.target.files)} />
         </label>
+        <label className="btn btn-sm" style={{ display: "inline-flex", cursor: busy ? "not-allowed" : "pointer" }}>
+          {t("addVideoSlide", lang)}
+          <input type="file" accept="video/mp4,video/webm" hidden disabled={busy}
+            onChange={(e) => onUploadVideo(e.target.files)} />
+        </label>
+        <p className="hint" style={{ margin: 0, flexBasis: "100%" }}>{t("heroVideoHint", lang)}</p>
       </div>
 
       {!slides.length && <p className="sub">{t("noSlidesYet", lang)}</p>}
@@ -70,11 +122,20 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
       <div className="list">
         {slides.map((s, i) => {
           const d = draftFor(s);
+          const video = (s.video_url || "").trim();
           return (
             <div key={s.id} className="panel hero-slide-row">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.image_url} alt="" className="hero-slide-thumb" />
+              {video ? (
+                <video className="hero-slide-thumb" src={video} poster={s.image_url || undefined}
+                  muted playsInline preload="metadata" controls />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.image_url} alt="" className="hero-slide-thumb" />
+              )}
               <div className="hero-slide-fields">
+                <p className="hero-slide-kind">
+                  {t(video ? "slideKindVideo" : "slideKindPhoto", lang)}
+                </p>
                 <input placeholder={t("slideHeadline", lang)} value={d.headline}
                   onChange={(e) => setDraft(s.id, { headline: e.target.value })} />
                 <input placeholder={t("slideSubtext", lang)} value={d.subtext}
@@ -85,6 +146,16 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                   <input placeholder={t("slideCtaHref", lang)} value={d.cta_href}
                     onChange={(e) => setDraft(s.id, { cta_href: e.target.value })} style={{ flex: 1 }} />
                 </div>
+                {video && (
+                  <WriteOnly>
+                    <label className="btn btn-sm btn-ghost"
+                      style={{ display: "inline-flex", alignSelf: "flex-start", cursor: busy ? "not-allowed" : "pointer" }}>
+                      {s.image_url ? t("slideReplacePoster", lang) : t("slideAddPoster", lang)}
+                      <input type="file" accept="image/*" hidden disabled={busy}
+                        onChange={(e) => onUploadPoster(s.id, e.target.files)} />
+                    </label>
+                  </WriteOnly>
+                )}
               </div>
               <div className="hero-slide-acts"><WriteOnly>
                 <button className="btn btn-sm btn-ghost" disabled={busy || i === 0}

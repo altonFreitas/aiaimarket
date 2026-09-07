@@ -24,13 +24,70 @@ export async function uploadHeroImage(dataUrl: string, filenameHint: string) {
   return data.publicUrl;
 }
 
-export async function createHeroSlide(imageUrl: string): Promise<HeroSlide> {
+/** Videos this hero will accept, and the extension each is stored under.
+ * Two containers, both playable by every browser this shop sees. */
+const VIDEO_TYPES: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+};
+
+/** A hard ceiling on a hero video. Not a technical limit -- a promise to
+ * the visitor: this store is used on mobile data in Timor-Leste, and a
+ * 200 MB banner would spend somebody's credit before they saw a product. */
+const MAX_VIDEO_MB = 25;
+
+/** A one-time permission to upload ONE file to ONE path in Storage.
+ *
+ * WHY NOT A SERVER ACTION LIKE THE PHOTOS. Every other upload here arrives
+ * as a base64 data URL in the action's arguments -- fine for a 200 KB
+ * photo, impossible for a video: the payload of a Server Action travels in
+ * the request body, which is capped in the megabytes, and base64 makes any
+ * file a third larger before it even sets off. So the server does not carry
+ * the bytes at all. It checks who is asking, decides the path, and hands
+ * back a token the browser uploads directly with (see HeroSlidesAdmin).
+ *
+ * The type and size come from the browser and are therefore claims, not
+ * facts -- which is exactly why the token is scoped to a single path this
+ * function chose. The worst a lying client achieves is a wrong-sized file
+ * in a hero/ key it was already allowed to write. The bucket's own file
+ * size limit is the second half of this, and is set in Supabase, not here.
+ */
+export async function createHeroVideoUpload(
+  filenameHint: string, contentType: string, sizeBytes: number
+): Promise<{ path: string; token: string; publicUrl: string }> {
+  await requireAdmin();
+  const ext = VIDEO_TYPES[contentType];
+  if (!ext) throw new Error("Unsupported video format — use MP4 or WebM");
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_VIDEO_MB * 1024 * 1024) {
+    throw new Error(`Video is too large (max ${MAX_VIDEO_MB} MB)`);
+  }
+  const sb = supabaseAdmin();
+  const path = `hero/${Date.now()}-${safeFileStem(filenameHint)}.${ext}`;
+  const { data, error } = await sb.storage.from("product-images").createSignedUploadUrl(path);
+  if (error) throw error;
+  const { data: pub } = sb.storage.from("product-images").getPublicUrl(path);
+  return { path, token: data.token, publicUrl: pub.publicUrl };
+}
+
+/** A new slide. `imageUrl` is the photo, or on a video slide the poster
+ * frame -- which may be "" when the admin has not uploaded one, in which
+ * case the slide simply starts dark and fills in as the video loads. */
+export async function createHeroSlide(imageUrl: string, videoUrl = ""): Promise<HeroSlide> {
   await requireAdmin();
   const sb = supabaseAdmin();
   const { count } = await sb.from("hero_slides").select("*", { count: "exact", head: true });
   const { data, error } = await sb
     .from("hero_slides")
-    .insert({ image_url: imageUrl, sort_order: (count || 0) + 1 })
+    .insert({
+      image_url: imageUrl,
+      // Left out entirely when there is no video, so this still works on a
+      // database that has not run supabase/hero-video.sql -- inserting a
+      // column that does not exist fails the whole insert, and a shop
+      // uploading a photo should not be stopped by a migration it does not
+      // need yet.
+      ...(videoUrl ? { video_url: videoUrl } : {}),
+      sort_order: (count || 0) + 1,
+    })
     .select()
     .single();
   if (error) throw error;
@@ -42,7 +99,7 @@ export async function createHeroSlide(imageUrl: string): Promise<HeroSlide> {
 
 export async function updateHeroSlide(
   id: string,
-  fields: Partial<Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "image_url">>
+  fields: Partial<Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url">>
 ) {
   await requireAdmin();
   const sb = supabaseAdmin();

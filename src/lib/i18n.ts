@@ -393,6 +393,10 @@ export const STR: Record<string, [string,string,string]> = {
   sizesLabel:["Tamañu sira","Tamanhos","Sizes / variants"],
   sizesHint:["Separa ho vírgula: S, M, L ka 38, 39, 40","Separe por vírgulas: S, M, L ou 38, 39, 40","Comma separated: S, M, L or 38, 39, 40"],
   category:["Kategoria","Categoria","Category"],
+  catPanelTitle:["Produtu ne'e tama iha ne'ebé","Onde este produto se encaixa","Where this product belongs"],
+  catPanelHint:["Kategoria mak produtu ne'e SAIDA — Jaketa, Sapatu, Kalsa Jeans. «Ba sé» mak tau nia iha Feto ka Mane iha menu loja nian. Pergunta rua ne'e la hanesan.","A categoria é o que o produto É — Casaco, Sapatos, Jeans. «Para quem» é o que o coloca em Mulher ou Homem no menu da loja. São duas perguntas diferentes.","Category is what the product IS — Jacket, Shoes, Jeans. Who it is for is what puts it under Women or Men in the shop menu. They are two different questions."],
+  categoryHint:["Produtu ne'e saida — Sapatu, Jaketa, Kalsa.","O que o produto é — Sapatos, Casaco, Calças.","What the product is — Shoes, Jacket, Jeans."],
+  subcategoryHint:["Tipu ki'ik liu iha kategoria laran — Sneakers, Sandalia.","Um tipo mais específico dentro dela — Sneakers, Sandálias.","A narrower kind inside it — Sneakers, Sandals."],
   newCategory:["Kria kategoria","Criar categoria","Create category"],
   subcategory:["Subkategoria","Subcategoria","Subcategory"],
   newSubcategory:["Kria subkategoria","Criar subcategoria","Create subcategory"],
@@ -1044,7 +1048,7 @@ export const STR: Record<string, [string,string,string]> = {
   audienceUnisex:["Rua hotu","Ambos","Unisex"],
   audienceLabel:["Ba sé","Para quem","Who it is for"],
   audienceAny:["Ba sé de'it","Para todos","Anyone"],
-  audienceHint:["Uza ba ropa no sapatu. Husik mamuk se pergunta ne'e la aplika.","Use para roupa e calçado. Deixe vazio se a pergunta não se aplica.","For clothing and footwear. Leave empty when the question does not apply."],
+  audienceHint:["Ne'e mak tau produtu iha Feto ka Mane iha menu loja nian. Husik mamuk ba sasán ne'ebé pergunta ne'e la aplika — frigorífiku la'ós ropa ema nian.","É isto que o coloca em Mulher ou Homem no menu da loja. Deixe vazio para artigos a que a pergunta não se aplica — um frigorífico não é roupa de ninguém.","This is what puts it under Women or Men in the shop menu. Leave empty for goods the question does not apply to — a fridge is nobody's clothing."],
   restockSoon:["Stock tun ba kraik","Stock a baixar","Running low"],
   restockSoonHint:["Produtu sira ne'e iha {pct}% ka menus husi entrega ikus.","Estes produtos estão a {pct}% ou menos da última entrega.","These are at {pct}% or less of their last delivery."],
   restockAlertPct:["Avisu stock iha (%)","Aviso de stock a (%)","Warn when stock reaches (%)"],
@@ -1113,6 +1117,27 @@ export const STR: Record<string, [string,string,string]> = {
   /* ---- purchase order details + PDF ---- */
   sizesVariants:["Tamañu / variante","Tamanho / variante","Size / variant"],
   descriptionPoHint:["Deskrisaun ne'e sei ba produtu foun iha loja.","Esta descrição vai para o produto novo na loja.","This description goes onto the new product in the shop."],
+  /* ---- main navigation (the bar under the logo) ---- */
+  navMenu:["Menu","Menu","Menu"],
+  navShopAll:["Haree hotu","Ver tudo","Shop all"],
+  navShopAllOf:["Haree hotu iha","Ver tudo em","Shop all"],
+  navNoSubcategories:["Seidauk iha sub-kategoria.","Ainda sem subcategorias.","No subcategories yet."],
+  shopByAudience:["Sosa ba sé","Comprar para quem","Shop by"],
+  shopByAudienceSub:["Ba feto no ba mane.","Para mulher e para homem.","For women and for men."],
+  railPrev:["Molok","Anterior","Previous"],
+  railNext:["Tuir mai","Seguinte","Next"],
+  /* ---- hero video ---- */
+  heroPause:["Para","Pausa","Pause"],
+  heroPlay:["Toka","Reproduzir","Play"],
+  heroMute:["Hamate lian","Silenciar","Mute"],
+  heroUnmute:["Loke lian","Ativar som","Unmute"],
+  addVideoSlide:["Tau vídeo","Adicionar vídeo","Add video"],
+  heroVideoHint:["Vídeo MP4 ka WebM, to'o 25 MB. Tau mós foto poster ba ema ne'ebé internet neneik.","Vídeo MP4 ou WebM, até 25 MB. Adicione também uma imagem de poster para quem tem ligação lenta.","MP4 or WebM video, up to 25 MB. Add a poster image too, for visitors on a slow connection."],
+  slideKindVideo:["Vídeo","Vídeo","Video"],
+  slideKindPhoto:["Foto","Foto","Photo"],
+  slideAddPoster:["Tau poster","Adicionar poster","Add poster"],
+  slideReplacePoster:["Troka poster","Substituir poster","Replace poster"],
+  featHeroVideo:["Vídeo iha banner","Vídeo no banner","Video in the hero"],
   error:["Iha erru","Ocorreu um erro","Something went wrong"]
 };
 

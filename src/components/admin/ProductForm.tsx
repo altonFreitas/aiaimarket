@@ -291,14 +291,26 @@ export default function ProductForm({
           </div>
         </div>
 
+        {/* WHAT IT IS, AND WHO IT IS FOR, IN ONE PLACE.
+            These two used to sit in different panels, and the form gave no
+            hint that they were related -- so the obvious reading was that
+            "Category" was where you chose Man or Woman. It is not, and it
+            must not become that: a category tree split by gender means
+            every clothing category duplicated into a men's and a women's
+            copy, and then an argument about which one a unisex t-shirt goes
+            in. The shop menu builds Women and Men from `audience` instead,
+            over the SAME categories. See src/lib/audience.ts and
+            src/lib/nav.ts. */}
         <div className="panel">
-          <h3>{t("category", lang)}</h3>
+          <h3>{t("catPanelTitle", lang)}</h3>
+          <p className="hint">{t("catPanelHint", lang)}</p>
           <div className={"field" + (errors.category_id ? " err" : "")}>
             <label htmlFor="category_id">{t("category", lang)}</label>
             <select id="category_id" value={selectedRootId}
               onChange={(e) => set("category_id", e.target.value)}>
               {rootCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            <p className="hint">{t("categoryHint", lang)}</p>
             <p className="msg">{errors.category_id}</p>
           </div>
           {subCats.length > 0 && (
@@ -309,8 +321,23 @@ export default function ProductForm({
                 <option value="">{t("none", lang)}</option>
                 {subCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              <p className="hint">{t("subcategoryHint", lang)}</p>
             </div>
           )}
+          <div className="field">
+            <label htmlFor="audience">{t("audienceLabel", lang)}</label>
+            <select id="audience" value={f.audience} disabled={!canWrite}
+              onChange={(e) => setF({ ...f, audience: e.target.value })}>
+              {/* Empty is a real answer, not a missing one: it means the
+                  question does not apply to this product. A saucepan is not
+                  unisex. */}
+              <option value="">{t("audienceAny", lang)}</option>
+              {AUDIENCES.map((a) => (
+                <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
+              ))}
+            </select>
+            <p className="hint">{t("audienceHint", lang)}</p>
+          </div>
           <WriteOnly>
           <div className="field">
             <label htmlFor="newcat">{t("newCategory", lang)}</label>
@@ -326,7 +353,7 @@ export default function ProductForm({
             <label htmlFor="newsubcat">{t("newSubcategory", lang)}</label>
             <div style={{ display: "flex", gap: 6 }}>
               <input id="newsubcat" value={newSubCat} onChange={(e) => setNewSubCat(e.target.value)}
-                placeholder="Sapatu Feto, Sapatu Mane…" />
+                placeholder="Sneakers, Sandalia…" />
               <button type="button" className="btn btn-sm" disabled={busy || !selectedRootId}
                 onClick={onCreateSubCategory}>
                 {t("add", lang)}
@@ -338,20 +365,6 @@ export default function ProductForm({
 
         <div className="panel">
           {field("sizes", t("sizesLabel", lang), "text", t("sizesHint", lang))}
-          <div className="field">
-            <label htmlFor="audience">{t("audienceLabel", lang)}</label>
-            <select id="audience" value={f.audience} disabled={!canWrite}
-              onChange={(e) => setF({ ...f, audience: e.target.value })}>
-              {/* Empty is a real answer, not a missing one: it means the
-                  question does not apply to this product. A saucepan is not
-                  unisex. */}
-              <option value="">{t("audienceAny", lang)}</option>
-              {AUDIENCES.map((a) => (
-                <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
-              ))}
-            </select>
-            <p className="hint">{t("audienceHint", lang)}</p>
-          </div>
           {field("tags", t("utility", lang), "text", t("utilityHint", lang))}
         </div>
 

@@ -7,6 +7,7 @@ import { saveSellerProduct, uploadSellerProductImage } from "@/lib/actions/selle
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
+import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, StockStatus } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export default function SellerProductForm({
     qty: product ? String(product.qty) : "1",
     description: product?.description || "",
     category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
+    audience: normalizeAudience(product?.audience) ?? "",
     sizes: (product?.sizes || []).join(", "),
     tags: (product?.tags || []).join(", "),
   });
@@ -142,6 +144,7 @@ export default function SellerProductForm({
         qty: Number(f.qty) || 0,
         description: f.description,
         category_id: f.category_id,
+        audience: f.audience || null,
         sizes: f.sizes.split(",").map((s) => s.trim()).filter(Boolean),
         tags: f.tags.split(",").map((s) => s.trim()).filter(Boolean),
         images,
@@ -217,13 +220,15 @@ export default function SellerProductForm({
         </div>
 
         <div className="panel">
-          <h3>{t("category", lang)}</h3>
+          <h3>{t("catPanelTitle", lang)}</h3>
+          <p className="hint">{t("catPanelHint", lang)}</p>
           <div className={"field" + (errors.category_id ? " err" : "")}>
             <label htmlFor="category_id">{t("category", lang)}</label>
             <select id="category_id" value={selectedRootId}
               onChange={(e) => set("category_id", e.target.value)}>
               {rootCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            <p className="hint">{t("categoryHint", lang)}</p>
             <p className="msg">{errors.category_id}</p>
           </div>
           {subCats.length > 0 && (
@@ -234,8 +239,22 @@ export default function SellerProductForm({
                 <option value="">{t("none", lang)}</option>
                 {subCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              <p className="hint">{t("subcategoryHint", lang)}</p>
             </div>
           )}
+          <div className="field">
+            <label htmlFor="audience">{t("audienceLabel", lang)}</label>
+            <select id="audience" value={f.audience}
+              onChange={(e) => set("audience", e.target.value)}>
+              {/* Empty means the question does not apply to this product,
+                  which is not the same as unisex -- see lib/audience.ts. */}
+              <option value="">{t("audienceAny", lang)}</option>
+              {AUDIENCES.map((a) => (
+                <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
+              ))}
+            </select>
+            <p className="hint">{t("audienceHint", lang)}</p>
+          </div>
         </div>
 
         <div className="panel">

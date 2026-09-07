@@ -64,6 +64,10 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       // Product photos come from Supabase Storage; placeholders are inline SVG.
       withPayment("img-src 'self' data: blob: https://*.supabase.co"),
+      // Hero videos, also from Supabase Storage. Without this they fall back
+      // to default-src 'self' and are blocked with nothing in the UI to say
+      // so -- the banner simply stays on its poster frame forever.
+      "media-src 'self' blob: https://*.supabase.co",
       "font-src 'self' data:",
       withPayment("connect-src 'self' https://*.supabase.co" + (isDev ? " ws: wss:" : "")),
       // The hosted checkout is reached by a top-level redirect, but some

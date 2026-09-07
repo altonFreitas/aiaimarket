@@ -4,7 +4,18 @@ import { useState } from "react";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
-export default function SearchBar({ lang }: { lang: Lang }) {
+export default function SearchBar({
+  lang, autoFocus = false, onSubmit,
+}: {
+  lang: Lang;
+  /** The phone's search overlay opens for one reason, so the caret belongs
+   * in the field without a second tap. */
+  autoFocus?: boolean;
+  /** Lets whatever is holding this form close itself once a search is on
+   * its way -- deterministic, rather than watching for the navigation to
+   * land and guessing. */
+  onSubmit?: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -22,6 +33,7 @@ export default function SearchBar({ lang }: { lang: Lang }) {
     const query = q.trim();
     setTyped(null); // hand control back to the URL
     router.push(query ? `/search?q=${encodeURIComponent(query)}` : "/");
+    onSubmit?.();
   }
 
   return (
@@ -33,6 +45,8 @@ export default function SearchBar({ lang }: { lang: Lang }) {
         placeholder={t("search", lang)}
         aria-label={t("search", lang)}
         autoComplete="off"
+        // eslint-disable-next-line jsx-a11y/no-autofocus
+        autoFocus={autoFocus}
       />
       <button type="submit">{t("searchGo", lang)}</button>
     </form>
