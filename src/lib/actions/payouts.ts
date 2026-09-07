@@ -42,6 +42,17 @@ export async function recordPayout(input: RecordPayoutInput) {
   if (amount > MAX_PAYOUT) throw new Error("That amount looks wrong — check it and try again");
   if (!METHODS.includes(input.method)) throw new Error("Unknown payout method");
 
+  // A transfer without its reference cannot be reconciled against anything.
+  // Six months from now the question is "did this $28.80 actually leave the
+  // account", and for a bank or a wallet the only answer is the reference
+  // the bank or the operator can be asked about. Cash has no such thing --
+  // its record is the person who took it, which is what `note` is for -- so
+  // the rule applies to the two methods that do produce one, and only them.
+  const reference = (input.reference || "").trim();
+  if ((input.method === "bank" || input.method === "wallet") && !reference) {
+    throw new Error("A bank or wallet payout needs its reference — it is the only proof the money moved");
+  }
+
   const sb = supabaseAdmin();
   const { data: seller } = await sb.from("sellers").select("id").eq("id", input.sellerId).maybeSingle();
   if (!seller) throw new Error("Seller not found");
@@ -53,7 +64,7 @@ export async function recordPayout(input: RecordPayoutInput) {
     seller_id: seller.id,
     amount,
     method: input.method,
-    reference: (input.reference || "").trim().slice(0, MAX_REFERENCE_LEN),
+    reference: reference.slice(0, MAX_REFERENCE_LEN),
     note: (input.note || "").trim().slice(0, MAX_NOTE_LEN),
     paid_at: paidAt.toISOString(),
   });

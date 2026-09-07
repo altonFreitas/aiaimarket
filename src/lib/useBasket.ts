@@ -13,6 +13,12 @@ export interface BasketLine {
    * seller row) or anything added before this existed. */
   seller_id: string | null;
   sellerName: string | null;
+  /** Denormalized at add-time so the checkout summary can show what is
+   * being bought without a round trip. Both optional: a basket saved
+   * before this existed has neither, and the summary falls back to the
+   * inline placeholder and a plain name. */
+  image?: string;
+  slug?: string;
 }
 
 const KEY = "loja:basket:v1";

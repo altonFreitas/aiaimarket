@@ -131,6 +131,11 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "video_url"]],
   },
   {
+    file: "loves.sql", labelKey: "featLoves",
+    columns: [["products", "loves"]],
+    routines: ["increment_loves", "decrement_loves"],
+  },
+  {
     file: "preorders.sql", labelKey: "featPreorders",
     columns: [["products", "preorder_enabled"], ["orders", "is_preorder"]],
   },

@@ -2,7 +2,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { createCategory, mergeCategory, moveCategory, renameCategory } from "@/lib/actions/categories";
+import { createCategory, deleteCategory, mergeCategory, moveCategory, renameCategory } from "@/lib/actions/categories";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
 import type { Category, Lang, Product } from "@/lib/types";
@@ -37,6 +37,18 @@ export default function CategoriesAdmin({
 
   const Row = ({ c, depth }: { c: Category; depth: number }) => {
     const n = count(c.id);
+    /* Deleting is only offered for a category holding nothing of its own.
+       A product whose category is deleted is not deleted with it -- the
+       foreign key sets category_id to null, and it disappears from every
+       category page and every menu while still being live, buyable stock.
+       Merge is the tool for a category with contents; the button says which
+       of the two is in the way. deleteCategory enforces this again on the
+       server, where the rule actually lives. */
+    const own = products.filter((p) => p.category_id === c.id).length;
+    const kids = cats.filter((k) => k.parent_id === c.id).length;
+    const blocked = kids ? t("deleteBlockedChildren", lang)
+      : own ? t("deleteBlockedProducts", lang)
+      : "";
     return (
       <div className="item">
         <div className="g" style={{ paddingLeft: depth * 14 }}>
@@ -54,6 +66,17 @@ export default function CategoriesAdmin({
             onClick={() => { setMerging(c); setMergeTo(cats.find((x) => x.id !== c.id)?.id || ""); }}>
             {t("merge", lang)}
           </button>
+          <button className="btn btn-sm btn-danger" disabled={busy || blocked !== ""}
+            title={blocked || undefined} aria-label={`${t("delete", lang)} ${c.name}`}
+            onClick={() => {
+              if (!window.confirm(`${t("deleteCategoryAsk", lang)}\n\n${c.name}`)) return;
+              run(() => deleteCategory(c.id), t("saved", lang));
+            }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+            </svg>
+          </button>
         </WriteOnly></div>
       </div>
     );
@@ -64,23 +87,32 @@ export default function CategoriesAdmin({
       <h1>{t("categories", lang)}</h1>
       <p className="sub">{t("hiddenEmpty", lang)} — C3. {t("merge", lang)} — C4.</p>
 
+      {/* ONE FORM MAKES BOTH, and it now says so. The second field was
+          labelled "Subcategory" over a list of the categories that already
+          exist, which reads as "pick a subcategory" -- there was no way to
+          tell that it is asking where the new one should GO. Naming it
+          "Inside" and spelling out both outcomes is the whole fix; nothing
+          about what it does has changed. */}
       <div className="panel">
+        <h3>{t("newCategory", lang)}</h3>
         <div className="two">
           <div className="field">
-            <label htmlFor="nc">{t("newCategory", lang)}</label>
-            <input id="nc" value={name} onChange={(e) => setName(e.target.value)} />
+            <label htmlFor="nc">{t("categoryName", lang)}</label>
+            <input id="nc" value={name} onChange={(e) => setName(e.target.value)}
+              placeholder="Sapatu, Kosmétiku…" />
           </div>
           <div className="field">
-            <label htmlFor="np">{t("subcategory", lang)}</label>
+            <label htmlFor="np">{t("insideCategory", lang)}</label>
             <select id="np" value={parent} onChange={(e) => setParent(e.target.value)}>
               <option value="">{t("none", lang)}</option>
               {roots.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
+            <p className="hint">{t("insideCategoryHint", lang)}</p>
           </div>
         </div>
         <button className="btn btn-sm" disabled={busy || !name.trim()}
           onClick={() => run(async () => { await createCategory(name.trim(), parent || null); setName(""); }, t("saved", lang))}>
-          {t("add", lang)}
+          {parent ? t("newSubcategory", lang) : t("newCategory", lang)}
         </button>
       </div>
 

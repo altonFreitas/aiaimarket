@@ -26,7 +26,7 @@ const SEVERITY_CLASS: Record<AttentionItem["severity"], string> = {
 
 export default function AdminHome({
   lang, items, lines, purchases, today, canSales, canProcurement,
-  topCustomer, topSupplier,
+  loves, topCustomer, topSupplier,
 }: {
   lang: Lang;
   items: AttentionItem[];
@@ -35,6 +35,11 @@ export default function AdminHome({
   today: string;
   canSales: boolean;
   canProcurement: boolean;
+  /** Hearts tapped on the storefront. Null for an account without the
+   * catalog section, and on a database that has not run
+   * supabase/loves.sql the total is 0 -- see the render below for why
+   * that difference matters. */
+  loves: { total: number; top: { id: string; name: string; loves: number } | null } | null;
   topCustomer: { label: string; value: number } | null;
   topSupplier: { label: string; value: number } | null;
 }) {
@@ -96,6 +101,43 @@ export default function AdminHome({
           <Link className="btn btn-ghost" href="/admin/procurement">{t("procurement", lang)}</Link>
         </div>
       </div>
+
+      {/* WHAT PEOPLE LIKED BUT DID NOT BUY.
+          Every other figure on this page is money that has already moved.
+          This one is the opposite: a product people keep hearting and not
+          buying is priced wrong or photographed badly, and the sales
+          figures will not say so until the season is over.
+
+          Shown only once there is something to count. A shop on its first
+          day would otherwise get a confident "0 loves" that means "nobody
+          has tapped yet", "the migration has not been run" and "the
+          feature is broken" all at once -- and there is no way to read
+          which. */}
+      {loves && loves.total > 0 && (
+        <>
+          <div className="panel-head ov-head">
+            <div>
+              <h2>{t("featLoves", lang)}</h2>
+              <p className="sub">{t("mostLovedSub", lang)}</p>
+            </div>
+          </div>
+          <div className="stat stat-fit">
+            <div>
+              <b>{loves.total}</b>
+              <span>{t("lovesTotal", lang)}</span>
+            </div>
+            <div>
+              <b title={loves.top?.name}>{loves.top ? loves.top.name : "—"}</b>
+              <span>{t("lovesTop", lang)}</span>
+              <em className="hint">
+                {loves.top
+                  ? t("lovesTopHint", lang).replace("{n}", String(loves.top.loves))
+                  : t("lovesNone", lang)}
+              </em>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* An account holding neither Sales nor Procurement has nothing to
           compare, and gets the to-do list alone -- exactly the screen it

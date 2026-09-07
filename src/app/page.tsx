@@ -4,6 +4,7 @@ import AudienceTiles from "@/components/home/AudienceTiles";
 import PromoStrip from "@/components/home/PromoStrip";
 import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides, getPromotions, getApprovedSellersById } from "@/lib/data/public";
 import { audienceHighlights } from "@/lib/nav";
+import { mostLoved } from "@/lib/loves";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import type { Category, Product } from "@/lib/types";
@@ -41,6 +42,12 @@ export default async function HomePage() {
 
   const newArrivals = products.slice(0, SECTION_SIZE); // getLiveProducts() is already newest-first
 
+  // What shoppers have hearted, straight off the rows already loaded -- no
+  // second query. Empty until somebody taps a heart, and the section
+  // renders nothing at all while it is; see lib/loves.ts for why it is
+  // never topped up.
+  const loved = mostLoved(products, SECTION_SIZE);
+
   // Women / Men, but only once the shop has said who its products are for.
   // Same rule as the navigation bar -- see lib/nav.ts.
   const audiences = audienceHighlights(cats, products, lang);
@@ -72,6 +79,17 @@ export default async function HomePage() {
           title={t("newArrivals", lang)}
           subtitle={t("newArrivalsSub", lang)}
           products={newArrivals}
+          viewAllHref="/shop"
+          viewAllLabel={t("viewAll", lang)}
+          lang={lang}
+          sellersById={sellersById}
+        />
+
+        <ProductSection
+          id="most-loved"
+          title={t("mostLoved", lang)}
+          subtitle={t("mostLovedSub", lang)}
+          products={loved}
           viewAllHref="/shop"
           viewAllLabel={t("viewAll", lang)}
           lang={lang}

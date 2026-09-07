@@ -108,6 +108,11 @@ export interface Product {
   status: ProductStatus;
   views: number;
   wa_clicks: number;
+  /** How many times the heart on this product has been tapped. A
+   * popularity signal, not a per-person vote -- see supabase/loves.sql.
+   * Optional: a database without that file has no column, and absent
+   * reads as zero, which is what it means. */
+  loves?: number;
   /** Whether shoppers may pre-order this when it is out of stock.
    * Optional: a database without supabase/preorders.sql has no column,
    * and a missing value reads as enabled, matching the column default. */

@@ -1,12 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import CopyButton from "@/components/CopyButton";
 import { placeOrder } from "@/lib/actions/orders";
 import { COUNTRIES } from "@/lib/countries";
+import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
@@ -16,7 +18,7 @@ const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "card"];
 export default function CheckoutForm({
   lang, settings, cardAvailable = false,
 }: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
-  const { lines, ready, subtotal, clear } = useBasket();
+  const { lines, ready, subtotal, setQty, remove, clear } = useBasket();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -157,6 +159,73 @@ export default function CheckoutForm({
     <div className="wrap">
       <h1>{t("checkout", lang)}</h1>
       <p className="sub">{t("noAccount", lang)}</p>
+
+      <div className="co-cols">
+        {/* WHAT IS BEING BOUGHT, BESIDE THE FORM THAT BUYS IT.
+            The page used to be nothing but fields: by the time someone
+            reached "Confirm order" the last sight of their basket was two
+            pages back, and the only number on screen was a total with
+            nothing behind it. The lines are editable here because the
+            moment a total is questioned is the moment it is read -- being
+            sent back to the cart to drop one item, and starting the form
+            again, is how an order stops being placed. */}
+        <aside className="co-summary" aria-label={t("orderSummary", lang)}>
+          <div className="panel">
+            <h3>{t("orderSummary", lang)}</h3>
+            <p className="hint" style={{ marginTop: -4 }}>{t("orderSummarySub", lang)}</p>
+
+            <ul className="co-lines">
+              {lines.map((l, i) => {
+                const img = l.image || placeholder(l.name);
+                return (
+                  <li key={`${l.id}-${l.size}-${i}`} className="co-line">
+                    {l.slug ? (
+                      <Link href={`/p/${l.slug}`} className="co-line-ph">
+                        <Image src={img} alt="" width={120} height={120} sizes="60px"
+                          unoptimized={img.startsWith("data:")} />
+                      </Link>
+                    ) : (
+                      <span className="co-line-ph">
+                        <Image src={img} alt="" width={120} height={120} sizes="60px"
+                          unoptimized={img.startsWith("data:")} />
+                      </span>
+                    )}
+
+                    <div className="co-line-g">
+                      <b>{l.name}</b>
+                      <span>{l.size ? l.size + " · " : ""}{money(l.price)}</span>
+                      <div className="qty" style={{ height: 30 }}>
+                        <button type="button" onClick={() => setQty(i, l.qty - 1)}
+                          aria-label={t("qty", lang)}>−</button>
+                        <span>{l.qty}</span>
+                        <button type="button" onClick={() => setQty(i, l.qty + 1)}
+                          aria-label={t("qty", lang)}>+</button>
+                      </div>
+                    </div>
+
+                    <div className="co-line-r">
+                      <b className="mono">{money(l.price * l.qty)}</b>
+                      <button type="button" className="co-line-x" onClick={() => remove(i)}
+                        aria-label={`${t("del", lang)} ${l.name}`}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                          <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                        </svg>
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(subtotal)}</b></div>
+            <div className="kv">
+              <span>{t("deliveryFee", lang)}</span>
+              <b>{mode === "delivery" && zone?.quote ? t("quoteOnRequest", lang) : money(fee)}</b>
+            </div>
+            <div className="kv total"><span>{t("total", lang)}</span><b>{money(total)}</b></div>
+          </div>
+        </aside>
 
       <form onSubmit={submit} noValidate>
         <div className="panel">
@@ -321,15 +390,6 @@ export default function CheckoutForm({
           </div>
         </div>
 
-        <div className="panel">
-          <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(subtotal)}</b></div>
-          <div className="kv">
-            <span>{t("deliveryFee", lang)}</span>
-            <b>{mode === "delivery" && zone?.quote ? t("quoteOnRequest", lang) : money(fee)}</b>
-          </div>
-          <div className="kv total"><span>{t("total", lang)}</span><b>{money(total)}</b></div>
-        </div>
-
         <div className="btn-row">
           <button className="btn btn-amber" type="submit" disabled={busy}>
             {busy ? "…" : t("confirmOrder", lang)}
@@ -343,6 +403,7 @@ export default function CheckoutForm({
           <Link className="btn btn-ghost" href="/list">{t("cancel", lang)}</Link>
         </div>
       </form>
+      </div>
     </div>
   );
 }

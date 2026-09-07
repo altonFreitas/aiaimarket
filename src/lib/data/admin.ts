@@ -12,6 +12,7 @@ import {
   normalizeRole, normalizeSections, type AdminRole, type SectionKey,
 } from "@/lib/adminSections";
 import { readCapped, type Capped } from "./capped";
+import { loveTotals, type LoveTotals } from "@/lib/loves";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
 
@@ -276,6 +277,20 @@ export async function adminStockReport() {
     // for every one of them.
     drift: new Map(drift.map((d) => [d.product_id, d.drift])),
   };
+}
+
+/** The heart on the storefront's product cards, totalled for the shop.
+ *
+ * Reads the products the rest of the admin has already loaded
+ * (adminProducts is cache()d for the request), so the figure costs nothing
+ * over opening the page. A database that has not run supabase/loves.sql
+ * has no column to read and every row counts as zero, which is why the
+ * home page hides the panel entirely rather than showing a confident 0.
+ *
+ * It is a POPULARITY SIGNAL, not a count of people -- see loves.sql. The
+ * label on the screen says "loves", not "customers". */
+export async function adminLoveStats(): Promise<LoveTotals> {
+  return loveTotals(await adminProducts());
 }
 
 /** Everything the reorder plan needs, reusing the same capped reads the

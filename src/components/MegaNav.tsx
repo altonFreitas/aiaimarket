@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { placeholder } from "@/lib/placeholder";
 import { money, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import type { NavRoot } from "@/lib/nav";
+import { isNavFree, type NavRoot } from "@/lib/nav";
 import type { Lang } from "@/lib/types";
 
 /** How long the panel stays open after the pointer leaves it. Without this
@@ -15,18 +15,6 @@ import type { Lang } from "@/lib/types";
  * problem, and the reason so many hover menus feel broken. Same value the
  * category sidebar uses. */
 const CLOSE_DELAY_MS = 180;
-
-/** Where the storefront's aisles are not the thing being navigated.
- *
- * Someone in the admin or seller screens is managing stock, not shopping
- * for it, and a row of Sapatu / Eletrodomestiku over the top of the sales
- * dashboard is just the shop's furniture in the back office. The header,
- * search and footer stay -- they are how staff get back to the shop -- but
- * this row goes.
- *
- * The 44px it would have taken is given back to the sticky stack by the
- * body:not(:has(.mainnav)) rule in globals.css. */
-const STAFF_PATHS = ["/admin", "/seller"];
 
 /** The main navigation: a bar of top-level entries, each opening a panel of
  * categories, each category revealing its subcategories.
@@ -113,7 +101,7 @@ export default function MegaNav({ roots, lang }: { roots: NavRoot[]; lang: Lang 
   // Never leave a timer running past unmount.
   useEffect(() => cancelClose, []);
 
-  if (STAFF_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) return null;
+  if (isNavFree(pathname)) return null;
 
   /* THE BAR IS ALWAYS DRAWN on the storefront, even for a shop with nothing in it yet -- it
    * still has "Shop all" in it, and its height is part of the sticky chrome

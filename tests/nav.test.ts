@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildNav, audienceHighlights } from "@/lib/nav";
+import { buildNav, audienceHighlights, isNavFree } from "@/lib/nav";
 import type { Category, Product } from "@/lib/types";
 
 /* Only the fields the navigation actually reads. The rest of a product row
@@ -148,5 +148,28 @@ describe("audienceHighlights", () => {
     // Which is what keeps the homepage's "Shop by" tiles from appearing as
     // two doors onto empty rooms.
     expect(audienceHighlights(CATS, [product({ id: "1", category_id: "jeans" })], "en")).toEqual([]);
+  });
+});
+
+describe("isNavFree", () => {
+  it("keeps the aisles off the back office and the checkout", () => {
+    for (const p of ["/admin", "/admin/sales", "/seller", "/seller/products/1", "/checkout"]) {
+      expect([p, isNavFree(p)]).toEqual([p, true]);
+    }
+  });
+
+  it("leaves them everywhere a shopper is browsing", () => {
+    for (const p of ["/", "/shop", "/c/sapatu", "/p/sneaker", "/list", "/track", "/account"]) {
+      expect([p, isNavFree(p)]).toEqual([p, false]);
+    }
+  });
+
+  it("matches whole segments, not prefixes", () => {
+    // "/sellers" is a page about sellers, not the seller area, and
+    // "/checkout-help" would be an article about checking out. A plain
+    // startsWith would have swallowed both.
+    for (const p of ["/sellers", "/checkout-help", "/administration"]) {
+      expect([p, isNavFree(p)]).toEqual([p, false]);
+    }
   });
 });

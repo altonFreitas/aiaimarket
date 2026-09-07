@@ -54,6 +54,46 @@ export async function mergeCategory(fromId: string, toId: string) {
   revalidatePath("/admin/cats");
 }
 
+/** Remove a category that holds nothing.
+ *
+ * REFUSES WHEN IT HOLDS ANYTHING, and that is the whole design. Deleting a
+ * category with products in it does not delete the products -- the foreign
+ * key is ON DELETE SET NULL, so they survive with category_id null, which
+ * means they vanish from every category page and every menu while still
+ * being live, buyable stock. Nothing on any screen would say where they
+ * went. Subcategories go the same way.
+ *
+ * Merge already exists for a category that has contents: it moves them
+ * somewhere real and then removes the empty shell. This is for the other
+ * case -- a category created by mistake, or emptied deliberately -- where
+ * merging into an unrelated category would be a lie about where the goods
+ * were.
+ *
+ * Checked here rather than only in the form because the form is a
+ * convenience and this is the rule. */
+export async function deleteCategory(id: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+
+  const { count: children } = await sb
+    .from("categories").select("*", { count: "exact", head: true }).eq("parent_id", id);
+  if (children) {
+    throw new Error("This category still has subcategories. Remove or merge those first.");
+  }
+
+  const { count: held } = await sb
+    .from("products").select("*", { count: "exact", head: true }).eq("category_id", id);
+  if (held) {
+    throw new Error(`This category still holds ${held} product(s). Merge it into another category instead.`);
+  }
+
+  const { error } = await sb.from("categories").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/", "layout");
+  updateTag(CACHE_TAGS.categories);
+  revalidatePath("/admin/cats");
+}
+
 /** C4 — swap sort_order with the neighbouring sibling. */
 export async function moveCategory(id: string, direction: -1 | 1) {
   await requireAdmin();

@@ -8,12 +8,8 @@ import SearchBar from "./SearchBar";
 import { placeholder } from "@/lib/placeholder";
 import { money, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
-import type { NavProduct, NavRoot } from "@/lib/nav";
+import { isNavFree, type NavProduct, type NavRoot } from "@/lib/nav";
 import type { HeroSlide, Lang } from "@/lib/types";
-
-/** Where the shop's own navigation is not what someone is navigating.
- * Same list MegaNav uses -- see the note there. */
-const STAFF_PATHS = ["/admin", "/seller"];
 
 type View = "menu" | "search";
 
@@ -137,7 +133,7 @@ export default function MobileNav({
     };
   }, [view]);
 
-  if (STAFF_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) return null;
+  if (isNavFree(pathname)) return null;
 
   function openMenu() {
     setTab((cur) => cur ?? roots[0]?.id ?? null);

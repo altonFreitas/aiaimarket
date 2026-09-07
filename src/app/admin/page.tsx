@@ -1,5 +1,5 @@
 import AdminHome from "@/components/admin/AdminHome";
-import { adminAttention } from "@/lib/data/admin";
+import { adminAttention, adminLoveStats } from "@/lib/data/admin";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { adminProcurementData } from "@/lib/data/procurement";
 import { buildSalesLines, salesByCustomer, todayIso } from "@/lib/sales";
@@ -28,13 +28,18 @@ export default async function AdminHomePage() {
   const actor = await requireSection("home");
   const canSales = canSee(actor, "sales");
   const canProcurement = canSee(actor, "procurement");
+  // The heart lives on the catalog's product cards, so the figure counting
+  // it belongs to whoever holds the catalog -- the same section rule every
+  // other panel on this page follows.
+  const canCatalog = canSee(actor, "catalog");
 
-  const [lang, items, sales, procurement, returns] = await Promise.all([
+  const [lang, items, sales, procurement, returns, loves] = await Promise.all([
     getLang(),
     adminAttention(),
     canSales ? adminSalesData() : Promise.resolve(null),
     canProcurement ? adminProcurementData() : Promise.resolve(null),
     canSales ? returnedUnits() : Promise.resolve(new Map<string, number>()),
+    canCatalog ? adminLoveStats() : Promise.resolve(null),
   ]);
 
   const mine = items.filter((item) => {
@@ -69,6 +74,7 @@ export default async function AdminHomePage() {
       today={todayIso()}
       canSales={canSales}
       canProcurement={canProcurement}
+      loves={loves}
       topCustomer={topCustomer ? { label: topCustomer.label, value: topCustomer.revenue } : null}
       topSupplier={topSupplier ? { label: topSupplier.label, value: topSupplier.value } : null}
     />

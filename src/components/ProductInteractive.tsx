@@ -56,7 +56,8 @@ export default function ProductInteractive({
       return;
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
-      seller_id: p.seller_id, sellerName: seller?.store_name || null });
+      seller_id: p.seller_id, sellerName: seller?.store_name || null,
+      image: p.images?.[0] || "", slug: p.slug });
     toast(`${p.name} → ${t("list", lang)}`);
   }
 
@@ -67,7 +68,8 @@ export default function ProductInteractive({
       return;
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
-      seller_id: p.seller_id, sellerName: seller?.store_name || null });
+      seller_id: p.seller_id, sellerName: seller?.store_name || null,
+      image: p.images?.[0] || "", slug: p.slug });
     router.push("/checkout");
   }
 

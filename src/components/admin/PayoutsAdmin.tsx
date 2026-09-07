@@ -17,6 +17,30 @@ const METHOD_KEY: Record<PayoutMethod, string> = {
   other: "payoutMethodOther",
 };
 
+/** WHAT EACH METHOD LEAVES BEHIND.
+ *
+ * The form used to show one "Reference" box for all four, which asked the
+ * wrong question twice over: a cash payout has no reference to give, and a
+ * bank transfer was happily recorded without the one thing that makes it
+ * checkable. Six months later the question is "did this $28.80 actually
+ * leave the account", and for a transfer the only answer is the reference
+ * the bank can be asked about.
+ *
+ * So: bank and wallet REQUIRE their reference, cash asks who took the money
+ * instead (a note, not a reference -- it goes in a different column), and
+ * "other" offers a reference without insisting, because nobody knows what
+ * it is. recordPayout enforces the same rule server-side; this is only the
+ * half that can say so before the button is pressed. */
+const REFERENCE_LABEL: Record<PayoutMethod, string> = {
+  bank: "payoutRefBank",
+  wallet: "payoutRefWallet",
+  cash: "payoutNoteCash",
+  other: "payoutReference",
+};
+function referenceRequired(m: PayoutMethod): boolean {
+  return m === "bank" || m === "wallet";
+}
+
 export default function PayoutsAdmin({
   lang, ledgers, payouts,
 }: { lang: Lang; ledgers: SellerLedgerRow[]; payouts: SellerPayout[] }) {
@@ -41,10 +65,32 @@ export default function PayoutsAdmin({
     setReference("");
   }
 
+  /** A method change clears the box. A bank reference typed and then
+   * switched to Cash would otherwise ride along into a record that says the
+   * money was handed over in person -- with a transfer number attached to
+   * it. */
+  function pickMethod(m: PayoutMethod) {
+    setMethod(m);
+    setReference("");
+  }
+
+  const amountValue = Number(amount);
+  const amountOk = Number.isFinite(amountValue) && amountValue > 0;
+  const referenceOk = !referenceRequired(method) || reference.trim() !== "";
+
   async function save(sellerId: string) {
     setBusy(true);
     try {
-      await recordPayout({ sellerId, amount: Number(amount), method, reference });
+      // Cash has no reference; what it has is the person who took it, and
+      // that is a note. Two columns, because they are two different facts.
+      const isCash = method === "cash";
+      await recordPayout({
+        sellerId,
+        amount: amountValue,
+        method,
+        reference: isCash ? "" : reference,
+        note: isCash ? reference : "",
+      });
       toast(t("payoutSaved", lang));
       setOpenFor(null);
       router.refresh();
@@ -124,22 +170,33 @@ export default function PayoutsAdmin({
                     <div className="field">
                       <label htmlFor={`mth-${l.seller.id}`}>{t("payoutMethod", lang)}</label>
                       <select id={`mth-${l.seller.id}`} value={method}
-                        onChange={(e) => setMethod(e.target.value as PayoutMethod)}>
+                        onChange={(e) => pickMethod(e.target.value as PayoutMethod)}>
                         {METHODS.map((m) => (
                           <option key={m} value={m}>{t(METHOD_KEY[m], lang)}</option>
                         ))}
                       </select>
                     </div>
                   </div>
-                  <div className="field">
-                    <label htmlFor={`ref-${l.seller.id}`}>{t("payoutReference", lang)}</label>
+                  {amountOk && amountValue > l.outstanding && (
+                    <p className="hint" style={{ color: "var(--red)" }}>
+                      {t("payoutOverOwed", lang)} {money(l.outstanding)}
+                    </p>
+                  )}
+                  <div className={"field" + (referenceOk ? "" : " err")}>
+                    <label htmlFor={`ref-${l.seller.id}`}>{t(REFERENCE_LABEL[method], lang)}</label>
                     <input id={`ref-${l.seller.id}`} value={reference}
                       onChange={(e) => setReference(e.target.value)} />
+                    <p className="hint">
+                      {method === "cash" ? t("payoutNoteCashHint", lang)
+                        : referenceRequired(method) ? t("payoutRefRequired", lang)
+                        : t("payoutRefOptional", lang)}
+                    </p>
                   </div>
                   <div className="acts">
                     <button className="btn btn-sm btn-ghost" type="button"
                       onClick={() => setOpenFor(null)}>{t("cancel", lang)}</button>
-                    <button className="btn btn-sm btn-amber" type="button" disabled={busy}
+                    <button className="btn btn-sm btn-amber" type="button"
+                      disabled={busy || !amountOk || !referenceOk}
                       onClick={() => save(l.seller.id)}>
                       {busy ? "…" : t("recordPayout", lang)}
                     </button>
@@ -162,7 +219,7 @@ export default function PayoutsAdmin({
                 <b>{storeNames[p.seller_id] || p.seller_id}</b>
                 <span>
                   {nowIso(p.paid_at)} · {t(METHOD_KEY[p.method] || "payoutMethodOther", lang)}
-                  {p.reference ? ` · ${p.reference}` : ""}
+                  {p.reference ? ` · ${p.reference}` : p.note ? ` · ${p.note}` : ""}
                 </span>
               </div>
               <b className="mono">{money(p.amount)}</b>

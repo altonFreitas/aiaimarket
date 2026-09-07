@@ -36,6 +36,29 @@ import { matchesAudience, normalizeAudience, type Audience } from "./audience";
 import { t } from "./i18n";
 import type { Category, Lang, Product } from "./types";
 
+/** Where the shop's aisles are not what is being navigated.
+ *
+ *   /admin, /seller  someone managing stock is not shopping for it; a row
+ *                    of Sapatu / Eletrodomestiku over the sales dashboard
+ *                    is the shop's furniture in the back office.
+ *   /checkout        someone filling in their address and choosing how to
+ *                    pay is one distraction away from not finishing. Every
+ *                    checkout worth the name strips its navigation for the
+ *                    same reason; the logo still goes home and Cancel still
+ *                    goes back to the cart.
+ *
+ * Both MegaNav and MobileNav ask this, so the two can never disagree about
+ * where the navigation appears -- and the stylesheet's
+ * body:not(:has(.mainnav)) rule gives the bar's height back to the sticky
+ * stack wherever it says no. */
+export const NAV_FREE_PATHS: readonly string[] = ["/admin", "/seller", "/checkout"];
+
+/** Matches the path itself and anything under it, and nothing that merely
+ * starts with the same letters -- "/sellers-report" is not "/seller". */
+export function isNavFree(pathname: string): boolean {
+  return NAV_FREE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 /** Products previewed inside one open panel. Four is what fits the panel's
  * third column at every desktop width without wrapping to a second row. */
 const FEATURE_COUNT = 4;
