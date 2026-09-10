@@ -106,6 +106,71 @@ export async function adminOrder(id: string): Promise<Order | null> {
   // lib/paymentProof.ts.
   return await withFreshProofUrl((data as Order) || null);
 }
+/* THE REVIEWS, FOR SOMEBODY WHO CAN ACT ON THEM.
+ *
+ * Both tables are public-facing free text written by anyone holding an
+ * order ref and the phone it was placed with. That check is a good one --
+ * it proves a purchase -- but it says nothing about what somebody then
+ * types, and until this existed the only way to take an abusive, mistaken
+ * or defamatory review off a product page was to open the SQL editor.
+ *
+ * Newest first and capped, like every other admin read here: moderation
+ * is a "what has come in lately" job, and the page that lists everything
+ * ever written is the page nobody opens.
+ *
+ * Read through the admin client because product_reviews and seller_ratings
+ * both revoke plain SELECT from anon (buyer_phone lives in one of them) --
+ * and buyer_phone is deliberately NOT selected even here: a moderator
+ * decides about a comment, not about a person. */
+const MAX_ADMIN_REVIEWS = 500;
+
+export interface AdminProductReview {
+  id: string;
+  product_id: string;
+  order_id: string | null;
+  buyer_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface AdminSellerRating {
+  id: string;
+  seller_id: string;
+  order_id: string | null;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export async function adminProductReviews(): Promise<AdminProductReview[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("product_reviews")
+      .select("id, product_id, order_id, buyer_name, rating, comment, created_at")
+      .order("created_at", { ascending: false })
+      .limit(MAX_ADMIN_REVIEWS);
+    // A shop that has not run supabase/marketplace-v2.sql has no such
+    // table. An empty list and a working screen, not a crash.
+    if (error) return [];
+    return (data as AdminProductReview[]) || [];
+  } catch { return []; }
+}
+
+export async function adminSellerRatings(): Promise<AdminSellerRating[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("seller_ratings")
+      .select("id, seller_id, order_id, rating, comment, created_at")
+      .order("created_at", { ascending: false })
+      .limit(MAX_ADMIN_REVIEWS);
+    if (error) return [];
+    return (data as AdminSellerRating[]) || [];
+  } catch { return []; }
+}
+
 export async function adminSettings() {
   const sb = supabaseAdmin();
   const { data } = await sb.from("settings").select("*").eq("id", 1).single();

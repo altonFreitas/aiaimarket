@@ -502,6 +502,16 @@ export const STR: Record<string, [string,string,string]> = {
   searchTips:["Koko liafuan badak liu, ka haree katálogu tomak.","Tente uma palavra mais curta, ou veja o catálogo todo.","Try a shorter word, or browse the whole catalog."],
 
   /* ---- product reviews ---- */
+  /* review moderation (/admin/reviews) */
+  reviewsAdmin:["Avaliasaun no klasifikasaun","Avaliações e classificações","Reviews and ratings"],
+  reviewsAdminHint:["Ema ne'ebé sosa ona bele hakerek iha ne'e. Se ida ne'ebé la loos ka ofensivu, hasai. Hasai la bele fila fali, no rejistu iha Atividade.","Quem já comprou pode escrever aqui. Remova o que for abusivo ou errado. A remoção é definitiva e fica registada em Atividade.","Anyone who has bought can write here. Remove what is abusive or wrong. Removal cannot be undone and is recorded in Activity."],
+  sellerRatings:["Klasifikasaun loja","Classificações das lojas","Store ratings"],
+  reviewRemoved:["Hasai ona","Removido","Removed"],
+  reviewConfirmRemove:["Hasai duni?","Remover mesmo?","Remove it?"],
+  reviewNoComment:["Estrela de'it, laiha testu.","Apenas estrelas, sem texto.","Stars only, no text."],
+  reviewFailed:["La konsege hasai. Koko fila fali.","Não foi possível remover. Tente de novo.","Could not remove it. Please try again."],
+  productRemoved:["Produtu ne'e laiha ona","Produto já não existe","That product is gone"],
+  sellerRemoved:["Loja ne'e laiha ona","Loja já não existe","That store is gone"],
   productReviews:["Avaliasaun produtu","Avaliações do produto","Product reviews"],
   noReviewsYet:["Seidauk iha avaliasaun. Sai ema primeiru!","Ainda sem avaliações. Seja o primeiro!","No reviews yet. Be the first."],
   verifiedPurchase:["Sosa konfirmadu","Compra verificada","Verified purchase"],
@@ -828,6 +838,8 @@ export const STR: Record<string, [string,string,string]> = {
   featOrderIdempotency:["Enkomenda duplika la bele","Sem encomendas duplicadas","No duplicate orders"],
   checkoutHasErrors:["Iha {n} buat presiza hadia molok haruka.","Faltam {n} campos antes de enviar.","{n} things need fixing before you can send this."],
   skipToContent:["Ba konteúdu","Ir para o conteúdo","Skip to content"],
+  attnCardsToVoid:["Kartaun kansela, osan sei iha banku","Cartão cancelado, dinheiro retido","Cancelled cards still holding money"],
+  attnCardsToVoidHint:["Kansela ona maibé osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, depois troka pagamentu ba 'refunded'.","Cancelada, mas o dinheiro do cliente continua no BNCTL. Anule ou reembolse no portal e depois marque o pagamento como 'refunded'.","Cancelled, but the buyer's money is still at BNCTL. Void or refund it in the portal, then set the payment to 'refunded' here."],
   attnRefundsToSettle:["Fila osan seidauk halo","Reembolsos por fazer","Refunds not yet paid"],
   attnRefundsToSettleHint:["Kliente fila sasán ona; osan sei iha banku. Halo iha gateway.","O cliente devolveu; o dinheiro ainda está no banco. Faça-o no gateway.","The goods came back; the money is still at the bank. Do it at the gateway."],
   markRefundSettled:["Marka osan fila ona","Marcar como reembolsado","Mark as refunded"],

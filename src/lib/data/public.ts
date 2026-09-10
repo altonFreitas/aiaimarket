@@ -147,6 +147,37 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   return (data as Product) || null;
 }
 
+/** The four products shown under a product, from the same category.
+ *
+ * An INDEXED query, not a filter over the catalog. This used to call
+ * getLiveProducts() -- a read of up to MAX_CATALOG_PRODUCTS rows, with
+ * their descriptions and image arrays -- and then keep four of them, on
+ * every product page view. idx_products_live (see
+ * supabase/patch-audit-hardening.sql) covers the archived/status half and
+ * category_id narrows the rest.
+ *
+ * Empty rather than throwing: a product with no category, or a category
+ * with nothing else in it, has no related products, and neither is an
+ * error worth failing a product page over. */
+export async function getRelatedProducts(
+  categoryId: string | null, excludeId: string, limit = 4,
+): Promise<Product[]> {
+  if (!categoryId) return [];
+  try {
+    const sb = supabaseAnon();
+    const { data } = await sb
+      .from("products")
+      .select("*")
+      .eq("archived", false)
+      .eq("status", "approved")
+      .eq("category_id", categoryId)
+      .neq("id", excludeId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data as Product[]) || [];
+  } catch { return []; }
+}
+
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const sb = supabaseAnon();
   const { data } = await sb.from("categories").select("*").eq("slug", slug).maybeSingle();

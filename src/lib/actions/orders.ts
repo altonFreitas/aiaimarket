@@ -516,6 +516,28 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   if (before) {
     await sb.from("order_log").insert({ order_id: orderId, text: `Estadu: ${before.status} → ${status}` });
   }
+
+  /* CANCELLING DOES NOTHING AT THE BANK.
+   *
+   * There is no void and no refund on the provider interface (see
+   * lib/payments/types.ts), so a card order that was authorised or
+   * captured and is now cancelled leaves the buyer's money with BNCTL
+   * and nothing in this application asking for it back. Said on the
+   * order itself, where whoever cancelled it is looking, as well as on
+   * the home page's list (attention.ts, "cards_to_void") -- one of them
+   * is read at the moment it happens and the other keeps asking until
+   * it is done. */
+  if (status === "cancelled" && before) {
+    const { data: pay } = await sb
+      .from("orders").select("pay_method, pay_status").eq("id", orderId).maybeSingle();
+    if (pay?.pay_method === "card" && (pay.pay_status === "paid" || pay.pay_status === "deposit")) {
+      await sb.from("order_log").insert({
+        order_id: orderId,
+        text: "* Osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, depois troka pagamentu ba 'refunded'.",
+      });
+    }
+  }
+
   await notifyStatusChange(orderId, status);
   revalidatePath("/admin/orders");
 }

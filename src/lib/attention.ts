@@ -32,6 +32,7 @@ export type AttentionKind =
   | "stock_drift"
   | "sellers_to_approve"
   | "refunds_to_settle"
+  | "cards_to_void"
   /* A store's own, from lib/sellerAttention.ts. Same union and the same
    * item shape on purpose: both lists are drawn by the same markup, and a
    * second AttentionItem type differing only in its kinds would be two
@@ -112,6 +113,24 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
 
   add("messages_to_send", input.pendingMessages, "urgent",
     "/admin/notifications", "attnMessagesToSend", "attnMessagesToSendHint");
+
+  /* A CANCELLED ORDER WHOSE MONEY IS STILL AT THE BANK.
+   *
+   * Cancelling stops the goods; it does nothing at the acquirer. A card
+   * order that was authorised or captured and then cancelled leaves the
+   * buyer's money held by BNCTL with nothing in this application asking
+   * for it back -- and the application cannot ask: there is no refund or
+   * void call on the provider interface (see lib/payments/types.ts).
+   *
+   * Derived, not stored: an order is on this list exactly while it is
+   * cancelled AND still says it holds the buyer's money. The moment the
+   * owner voids it at the portal and records that here, it drops off. No
+   * second flag to fall out of step with the first. */
+  const toVoid = input.orders.filter(
+    (o) => o.status === "cancelled" && o.pay_method === "card"
+      && (o.pay_status === "paid" || o.pay_status === "deposit"));
+  add("cards_to_void", toVoid.length, "urgent",
+    "/admin/orders", "attnCardsToVoid", "attnCardsToVoidHint");
 
   // A buyer who has handed goods back and not had their money. Urgent
   // because it is the one thing on this list where somebody is out of

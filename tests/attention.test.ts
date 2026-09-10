@@ -33,6 +33,47 @@ const input = (over: Partial<AttentionInput> = {}): AttentionInput => ({
 const find = (i: AttentionInput, kind: string) =>
   buildAttention(i).find((x) => x.kind === kind);
 
+describe("a cancelled card order whose money is still at the bank", () => {
+  /* Cancelling stops the goods and does nothing at the acquirer, and this
+   * application has no void or refund call to make. So the only thing that
+   * gets the buyer their money back is a person being told to go and do
+   * it -- which is what this item is. */
+  const held = (over: Partial<Order> = {}) =>
+    order({ status: "cancelled", pay_method: "card", pay_status: "paid", ...over });
+
+  it("asks for it back, urgently", () => {
+    const item = find(input({ orders: [held()] }), "cards_to_void");
+    expect([item?.count, item?.severity]).toEqual([1, "urgent"]);
+  });
+
+  it("counts a deposit as money held too", () => {
+    expect(find(input({ orders: [held({ pay_status: "deposit" })] }), "cards_to_void")?.count)
+      .toBe(1);
+  });
+
+  it("stops asking once the payment says the money went back", () => {
+    // The owner voids it at the portal and records that here. There is no
+    // second flag to fall out of step with the first.
+    expect(find(input({ orders: [held({ pay_status: "refunded" })] }), "cards_to_void"))
+      .toBeUndefined();
+    expect(find(input({ orders: [held({ pay_status: "unpaid" })] }), "cards_to_void"))
+      .toBeUndefined();
+  });
+
+  it("says nothing about a cancelled order that was never paid by card", () => {
+    // Cash on delivery that was cancelled has no money anywhere to get
+    // back, and listing it would be a permanent line nobody can clear.
+    expect(find(input({ orders: [held({ pay_method: "cod" })] }), "cards_to_void"))
+      .toBeUndefined();
+  });
+
+  it("says nothing about a live card order", () => {
+    // A paid, uncancelled order is the normal case, not a task.
+    expect(find(input({ orders: [held({ status: "completed" })] }), "cards_to_void"))
+      .toBeUndefined();
+  });
+});
+
 describe("buildAttention", () => {
   it("says nothing at all when nothing is waiting", () => {
     expect(buildAttention(input())).toEqual([]);

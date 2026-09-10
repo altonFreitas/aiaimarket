@@ -5,7 +5,7 @@ import ProductInteractive from "@/components/ProductInteractive";
 import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
-import { getCategories, getLiveProducts, getProductBySlug, getProductReviews, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
+import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
 import { breadcrumbLd, serializeJsonLd } from "@/lib/jsonLd";
@@ -46,8 +46,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [all, reviews] = await Promise.all([getLiveProducts(), getProductReviews(p.id)]);
-  const related = all.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
+  const [related, reviews] = await Promise.all([
+    getRelatedProducts(p.category_id, p.id), getProductReviews(p.id),
+  ]);
 
   // Only emitted when reviews genuinely exist. Google treats a fabricated or
   // empty aggregateRating as a structured-data violation, and an honest

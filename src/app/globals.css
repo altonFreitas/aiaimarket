@@ -893,6 +893,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    say the same thing twice. */
 .fold-body > .crumb:first-child{display:none}
 
+/* ---------- review moderation (/admin/reviews) ---------- */
+.mod-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mod-row{border:1px solid var(--line);border-left:3px solid var(--line);
+  border-radius:var(--r-s);padding:10px 12px;background:var(--card)}
+/* A one-star review is usually why somebody opened this screen. Marked,
+   not filtered: the list stays in the order things arrived. */
+.mod-row.is-low{border-left-color:var(--red)}
+.mod-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:13px}
+.mod-stars{color:var(--amber-ink);letter-spacing:1px}
+.mod-when{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+.mod-text{margin:6px 0 0;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.mod-act{margin-top:8px;display:flex;gap:6px}
+
 /* ---------- skip to content ---------- */
 /* Off-screen until it has focus, then pinned to the top-left over
    everything. Not display:none and not visibility:hidden -- both remove it
