@@ -115,6 +115,40 @@ export async function adminSellers(): Promise<Seller[]> {
   return (data as Seller[]) || [];
 }
 
+/** The invitation links, newest first.
+ *
+ * THE TOKEN IS NOT SELECTED. This feeds a client component, so anything
+ * named here is serialized into the page and sits in the browser. The link
+ * is handed back once, by the action that mints it, at the moment the
+ * owner asks for it -- a list that re-displayed every live token would
+ * turn one screenshot of the Sellers screen into every open invitation.
+ * Revoking works on the id, which is not a secret. */
+export interface SellerInviteRow {
+  id: string;
+  note: string;
+  created_by: string;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+  revoked_at: string | null;
+  used_by: string | null;
+}
+
+export async function adminSellerInvites(): Promise<SellerInviteRow[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb.from("seller_invites")
+      .select("id, note, created_by, created_at, expires_at, used_at, revoked_at, used_by")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    // Same caution as adminHeroSlides: a shop that has this code and has
+    // not run supabase/seller-invites.sql gets an empty list and a working
+    // Sellers screen, not a crash.
+    if (error) return [];
+    return (data as SellerInviteRow[]) || [];
+  } catch { return []; }
+}
+
 export interface SellerLedgerRow {
   seller: Seller;
   commissionRatePercent: number;
@@ -330,7 +364,7 @@ export async function adminAttention() {
   const { adminPurchaseOrders } = await import("@/lib/data/procurement");
   const { adminStockDrift } = await import("@/lib/data/procurement");
 
-  const [orders, products, purchaseOrders, replenishment, pending, drift, settings] =
+  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers] =
     await Promise.all([
       adminOrders(), adminProducts(),
       adminPurchaseOrders().catch(() => []),
@@ -338,10 +372,12 @@ export async function adminAttention() {
       adminPendingNotifications().catch(() => []),
       adminStockDrift().catch(() => []),
       adminSettings().catch(() => null),
+      adminSellers().catch(() => []),
     ]);
 
   return buildAttention({
     orders, products, purchaseOrders, replenishment,
+    pendingSellers: sellers.filter((s) => s.status === "pending").length,
     pendingMessages: pending.length,
     driftCount: drift.length,
     restockPct: (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct,

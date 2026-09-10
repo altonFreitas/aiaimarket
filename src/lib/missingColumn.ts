@@ -73,3 +73,30 @@ export async function writeTolerating<T>(
   const second = await run({});
   return { ...second, degraded: !second.error };
 }
+
+/** The reading half of the same problem.
+ *
+ * A read that FILTERS on a column the database does not have yet fails the
+ * whole query, and the callers here catch and return an empty list -- so
+ * adding suppliers.seller_id and filtering the owner's screens by it would
+ * have emptied the owner's purchasing book on any shop that had the code
+ * and not yet run the SQL. An empty list is the most dangerous degradation
+ * there is: it looks like an answer.
+ *
+ * So the query is run with the filter and, if the column turns out not to
+ * exist, once more without it. On such a database every row IS the
+ * unfiltered set -- there are no sellers' rows to exclude, because there is
+ * no column to have put them in.
+ *
+ * `run(true)` must be the filtered query and `run(false)` the plain one.
+ */
+export async function readTolerating<T>(
+  column: string,
+  run: (filtered: boolean) => PromiseLike<{ error: unknown; data: T | null }>
+): Promise<{ error: unknown; data: T | null; degraded: boolean }> {
+  const first = await run(true);
+  if (!first.error) return { ...first, degraded: false };
+  if (!isMissingColumnError(first.error, column)) return { ...first, degraded: false };
+  const second = await run(false);
+  return { ...second, degraded: !second.error };
+}

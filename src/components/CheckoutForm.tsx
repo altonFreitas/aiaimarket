@@ -10,6 +10,7 @@ import { placeOrder } from "@/lib/actions/orders";
 import { COUNTRIES } from "@/lib/countries";
 import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
+import { personName } from "@/lib/personName";
 import { t } from "@/lib/i18n";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
 
@@ -36,7 +37,8 @@ export default function CheckoutForm({
   const [localPhone, setLocalPhone] = useState("");
 
   const [f, setF] = useState({
-    name: "", address: "", municipality: "", post: "", suku: "", aldeia: "", landmark: "", note: "",
+    firstName: "", lastName: "",
+    address: "", municipality: "", post: "", suku: "", aldeia: "", landmark: "", note: "",
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
 
@@ -85,7 +87,8 @@ export default function CheckoutForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!f.name.trim()) errs.name = t("required", lang);
+    if (!f.firstName.trim()) errs.firstName = t("required", lang);
+    if (!f.lastName.trim()) errs.lastName = t("required", lang);
 
     const localDigits = localPhone.replace(/[^\d]/g, "");
     const effectiveCode = countryCode === "other" ? customCode : countryCode;
@@ -112,7 +115,10 @@ export default function CheckoutForm({
     setBusy(true);
     try {
       const ref = await placeOrder({
-        name: f.name,
+        // Upper-cased and single-spaced here and again on the server, so
+        // one shopper ordering three times is one customer on the sales
+        // screens however they typed it. See lib/personName.ts.
+        name: personName(f.firstName, f.lastName),
         phone: fullPhone,
         items: lines.map((l) => ({
           product_id: l.id, name: l.name, size: l.size, price: l.price, qty: l.qty,
@@ -230,7 +236,15 @@ export default function CheckoutForm({
       <form onSubmit={submit} noValidate>
         <div className="panel">
           <h3>{t("yourDetails", lang)}</h3>
-          {field("name", t("name", lang))}
+          {/* Two boxes rather than one, and both are shown back in
+              capitals as they are typed. A single "Name" field is where
+              "Zita Felicia" and "Zita fElicia" come from, and the customer
+              analysis then has one phone number wearing two names. */}
+          <div className="two name-upper">
+            {field("firstName", t("firstName", lang))}
+            {field("lastName", t("lastName", lang))}
+          </div>
+          <p className="hint" style={{ marginTop: -4 }}>{t("nameUpperHint", lang)}</p>
 
           {/* Country + local number — the select shows the calling code,
               the buyer only has to type their own local digits. "Other"

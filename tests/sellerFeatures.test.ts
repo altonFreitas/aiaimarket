@@ -87,7 +87,7 @@ describe("normalizeFeatures", () => {
   it("drops a key the app does not recognise", () => {
     // A leftover from a removed feature, or a typo written straight into
     // the database. Either would otherwise read as a granted permission.
-    expect(normalizeFeatures(["sales", "procurement", "nonsense"])).toEqual(["sales"]);
+    expect(normalizeFeatures(["sales", "payouts", "nonsense"])).toEqual(["sales"]);
   });
 
   it("never lets an included screen be stored as a grant", () => {
@@ -115,7 +115,9 @@ describe("normalizeFeatures", () => {
 });
 
 describe("featureSummary", () => {
-  const label = (k: string) => ({ sellerSales: "My sales", sellerStock: "My stock" }[k] ?? k);
+  const label = (k: string) => ({
+    sellerSales: "My sales", sellerStock: "My stock", sellerProcurement: "My purchases",
+  }[k] ?? k);
   const sum = (f: string[]) => featureSummary(f, label, "Nothing extra", "Everything");
 
   it("says so when a store has only the included screens", () => {
@@ -124,7 +126,13 @@ describe("featureSummary", () => {
 
   it("names what was granted", () => {
     expect(sum(["sales"])).toBe("My sales");
-    expect(sum(["sales", "stock"])).toBe("Everything");
+    expect(sum(["sales", "stock"])).toBe("My sales, My stock");
+  });
+
+  it("says Everything only when every sellable feature is granted", () => {
+    // Named from the catalogue rather than spelled out, so adding a fourth
+    // feature does not quietly turn three into "Everything" again.
+    expect(sum([...SELLABLE_FEATURES])).toBe("Everything");
   });
 
   it("never lists the included screens, which nobody chose", () => {

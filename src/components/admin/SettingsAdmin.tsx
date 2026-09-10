@@ -81,12 +81,14 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             value={f.commission_rate} onChange={(e) => set("commission_rate", Number(e.target.value))} />
           <p className="hint">{t("commissionRateHint", lang)}</p>
         </div>
-        <label className="check" data-on={f.seller_registration_enabled}>
-          <input type="checkbox" checked={f.seller_registration_enabled}
-            onChange={(e) => set("seller_registration_enabled", e.target.checked)} />
-          <span>{t("sellerRegistrationEnabled", lang)}</span>
-        </label>
-        <p className="hint" style={{ marginTop: -4 }}>{t("sellerRegistrationEnabledHint", lang)}</p>
+        {/* The "accept new sellers" switch was here. Registering a store
+            is by invitation now (supabase/seller-invites.sql), which is
+            neither of the two states this offered: open to the whole
+            internet, or shut to everybody. The field is still carried in
+            this form's state so saving Settings does not rewrite the
+            column, and nothing reads it. Invitations are minted on the
+            Sellers screen. */
+        }
 
         <div className="field" style={{ maxWidth: 220, marginTop: 10 }}>
           <label htmlFor="restock-pct">{t("restockAlertPct", lang)}</label>

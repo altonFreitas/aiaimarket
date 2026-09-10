@@ -69,6 +69,26 @@ describe("buildAttention", () => {
     expect(find(i, "products_to_approve")!.count).toBe(1);
   });
 
+  it("puts a store waiting for approval on the list", () => {
+    // THE GAP THIS FILLS. The Sellers screen has had an Approve button all
+    // along; nothing on the home page said a store was waiting for it, so
+    // "where do I approve them" had no answer anywhere the owner looks
+    // first. Urgent because a person is waiting on a person: they filled
+    // the form they were invited to fill and cannot list anything until
+    // this is done.
+    const i = input({ pendingSellers: 2 });
+    const row = find(i, "sellers_to_approve")!;
+    expect(row.count).toBe(2);
+    expect(row.severity).toBe("urgent");
+    expect(row.href).toBe("/admin/sellers");
+  });
+
+  it("says nothing when no store is waiting", () => {
+    expect(find(input({ pendingSellers: 0 }), "sellers_to_approve")).toBeUndefined();
+    // Absent entirely, from a caller that could not read the sellers.
+    expect(find(input({}), "sellers_to_approve")).toBeUndefined();
+  });
+
   it("counts lines needing an order today", () => {
     const i = input({ replenishment: [
       repl({ urgency: "out", suggestedQty: 10 }),

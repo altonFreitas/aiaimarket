@@ -28,7 +28,7 @@
 
 export type SellerFeatureKey =
   | "dashboard" | "products" | "orders" | "settings"
-  | "sales" | "stock";
+  | "sales" | "stock" | "procurement";
 
 export interface SellerFeature {
   key: SellerFeatureKey;
@@ -74,6 +74,10 @@ export const SELLER_FEATURES: readonly SellerFeature[] = [
   {
     key: "stock", labelKey: "sellerStock", blurbKey: "featSellerStockBlurb",
     paths: ["/seller/stock"],
+  },
+  {
+    key: "procurement", labelKey: "sellerProcurement", blurbKey: "featSellerProcurementBlurb",
+    paths: ["/seller/procurement"],
   },
 ] as const;
 

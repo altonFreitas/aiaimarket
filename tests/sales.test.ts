@@ -6,7 +6,9 @@ import {
   salesBySeller, salesByMunicipality, rank, customerAnalysis, statusBreakdown,
   lowPerformers, targetProgress, buildSalesAlerts, buildInsights,
   filterSalesLines, filterIsActive, linesToCsv, todayIso, orderDate, daysBetween, shiftIso,
-  type LineSources, type SalesTarget, returnKey, returnableQty } from "@/lib/sales";
+  sellerProfile, sellerLinesFor,
+  type LineSources, type SalesTarget, returnKey, returnableQty,
+} from "@/lib/sales";
 import type { Category, Order, OrderItem, OrderStatus, Product, Seller } from "@/lib/types";
 
 const TODAY = "2026-06-15";
@@ -437,9 +439,54 @@ describe("group-bys", () => {
     expect(rows.reduce((a, r) => a + r.share, 0)).toBeCloseTo(1);
   });
 
+  it("is one customer however the three orders spelled the name", () => {
+    // THE BUG THIS PINS. The key is the phone and always was, so these
+    // group correctly -- but the label used to be whichever spelling
+    // arrived first, so the owner reading "Top customers" could not tell a
+    // repeat customer from a data-entry mess. Normalised on the way in
+    // (lib/personName.ts), so orders placed before the checkout had two
+    // capitalised boxes fold in with the ones placed after.
+    const rows = salesByCustomer(lines([
+      order({ buyer_phone: "77012345", buyer_name: "Zita Felicia" }),
+      order({ buyer_phone: "77012345", buyer_name: "zita  fELICIA" }),
+      order({ buyer_phone: "77012345", buyer_name: "ZITA FELICIA " }),
+    ]));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].label).toBe("ZITA FELICIA");
+    expect(rows[0].orders).toBe(3);
+  });
+
+  it("keeps two shoppers of the same name apart by their phones", () => {
+    // The other direction, and the reason the key is not the name: two
+    // people really are called Zita Felicia, and the screens show the
+    // phone beside each row so the owner can see why there are two.
+    const rows = salesByCustomer(lines([
+      order({ buyer_phone: "77012345", buyer_name: "Zita Felicia" }),
+      order({ buyer_phone: "77099999", buyer_name: "Zita Felicia" }),
+    ]));
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.key).sort()).toEqual(["77012345", "77099999"]);
+  });
+
+  it("counts the shop's own catalogue as one seller, not several", () => {
+    // THE BUG THIS PINS. products.seller_id is NOT NULL and defaults to
+    // settings.seller_id, so the shop's own goods carry a real uuid that
+    // matches no row in `sellers` -- while older items carry null. Both
+    // fall back to the label "Store's own", so the seller table printed
+    // the same name twice with the takings split between them, and there
+    // was no way to tell from the screen that it was one shop.
+    const rows = salesBySeller(lines([
+      order({ items: [item({ product_id: "p1", seller_id: null })] }),
+      order({ items: [item({ product_id: "p1", seller_id: "a-uuid-with-no-store" })] }),
+    ], { products: [product()], categories: [category()], sellers: [] }));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].key).toBe("platform");
+    expect(rows[0].orders).toBe(2);
+  });
+
   it("groups by category, customer, seller and municipality", () => {
     expect(salesByCategory(mixed()).map((r) => r.label).sort()).toEqual(["Furniture", "Seating"]);
-    expect(salesByCustomer(mixed())[0].label).toBe("Cara");
+    expect(salesByCustomer(mixed())[0].label).toBe("CARA");   // capitals: see lib/personName.ts
     expect(salesBySeller(mixed())[0].label).toBe("Bee Shop");
     expect(salesByMunicipality(mixed()).map((r) => r.label).sort()).toEqual(["Baucau", "Dili"]);
   });
@@ -633,7 +680,7 @@ describe("buildInsights", () => {
     ]);
     const found = Object.fromEntries(buildInsights(ls, TODAY).map((i) => [i.kind, i.label]));
     expect(found.best_product).toBe("Chair");
-    expect(found.best_customer).toBe("Cara");
+    expect(found.best_customer).toBe("CARA");
     expect(found.best_month).toBe("2026-05");
   });
 });
@@ -801,5 +848,69 @@ describe("returnableQty", () => {
 
   it("ignores a line with no product", () => {
     expect(returnableQty([{ product_id: "", qty: 3 }], none).size).toBe(0);
+  });
+});
+
+describe("sellerProfile", () => {
+  const shop = () => lines([
+    order({
+      buyer_phone: "77000001", buyer_name: "Ana",
+      items: [item({ product_id: "p1", name: "Widget", seller_id: "sel1", price: 20, qty: 2 })],
+    }),
+    order({
+      buyer_phone: "77000002", buyer_name: "Cara",
+      items: [item({ product_id: "p2", name: "Chair", seller_id: "sel1", price: 50, qty: 1 })],
+    }),
+    order({
+      buyer_phone: "77000003", buyer_name: "Bee",
+      items: [item({ product_id: "p1", name: "Widget", seller_id: "sel2", price: 20, qty: 1 })],
+    }),
+  ], {
+    products: [product(), product({ id: "p2", name: "Chair", category_id: "c2" })],
+    categories: [category(), category({ id: "c2", name: "Seating" })],
+    sellers: [seller(), seller({ id: "sel2", store_name: "Bee Shop" })],
+  });
+
+  it("reports only the store that was clicked", () => {
+    const p = sellerProfile(shop(), "sel1")!;
+    expect(p.totals.revenue).toBe(90);       // 20x2 + 50, not Bee Shop's 20
+    expect(p.totals.orders).toBe(2);
+    expect(p.customers).toBe(2);
+    expect(p.products).toBe(2);
+    expect(p.topProducts.map((r) => r.label)).toEqual(["Chair", "Widget"]);
+  });
+
+  it("agrees with the row it opened from", () => {
+    // The property worth protecting: the panel is computed from the same
+    // already-filtered lines as the table, so the two can never disagree.
+    const ls = shop();
+    const row = salesBySeller(ls).find((r) => r.key === "sel1")!;
+    const p = sellerProfile(ls, "sel1")!;
+    expect(p.totals.revenue).toBe(row.revenue);
+    expect(p.totals.orders).toBe(row.orders);
+    expect(p.avgOrderValue).toBe(row.revenue / row.orders);
+  });
+
+  it("opens the shop's own catalogue under the platform key", () => {
+    const ls = lines([order({ items: [item({ seller_id: null })] })]);
+    expect(sellerProfile(ls, "platform")?.totals.orders).toBe(1);
+  });
+
+  it("says nothing rather than zero for a store with no sales in range", () => {
+    // A store with no lines is not a store that sold nothing -- it is a
+    // store outside the date range, and a panel of zeroes would read as
+    // the former.
+    expect(sellerProfile(shop(), "sel-nobody")).toBeNull();
+  });
+
+  it("names the store from its own lines", () => {
+    expect(sellerProfile(shop(), "sel2")!.label).toBe("Bee Shop");
+  });
+
+  it("draws its month axis from the range it was given, not the calendar", () => {
+    // A dashboard filtered to a fortnight would otherwise get eleven empty
+    // columns beside one real one.
+    expect(sellerProfile(shop(), "sel1")!.months.map((m) => m.key))
+      .toEqual([...new Set(sellerLinesFor(shop(), "sel1").map((l) => l.date.slice(0, 7)))].sort());
   });
 });

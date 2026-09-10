@@ -29,7 +29,8 @@ export type AttentionKind =
   | "po_unpaid"
   | "preorders_waiting"
   | "restock_soon"
-  | "stock_drift";
+  | "stock_drift"
+  | "sellers_to_approve";
 
 export interface AttentionItem {
   kind: AttentionKind;
@@ -52,6 +53,9 @@ export interface AttentionItem {
 export interface AttentionInput {
   orders: Order[];
   products: Product[];
+  /** Stores that have registered and are waiting. Optional so a caller
+   * that cannot read them still builds the rest of the list. */
+  pendingSellers?: number;
   purchaseOrders: PurchaseOrder[];
   replenishment: ReplenishmentRow[];
   /** Notifications queued but not yet sent. */
@@ -106,6 +110,14 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     (p) => p.status === "pending" && !p.archived);
   add("products_to_approve", toApprove.length, "warn",
     "/admin", "attnProductsToApprove", "attnProductsToApproveHint");
+
+  // A store that has registered and is waiting. Urgent because a person
+  // is waiting on a person: they filled the form the owner invited them
+  // to fill, and until this is done they cannot list anything. It is also
+  // the answer to "where do I approve them" -- the Sellers screen has had
+  // the button all along, and nothing on the home page said to go there.
+  add("sellers_to_approve", input.pendingSellers ?? 0, "urgent",
+    "/admin/sellers", "attnSellersToApprove", "attnSellersToApproveHint");
 
   // --- buying ---
   const reorderNow = input.replenishment.filter(

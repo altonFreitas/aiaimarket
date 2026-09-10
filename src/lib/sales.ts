@@ -2,6 +2,7 @@ import type {
   Category, Order, OrderStatus, Product, Seller,
 } from "@/lib/types";
 import { storeDay } from "./tz";
+import { normalizeName } from "./personName";
 
 /* ===========================================================================
  * sales.ts — every number on the sales management dashboard.
@@ -237,9 +238,26 @@ export function buildSalesLines(orders: Order[], src: LineSources): SalesLine[] 
         date,
         createdAt: o.created_at,
         customerPhone: (o.buyer_phone || "").trim(),
-        customerName: o.buyer_name || "",
+        // Normalised on the way in rather than trusted as stored: orders
+        // placed before the checkout had two capitalised name boxes carry
+        // whatever was typed, and they group by phone alongside the new
+        // ones. Without this the same customer's row prints whichever
+        // spelling happened to arrive first. See lib/personName.ts.
+        customerName: normalizeName(o.buyer_name || ""),
         municipality: (o.municipality || "").trim() || (o.mode === "pickup" ? "Pickup" : ""),
-        sellerId: item.seller_id ?? null,
+        // A SELLER ID THAT NAMES NO SELLER IS THE MARKETPLACE'S OWN.
+        // products.seller_id has been NOT NULL since schema.sql and
+        // defaults to settings.seller_id, so the shop's own catalogue
+        // carries a real uuid that matches no row in `sellers`. Reported
+        // as-is, that uuid became a group of its own -- and since the
+        // label falls back to "Store's own" for want of a store name, the
+        // seller table printed TWO rows both called "Store's own", with
+        // the shop's takings split arbitrarily between them.
+        //
+        // Resolved to null instead, which is what "the platform" already
+        // means to every reader here, so the shop's own sales are one
+        // line and clicking it means something.
+        sellerId: seller ? item.seller_id ?? null : null,
         sellerName: seller?.store_name || "",
         productId: item.product_id,
         productName: item.name,
@@ -773,6 +791,80 @@ export function salesBySeller(lines: SalesLine[]): GroupTotals[] {
 }
 export function salesByMunicipality(lines: SalesLine[]): GroupTotals[] {
   return groupBy(lines, (l) => l.municipality || "unknown", (l) => l.municipality, "Not recorded");
+}
+
+/* ---------------------------------------------------------------------------
+ * One seller, opened up.
+ *
+ * The seller table answers "who is biggest". It cannot answer the question
+ * the owner asks next -- what does this store actually sell, to whom, and
+ * is it getting better -- and a marketplace whose whole business is other
+ * people's stores needs that on the same screen rather than as a filter
+ * applied to six panels elsewhere.
+ *
+ * Everything here is computed from lines ALREADY FILTERED by the
+ * dashboard's date range and every other filter in force, so what opens
+ * under the row agrees with the row above it. That is the property worth
+ * protecting: a detail panel that quietly ignored the date range would
+ * show a bigger number than the row it came from and nobody could say why.
+ * ------------------------------------------------------------------------ */
+
+export interface SellerProfile {
+  key: string;
+  label: string;
+  totals: Totals;
+  /** Revenue per order, or 0 when the store has no orders in range. */
+  avgOrderValue: number;
+  /** How many distinct buyers, counted by phone -- the same identity the
+   * customer analysis uses. */
+  customers: number;
+  /** How many distinct products actually sold, not how many are listed. */
+  products: number;
+  firstSale: string;
+  lastSale: string;
+  topProducts: GroupTotals[];
+  topCustomers: GroupTotals[];
+  statuses: StatusBucket[];
+  months: PeriodTotals[];
+}
+
+/** The lines belonging to one seller row. `key` is what salesBySeller put
+ * in the row -- a seller id, or "platform" for the marketplace's own. */
+export function sellerLinesFor(lines: SalesLine[], key: string): SalesLine[] {
+  return lines.filter((l) => (l.sellerId || "platform") === key);
+}
+
+/** Null when the key matches nothing in range, which is what the caller
+ * should render as "nothing to show" rather than as a store with zero of
+ * everything.
+ *
+ * `months` defaults to the months this store actually sold in. A caller
+ * passing a calendar year would draw eleven empty columns beside one real
+ * one whenever the dashboard is filtered to a fortnight -- the axis has to
+ * follow the filter, and the filter is already expressed in the lines. */
+export function sellerProfile(
+  lines: SalesLine[], key: string, months?: string[]
+): SellerProfile | null {
+  const mine = sellerLinesFor(lines, key);
+  if (!mine.length) return null;
+  const axis = months ?? [...new Set(mine.map((l) => l.date.slice(0, 7)))].sort();
+
+  const t = totals(mine);
+  const dates = mine.map((l) => l.date).sort();
+  return {
+    key,
+    label: mine.find((l) => l.sellerName)?.sellerName || "",
+    totals: t,
+    avgOrderValue: t.orders ? t.revenue / t.orders : 0,
+    customers: new Set(mine.map((l) => l.customerPhone || "unknown")).size,
+    products: new Set(mine.map((l) => l.productId)).size,
+    firstSale: dates[0],
+    lastSale: dates[dates.length - 1],
+    topProducts: salesByProduct(mine),
+    topCustomers: salesByCustomer(mine),
+    statuses: statusBreakdown(mine).filter((b) => b.count > 0),
+    months: salesByMonth(mine, axis),
+  };
 }
 
 export type RankBy = "revenue" | "qty" | "profit" | "margin" | "orders";

@@ -67,18 +67,12 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
         <Link href="/legal/returns">{t("returnsTitle", lang)}</Link>
       </nav>
 
-      <div style={{ marginTop: 6 }}>
-        {settings.seller_registration_enabled && (
-          // Only shown when new applications are open. When closed,
-          // there's nothing to show here — an existing seller already
-          // has a way in through the person icon in the header (see
-          // /account), which now handles login for everyone, sellers
-          // included. No separate seller-only link is needed.
-          <Link href="/seller/register" style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, fontSize: 12 }}>
-            {t("becomeSeller", lang)}
-          </Link>
-        )}
-      </div>
+      {/* NO "BECOME A SELLER" LINK ANY MORE. Registering a store is by
+          invitation (supabase/seller-invites.sql): the owner sends a link
+          to the person who asked, and a public link here would lead every
+          visitor to a page telling them they need one. An existing seller
+          already has a way in through the person icon in the header, which
+          handles login for everyone. */}
     </footer>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isMissingColumnError, writeTolerating } from "@/lib/missingColumn";
+import { isMissingColumnError, writeTolerating, readTolerating } from "@/lib/missingColumn";
 
 /* The shapes these actually arrive in. */
 const PGRST204 = {
@@ -136,5 +136,60 @@ describe("the seller features column, which is the newest one", () => {
       { code: "23514", message: 'new row for relation "sellers" violates check constraint "sellers_features_check"' },
       "features"
     )).toBe(false);
+  });
+});
+
+describe("readTolerating", () => {
+  const missing = { code: "42703", message: 'column suppliers.seller_id does not exist' };
+
+  it("uses the filtered query when the column is there", async () => {
+    const seen: boolean[] = [];
+    const out = await readTolerating("seller_id", (filtered) => {
+      seen.push(filtered);
+      return Promise.resolve({ error: null, data: ["ours"] });
+    });
+    expect(seen).toEqual([true]);
+    expect(out.data).toEqual(["ours"]);
+    expect(out.degraded).toBe(false);
+  });
+
+  it("falls back to the unfiltered one when the column is not there yet", async () => {
+    // THE ONE THAT MATTERS. Without this the owner's purchasing book comes
+    // back empty on a shop that has the code and has not run the SQL --
+    // and an empty list looks like an answer rather than like a failure.
+    const seen: boolean[] = [];
+    const out = await readTolerating("seller_id", (filtered) => {
+      seen.push(filtered);
+      return Promise.resolve(filtered
+        ? { error: missing, data: null }
+        : { error: null, data: ["everything"] });
+    });
+    expect(seen).toEqual([true, false]);
+    expect(out.data).toEqual(["everything"]);
+    expect(out.degraded).toBe(true);
+  });
+
+  it("does not retry a failure that is not a missing column", async () => {
+    // A permission error or a dropped connection must fail, not quietly
+    // widen the query to every row in the table.
+    let calls = 0;
+    const out = await readTolerating("seller_id", () => {
+      calls++;
+      return Promise.resolve({ error: { code: "42501", message: "permission denied" }, data: null });
+    });
+    expect(calls).toBe(1);
+    expect(out.error).toBeTruthy();
+  });
+
+  it("does not retry when a DIFFERENT column is missing", async () => {
+    let calls = 0;
+    await readTolerating("seller_id", () => {
+      calls++;
+      return Promise.resolve({
+        error: { code: "42703", message: "column suppliers.country_code does not exist" },
+        data: null,
+      });
+    });
+    expect(calls).toBe(1);
   });
 });

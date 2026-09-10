@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { readTolerating } from "@/lib/missingColumn";
 import type { PurchaseOrder, PurchaseOrderItem, StockMovement, Supplier } from "@/lib/types";
 import type { OnOrderFact, ReceiptFact } from "@/lib/stockReport";
 
@@ -23,13 +24,28 @@ export async function procurementReady(): Promise<boolean> {
   }
 }
 
+/* THE OWNER'S OWN, NOT EVERY STORE'S.
+ *
+ * Sellers granted "My purchases" keep their suppliers and orders in these
+ * same two tables, told apart by seller_id (supabase/seller-procurement.sql).
+ * The owner's procurement screens are the platform's cost of goods -- the
+ * figure the business overview compares its sales against -- so a seller's
+ * spend appearing in them would misstate the marketplace's own margin, and
+ * their supplier's contact details would appear in the owner's book.
+ *
+ * The filter is applied tolerantly: on a shop with this code and without
+ * that migration there is no column, and an unfiltered read is then exactly
+ * right, because every row on such a database is the owner's. Failing
+ * closed instead would empty the purchasing book and look like an answer. */
 export async function adminSuppliers(): Promise<Supplier[]> {
   try {
     const sb = supabaseAdmin();
-    const { data, error } = await sb.from("suppliers").select("*")
-      .order("name").limit(MAX_SUPPLIERS);
+    const { data, error } = await readTolerating<Supplier[]>("seller_id", (filtered) => {
+      const q = sb.from("suppliers").select("*").order("name").limit(MAX_SUPPLIERS);
+      return filtered ? q.is("seller_id", null) : q;
+    });
     if (error) return [];
-    return (data as Supplier[]) || [];
+    return data || [];
   } catch { return []; }
 }
 
@@ -43,13 +59,17 @@ export async function adminSuppliers(): Promise<Supplier[]> {
 export const adminPurchaseOrders = cache(async (): Promise<PurchaseOrder[]> => {
   try {
     const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("purchase_orders")
-      .select("*, items:purchase_order_items(*)")
-      .order("order_date", { ascending: false })
-      .limit(MAX_POS);
+    // Same rule and same tolerance as adminSuppliers above.
+    const { data, error } = await readTolerating<PurchaseOrder[]>("seller_id", (filtered) => {
+      const q = sb
+        .from("purchase_orders")
+        .select("*, items:purchase_order_items(*)")
+        .order("order_date", { ascending: false })
+        .limit(MAX_POS);
+      return filtered ? q.is("seller_id", null) : q;
+    });
     if (error) return [];
-    return (data as PurchaseOrder[]) || [];
+    return data || [];
   } catch { return []; }
 });
 

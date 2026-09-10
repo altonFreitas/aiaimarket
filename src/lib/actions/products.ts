@@ -72,15 +72,55 @@ export interface ProductFormInput {
   tags: string[];
   /** men | women | unisex, or null for "the question does not apply". */
   audience?: string | null;
+  /** Which store sells this. Empty string or absent means the marketplace's
+   * own catalogue, which is stored as the platform's seller id rather than
+   * as null -- the column has been NOT NULL since schema.sql, and the
+   * storefront's "Sold by" line is drawn by looking the id up among the
+   * approved sellers and finding nothing. */
+  seller_id?: string | null;
   images: string[];
   pay_cod: boolean; pay_cop: boolean; pay_bank: boolean; pay_wallet: boolean; pay_fiar: boolean;
   municipality?: string; post?: string; suku?: string; landmark?: string;
+}
+
+/** Turns whatever the form chose into a seller id the column will accept.
+ *
+ * "" / undefined -> the marketplace's own id, from settings.seller_id --
+ * the same value current_seller_id() gives a row that names no seller, so
+ * an owner-listed product is identical whether it was created before this
+ * select existed or after it.
+ *
+ * Anything else is checked against the sellers table before it is written.
+ * The action is admin-only, so this is not a permission check; it is what
+ * stops a stale tab, a copied id or a renamed store from filing a product
+ * under a seller that does not exist, where it would sell with no "Sold
+ * by" line and pay commission to nobody. Only APPROVED stores are
+ * accepted, because approved is exactly the set the storefront will
+ * resolve a name for. */
+async function resolveSellerId(
+  sb: ReturnType<typeof supabaseAdmin>, chosen: string | null | undefined
+): Promise<string> {
+  const platform = await sb.from("settings").select("seller_id").eq("id", 1).single();
+  const own = platform.data?.seller_id as string | undefined;
+  const want = (chosen || "").trim();
+  if (!want || want === own) {
+    if (!own) throw new Error("The store's own seller id is missing from settings.");
+    return own;
+  }
+  const { data } = await sb
+    .from("sellers").select("id").eq("id", want).eq("status", "approved").maybeSingle();
+  if (!data) throw new Error("That seller is not an approved store.");
+  return data.id as string;
 }
 
 export async function saveProduct(input: ProductFormInput) {
   const actor = await requireAdmin();
   const sb = supabaseAdmin();
   const baseSlug = slugify(input.name);
+  // Resolved before either branch writes, so an unknown store fails the
+  // save outright rather than half-way through -- a product created and
+  // then found to be unassignable would already hold a ref number.
+  const sellerId = await resolveSellerId(sb, input.seller_id);
 
   if (input.id) {
     const slug = await uniqueSlug(baseSlug, input.id);
@@ -102,7 +142,7 @@ export async function saveProduct(input: ProductFormInput) {
     const { error } = await writeTolerating(
       { audience: normalizeAudience(input.audience) },
       (extra) => sb.from("products").update({
-        name: input.name, slug, price: input.price,
+        name: input.name, slug, price: input.price, seller_id: sellerId,
         discount_price: input.discount_price,
         description: input.description,
         preorder_enabled: input.preorder_enabled ?? true,
@@ -145,7 +185,7 @@ export async function saveProduct(input: ProductFormInput) {
     const { data: made, error } = await writeTolerating<{ id: string }>(
       { audience: normalizeAudience(input.audience) },
       (extra) => sb.from("products").insert({
-        ref, name: input.name, slug, price: input.price, qty: 0,
+        ref, name: input.name, slug, price: input.price, qty: 0, seller_id: sellerId,
         discount_price: input.discount_price,
         stock_status: "out", description: input.description,
         preorder_enabled: input.preorder_enabled ?? true,

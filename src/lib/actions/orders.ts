@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { assertOrderTransition } from "@/lib/orderFlow";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
+import { normalizeName } from "@/lib/personName";
 import { decodeImageDataUrl } from "@/lib/uploadGuard";
 import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
@@ -234,7 +235,12 @@ export async function placeOrder(input: PlaceOrderInput) {
       ref,
       lang,
       is_preorder: isPreorder,
-      buyer_name: clip(input.name, MAX_NAME_LEN),
+      // Normalised here as well as in the form. The form is the only
+      // place a person types this, but it is not the only place the
+      // request can come from -- and the sales screens' promise that one
+      // phone number is one customer with one name has to hold against
+      // whatever actually arrives.
+      buyer_name: clip(normalizeName(input.name), MAX_NAME_LEN),
       buyer_phone: normalizedPhone,
       items: itemsWithSeller,
       mode: input.mode,

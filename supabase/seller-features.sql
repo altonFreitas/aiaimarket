@@ -5,7 +5,8 @@
 --
 --   features  WHICH OF THE OWNER'S TOOLS this store may open, beyond the
 --             four screens that make it a seller at all.
---             Keys from src/lib/sellerFeatures.ts -- 'sales', 'stock'.
+--             Keys from src/lib/sellerFeatures.ts -- 'sales', 'stock',
+--             'procurement'.
 --
 -- The four included screens -- dashboard, products, orders, store settings
 -- -- are NOT listed here and never will be. A seller who cannot list a
@@ -50,7 +51,7 @@ alter table sellers
 alter table sellers drop constraint if exists sellers_features_check;
 alter table sellers
   add constraint sellers_features_check check (
-    features <@ array['sales','stock']::text[]
+    features <@ array['sales','stock','procurement']::text[]
   );
 
 comment on column sellers.features is

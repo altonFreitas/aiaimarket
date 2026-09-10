@@ -316,6 +316,11 @@ describe("admin components that can change things know who is looking", () => {
     ["AdminUsers.tsx", "owner only, refused at the page"],
     // A download is a read; it calls requireAdminRead, not requireAdmin.
     ["ExportExcelButton.tsx", "exporting is reading"],
+    // Your own second factor is yours. Everything it calls acts on the
+    // caller's own login and nothing else, so it takes requireAdminRead --
+    // gating it on the write role would stop a read-only staff account
+    // turning 2FA ON for itself, which is backwards.
+    ["AdminTotpSettings.tsx", "a person's own login, not the shop's data"],
   ]);
 
   it("gates every other one on the viewer's role", () => {

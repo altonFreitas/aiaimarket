@@ -14,7 +14,7 @@ import { useId, useState } from "react";
  * inline, so the six callers cannot drift apart. */
 export default function PasswordField({
   id: idProp, label, value, onChange, autoComplete, minLength, required,
-  placeholder, hint,
+  placeholder, hint, invalid,
 }: {
   id?: string;
   /** Omit to render the input alone -- for a table row, where a label
@@ -27,6 +27,11 @@ export default function PasswordField({
   required?: boolean;
   placeholder?: string;
   hint?: React.ReactNode;
+  /** Marks the box as the one at fault, the same way .field.err does for
+   * every other field in the app. Without it a form that names the
+   * password in its error notice has no way to point at it, because this
+   * component owns the wrapper the class belongs on. */
+  invalid?: boolean;
 }) {
   const generated = useId();
   const id = idProp || generated;
@@ -48,7 +53,7 @@ export default function PasswordField({
 
   if (!label) return input;
   return (
-    <div className="field">
+    <div className={"field" + (invalid ? " err" : "")}>
       <label htmlFor={id}>{label}</label>
       {input}
       {hint && <p className="hint">{hint}</p>}

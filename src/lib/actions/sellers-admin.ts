@@ -24,8 +24,34 @@ async function setSellerStatus(id: string, status: SellerStatus) {
   revalidatePath("/", "layout");
 }
 
+/** Approve, and tell them.
+ *
+ * The store has been waiting since it registered and has no way to find
+ * out on its own -- it cannot sign in to check, because until this moment
+ * there is nothing to sign in to. So the good news goes out by email and
+ * by SMS/WhatsApp, to the two addresses the registration form asked for.
+ *
+ * After the status write, and never blocking it: the store IS approved
+ * whether or not the message got through, and notifySellerApproved never
+ * throws (see lib/actions/notify.ts). */
 export async function approveSeller(id: string) {
+  const sb = supabaseAdmin();
+  const { data: seller } = await sb
+    .from("sellers").select("store_name, email, phone").eq("id", id).maybeSingle();
+
   await setSellerStatus(id, "approved");
+
+  if (seller) {
+    const [{ notifySellerApproved }, { getLang }] = await Promise.all([
+      import("@/lib/actions/notify"), import("@/lib/lang"),
+    ]);
+    await notifySellerApproved({
+      store_name: String(seller.store_name || ""),
+      email: String(seller.email || ""),
+      phone: String(seller.phone || ""),
+      lang: await getLang(),
+    });
+  }
 }
 export async function rejectSeller(id: string) {
   await setSellerStatus(id, "rejected");

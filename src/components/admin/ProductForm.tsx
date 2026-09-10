@@ -13,6 +13,11 @@ import WriteOnly, { useCanWrite } from "./Access";
 import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 
+/** Just enough of an approved store to fill the "sold by" select. The whole
+ * Seller row is forty columns including its TOTP secret's neighbours, and
+ * this is a client component. */
+export interface SellerOption { id: string; store_name: string }
+
 function rootIdOf(id: string, cats: Category[]): string {
   const c = cats.find((x) => x.id === id);
   return c?.parent_id || id;
@@ -26,8 +31,15 @@ const STOCK_PILL: Record<StockStatus, string> = {
 };
 
 export default function ProductForm({
-  lang, cats: initialCats, product, settings,
-}: { lang: Lang; cats: Category[]; product: Product | null; settings: Settings }) {
+  lang, cats: initialCats, product, settings, sellers = [],
+}: {
+  lang: Lang; cats: Category[]; product: Product | null; settings: Settings;
+  /** Approved stores the owner may file this product under. Anything else
+   * the column holds -- settings.seller_id, or an id belonging to no store
+   * -- is the marketplace's own catalogue, which is what the storefront
+   * shows for it too. */
+  sellers?: SellerOption[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [cats, setCats] = useState(initialCats);
@@ -48,6 +60,10 @@ export default function ProductForm({
     category_id: product?.category_id || cats[0]?.id || "",
     sizes: (product?.sizes || []).join(", "),
     audience: normalizeAudience(product?.audience) ?? "",
+    // Empty means the marketplace's own catalogue. A product already filed
+    // under a store that is no longer approved reads as the shop's own
+    // too, which is exactly what the storefront shows for it.
+    seller_id: sellers.some((x) => x.id === product?.seller_id) ? product!.seller_id : "",
     tags: (product?.tags || []).join(", "),
     municipality: product?.municipality || settings?.municipality || "",
     post: product?.post || settings?.post || "",
@@ -192,6 +208,7 @@ export default function ProductForm({
         category_id: f.category_id,
         sizes: f.sizes.split(",").map((s) => s.trim()).filter(Boolean),
         audience: f.audience || null,
+        seller_id: f.seller_id || null,
         tags: f.tags.split(",").map((s) => s.trim()).filter(Boolean),
         images,
         pay_cod: pay.cod, pay_cop: pay.cop, pay_bank: pay.bank,
@@ -338,6 +355,31 @@ export default function ProductForm({
             </select>
             <p className="hint">{t("audienceHint", lang)}</p>
           </div>
+
+          {/* WHO SELLS IT.
+              The owner lists products for resellers who have no interest
+              in logging in to do it themselves -- they send photographs
+              and a price, and this is where that product becomes theirs.
+              It decides the "Sold by X" line on every card and product
+              page, and it is what the seller's own sales, orders and
+              earnings are counted from, so it is not cosmetic.
+
+              Only approved stores are offered. A pending or suspended one
+              would take the product off the shop's own books and give the
+              storefront no name to print in its place. */}
+          {sellers.length > 0 && (
+            <div className="field">
+              <label htmlFor="seller_id">{t("soldBy", lang)}</label>
+              <select id="seller_id" value={f.seller_id} disabled={!canWrite}
+                onChange={(e) => set("seller_id", e.target.value)}>
+                <option value="">{t("storesOwn", lang)}</option>
+                {sellers.map((sl) => (
+                  <option key={sl.id} value={sl.id}>{sl.store_name}</option>
+                ))}
+              </select>
+              <p className="hint">{t("productSellerHint", lang)}</p>
+            </div>
+          )}
           <WriteOnly>
           <div className="field">
             <label htmlFor="newcat">{t("newCategory", lang)}</label>

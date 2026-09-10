@@ -7,11 +7,38 @@ import {
 } from "@/lib/adminSections";
 
 const COOKIE = "loja_admin_session";
-// 10 minutes -- the whole session, not just a "remember me" window. The
-// admin's login already includes TOTP as one step, so this session
-// expiring means the next visit re-asks for password + code together,
-// same as any other fresh login.
-const MAX_AGE = 60 * 10;
+
+/* HOW LONG AN ADMIN STAYS SIGNED IN.
+ *
+ * Ten minutes, and it is the WHOLE session rather than a "remember me"
+ * window: when it lapses the next visit re-asks for password and code
+ * together, like any other fresh login.
+ *
+ * That default is right for a shop being run day to day. It is wrong for
+ * a shop being BUILT, where the same person opens twenty admin screens in
+ * an afternoon and is asked for a fresh code on most of them -- which is
+ * not more secure, it is a reason to leave a phone unlocked on the desk.
+ * ADMIN_SESSION_MINUTES moves it without touching this file.
+ *
+ * Clamped at both ends on purpose. Below five minutes the login becomes
+ * unusable for everybody and nobody would have meant it; above thirty days
+ * the cookie outlives any sensible idea of a session, and a typed extra
+ * zero should not silently grant a year. A value that is not a number at
+ * all falls back to the default rather than to NaN, which compares false
+ * against every age and would expire every session instantly. */
+const DEFAULT_SESSION_MINUTES = 10;
+const MIN_SESSION_MINUTES = 5;
+const MAX_SESSION_MINUTES = 60 * 24 * 30;
+
+/** Exported for the test that pins the clamp, and for the admin screen
+ * that tells the owner what the current setting actually resolved to. */
+export function sessionMinutes(raw: string | undefined = process.env.ADMIN_SESSION_MINUTES): number {
+  const n = Number((raw ?? "").trim());
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_SESSION_MINUTES;
+  return Math.min(MAX_SESSION_MINUTES, Math.max(MIN_SESSION_MINUTES, Math.floor(n)));
+}
+
+const MAX_AGE = sessionMinutes() * 60;
 
 function secret() {
   const s = process.env.SESSION_SECRET;

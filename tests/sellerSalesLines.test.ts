@@ -82,7 +82,7 @@ describe("the platform's buying prices never reach a seller", () => {
     expect(lines[0]).toMatchObject({
       ref: "ORD-o1", qty: 2, unitPrice: 20, netSales: 40,
       productName: "Pp1", categoryName: "Shoes", municipality: "Dili",
-      customerName: "Ana", status: "completed",
+      customerName: "ANA", status: "completed",   // capitals: lib/personName.ts
     });
   });
 

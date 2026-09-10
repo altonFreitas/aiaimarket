@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BarSeries, RankedBars, RateBar } from "../Charts";
 import SalesTable from "./SalesTable";
+import SellerDetail from "./SellerDetail";
 import ExportExcelButton from "../ExportExcelButton";
 import { money } from "@/lib/utils";
 import {
@@ -10,7 +11,7 @@ import {
   deliveryDelayDays, deliveryState, filterIsActive, filterSalesLines, groupOrders,
   growth, lowPerformers, monthKeys, rank, salesByCategory, salesByCustomer,
   salesByMonth, salesByMunicipality, salesByProduct, salesByQuarter, salesByWeek,
-  salesBySeller, salesByYear, shiftIso, statusBreakdown, targetProgress, totals,
+  salesBySeller, salesByYear, sellerProfile, shiftIso, statusBreakdown, targetProgress, totals,
   paymentSummary,
   PENDING_STATUSES, SALES_STATUSES,
   PERIOD_PRESETS, presetRange, activePreset,
@@ -125,6 +126,17 @@ export default function SalesDashboard({
   const byCategory = useMemo(() => salesByCategory(rows), [rows]);
   const byCustomer = useMemo(() => salesByCustomer(rows), [rows]);
   const bySeller = useMemo(() => salesBySeller(rows), [rows]);
+  // Which seller row is open, if any. Cleared whenever the filters move,
+  // because the row the panel was opened from may no longer be in the
+  // table -- an open panel for a store outside the new date range would
+  // sit under a table that does not list it.
+  const [openSeller, setOpenSeller] = useState<string | null>(null);
+  // No month axis passed: it follows the filtered rows, so the chart
+  // covers the range the table above it covers.
+  const sellerOpen = useMemo(
+    () => (openSeller ? sellerProfile(rows, openSeller) : null),
+    [rows, openSeller]
+  );
   const byMunicipality = useMemo(() => salesByMunicipality(rows), [rows]);
   const customers = useMemo(
     () => customerAnalysis(rows, { today, priorLines }), [rows, today, priorLines]
@@ -407,7 +419,14 @@ export default function SalesDashboard({
           </div>
           <RankedBars
             rows={rank(byCustomer, customerRank).map((r) => ({
-              ...r, value: rankValue(r, customerRank), meta: `${r.orders} ${t("orders", lang).toLowerCase()}`,
+              ...r, value: rankValue(r, customerRank),
+              // The phone, because the phone is the customer. Two rows
+              // reading "ZITA FELICIA" are two people, and without the
+              // number on screen that looks like a bug rather than the
+              // answer. "unknown" is the group for orders with no phone
+              // recorded at all, which is not a number to print.
+              meta: `${r.orders} ${t("orders", lang).toLowerCase()}`
+                + (r.key && r.key !== "unknown" ? ` \u00b7 ${r.key}` : ""),
             }))}
             emptyLabel={t("noDataYet", lang)}
             format={customerRank === "qty" || customerRank === "orders"
@@ -422,9 +441,9 @@ export default function SalesDashboard({
       <div className="two-col">
         <div className="panel">
           <h3>{t("sellerPerformance", lang)}</h3>
-          <p className="hint">{t("sellerPerformanceNote", lang)}</p>
+          <p className="hint">{t("sellerPerformanceNote", lang)} {t("clickSellerRow", lang)}</p>
           <div className="scroll-x">
-            <table className="tbl tbl-compact">
+            <table className="tbl tbl-compact tbl-rows">
               <thead>
                 <tr>
                   <th>{t("seller", lang)}</th><th className="num">{t("orders", lang)}</th>
@@ -435,7 +454,20 @@ export default function SalesDashboard({
               </thead>
               <tbody>
                 {bySeller.length ? bySeller.map((s) => (
-                  <tr key={s.key}>
+                  // A row, not a cell with a link in it: the whole row is
+                  // the target, which is what a reader who has just read
+                  // across it will click. tabIndex + onKeyDown because a
+                  // <tr> is not focusable and this must not become a
+                  // mouse-only screen.
+                  <tr key={s.key}
+                    className={"is-clickable" + (openSeller === s.key ? " is-on" : "")}
+                    tabIndex={0} role="button" aria-expanded={openSeller === s.key}
+                    onClick={() => setOpenSeller(openSeller === s.key ? null : s.key)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      setOpenSeller(openSeller === s.key ? null : s.key);
+                    }}>
                     <td>{s.label}</td>
                     <td className="num">{s.orders}</td>
                     <td className="num">{money(s.revenue)}</td>
@@ -448,6 +480,14 @@ export default function SalesDashboard({
               </tbody>
             </table>
           </div>
+
+          {sellerOpen && (
+            <SellerDetail
+              profile={sellerOpen} lang={lang}
+              onClose={() => setOpenSeller(null)}
+              onFilter={() => { set({ sellerId: sellerOpen.key }); setOpenSeller(null); }}
+            />
+          )}
         </div>
 
         <div className="panel">

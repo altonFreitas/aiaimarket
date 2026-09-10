@@ -53,6 +53,8 @@ const EVERYTHING = snap([
   "promotions",
   "hero_slides.video_url",
   "products.loves",
+  "seller_invites",
+  "suppliers.seller_id", "purchase_orders.seller_id",
   "products.preorder_enabled", "orders.is_preorder",
   "settings.reorder_window_days",
   "admin_users", "audit_log", "admin_users.role", "admin_users.sections",

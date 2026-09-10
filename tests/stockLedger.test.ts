@@ -56,7 +56,11 @@ const OPENING_INSERT = [
   "src/lib/actions/products.ts",
   "src/lib/actions/seller-products.ts",
   // Receiving a purchase order for goods the shop has never listed before.
-  "src/lib/actions/receive.ts",
+  // The mechanism moved out of the action when a seller gained the ability
+  // to receive their own order (lib/purchasing.ts explains why it cannot
+  // live in a "use server" file); the action is now the guard and the
+  // audit record, and writes no products row at all.
+  "src/lib/receiving.ts",
 ];
 
 /** TypeScript types, which follow a colon in exactly the same shape as a
