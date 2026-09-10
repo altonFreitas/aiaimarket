@@ -824,6 +824,8 @@ export const STR: Record<string, [string,string,string]> = {
   attnMyRestockSoonHint:["Sei fa'an hela, maibé menus liu {pct}% husi entrega ikus.","Ainda vende, mas resta menos de {pct}% da última entrega.","Still selling, and under {pct}% of the last delivery is left."],
   attnMyProductsPending:["Hein aprovasaun","À espera de aprovação","Waiting for approval"],
   attnMyProductsPendingHint:["Merkadu sei haree; la presiza halo buat ida.","O mercado está a rever; não precisa de fazer nada.","The marketplace is reviewing them; nothing for you to do."],
+  featOrderIdempotency:["Enkomenda duplika la bele","Sem encomendas duplicadas","No duplicate orders"],
+  featRateLimits:["Limita tentativa","Limite de tentativas","Request throttling"],
   featSellerInvites:["Konvite ba vendedór","Convites de vendedor","Seller invitations"],
   sellerInvites:["Konvite ba vendedór","Convites de vendedor","Seller invitations"],
   sellerInvitesHint:["Halo ligasaun ida ka ida, haruka ba ema ne'ebé husu. Ligasaun ida rejista loja ida de'it.","Crie um link, envie-o a quem pediu. Cada link regista apenas uma loja.","Make a link and send it to whoever asked. One link registers one store."],

@@ -2,6 +2,7 @@
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { writeTolerating } from "@/lib/missingColumn";
 import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { assertOrderTransition } from "@/lib/orderFlow";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
@@ -11,7 +12,7 @@ import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
 import { notifyStatusChange } from "@/lib/orderNotify";
-import type { OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
+import type { Order, OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Trims and hard-truncates a free-text field. Postgres `text` has no
  * length limit, so without this a single request can write megabytes. */
@@ -65,6 +66,11 @@ export interface PlaceOrderInput {
   municipality?: string; post?: string; suku?: string; aldeia?: string; landmark?: string;
   payMethod: PayMethod;
   note?: string;
+  /** One per checkout attempt, minted in the browser. A retry of the same
+   * attempt returns the order the first one made, rather than making a
+   * second. Optional: an older client that does not send one gets exactly
+   * the behaviour it had before. */
+  idempotencyKey?: string;
 }
 
 /** F1/F2 — guest checkout, no account. Uses the ANON client (not admin):
@@ -77,7 +83,25 @@ const MAX_LINE_QTY = 999;
 const MAX_BASKET_LINES = 50;
 const MAX_NAME_LEN = 120;
 const MAX_NOTE_LEN = 2000;
+/** A UUID is 36; the cap is only there so a caller cannot make the index
+ * entry arbitrarily large. */
+const MAX_IDEM_LEN = 64;
 const MAX_ADDRESS_FIELD_LEN = 200;
+
+/** The order a previous attempt with this key already made, or null.
+ *
+ * Tolerant of the column not existing: on a database that has not run
+ * supabase/order-idempotency.sql the query errors and this reports "no
+ * previous attempt", which is exactly the behaviour the shop had before
+ * the column was introduced. */
+async function findByIdempotencyKey(key: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("orders").select("ref").eq("idempotency_key", key).maybeSingle();
+    if (error) return null;
+    return (data?.ref as string) ?? null;
+  } catch { return null; }
+}
 
 export async function placeOrder(input: PlaceOrderInput) {
   if (!input.name.trim()) throw new Error("Name is required");
@@ -87,9 +111,21 @@ export async function placeOrder(input: PlaceOrderInput) {
 
   // Unauthenticated, writes to the database, sends no payment — exactly the
   // shape of endpoint that gets scripted. 10 orders / 10 minutes per IP.
-  const orderLimit = rateLimit(await callerKey("place-order"), 10, 600);
+  const orderLimit = await rateLimit(await callerKey("place-order"), 10, 600);
   if (!orderLimit.allowed) {
     throw new Error(`Too many orders from this connection. Try again in ${orderLimit.retryAfterSeconds}s.`);
+  }
+
+  // A RETRY IS NOT A SECOND ORDER. Checked before any work is done, so a
+  // resubmission on a flaky connection costs one indexed lookup rather
+  // than a second set of stock movements and a second SMS. The unique
+  // index is what actually guarantees it (supabase/order-idempotency.sql);
+  // this is the fast path, and the conflict handler after the insert is
+  // the one that catches two requests racing each other.
+  const idemKey = clip(input.idempotencyKey, MAX_IDEM_LEN) || null;
+  if (idemKey) {
+    const found = await findByIdempotencyKey(idemKey);
+    if (found) return found;
   }
 
   // Fee + zone resolution happens server-side against real settings,
@@ -154,7 +190,12 @@ export async function placeOrder(input: PlaceOrderInput) {
     // matches the column default for a database that has run
     // supabase/preorders.sql and is the friendlier default for one that
     // has not.
-    if (row.stock_status === "out") {
+    // Per LINE, not per order. The order-wide flag below is what the ref
+    // and the is_preorder column are built from, but the quantity ceiling
+    // has to ask about this product -- one pre-ordered line in a basket
+    // must not lift the limit off everything else in it.
+    const linePreorder = row.stock_status === "out";
+    if (linePreorder) {
       const allowed = (row as { preorder_enabled?: boolean }).preorder_enabled !== false;
       if (!allowed) throw new Error(`"${row.name}" is out of stock`);
       isPreorder = true;
@@ -164,7 +205,14 @@ export async function placeOrder(input: PlaceOrderInput) {
     if (!Number.isFinite(qty) || qty < 1 || qty > MAX_LINE_QTY) {
       throw new Error(`Invalid quantity for "${row.name}"`);
     }
-    if (row.qty > 0 && qty > row.qty) {
+    // NO `row.qty > 0 &&` GUARD ON THIS. It used to read
+    // `if (row.qty > 0 && qty > row.qty)`, which meant that a product sitting
+    // at qty = 0 whose stock_status had not yet been flipped to 'out'
+    // short-circuited the whole check -- so ANY quantity was accepted, with
+    // no limit at all, on exactly the products most likely to be racing
+    // towards zero. Out-of-stock is handled above (as a pre-order or a
+    // refusal); this is the quantity ceiling and it applies always.
+    if (!linePreorder && qty > row.qty) {
       throw new Error(`Only ${row.qty} left of "${row.name}"`);
     }
 
@@ -229,9 +277,12 @@ export async function placeOrder(input: PlaceOrderInput) {
   // days later.
   const lang = await getLang();
 
-  const { data, error } = await sb
+  const { data, error } = await writeTolerating<Order>(
+    { idempotency_key: idemKey },
+    (extra) => sb
     .from("orders")
     .insert({
+      ...extra,
       ref,
       lang,
       is_preorder: isPreorder,
@@ -261,8 +312,21 @@ export async function placeOrder(input: PlaceOrderInput) {
       status: "new",
     })
     .select()
-    .single();
-  if (error) throw error;
+    .single()
+  );
+  // 23505 on the idempotency index means the SAME attempt arrived twice and
+  // the other one won the race. That is a success, not a failure: read back
+  // what it made and hand the buyer the same reference. Anything else is a
+  // real error.
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (idemKey && code === "23505") {
+      const existing = await findByIdempotencyKey(idemKey);
+      if (existing) return existing;
+    }
+    throw error;
+  }
+  if (!data) throw new Error("The order was not created.");
 
   await sb.from("order_log").insert({
     order_id: data.id,
@@ -311,7 +375,7 @@ export async function getOrdersByPhone(phone: string) {
   // endpoint is a standing offer to enumerate the store's customers.
   // Throttling doesn't fix the trust model, but it makes bulk harvesting
   // expensive. 20 lookups / 5 minutes per IP.
-  const lookupLimit = rateLimit(await callerKey("order-lookup"), 20, 300);
+  const lookupLimit = await rateLimit(await callerKey("order-lookup"), 20, 300);
   if (!lookupLimit.allowed) return [];
   const sb = supabaseAdmin();
   const normalized = phoneNorm(phone);

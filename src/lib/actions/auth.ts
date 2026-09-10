@@ -24,7 +24,7 @@ export async function checkPasswordAction(identifier: string, password: string) 
   // The TOTP step has had a lockout since day one; the password step had
   // none, so ADMIN_PASSWORD could be guessed at whatever rate the network
   // allowed. 10 attempts / 5 minutes per IP.
-  const limit = rateLimit(await callerKey("admin-login"), 10, 300);
+  const limit = await rateLimit(await callerKey("admin-login"), 10, 300);
   if (!limit.allowed) {
     throw new Error(`Too many attempts. Try again in ${limit.retryAfterSeconds}s.`);
   }

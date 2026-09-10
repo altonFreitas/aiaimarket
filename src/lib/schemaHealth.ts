@@ -136,6 +136,15 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     routines: ["increment_loves", "decrement_loves"],
   },
   {
+    file: "order-idempotency.sql", labelKey: "featOrderIdempotency",
+    columns: [["orders", "idempotency_key"]],
+  },
+  {
+    file: "rate-limits.sql", labelKey: "featRateLimits",
+    tables: ["rate_limits"],
+    routines: ["hit_rate_limit"],
+  },
+  {
     file: "seller-invites.sql", labelKey: "featSellerInvites",
     tables: ["seller_invites"],
   },

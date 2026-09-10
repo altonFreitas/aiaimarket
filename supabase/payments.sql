@@ -129,7 +129,12 @@ create trigger trg_payments_touch
 -- human to look, because "we don't know if we were paid" is not a state to
 -- leave orders sitting in.
 -- ---------------------------------------------------------------------------
-create or replace view payments_needing_review as
+create or replace view payments_needing_review
+  -- SECURITY INVOKER, and it matters more here than anywhere else in this
+  -- schema. A view created without it runs with its OWNER's rights, so it
+  -- reads straight past the row-level security on `payments` and `orders`
+  -- for whoever queries it. This view joins both.
+  with (security_invoker = on) as
   select p.id, p.order_id, o.ref as order_ref, p.provider, p.provider_ref,
          p.amount_minor, p.currency, p.status, p.created_at, p.updated_at
     from payments p
@@ -137,3 +142,29 @@ create or replace view payments_needing_review as
    where p.status in ('initiated','pending','authorized')
      and p.created_at < now() - interval '1 hour'
    order by p.created_at;
+
+-- ---------------------------------------------------------------------------
+-- AND REVOKED, like every other sensitive object in this schema.
+--
+-- This was the one that was missed. Supabase's default privileges grant
+-- new objects in `public` to anon and authenticated, so a view is readable
+-- by anybody holding the anon key -- which is published in the browser --
+-- unless something takes that away. Fourteen other objects in these files
+-- do exactly this: stock_reconciliation, admin_users, audit_log,
+-- notifications, order_returns, product_costs, seller_invites,
+-- stock_movements and the rest.
+--
+-- WHAT IT WAS LEAKING. Live order references, and amounts, for payments
+-- in flight. An order ref is half of the credential pair that lookupOrder,
+-- submitProductReview, requestCancellation and startCardPayment all rely
+-- on -- the other half being a phone number, which is guessable in a
+-- country with one mobile prefix. A published list of them is a targeted
+-- list of orders worth attacking, and it names the ones whose payment has
+-- not settled yet.
+--
+-- Both lines are needed. security_invoker alone leaves the grant in place
+-- (RLS would then refuse the rows, which is a second failure mode to
+-- reason about rather than a fix); the revoke alone leaves a definer view
+-- that a future policy change could re-expose.
+-- ---------------------------------------------------------------------------
+revoke all on payments_needing_review from anon, authenticated;

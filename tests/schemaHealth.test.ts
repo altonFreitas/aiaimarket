@@ -10,7 +10,7 @@ import {
 /** Everything a fully migrated database has beyond its tables. */
 const KINDS = {
   views: ["stock_reconciliation"],
-  routines: ["schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves"],
+  routines: ["schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves", "hit_rate_limit"],
   indexes: [
     ["public.products", "idx_products_live"],
     ["public.sellers", "idx_sellers_status"],
@@ -54,6 +54,8 @@ const EVERYTHING = snap([
   "hero_slides.video_url",
   "products.loves",
   "seller_invites",
+  "rate_limits",
+  "orders.idempotency_key",
   "suppliers.seller_id", "purchase_orders.seller_id",
   "products.preorder_enabled", "orders.is_preorder",
   "settings.reorder_window_days",
@@ -213,7 +215,8 @@ describe("an old schema_inventory() that can only see tables", () => {
     const out = checkSchema(oldShape);
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
-      "loves.sql", "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
+      "loves.sql", "rate-limits.sql", "stock-ledger.sql", "harden-rls.sql",
+      "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {
       expect([f.file, f.applied]).toEqual([f.file, false]);

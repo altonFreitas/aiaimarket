@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,18 @@ import type { Lang, PayMethod, Settings } from "@/lib/types";
 
 const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "card"];
 
+/** crypto.randomUUID where it exists -- every browser this shop supports,
+ * over HTTPS. The fallback is for an insecure origin during development,
+ * where randomUUID is not exposed; it does not need to be unguessable,
+ * only unique, because the key is scoped to one basket and the server
+ * refuses a duplicate rather than trusting it. */
+function newAttemptKey(): string {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  } catch { /* fall through */ }
+  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export default function CheckoutForm({
   lang, settings, cardAvailable = false,
 }: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
@@ -28,6 +40,22 @@ export default function CheckoutForm({
   const [pay, setPay] = useState<PayMethod>("cod");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+
+  /* ONE KEY PER ATTEMPT, held across retries.
+   *
+   * setBusy(true) was the only thing standing between a flaky connection
+   * and two identical orders -- and it does nothing at all when the request
+   * went out, the reply never came back, and the buyer pressed the button
+   * again. This key is minted once and reused for every retry of the same
+   * basket, so the server can tell "again" from "another": the second
+   * request is refused by a unique index and the first order's reference is
+   * handed back (see supabase/order-idempotency.sql).
+   *
+   * A ref, not state: changing it must never re-render, and it must not be
+   * reset by one. Cleared only after an order actually succeeds, because
+   * the next order really is a different one. Minted on the first submit
+   * rather than during render, which is a place a ref must not be read. */
+  const attemptKey = useRef<string | null>(null);
 
   // Phone: country selector + local number, combined on submit — Central
   // Dili has street addressing, so it gets a simple address field instead
@@ -112,6 +140,8 @@ export default function CheckoutForm({
 
     const fullPhone = "+" + effectiveCode + localDigits;
 
+    if (attemptKey.current == null) attemptKey.current = newAttemptKey();
+
     setBusy(true);
     try {
       const ref = await placeOrder({
@@ -133,7 +163,10 @@ export default function CheckoutForm({
         landmark: mode === "delivery" ? f.landmark : undefined,
         payMethod: pay,
         note: f.note,
+        idempotencyKey: attemptKey.current,
       });
+      // Placed. The next order from this tab is a genuinely new one.
+      attemptKey.current = null;
       clear();
       toast(t("orderPlaced", lang));
       // A query string is the least private place to put a phone number: it
