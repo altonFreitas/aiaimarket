@@ -72,6 +72,19 @@ end $$;
 comment on table admin_users_roles_backfilled is
   'Marker: the one-off backfill in supabase/admin-roles.sql has run. Do not drop -- dropping it and re-running the migration would hand full access back to every account that currently has none.';
 
+-- LOCKED DOWN LIKE EVERY OTHER INTERNAL TABLE. It holds nothing secret --
+-- one timestamp, and its EXISTENCE is the whole signal -- but Supabase
+-- grants new tables in `public` to anon by default, so without this the
+-- public key could write to it freely. Nothing bad follows from a row
+-- appearing in it; it is simply not a table the internet has any business
+-- touching, and "harmless today" is how an unprotected table survives long
+-- enough to stop being harmless.
+--
+-- Found by tests/rls/rls.test.ts, which asserts that every table in the
+-- public schema has RLS on. This one did not.
+alter table admin_users_roles_backfilled enable row level security;
+revoke all on admin_users_roles_backfilled from anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Constraints, added after the backfill so existing rows cannot fail them
 -- ---------------------------------------------------------------------------

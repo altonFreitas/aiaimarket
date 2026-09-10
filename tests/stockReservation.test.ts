@@ -83,7 +83,11 @@ describe("reserve_order_stock", () => {
   });
 
   it("is not callable by anyone holding the anon key", () => {
-    expect(SQL).toMatch(/revoke all on function reserve_order_stock\(uuid\) from anon, authenticated/);
+    // BOTH `public` and the two roles by name. Revoking from one leaves
+    // the other's grant and reads as finished -- see tests/rls/rls.test.ts,
+    // which caught exactly that on five functions.
+    expect(SQL).toMatch(
+      /revoke all on function reserve_order_stock\(uuid\) from public, anon, authenticated/);
   });
 });
 
@@ -170,7 +174,8 @@ describe("release_stale_reservations", () => {
   });
 
   it("is not callable by anyone holding the anon key", () => {
-    expect(SQL).toMatch(/revoke all on function release_stale_reservations\(int\) from anon, authenticated/);
+    expect(SQL).toMatch(
+      /revoke all on function release_stale_reservations\(int\) from public, anon, authenticated/);
   });
 });
 

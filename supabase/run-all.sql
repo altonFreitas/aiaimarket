@@ -985,6 +985,9 @@ as $$
 $$;
 
 revoke all on function search_products(text, uuid[], uuid[], numeric, numeric, boolean, text, int, int) from public;
+-- search_products and suggest_products stay reachable by anon on purpose:
+-- they ARE the catalog, they run as the caller, and the RLS policy on
+-- products is still what decides which rows come back.
 revoke all on function suggest_products(text, int) from public;
 grant execute on function search_products(text, uuid[], uuid[], numeric, numeric, boolean, text, int, int) to anon, authenticated;
 grant execute on function suggest_products(text, int) to anon, authenticated;
@@ -1246,7 +1249,7 @@ $$;
 comment on function seller_earnings is
   'Gross sales, commission and net earnings for one seller across completed orders. One indexed aggregate; replaces a 5,000-row marketplace-wide scan.';
 
-revoke all on function seller_earnings(uuid) from anon, authenticated;
+revoke all on function seller_earnings(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. A cancelled order cancels its lines
@@ -1295,6 +1298,13 @@ revoke all on order_items from anon, authenticated;
 -- Until this file is run, every reader falls back to the JSONB scan it has
 -- always used. Nothing half-migrates.
 -- ---------------------------------------------------------------------------
+
+-- Trigger functions, revoked for the same reason as everything else here:
+-- Postgres refuses a direct call to one anyway, but "it fails for another
+-- reason" is not a grant policy, and the next person to make one of these
+-- callable will not re-derive that.
+revoke all on function sync_order_items() from public, anon, authenticated;
+revoke all on function sync_order_item_cancellation() from public, anon, authenticated;
 
 
 -- ==== notifications.sql =================================================
@@ -1924,6 +1934,90 @@ create trigger trg_apply_stock_movement
 -- ---------------------------------------------------------------------------
 
 
+-- ==== preorders.sql =====================================================
+
+-- ===========================================================================
+-- preorders.sql — let a shopper order something that is out of stock.
+--
+-- Safe to run more than once. Run it in Supabase -> SQL Editor -> New query.
+--
+-- A PRE-ORDER IS AN ORDER, not a second kind of thing.
+--
+-- It is the same row in the same table, with one flag set. That is the whole
+-- design, and it is what makes the feature small: tracking links, the buyer
+-- SMS, the admin order screens, the sales dashboard and the payout ledger
+-- all keep working with no changes at all. A parallel "preorders" table
+-- would have needed every one of those rebuilt, and would have drifted from
+-- the real thing the first time either side changed.
+--
+-- What tells them apart is the reference prefix (PRO...) and this flag.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1. The flag
+-- ---------------------------------------------------------------------------
+
+alter table orders add column if not exists is_preorder boolean not null default false;
+
+comment on column orders.is_preorder is
+  'True when the order was placed for goods that were out of stock. Set by the SERVER from live stock, never from the browser.';
+
+create index if not exists orders_preorder_idx on orders (is_preorder) where is_preorder;
+
+-- ---------------------------------------------------------------------------
+-- 2. Per-product opt-out, and the promised date
+-- ---------------------------------------------------------------------------
+-- Enabled by default: an out-of-stock product a shopper wants is a sale
+-- waiting to happen, and the shop's own screens already show which those
+-- are. Turn it off for a line being discontinued, where taking money for
+-- something that will never arrive is the wrong answer.
+
+alter table products add column if not exists preorder_enabled boolean not null default true;
+
+-- When the shop expects to have it. Optional, and shown to the buyer when
+-- set: "we don't know yet" is a legitimate answer and better than inventing
+-- a date that will be missed.
+alter table products add column if not exists preorder_eta date;
+
+comment on column products.preorder_eta is
+  'Expected availability. NULL means genuinely unknown, which is shown as such rather than guessed.';
+
+-- ---------------------------------------------------------------------------
+-- 3. Stock must not move for a pre-order
+-- ---------------------------------------------------------------------------
+-- The original trigger (schema.sql) decrements on confirm. For a pre-order
+-- there is nothing to decrement -- that is the entire point -- and letting
+-- it run would quietly hide the shortage: greatest(0, ...) floors at zero,
+-- so the shelf would keep reading "0" while the promises pile up invisibly.
+-- Stock moves when the goods actually arrive, through the purchase receipt.
+
+create or replace function decrement_stock_on_confirm() returns trigger as $$
+declare item jsonb;
+begin
+  if new.status = 'confirmed' and old.status = 'new' and not coalesce(new.is_preorder, false) then
+    for item in select * from jsonb_array_elements(new.items) loop
+      update products
+        set qty = greatest(0, qty - (item->>'qty')::int),
+            stock_status = case
+              when greatest(0, qty - (item->>'qty')::int) = 0 then 'out'
+              when greatest(0, qty - (item->>'qty')::int) <= 2 then 'low'
+              else stock_status end
+        where id = (item->>'product_id')::uuid;
+    end loop;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+-- ---------------------------------------------------------------------------
+-- Done.
+--
+-- Nothing else changes. A pre-order gets a PRO reference, appears in the
+-- admin order list beside every other order, sends the same tracking SMS,
+-- and is fulfilled the same way once the stock arrives.
+-- ---------------------------------------------------------------------------
+
+
 -- ==== stock-ledger.sql ==================================================
 
 -- ===========================================================================
@@ -1946,6 +2040,8 @@ create trigger trg_apply_stock_movement
 -- back. They were decremented on confirmation and stayed gone.
 --
 -- Safe to re-run. Run AFTER supabase/stock-receipt.sql.
+-- Run AFTER supabase/preorders.sql -- the backfill below and the trigger it
+-- installs both read orders.is_preorder.
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
@@ -2421,7 +2517,7 @@ end $$;
 comment on function reserve_order_stock is
   'Locks each product row, verifies the whole basket fits, and holds the units. Raises with the product name if it does not. Called by RPC from placeOrder so the check and the write cannot be separated.';
 
-revoke all on function reserve_order_stock(uuid) from anon, authenticated;
+revoke all on function reserve_order_stock(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. The status trigger, taught the third state
@@ -2519,7 +2615,7 @@ end $$;
 comment on function release_stale_reservations is
   'Cancels orders left unconfirmed past p_hours and gives their held units back. Returns one row per order released.';
 
-revoke all on function release_stale_reservations(int) from anon, authenticated;
+revoke all on function release_stale_reservations(int) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. What is being held right now
@@ -2942,6 +3038,9 @@ comment on column order_returns.refunded_at is
 -- inferring it from pay_status.
 -- ---------------------------------------------------------------------------
 
+-- Same rule as the rest: a trigger function is nobody's to call directly.
+revoke all on function sync_order_refund_status() from public, anon, authenticated;
+
 
 -- ==== sales.sql =========================================================
 
@@ -3246,90 +3345,6 @@ grant execute on function decrement_loves(uuid) to anon, authenticated;
 -- shop's count stays at zero, which is what a missing column honestly means.
 -- The homepage's "Most loved" row and the admin's figure appear as soon as
 -- there is something to count.
--- ---------------------------------------------------------------------------
-
-
--- ==== preorders.sql =====================================================
-
--- ===========================================================================
--- preorders.sql — let a shopper order something that is out of stock.
---
--- Safe to run more than once. Run it in Supabase -> SQL Editor -> New query.
---
--- A PRE-ORDER IS AN ORDER, not a second kind of thing.
---
--- It is the same row in the same table, with one flag set. That is the whole
--- design, and it is what makes the feature small: tracking links, the buyer
--- SMS, the admin order screens, the sales dashboard and the payout ledger
--- all keep working with no changes at all. A parallel "preorders" table
--- would have needed every one of those rebuilt, and would have drifted from
--- the real thing the first time either side changed.
---
--- What tells them apart is the reference prefix (PRO...) and this flag.
--- ===========================================================================
-
--- ---------------------------------------------------------------------------
--- 1. The flag
--- ---------------------------------------------------------------------------
-
-alter table orders add column if not exists is_preorder boolean not null default false;
-
-comment on column orders.is_preorder is
-  'True when the order was placed for goods that were out of stock. Set by the SERVER from live stock, never from the browser.';
-
-create index if not exists orders_preorder_idx on orders (is_preorder) where is_preorder;
-
--- ---------------------------------------------------------------------------
--- 2. Per-product opt-out, and the promised date
--- ---------------------------------------------------------------------------
--- Enabled by default: an out-of-stock product a shopper wants is a sale
--- waiting to happen, and the shop's own screens already show which those
--- are. Turn it off for a line being discontinued, where taking money for
--- something that will never arrive is the wrong answer.
-
-alter table products add column if not exists preorder_enabled boolean not null default true;
-
--- When the shop expects to have it. Optional, and shown to the buyer when
--- set: "we don't know yet" is a legitimate answer and better than inventing
--- a date that will be missed.
-alter table products add column if not exists preorder_eta date;
-
-comment on column products.preorder_eta is
-  'Expected availability. NULL means genuinely unknown, which is shown as such rather than guessed.';
-
--- ---------------------------------------------------------------------------
--- 3. Stock must not move for a pre-order
--- ---------------------------------------------------------------------------
--- The original trigger (schema.sql) decrements on confirm. For a pre-order
--- there is nothing to decrement -- that is the entire point -- and letting
--- it run would quietly hide the shortage: greatest(0, ...) floors at zero,
--- so the shelf would keep reading "0" while the promises pile up invisibly.
--- Stock moves when the goods actually arrive, through the purchase receipt.
-
-create or replace function decrement_stock_on_confirm() returns trigger as $$
-declare item jsonb;
-begin
-  if new.status = 'confirmed' and old.status = 'new' and not coalesce(new.is_preorder, false) then
-    for item in select * from jsonb_array_elements(new.items) loop
-      update products
-        set qty = greatest(0, qty - (item->>'qty')::int),
-            stock_status = case
-              when greatest(0, qty - (item->>'qty')::int) = 0 then 'out'
-              when greatest(0, qty - (item->>'qty')::int) <= 2 then 'low'
-              else stock_status end
-        where id = (item->>'product_id')::uuid;
-    end loop;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
-
--- ---------------------------------------------------------------------------
--- Done.
---
--- Nothing else changes. A pre-order gets a PRO reference, appears in the
--- admin order list beside every other order, sends the same tracking SMS,
--- and is fulfilled the same way once the stock arrives.
 -- ---------------------------------------------------------------------------
 
 
@@ -3802,7 +3817,14 @@ begin
            (select min(created_at) from orders where buyer_phone <> '');
 end $$;
 
-revoke all on function redact_old_order_pii(int) from anon, authenticated;
+-- BOTH `public` AND the two roles by name. Revoking from one is not
+-- enough and looks exactly like it is: `revoke ... from anon` leaves
+-- PUBLIC's grant, which anon inherits, and `revoke ... from public`
+-- leaves the direct grant Supabase's default privileges hand to anon at
+-- creation time. Either revoke on its own reads as done and closes
+-- nothing. Found by tests/rls/rls.test.ts, which calls each of these as
+-- anon and expects to be refused.
+revoke all on function redact_old_order_pii(int) from public, anon, authenticated;
 
 comment on function redact_old_order_pii(int) is
   'Removes buyer name, phone, address and notes from closed orders older than p_years, keeping the financial record. No undo.';
@@ -3950,7 +3972,7 @@ $$;
 
 alter table rate_limits enable row level security;
 revoke all on rate_limits from anon, authenticated;
-revoke all on function hit_rate_limit(text, int, int) from public;
+revoke all on function hit_rate_limit(text, int, int) from public, anon, authenticated;
 -- Only the service role, which is the only thing that ever calls it: a
 -- visitor able to run this could burn somebody else's allowance by naming
 -- their key, which is a denial-of-service dressed as a rate limit.
@@ -4138,6 +4160,19 @@ end $$;
 
 comment on table admin_users_roles_backfilled is
   'Marker: the one-off backfill in supabase/admin-roles.sql has run. Do not drop -- dropping it and re-running the migration would hand full access back to every account that currently has none.';
+
+-- LOCKED DOWN LIKE EVERY OTHER INTERNAL TABLE. It holds nothing secret --
+-- one timestamp, and its EXISTENCE is the whole signal -- but Supabase
+-- grants new tables in `public` to anon by default, so without this the
+-- public key could write to it freely. Nothing bad follows from a row
+-- appearing in it; it is simply not a table the internet has any business
+-- touching, and "harmless today" is how an unprotected table survives long
+-- enough to stop being harmless.
+--
+-- Found by tests/rls/rls.test.ts, which asserts that every table in the
+-- public schema has RLS on. This one did not.
+alter table admin_users_roles_backfilled enable row level security;
+revoke all on admin_users_roles_backfilled from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Constraints, added after the backfill so existing rows cannot fail them

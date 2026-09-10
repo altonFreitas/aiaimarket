@@ -237,7 +237,7 @@ end $$;
 comment on function reserve_order_stock is
   'Locks each product row, verifies the whole basket fits, and holds the units. Raises with the product name if it does not. Called by RPC from placeOrder so the check and the write cannot be separated.';
 
-revoke all on function reserve_order_stock(uuid) from anon, authenticated;
+revoke all on function reserve_order_stock(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 4. The status trigger, taught the third state
@@ -335,7 +335,7 @@ end $$;
 comment on function release_stale_reservations is
   'Cancels orders left unconfirmed past p_hours and gives their held units back. Returns one row per order released.';
 
-revoke all on function release_stale_reservations(int) from anon, authenticated;
+revoke all on function release_stale_reservations(int) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. What is being held right now

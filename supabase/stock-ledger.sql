@@ -18,6 +18,8 @@
 -- back. They were decremented on confirmation and stayed gone.
 --
 -- Safe to re-run. Run AFTER supabase/stock-receipt.sql.
+-- Run AFTER supabase/preorders.sql -- the backfill below and the trigger it
+-- installs both read orders.is_preorder.
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------

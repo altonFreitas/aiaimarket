@@ -252,7 +252,7 @@ $$;
 comment on function seller_earnings is
   'Gross sales, commission and net earnings for one seller across completed orders. One indexed aggregate; replaces a 5,000-row marketplace-wide scan.';
 
-revoke all on function seller_earnings(uuid) from anon, authenticated;
+revoke all on function seller_earnings(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 6. A cancelled order cancels its lines
@@ -301,3 +301,10 @@ revoke all on order_items from anon, authenticated;
 -- Until this file is run, every reader falls back to the JSONB scan it has
 -- always used. Nothing half-migrates.
 -- ---------------------------------------------------------------------------
+
+-- Trigger functions, revoked for the same reason as everything else here:
+-- Postgres refuses a direct call to one anyway, but "it fails for another
+-- reason" is not a grant policy, and the next person to make one of these
+-- callable will not re-derive that.
+revoke all on function sync_order_items() from public, anon, authenticated;
+revoke all on function sync_order_item_cancellation() from public, anon, authenticated;

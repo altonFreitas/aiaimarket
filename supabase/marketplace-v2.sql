@@ -321,6 +321,9 @@ as $$
 $$;
 
 revoke all on function search_products(text, uuid[], uuid[], numeric, numeric, boolean, text, int, int) from public;
+-- search_products and suggest_products stay reachable by anon on purpose:
+-- they ARE the catalog, they run as the caller, and the RLS policy on
+-- products is still what decides which rows come back.
 revoke all on function suggest_products(text, int) from public;
 grant execute on function search_products(text, uuid[], uuid[], numeric, numeric, boolean, text, int, int) to anon, authenticated;
 grant execute on function suggest_products(text, int) to anon, authenticated;

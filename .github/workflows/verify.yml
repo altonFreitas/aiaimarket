@@ -63,3 +63,79 @@ jobs:
           SESSION_SECRET: build-only-not-a-secret-build-only
           ADMIN_EMAIL: build@example.com
           ADMIN_PASSWORD: build-only-not-a-password
+
+  # ---------------------------------------------------------------------
+  # The half that needs a database
+  # ---------------------------------------------------------------------
+  # RLS plus column grants is the ENTIRE public data-security model of this
+  # application -- the thing between the anon key, which is in every
+  # visitor's network tab by design, and the orders table. Until this job
+  # existed, nothing tested it, because the only way to test a policy is to
+  # run it.
+  #
+  # It found two real bugs on its first run: run-all.sql did not apply to an
+  # empty database at all (stock-ledger.sql read orders.is_preorder before
+  # preorders.sql had created it), and five SECURITY DEFINER functions were
+  # callable by anon despite each having a `revoke` beside it -- including
+  # the one that irreversibly scrubs customer data.
+  #
+  # A separate job, not a step in the one above: it needs a service
+  # container the unit tests do not, and when Postgres is having a bad day
+  # the fast job should still give its answer.
+  rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        # Pinned to the major Supabase runs, so a policy that behaves
+        # differently between versions is caught here rather than in
+        # production.
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: loja
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loja
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      # What Supabase provides before a project's first migration: the anon,
+      # authenticated and service_role roles, its default privileges,
+      # auth.users, storage.objects and the extensions. Reproducing the
+      # DEFAULT PRIVILEGES matters as much as the roles -- they are the
+      # reason every `revoke` in this schema exists, and a database without
+      # them would let a regression through by never having granted the
+      # thing in the first place.
+      - name: Stand in for Supabase
+        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/ci-bootstrap.sql
+
+      # THIS STEP IS ITSELF AN ASSERTION. run-all.sql is what an operator
+      # pastes into the SQL editor to set up a new shop; if it does not
+      # apply cleanly to an empty database, that operator gets a
+      # half-migrated one and finds out later. Nothing checked that before.
+      - name: Apply every migration, in order
+        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/run-all.sql
+
+      # And again, because every file claims to be safe to re-run and an
+      # operator pasting it twice is a thing that happens.
+      - name: Apply it a second time
+        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/run-all.sql
+
+      - name: Test the policies by running them
+        run: npx vitest run tests/rls/
