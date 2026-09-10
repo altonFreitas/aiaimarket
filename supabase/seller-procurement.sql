@@ -62,7 +62,7 @@ create index if not exists idx_purchase_orders_seller
 alter table sellers drop constraint if exists sellers_features_check;
 alter table sellers
   add constraint sellers_features_check check (
-    features <@ array['sales','stock','procurement']::text[]
+    features <@ array['sales','stock','procurement','today']::text[]
   );
 
 -- ---------------------------------------------------------------------------

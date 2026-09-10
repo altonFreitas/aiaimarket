@@ -30,7 +30,16 @@ export type AttentionKind =
   | "preorders_waiting"
   | "restock_soon"
   | "stock_drift"
-  | "sellers_to_approve";
+  | "sellers_to_approve"
+  /* A store's own, from lib/sellerAttention.ts. Same union and the same
+   * item shape on purpose: both lists are drawn by the same markup, and a
+   * second AttentionItem type differing only in its kinds would be two
+   * renderers a month later. The admin builder never emits these and the
+   * seller builder never emits the others. */
+  | "my_orders_new"
+  | "my_products_pending"
+  | "my_out_of_stock"
+  | "my_restock_soon";
 
 export interface AttentionItem {
   kind: AttentionKind;

@@ -6,6 +6,7 @@ import { createSellerInvite, revokeSellerInvite } from "@/lib/actions/seller-inv
 import { inviteState } from "@/lib/sellerInvites";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
+import Fold from "./Fold";
 import type { SellerInviteRow } from "@/lib/data/admin";
 import type { Lang } from "@/lib/types";
 
@@ -21,6 +22,9 @@ import type { Lang } from "@/lib/types";
  * are eight identical rows without it, and withdrawing the right one
  * becomes guesswork.
  */
+/** How many rows a list shows before it becomes a scroller of its own. */
+const SCROLL_AFTER = 5;
+
 /** What a link that no longer works says about itself. `ok` is not in
  * here: a live one names its expiry date instead. */
 const STATE_LABEL: Record<string, string> = {
@@ -74,10 +78,20 @@ export default function SellerInvites({
 
   const open = invites.filter((i) => inviteState(i) === "ok");
   const rest = invites.filter((i) => inviteState(i) !== "ok").slice(0, 10);
+  const rows = [...open, ...rest];
 
   return (
-    <div className="panel">
-      <h3>{t("sellerInvites", lang)}</h3>
+    /* Folded away by default. The panel is a form, a freshly minted link
+       and a list that only grows -- and none of it is work waiting today,
+       which is what the rest of this screen is. The summary line keeps the
+       one fact worth reading with it shut: how many links are still live,
+       because that is what somebody asking "did I already send Alton one"
+       needs. Opens by itself when there are none, since an empty panel
+       shut is a button nobody finds. */
+    <Fold lang={lang} title={t("sellerInvites", lang)}
+      status={open.length ? `${open.length} ${t("inviteOpenCount", lang)}` : t("inviteNone", lang)}
+      tone={open.length ? "ok" : "muted"}
+      defaultOpen={invites.length === 0}>
       <p className="hint" style={{ marginTop: -4 }}>{t("sellerInvitesHint", lang)}</p>
 
       <WriteOnly>
@@ -111,8 +125,12 @@ export default function SellerInvites({
       {invites.length === 0 ? (
         <p className="hint">{t("inviteNone", lang)}</p>
       ) : (
-        <ul className="invite-list">
-          {[...open, ...rest].map((i) => {
+        // Capped rather than paginated: the question this list answers is
+        // "have I already sent one to X", which is a scan, and a scan
+        // works fine in a box. Two weeks of links would otherwise push
+        // every seller off the screen below it.
+        <ul className={"invite-list" + (rows.length > SCROLL_AFTER ? " list-cap" : "")}>
+          {rows.map((i) => {
             const state = inviteState(i);
             return (
               <li key={i.id} className={"invite-row" + (state === "ok" ? " is-open" : "")}>
@@ -142,6 +160,6 @@ export default function SellerInvites({
           })}
         </ul>
       )}
-    </div>
+    </Fold>
   );
 }

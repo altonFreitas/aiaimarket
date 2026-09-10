@@ -14,6 +14,11 @@ import { money } from "@/lib/utils";
 import type { MarketplaceStats } from "@/lib/stats";
 import type { Lang, Seller, SellerStatus } from "@/lib/types";
 
+/** How many rows before the list becomes a scroller of its own. Same
+ * number as SellerInvites, deliberately: two lists on one screen that
+ * disagreed about when to start scrolling would read as a bug. */
+const SCROLL_AFTER = 5;
+
 const STATUS_PILL: Record<SellerStatus, "ok" | "warn" | "bad"> = {
   pending: "warn",
   approved: "ok",
@@ -122,7 +127,11 @@ export default function SellersAdmin({
       </div>
 
       {list.length ? (
-        <div className="list">
+        // Capped past five, same rule as the invitations below. A
+        // marketplace's whole point is that this list grows; the screen
+        // under it (invitations, and the commission figures above) should
+        // not be pushed off the page as it does.
+        <div className={"list" + (list.length > SCROLL_AFTER ? " list-cap" : "")}>
           {list.map((s) => (
             <div className={"item" + (editing === s.id ? " item-open" : "")} key={s.id}>
               <div className="g">

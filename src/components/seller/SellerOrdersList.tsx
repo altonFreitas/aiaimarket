@@ -113,7 +113,10 @@ export default function SellerOrdersList({ lang, orders, commissionRatePercent }
           })}
         </div>
       ) : (
-        <div className="empty"><p>{t("noResults", lang)}</p></div>
+        // noOrdersYet, not noResults: the latter is the catalogue's "no
+        // products found", which is what this page used to say about
+        // somebody's orders.
+        <div className="empty"><p>{t("noOrdersYet", lang)}</p></div>
       )}
     </>
   );

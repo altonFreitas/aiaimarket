@@ -28,7 +28,7 @@
 
 export type SellerFeatureKey =
   | "dashboard" | "products" | "orders" | "settings"
-  | "sales" | "stock" | "procurement";
+  | "sales" | "stock" | "procurement" | "today";
 
 export interface SellerFeature {
   key: SellerFeatureKey;
@@ -66,6 +66,10 @@ export const SELLER_FEATURES: readonly SellerFeature[] = [
   {
     key: "settings", labelKey: "sellerSettings", blurbKey: "featSellerSettingsBlurb",
     paths: ["/seller/settings"], included: true,
+  },
+  {
+    key: "today", labelKey: "sellerToday", blurbKey: "featSellerTodayBlurb",
+    paths: ["/seller/today"],
   },
   {
     key: "sales", labelKey: "sellerSales", blurbKey: "featSellerSalesBlurb",

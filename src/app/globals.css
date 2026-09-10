@@ -1119,6 +1119,20 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 }
 .po-line-foot{display:flex;align-items:center;gap:10px;margin:10px 0 14px}
 
+/* ---------- a long list, capped ---------- */
+/* Applied only past a threshold the component decides (SCROLL_AFTER), so a
+   short list is never a box with a scrollbar in it. The height is stated in
+   pixels rather than in rows because these two lists have different row
+   heights -- an invitation is two lines, a seller is three and a row of
+   buttons -- and "five rows" is the intent, not the unit.
+
+   overscroll-behavior stops a flick that reaches the bottom of the list
+   from carrying on and scrolling the page out from under the reader, which
+   is the thing that makes a nested scroller feel broken. */
+.list-cap{overflow-y:auto;overscroll-behavior:contain}
+.invite-list.list-cap{max-height:290px}
+.list.list-cap{max-height:470px}
+
 /* ---------- seller invitations ---------- */
 /* The form is one line where there is room for one and two where there is
    not: the note is the field that matters and the button is four words. */

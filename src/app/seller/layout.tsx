@@ -29,11 +29,18 @@ export default async function SellerLayout({ children }: { children: React.React
   // marketplace something the owner sells.
   const admin = supabaseAdmin();
   const { data: row } = await admin
-    .from("sellers").select("features").eq("user_id", user.id).maybeSingle();
+    .from("sellers").select("features, store_name").eq("user_id", user.id).maybeSingle();
 
   return (
     <div className="wrap">
-      <SellerNav lang={lang} features={normalizeFeatures(row?.features)} />
+      {/* The store's name in the bar, the same way the admin's shows
+          "Owner": on a laptop that has both accounts on it, the only thing
+          that says WHICH one is signed in is this. */}
+      <SellerNav
+        lang={lang}
+        features={normalizeFeatures(row?.features)}
+        storeName={String(row?.store_name || "")}
+      />
       {children}
     </div>
   );
