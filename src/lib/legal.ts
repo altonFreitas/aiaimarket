@@ -130,6 +130,17 @@ const PRIVACY: LegalDoc = {
         "NUNCA guardamos números de cartão. Os pagamentos com cartão são feitos na página do banco.",
         "We never store card numbers. Card payments happen on the bank's own page.",
       ]),
+    s(["Cookies", "Cookies", "Cookies"],
+      [
+        "Ami uza cookie ha'at de'it, no hotu-hotu presiza atu loja ne'e serbisu: ida hatene lian ne'ebé Ita hili, no tolu seluk mantein sesaun ba ema ne'ebé tama iha admin ka loja nian. Laiha cookie ba publisidade, laiha ba analytics, no laiha ema seluk nian.",
+        "Usamos apenas quatro cookies, e todos são necessários para a loja funcionar: um guarda o idioma que escolheu, e os outros três mantêm a sessão de quem entra na administração ou numa loja. Não há cookies de publicidade, nem de analytics, nem de terceiros.",
+        "We use four cookies, and every one of them is needed for the shop to work: one remembers the language you chose, and the other three keep the session of someone signed in to the admin or to a store. There are no advertising cookies, no analytics cookies and no third-party cookies.",
+      ],
+      [
+        "Tanba ida ne'e, ami la husu konsentimentu ba cookie — laiha ida ne'ebé presiza. Ita bele hamoos sira iha Ita nia navegador bainhira karik; se hamoos ida lian nian, loja fila ba Tetun.",
+        "Por isso não pedimos consentimento para cookies — nenhum deles o exige. Pode apagá-los no seu navegador quando quiser; se apagar o do idioma, a loja volta ao Tetun.",
+        "That is why we do not ask you to consent to cookies -- none of them require it. You can clear them in your browser whenever you like; clearing the language one returns the shop to Tetun.",
+      ]),
     s(["Tanba sá", "Porquê", "Why"],
       [
         "Atu prepara no entrega Ita-nia orden, atu kontaktu Ita kona-ba orden ne'e, no atu rai rejistu kontabilidade nian tuir lei.",

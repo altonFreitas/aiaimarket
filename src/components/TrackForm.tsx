@@ -18,6 +18,7 @@ import PayNowButton from "@/components/PayNowButton";
 import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
+import ReturnRequest from "@/components/ReturnRequest";
 
 interface OrderSummary {
   ref: string; buyer_name: string; buyer_phone: string;
@@ -328,6 +329,11 @@ function Dashboard({
       {o.cancel_requested_at && (
         <div className="note">{t("cancelSent", lang)} — “{o.cancel_reason}”</div>
       )}
+
+      {/* Sending something back, once it has arrived. The other half of
+          self-service: cancelling covers the window before it ships, and
+          until this existed there was nothing at all for afterwards. */}
+      <ReturnRequest order={o} phone={phone} lang={lang} onDone={onRefresh} />
 
       {/* I2 summary */}
       <div className="panel">

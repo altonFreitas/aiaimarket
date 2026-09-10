@@ -217,6 +217,12 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["products", "updated_at"]],
   },
   {
+    // A buyer can start a return. Named by both tables: one alone would
+    // not distinguish this from a file that got half way.
+    file: "return-requests.sql", labelKey: "featReturnRequests",
+    tables: ["return_requests", "return_request_items"],
+  },
+  {
     // Order lines as rows rather than as a document. Named by the table and
     // the aggregate: the table alone would not distinguish this file from
     // one that had only got half way.
@@ -317,6 +323,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "stock-ledger.sql",        // after stock-receipt.sql
   "stock-reservation.sql",   // after stock-ledger.sql
   "returns.sql",             // after stock-ledger.sql
+  "return-requests.sql",     // after returns.sql
   "refund-settlement.sql",   // after returns.sql
 
   // Reporting and storefront features. Independent of each other.

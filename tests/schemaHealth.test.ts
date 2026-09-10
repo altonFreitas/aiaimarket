@@ -56,6 +56,7 @@ const EVERYTHING = snap([
   "stock_movements", "order_items",
   "product_costs", "sales_targets",
   "order_returns", "order_return_items",
+  "return_requests", "return_request_items",
   "promotions",
   "hero_slides.video_url",
   "products.loves",
