@@ -217,6 +217,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["products", "updated_at"]],
   },
   {
+    // Stock held from the moment it is ordered. Named by the view and the
+    // reserving function -- sync_order_stock_state is created here too but
+    // the view is the thing no other file could have made.
+    file: "stock-reservation.sql", labelKey: "featStockReservation",
+    views: ["stock_reservations"],
+    routines: ["reserve_order_stock", "release_stale_reservations"],
+  },
+  {
     // Creates no table and no column, which is how it stayed off this list.
     // It is the half of the stock rule the database enforces: nothing but a
     // movement adds to the balance, and stock_reconciliation reports it when
@@ -226,8 +234,12 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     // NOT apply_stock_movement(): stock-receipt.sql and audience-restock.sql
     // each create their own version of it, so its presence says nothing
     // about this file. Only what a file UNIQUELY provides can identify it.
+    //
+    // NOT sync_order_stock() either, as of stock-reservation.sql -- that
+    // file keeps a wrapper of the same name so nothing still calling the
+    // two-argument form breaks, which means the name no longer identifies
+    // anybody. The view is what this file alone makes.
     views: ["stock_reconciliation"],
-    routines: ["sync_order_stock"],
   },
   {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
@@ -294,6 +306,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "po-product-details.sql",
   "stock-receipt.sql",
   "stock-ledger.sql",        // after stock-receipt.sql
+  "stock-reservation.sql",   // after stock-ledger.sql
   "returns.sql",             // after stock-ledger.sql
   "refund-settlement.sql",   // after returns.sql
 
