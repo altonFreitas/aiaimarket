@@ -12,7 +12,7 @@ const KINDS = {
   views: ["stock_reconciliation"],
   routines: [
     "schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves",
-    "hit_rate_limit",
+    "hit_rate_limit", "redact_old_order_pii",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -222,8 +222,8 @@ describe("an old schema_inventory() that can only see tables", () => {
     const out = checkSchema(oldShape);
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
-      "loves.sql", "refund-settlement.sql", "rate-limits.sql", "stock-ledger.sql",
-      "harden-rls.sql", "patch-audit-hardening.sql",
+      "loves.sql", "refund-settlement.sql", "rate-limits.sql", "pii-retention.sql",
+      "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {
       expect([f.file, f.applied]).toEqual([f.file, false]);

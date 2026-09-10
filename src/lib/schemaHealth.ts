@@ -191,6 +191,13 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     ],
   },
   {
+    // The retention sweep. Nothing in the application calls it -- it is a
+    // tool an operator runs deliberately -- so the panel is the only place
+    // that can say whether the shop has it at all.
+    file: "pii-retention.sql", labelKey: "featPiiRetention",
+    routines: ["redact_old_order_pii"],
+  },
+  {
     // A payment proof that stops being readable. Named by the column that
     // replaces a year-long signed URL with a path nobody can open.
     file: "proof-path.sql", labelKey: "featProofPath",
@@ -300,6 +307,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "audience-restock.sql",
   "product-timestamps.sql",
   "proof-path.sql",
+  "pii-retention.sql",
 
   // Hardening the request path.
   "order-idempotency.sql",
