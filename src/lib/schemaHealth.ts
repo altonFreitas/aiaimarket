@@ -191,6 +191,13 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     ],
   },
   {
+    // The sitemap's <lastmod>. Named by the column, which no other file
+    // adds to products -- settings has an updated_at of its own, from
+    // schema.sql, which is why the probe is a pair and not a name.
+    file: "product-timestamps.sql", labelKey: "featProductTimestamps",
+    columns: [["products", "updated_at"]],
+  },
+  {
     // Creates no table and no column, which is how it stayed off this list.
     // It is the half of the stock rule the database enforces: nothing but a
     // movement adds to the balance, and stock_reconciliation reports it when
@@ -279,6 +286,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "preorders.sql",
   "reorder-policy.sql",
   "audience-restock.sql",
+  "product-timestamps.sql",
 
   // Hardening the request path.
   "order-idempotency.sql",

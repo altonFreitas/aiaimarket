@@ -109,6 +109,17 @@ async function getCategoriesUncached(): Promise<Category[]> {
   } catch { return []; }
 }
 
+/* HOW MANY RATINGS A STORE PAGE READS, AND HOW MANY IT SHOWS.
+ *
+ * The average is computed over what comes back, so the cap is set far above
+ * the ten that are rendered: a store's score should reflect its history,
+ * not its last ten customers. Past this many the average is over the most
+ * recent RATINGS_SCAN, which is the honest reading of a bounded query --
+ * and the count shown is that same number, never a total the read did not
+ * actually see. */
+const RATINGS_SCAN = 500;
+const RATINGS_SHOWN = 10;
+
 async function getLiveProductsUncached(): Promise<Product[]> {
   try {
     const sb = supabaseAnon();
@@ -300,11 +311,16 @@ export async function getSellerRatings(sellerId: string): Promise<{
       .from("seller_ratings")
       .select("id, rating, comment, created_at")
       .eq("seller_id", sellerId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      // Bounded. This read fetched EVERY rating a seller had ever received
+      // in order to show ten of them and average the rest -- so a store with
+      // a few thousand reviews pulled a few thousand rows, with their
+      // comments, on every page load. See RATINGS_SCAN.
+      .limit(RATINGS_SCAN);
     const reviews = (data as SellerReview[]) || [];
     const count = reviews.length;
     const average = count ? reviews.reduce((a, r) => a + r.rating, 0) / count : 0;
-    return { average, count, reviews: reviews.slice(0, 10) };
+    return { average, count, reviews: reviews.slice(0, RATINGS_SHOWN) };
   } catch {
     return { average: 0, count: 0, reviews: [] };
   }

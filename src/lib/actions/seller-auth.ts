@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { notifyAdminNewSeller } from "@/lib/actions/notify";
 import { inviteState } from "@/lib/sellerInvites";
+import { guardLoginAttempt } from "@/lib/loginThrottle";
+import { passwordProblem } from "@/lib/passwordRules";
 import type { SellerType } from "@/lib/types";
 
 export interface SellerRegistrationInput {
@@ -36,9 +38,8 @@ export async function registerSeller(input: SellerRegistrationInput) {
   if (!email || !input.password || !storeName) {
     throw new Error("Missing required fields");
   }
-  if (input.password.length < 8) {
-    throw new Error("Password must be at least 8 characters");
-  }
+  const weak = passwordProblem(input.password);
+  if (weak) throw new Error(weak);
 
   const sb = await supabaseServer();
   const admin = supabaseAdmin();
@@ -157,6 +158,9 @@ export async function registerSeller(input: SellerRegistrationInput) {
 }
 
 export async function loginSeller(email: string, password: string) {
+  // A seller login is a login to somebody else's shop, their orders and
+  // their payouts. Throttled before the guess reaches Supabase Auth.
+  await guardLoginAttempt(email);
   const sb = await supabaseServer();
   const { error } = await sb.auth.signInWithPassword({
     email: email.trim().toLowerCase(),

@@ -2,6 +2,7 @@
 import { requireAdmin } from "./guard";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { audit } from "@/lib/audit";
 import type { PayoutMethod } from "@/lib/types";
 
 const METHODS: readonly PayoutMethod[] = ["bank", "wallet", "cash", "other"];
@@ -35,7 +36,7 @@ export interface RecordPayoutInput {
  * a real seller is rejected here instead of becoming an orphaned ledger row
  * that quietly never appears on anyone's balance. */
 export async function recordPayout(input: RecordPayoutInput) {
-  await requireAdmin();
+  const actor = await requireAdmin();
 
   const amount = Math.round(Number(input.amount) * 100) / 100;
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Amount must be greater than zero");
@@ -72,6 +73,12 @@ export async function recordPayout(input: RecordPayoutInput) {
   // been run on this database. Saying so beats "relation does not exist".
   if (error) throw new Error(`Could not record the payout: ${error.message}`);
 
+  await audit(actor, {
+    action: "payout.record", entity: "seller_payouts", entityId: seller.id,
+    summary: `Recorded $${amount.toFixed(2)} paid to a seller by ${input.method}`,
+    meta: { seller_id: seller.id, amount, method: input.method, reference, paid_at: paidAt.toISOString() },
+  });
+
   revalidatePath("/admin/payouts");
   revalidatePath("/seller/dashboard");
 }
@@ -82,10 +89,30 @@ export async function recordPayout(input: RecordPayoutInput) {
  * not history worth keeping. Real refunds from a seller back to the platform
  * are a different event and don't belong here at all. */
 export async function deletePayout(id: string) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const sb = supabaseAdmin();
+
+  // READ BEFORE DELETE, so the row can be written into the audit trail.
+  // A hard delete on the only writable money fact in the marketplace, with
+  // no record of what was there, means a seller's balance can move by
+  // hundreds of dollars and leave nothing at all to ask about afterwards.
+  // The row is gone from the ledger by design -- it is gone from the
+  // record only if nobody copies it first.
+  const { data: row } = await sb
+    .from("seller_payouts").select("*").eq("id", id).maybeSingle();
+
   const { error } = await sb.from("seller_payouts").delete().eq("id", id);
   if (error) throw error;
+
+  await audit(actor, {
+    action: "payout.delete", entity: "seller_payouts", entityId: id,
+    summary: row
+      ? `Removed a $${Number(row.amount).toFixed(2)} payout recorded by ${row.method}`
+      : "Removed a payout row that was no longer there",
+    // The whole row, not a summary of it: this is the only copy left.
+    meta: { deleted: row ?? null },
+  });
+
   revalidatePath("/admin/payouts");
   revalidatePath("/seller/dashboard");
 }

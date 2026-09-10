@@ -136,6 +136,11 @@ export interface Product {
   rating_sum?: number;
   rating_count?: number;
   created_at: string;
+  /** When any field on this row last changed, maintained by a trigger (see
+   * supabase/product-timestamps.sql). Optional: a database without that
+   * file has no column, and absent means "we only know when it was
+   * created" -- which is what created_at is for. */
+  updated_at?: string | null;
 }
 
 /** One buyer's review of one product, from one completed order. Mirrors

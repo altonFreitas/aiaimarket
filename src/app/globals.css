@@ -871,6 +871,20 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    say the same thing twice. */
 .fold-body > .crumb:first-child{display:none}
 
+/* ---------- skip to content ---------- */
+/* Off-screen until it has focus, then pinned to the top-left over
+   everything. Not display:none and not visibility:hidden -- both remove it
+   from the tab order, which is the one thing it exists to be in. */
+.skip{position:absolute;left:8px;top:-60px;z-index:100;
+  background:var(--amber);color:var(--amber-ink);font-weight:700;font-size:14px;
+  padding:10px 16px;border-radius:0 0 var(--r-s) var(--r-s);text-decoration:none;
+  transition:top .12s ease}
+.skip:focus{top:0}
+/* The skip link's destination. Focusable so the link can land on it, and
+   never outlined, because nobody clicked it -- an outline round the whole
+   page would read as an error. */
+#view:focus{outline:none}
+
 /* Visible to a screen reader, not on screen. */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
   overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

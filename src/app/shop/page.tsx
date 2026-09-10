@@ -4,6 +4,21 @@ import { searchCatalog, parseSort, parsePage, parsePrice } from "@/lib/data/sear
 import { parseAudienceFilter } from "@/lib/audience";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
+import { listingMetadata } from "@/lib/listingMeta";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string; for?: string }>;
+}) {
+  const [lang, sp, settings] = await Promise.all([getLang(), searchParams, getSettings()]);
+  return listingMetadata({
+    title: t("catalog", lang),
+    description: settings.tagline_tet || undefined,
+    path: "/shop",
+    searchParams: sp,
+  });
+}
 
 /** The full catalog — category sidebar, sort, filters, paginated grid. This
  * used to live at "/"; it moved here so "/" could become a proper

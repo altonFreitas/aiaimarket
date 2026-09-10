@@ -6,7 +6,7 @@ import { STR } from "@/lib/i18n";
 
 const ok = (over: Partial<RegistrationFields> = {}): RegistrationFields => ({
   fullName: "Jorge Freitas", storeName: "AITA Store",
-  email: "jorge@example.com", phone: "+670 7712 3456", password: "12345678",
+  email: "jorge@example.com", phone: "+670 7712 3456", password: "1".repeat(MIN_PASSWORD),
   ...over,
 });
 
@@ -60,7 +60,7 @@ describe("checkRegistration", () => {
   });
 
   it("says the password is short rather than letting the server say it", () => {
-    expect(checkRegistration(ok({ password: "1234567" }))).toEqual([
+    expect(checkRegistration(ok({ password: "1".repeat(MIN_PASSWORD - 1) }))).toEqual([
       { field: "password", key: "regShortPassword" },
     ]);
     expect(checkRegistration(ok({ password: "1".repeat(MIN_PASSWORD) }))).toEqual([]);

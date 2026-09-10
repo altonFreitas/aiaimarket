@@ -69,6 +69,7 @@ export default function CheckoutForm({
     address: "", municipality: "", post: "", suku: "", aldeia: "", landmark: "", note: "",
   });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
+  const errorCount = Object.keys(errors).length;
 
   const zone = useMemo(() => settings.zones.find((z) => z.id === zoneId), [zoneId, settings.zones]);
   const fee = mode === "delivery" && zone && !zone.quote ? Number(zone.fee) : 0;
@@ -135,6 +136,10 @@ export default function CheckoutForm({
     setErrors(errs);
     if (Object.keys(errs).length) {
       toast(t("required", lang), true);
+      // Straight to the first one. A form this long scrolls past several
+      // screens, and "something is required" with no idea which is how a
+      // checkout gets abandoned.
+      document.getElementById(Object.keys(errs)[0])?.focus();
       return;
     }
 
@@ -182,15 +187,28 @@ export default function CheckoutForm({
     }
   }
 
+  /* THE MESSAGE IS TIED TO THE BOX, not just printed under it.
+   *
+   * aria-invalid says this control is the problem; aria-describedby makes
+   * the sentence explaining it part of the field's announcement, so a
+   * screen-reader user hears "Name, invalid entry, this field is required"
+   * on arriving at the box rather than nothing at all. Without them the
+   * red border and the red line under it are the entire feedback, which is
+   * feedback only if you can see it.
+   *
+   * The describedby id is only attached when there IS a message: pointing
+   * at an empty element makes some screen readers announce a blank. */
   const field = (key: keyof typeof f, label: string, type = "text", hint?: string, placeholder?: string) => (
     <div className={"field" + (errors[key] ? " err" : "")}>
       <label htmlFor={key}>{label} *</label>
       <input
         id={key} type={type} value={f[key]} placeholder={placeholder}
+        aria-invalid={errors[key] ? true : undefined}
+        aria-describedby={errors[key] ? `${key}-err` : undefined}
         onChange={(e) => set(key, e.target.value)}
       />
       {hint && <p className="hint">{hint}</p>}
-      <p className="msg">{errors[key]}</p>
+      <p className="msg" id={`${key}-err`}>{errors[key]}</p>
     </div>
   );
 
@@ -267,6 +285,17 @@ export default function CheckoutForm({
         </aside>
 
       <form onSubmit={submit} noValidate>
+        {/* SAID ONCE, OUT LOUD, ON SUBMIT. The toast that used to be the
+            only announcement is role="status" -- polite, transient, and it
+            named no field. This is role="alert", so it interrupts, and it
+            says how many boxes and where the first one is. Rendered only
+            when there is something to say: an empty live region that is
+            always present is a thing screen readers have to keep checking. */}
+        {errorCount > 0 && (
+          <div className="note bad" role="alert">
+            <b>✕ {t("checkoutHasErrors", lang).replace("{n}", String(errorCount))}</b>
+          </div>
+        )}
         <div className="panel">
           <h3>{t("yourDetails", lang)}</h3>
           {/* Two boxes rather than one, and both are shown back in

@@ -8,6 +8,7 @@ import ProductReviews from "@/components/ProductReviews";
 import { getCategories, getLiveProducts, getProductBySlug, getProductReviews, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
+import { breadcrumbLd, serializeJsonLd } from "@/lib/jsonLd";
 import { t } from "@/lib/i18n";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -60,6 +61,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     worstRating: 1,
   } : undefined;
 
+  // The trail the page already draws, as data a crawler can read. Built
+  // from the same `trail` the crumb below renders, so the two can never
+  // disagree about where this product sits.
+  const breadcrumb = breadcrumbLd(siteOrigin, [
+    ...trail.map((c) => ({ name: c.name, path: `/c/${c.slug}` })),
+    { name: p.name, path: `/p/${p.slug}` },
+  ]);
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -87,13 +96,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         // every visitor's page. Escaping < (and the U+2028/2029 line
         // separators, which are literal newlines in JS but legal in JSON)
         // makes the payload inert regardless of what a seller types.
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd)
-            .replace(/</g, "\\u003c")
-            .replace(/\u2028/g, "\\u2028")
-            .replace(/\u2029/g, "\\u2029"),
-        }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
+      {breadcrumb && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumb) }}
+        />
+      )}
       <p className="crumb">
         <Link href="/">{t("catalog", lang)}</Link>
         {trail.map((c) => (

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerSeller } from "@/lib/actions/seller-auth";
 import PasswordField from "@/components/PasswordField";
-import { checkRegistration, authErrorKey, type FieldProblem } from "@/lib/sellerRegistration";
+import { checkRegistration, authErrorKey, MIN_PASSWORD, type FieldProblem } from "@/lib/sellerRegistration";
 import { t } from "@/lib/i18n";
 import type { Lang, SellerType } from "@/lib/types";
 
@@ -73,7 +73,8 @@ export default function RegisterForm({
     } catch (err) {
       // Translated, never shown raw: a registration form is not the place
       // to print another system's internals at somebody.
-      setError(t(authErrorKey((err as Error).message || ""), lang));
+      setError(t(authErrorKey((err as Error).message || ""), lang)
+        .replace("{n}", String(MIN_PASSWORD)));
     }
     setPending(false);
   }
@@ -133,7 +134,7 @@ export default function RegisterForm({
         </div>
         <PasswordField id="password" label={t("password", lang)} value={f.password}
           onChange={(v) => setF((s) => ({ ...s, password: v }))}
-          autoComplete="new-password" minLength={8} required invalid={bad("password")} />
+          autoComplete="new-password" minLength={MIN_PASSWORD} required invalid={bad("password")} />
         <div className="field">
           <label htmlFor="description">{t("description", lang)}</label>
           <textarea id="description" value={f.description} onChange={set("description")} />
@@ -172,7 +173,7 @@ export default function RegisterForm({
             {!error && (
               <ul>
                 {problems.map((p) => (
-                  <li key={p.field}>{t(LABEL[p.field], lang)}: {t(p.key, lang)}</li>
+                  <li key={p.field}>{t(LABEL[p.field], lang)}: {t(p.key, lang).replace("{n}", String(MIN_PASSWORD))}</li>
                 ))}
               </ul>
             )}
