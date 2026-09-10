@@ -245,3 +245,118 @@ export async function confirmPaymentFromProvider(paymentId: string): Promise<App
 
   return applyProviderEvent(event);
 }
+
+/* MOVING MONEY BACK.
+ *
+ * Both of these ask the gateway to do something and then funnel the answer
+ * through applyProviderEvent(), which is the same path a webhook takes. A
+ * refund settled here is therefore recorded identically to one settled by
+ * the gateway calling us back -- one state machine, one set of rules about
+ * what may follow what, no second way for a payment to reach 'refunded'.
+ */
+
+export interface MoveMoneyResult {
+  ok: boolean;
+  /** Safe to show an admin. Never shown to a buyer. */
+  reason?: string;
+}
+
+/** The card payment behind an order, if there is one that can still move. */
+async function livePaymentForOrder(orderId: string) {
+  const sb = supabaseAdmin();
+  const { data } = await sb
+    .from("payments")
+    .select("id, provider, provider_ref, status, amount_minor, currency")
+    .eq("order_id", orderId)
+    // Ordered so the most recent live attempt wins: an order that failed a
+    // card payment and then succeeded has two rows, and only one of them
+    // has any money behind it.
+    .in("status", ["authorized", "captured"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+/** Send a buyer's money back through the gateway.
+ *
+ * `amountMinor` omitted refunds the whole payment, which is what a full
+ * return means and what the gateway defaults to. */
+export async function refundOrderPayment(
+  orderId: string, amountMinor?: number,
+): Promise<MoveMoneyResult> {
+  const payment = await livePaymentForOrder(orderId);
+  if (!payment) {
+    // Not an error. Most orders in this shop are paid in cash, by transfer
+    // or on credit, and for those the money moves at a counter -- there is
+    // nothing to call.
+    return { ok: false, reason: "This order has no card payment to refund." };
+  }
+  if (payment.status === "authorized") {
+    return { ok: false, reason: "This payment was never captured -- void it instead." };
+  }
+
+  const provider = getProvider(payment.provider as string);
+  if (!provider) return { ok: false, reason: "That payment gateway is no longer configured." };
+
+  const ref = (payment.provider_ref as string) || (payment.id as string);
+  const result = await provider.refund(ref, amountMinor);
+  if (!result.ok) {
+    reportError(new Error(result.reason || "refund refused"), {
+      scope: "refundOrderPayment", orderId, paymentId: payment.id,
+    });
+    return { ok: false, reason: result.reason };
+  }
+
+  // Through the same door a webhook comes in by, so the state machine gets
+  // its say and a refund recorded here looks exactly like one recorded by
+  // the gateway calling us back.
+  await applyProviderEvent({
+    eventId: `refund:${ref}:${amountMinor ?? "all"}`,
+    paymentId: ref,
+    status: result.status,
+    amountMinor: (payment.amount_minor as number) ?? null,
+    currency: (payment.currency as string) ?? null,
+    providerRef: result.providerRef ?? ref,
+  });
+
+  return { ok: true };
+}
+
+/** Release a hold that will never be captured.
+ *
+ * A cancelled order leaves the buyer's funds on hold until the
+ * authorization expires on the acquirer's schedule -- typically seven
+ * days, during which the money is neither theirs nor the shop's. */
+export async function voidOrderAuthorization(orderId: string): Promise<MoveMoneyResult> {
+  const payment = await livePaymentForOrder(orderId);
+  if (!payment) return { ok: false, reason: "This order has no card payment to void." };
+  if (payment.status !== "authorized") {
+    // Capturing and then voiding is not a thing. That is a refund, and
+    // saying so beats letting the gateway refuse with its own wording.
+    return { ok: false, reason: "This payment was already captured -- refund it instead." };
+  }
+
+  const provider = getProvider(payment.provider as string);
+  if (!provider) return { ok: false, reason: "That payment gateway is no longer configured." };
+
+  const ref = (payment.provider_ref as string) || (payment.id as string);
+  const result = await provider.voidAuthorization(ref);
+  if (!result.ok) {
+    reportError(new Error(result.reason || "void refused"), {
+      scope: "voidOrderAuthorization", orderId, paymentId: payment.id,
+    });
+    return { ok: false, reason: result.reason };
+  }
+
+  await applyProviderEvent({
+    eventId: `void:${ref}`,
+    paymentId: ref,
+    status: result.status,
+    amountMinor: (payment.amount_minor as number) ?? null,
+    currency: (payment.currency as string) ?? null,
+    providerRef: result.providerRef ?? ref,
+  });
+
+  return { ok: true };
+}

@@ -10,6 +10,7 @@ import { rateLimit, callerKey } from "@/lib/rateLimit";
 import { normalizeName } from "@/lib/personName";
 import { decodeImageDataUrl } from "@/lib/uploadGuard";
 import { reportError } from "@/lib/observability";
+import { voidOrderAuthorization } from "@/lib/payments/service";
 import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
@@ -590,9 +591,28 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
     const { data: pay } = await sb
       .from("orders").select("pay_method, pay_status").eq("id", orderId).maybeSingle();
     if (pay?.pay_method === "card" && (pay.pay_status === "paid" || pay.pay_status === "deposit")) {
+      /* AN AUTHORIZATION IS RELEASED, NOT LEFT TO EXPIRE.
+       *
+       * A hold the shop will never capture sits on the buyer's card until
+       * the acquirer expires it on its own schedule -- typically seven
+       * days, during which the money is neither theirs nor the shop's.
+       * The state machine has always modelled authorized -> cancelled;
+       * until the provider grew a voidAuthorization() nothing could drive
+       * it.
+       *
+       * Tried, not assumed. Only an authorization can be voided; a
+       * captured payment needs a refund, which is a different act with a
+       * different record, and the service says which this is. Either way
+       * the order is already cancelled -- the money is a separate
+       * question and a failure here must not undo that. */
+      const voided = await voidOrderAuthorization(orderId);
       await sb.from("order_log").insert({
         order_id: orderId,
-        text: "* Osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, depois troka pagamentu ba 'refunded'.",
+        text: voided.ok
+          ? "* Osan kliente nian libre ona iha banku (void)."
+          : "* Osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, "
+            + "depois troka pagamentu ba 'refunded'."
+            + (voided.reason ? ` (${voided.reason})` : ""),
       });
     }
   }

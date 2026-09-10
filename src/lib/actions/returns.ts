@@ -1,6 +1,8 @@
 "use server";
 import { revalidatePath, updateTag } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { refundOrderPayment } from "@/lib/payments/service";
+import { toMinorUnits } from "@/lib/payments/money";
 import { requireAdmin } from "./guard";
 import { audit } from "@/lib/audit";
 import { CACHE_TAGS } from "@/lib/cache";
@@ -185,6 +187,63 @@ export async function markRefundSettled(returnId: string) {
     entityId: returnId,
     summary: `${actor.label} marked ${row.ref} refunded at the gateway`,
     meta: { ref: row.ref, amount: Number(row.refund_total) || 0 },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+}
+
+/* SETTLING IT BY ACTUALLY SENDING THE MONEY.
+ *
+ * markRefundSettled() above is a person ASSERTING that they went to the
+ * bank portal and did it -- which was the only option while the provider
+ * interface had no refund on it. This is the other option, and it should
+ * be the one anybody reaches for: it asks the gateway, and only records
+ * the refund if the gateway says yes.
+ *
+ * The manual path stays. A gateway can be down, a merchant profile can
+ * refuse an API refund, and somebody may genuinely have refunded by hand
+ * before this existed -- and in all three the shop still needs a way to
+ * tell the truth about what happened.
+ */
+export async function settleRefundThroughGateway(returnId: string) {
+  const actor = await requireAdmin();
+  const sb = supabaseAdmin();
+
+  const { data: row } = await sb
+    .from("order_returns").select("id, ref, order_id, refund_total, refunded_at")
+    .eq("id", returnId).maybeSingle();
+  if (!row) throw new Error("That return no longer exists.");
+  if (row.refunded_at) return;   // already settled
+
+  const amount = Number(row.refund_total) || 0;
+  if (amount <= 0) throw new Error("There is nothing to refund on that return.");
+
+  // Minor units, because that is the only representation a gateway
+  // accepts and the only one that cannot lose a cent to a float.
+  const result = await refundOrderPayment(
+    row.order_id as string, toMinorUnits(amount, "USD"));
+
+  if (!result.ok) {
+    // NOT stamped. The whole point of this file is that refunded_at means
+    // the money moved; writing it after a refusal would put the lie back.
+    await audit(actor, {
+      action: "return.refund_failed", entity: "order_return", entityId: returnId,
+      summary: `${row.ref}: the gateway refused the refund`,
+      meta: { ref: row.ref, amount, reason: result.reason ?? null },
+    });
+    throw new Error(result.reason || "The gateway refused the refund.");
+  }
+
+  const { error } = await sb.from("order_returns")
+    .update({ refunded_at: new Date().toISOString() })
+    .eq("id", returnId).is("refunded_at", null);
+  if (error) throw error;
+
+  await audit(actor, {
+    action: "return.refund_sent", entity: "order_return", entityId: returnId,
+    summary: `${actor.label} refunded ${amount.toFixed(2)} for ${row.ref} through the gateway`,
+    meta: { ref: row.ref, amount },
   });
 
   revalidatePath("/admin/orders");
