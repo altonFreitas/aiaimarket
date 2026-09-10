@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrders, getSellerPayouts, computeSellerEarnings, computeSellerLedger } from "@/lib/data/seller";
+import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrdersCapped, getSellerPayouts, computeSellerEarnings, computeSellerLedger } from "@/lib/data/seller";
 import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
 import { money, nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import type { Capped } from "@/lib/data/capped";
+import type { SellerOrderView } from "@/lib/data/seller";
 import SellerStatusGate from "@/components/seller/SellerStatusGate";
 
 /** Phase 2: real product AND earnings stats — orders are now connected
@@ -21,12 +23,20 @@ export default async function SellerDashboardPage() {
   const seller = await getCurrentSellerOrRedirect();
   const isApproved = seller.status === "approved";
 
-  const [products, orders, payouts, settings] = await Promise.all([
+  // The rate a new order would be placed at. Passed in as the fallback for
+  // lines placed before rates were recorded on them; every line since
+  // carries its own (see OrderItem.commission_rate).
+  const settings = await adminSettings();
+  const rate = seller.commission_rate ?? settings.commission_rate;
+
+  const empty: Capped<SellerOrderView> =
+    { rows: [], truncated: false, cap: 0, oldestKept: null };
+  const [products, ordersCapped, payouts] = await Promise.all([
     isApproved ? getSellerProducts(seller.id) : Promise.resolve([]),
-    isApproved ? getSellerOrders(seller.id) : Promise.resolve([]),
+    isApproved ? getSellerOrdersCapped(seller.id, rate) : Promise.resolve(empty),
     isApproved ? getSellerPayouts(seller.id) : Promise.resolve([]),
-    adminSettings(),
   ]);
+  const orders = ordersCapped.rows;
   const live = products.filter((p) => !p.archived);
   const pendingReview = live.filter((p) => p.status === "pending").length;
   const outOfStock = live.filter((p) => p.stock_status === "out").length;
@@ -61,6 +71,24 @@ export default async function SellerDashboardPage() {
           <p className="hint" style={{ marginTop: -4 }}>
             {t("commissionRate", lang)}: {ledger.commissionRatePercent}%
           </p>
+
+          {/* THE FIGURES ARE REFUSED WHEN THE SCAN DID NOT SEE EVERYTHING.
+              A seller's orders are found by scanning the most recent slice
+              of the whole marketplace and filtering in memory -- there is
+              no index to query them directly. Payouts, meanwhile, are read
+              unbounded. Once the marketplace passes the cap, this store's
+              older completed orders silently stop counting towards gross
+              sales while every dollar paid to them still counts, and
+              "still owed" drifts negative for no reason anyone can see.
+              A number that might be wrong about money is worse than no
+              number, so this says so instead. */}
+          {ordersCapped.truncated ? (
+            <p className="note bad" role="status">
+              <b>{t("earningsIncomplete", lang)}</b>{" "}
+              {t("earningsIncompleteHint", lang).replace("{n}", String(ordersCapped.cap))}
+            </p>
+          ) : (
+          <>
           <div className="kv"><span>{t("grossSales", lang)}</span><b>{money(ledger.grossSales)}</b></div>
           <div className="kv"><span>{t("marketplaceCommission", lang)}</span><b>-{money(ledger.commission)}</b></div>
           <div className="kv"><span>{t("sellerEarnings", lang)}</span><b>{money(ledger.earnings)}</b></div>
@@ -75,6 +103,8 @@ export default async function SellerDashboardPage() {
               {money(ledger.outstanding)}
             </b>
           </div>
+          </>
+          )}
         </div>
 
         {payouts.length > 0 && (

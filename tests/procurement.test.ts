@@ -6,7 +6,7 @@ import {
   statusBreakdown, buildAlerts, filterPurchaseOrders, scoreSupplier,
   landedCosts, isResaleLine, parseSizes,
 } from "@/lib/procurement";
-import type { PoStatus, PurchaseOrder, PurchaseOrderItem, Supplier } from "@/lib/types";
+import type { PurchaseOrder, PurchaseOrderItem, Supplier } from "@/lib/types";
 
 const TODAY = "2026-06-15";
 

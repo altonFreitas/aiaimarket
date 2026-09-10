@@ -131,7 +131,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   // Fee + zone resolution happens server-side against real settings,
   // never trusted from the client.
   const sb = supabaseAdmin(); // service role: needed to read settings.zones reliably & to insert with computed ref
-  const { data: settings } = await sb.from("settings").select("zones").eq("id", 1).single();
+  const { data: settings } = await sb.from("settings").select("zones, commission_rate").eq("id", 1).single();
   const zones = (settings?.zones as Zone[]) || [];
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
   let fee = zone && !zone.quote ? Number(zone.fee) : 0;
@@ -169,6 +169,33 @@ export async function placeOrder(input: PlaceOrderInput) {
       costByProduct.set(row.product_id as string, Number(row.cost_price));
     }
   } catch { /* costs are optional; the dashboard reports coverage */ }
+
+  /* THE COMMISSION RATE, AS IT STANDS RIGHT NOW.
+   *
+   * Snapshotted onto every line for the same reason the cost above is: a
+   * rate is a term of the deal on the day of the sale, not a property of
+   * the seller for all time. Without this, agreeing a lower rate with a
+   * store rewrote what the platform owed them on every order they had ever
+   * completed.
+   *
+   * A seller's own rate beats the platform default, which is the same
+   * precedence computeSellerEarnings() has always applied -- the change is
+   * WHEN it is applied, not what it resolves to. Lines with no seller (the
+   * marketplace's own goods) carry no rate: there is no commission on
+   * selling to yourself. */
+  const rateBySeller = new Map<string, number>();
+  const platformRate = Number(settings?.commission_rate ?? 0);
+  try {
+    const sellerIds = [...new Set(
+      (prodRows || []).map((r) => (r.seller_id as string | null) ?? "").filter(Boolean))];
+    if (sellerIds.length) {
+      const { data: sellerRows } = await sb
+        .from("sellers").select("id, commission_rate").in("id", sellerIds);
+      for (const r of sellerRows || []) {
+        rateBySeller.set(r.id as string, Number(r.commission_rate ?? platformRate));
+      }
+    }
+  } catch { /* fall back to the platform rate for every line */ }
 
   // Set inside the map below when any line turns out to be out of stock.
   let isPreorder = false;
@@ -237,6 +264,12 @@ export async function placeOrder(input: PlaceOrderInput) {
       // distinguishable from "costs nothing" for the whole life of the row.
       ...(costByProduct.has(row.id as string)
         ? { cost: costByProduct.get(row.id as string) }
+        : {}),
+      // Same rule, same reason: present only when there is a seller to
+      // take a commission from, so "the shop's own goods" and "a rate
+      // nobody recorded" stay distinguishable forever.
+      ...(rateBySeller.has((row.seller_id as string) || "")
+        ? { commission_rate: rateBySeller.get(row.seller_id as string) }
         : {}),
     };
   });

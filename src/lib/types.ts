@@ -401,6 +401,22 @@ export interface OrderItem {
    * NEVER send this to a seller or a buyer -- see stripCost() in
    * lib/data/seller.ts. It is the platform's purchase cost. */
   cost?: number | null;
+  /** The marketplace's commission on this line, as a percentage, as it
+   * stood when the order was placed.
+   *
+   * Snapshotted for exactly the reason `cost` above is. Earnings used to
+   * recompute `seller.commission_rate ?? settings.commission_rate` at read
+   * time and apply today's number to every historical order -- so
+   * negotiating a seller from 10% down to 8% retroactively increased
+   * everything the platform appeared to owe them, across their whole
+   * history, and every payout and statement already issued stopped
+   * agreeing with the dashboard.
+   *
+   * Unlike `cost`, this one IS the seller's business and is not stripped.
+   * Absent on orders placed before this existed, which readers handle by
+   * falling back to the rate in force now -- the old behaviour, for the
+   * old rows only. */
+  commission_rate?: number | null;
 }
 
 export interface OrderLogEntry {

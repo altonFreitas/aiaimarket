@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "verify": "tsc --noEmit && eslint && vitest run"
+    "verify": "tsc --noEmit && eslint && vitest run",
+    "sql": "node scripts/build-run-all.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

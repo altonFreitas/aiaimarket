@@ -187,12 +187,26 @@ export async function adminSellerLedgers(): Promise<SellerLedgerRow[]> {
   } catch { /* table not migrated yet — treated as "nothing paid out" */ }
 
   const grossBySeller = new Map<string, number>();
+  const commissionBySeller = new Map<string, number>();
   const ordersBySeller = new Map<string, Set<string>>();
+  const rateOf = (id: string) =>
+    sellers.find((x) => x.id === id)?.commission_rate
+      ?? Number(settings?.commission_rate ?? 10);
   for (const o of orders) {
     if (o.status !== "completed") continue;
     for (const item of o.items || []) {
       if (!item.seller_id) continue; // the platform's own catalog, not a seller's
-      grossBySeller.set(item.seller_id, (grossBySeller.get(item.seller_id) || 0) + item.price * item.qty);
+      const gross = item.price * item.qty;
+      grossBySeller.set(item.seller_id, (grossBySeller.get(item.seller_id) || 0) + gross);
+      // Accumulated from the rate each LINE captured, falling back to the
+      // seller's current rate only for lines older than that column. The
+      // multiplication used to happen once at the end against today's rate,
+      // which meant a renegotiation rewrote every statement ever issued.
+      const rate = item.commission_rate ?? rateOf(item.seller_id);
+      commissionBySeller.set(
+        item.seller_id,
+        (commissionBySeller.get(item.seller_id) || 0) + gross * (Number(rate) || 0) / 100
+      );
       // A single order can hold several of one seller's lines; the seller's
       // "completed orders" figure counts orders, not line items.
       if (!ordersBySeller.has(item.seller_id)) ordersBySeller.set(item.seller_id, new Set());
@@ -213,7 +227,7 @@ export async function adminSellerLedgers(): Promise<SellerLedgerRow[]> {
   return sellers.map((seller) => {
     const commissionRatePercent = seller.commission_rate ?? platformRate;
     const grossSales = grossBySeller.get(seller.id) || 0;
-    const commission = grossSales * (commissionRatePercent / 100);
+    const commission = commissionBySeller.get(seller.id) || 0;
     const earnings = grossSales - commission;
     const paidOut = paidBySeller.get(seller.id) || 0;
     return {
@@ -364,7 +378,7 @@ export async function adminAttention() {
   const { adminPurchaseOrders } = await import("@/lib/data/procurement");
   const { adminStockDrift } = await import("@/lib/data/procurement");
 
-  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers] =
+  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers, refunds] =
     await Promise.all([
       adminOrders(), adminProducts(),
       adminPurchaseOrders().catch(() => []),
@@ -373,11 +387,13 @@ export async function adminAttention() {
       adminStockDrift().catch(() => []),
       adminSettings().catch(() => null),
       adminSellers().catch(() => []),
+      (await import("@/lib/actions/returns")).pendingGatewayRefunds().catch(() => []),
     ]);
 
   return buildAttention({
     orders, products, purchaseOrders, replenishment,
     pendingSellers: sellers.filter((s) => s.status === "pending").length,
+    pendingRefunds: refunds.length,
     pendingMessages: pending.length,
     driftCount: drift.length,
     restockPct: (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct,

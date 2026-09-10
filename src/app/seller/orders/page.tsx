@@ -11,11 +11,13 @@ import { getLang } from "@/lib/lang";
 export default async function SellerOrdersPage() {
   const lang = await getLang();
   const seller = await getCurrentSellerOrRedirect();
-  const [orders, settings] = await Promise.all([
-    seller.status === "approved" ? getSellerOrders(seller.id) : Promise.resolve([]),
-    adminSettings(),
-  ]);
+  const settings = await adminSettings();
+  // Their current rate: shown as the heading, and used as the fallback for
+  // lines placed before rates were recorded on them.
   const commissionRatePercent = seller.commission_rate ?? settings.commission_rate;
+  const orders = seller.status === "approved"
+    ? await getSellerOrders(seller.id, commissionRatePercent)
+    : [];
 
   return (
     <SellerStatusGate seller={seller} lang={lang}>

@@ -364,9 +364,14 @@ export function computeMarketplaceStats(
       const seller = item.seller_id ? sellerById.get(item.seller_id) : undefined;
       if (!seller) continue; // platform's own item, not a marketplace sale
       const gross = item.price * item.qty;
-      const rate = seller.commission_rate ?? platformCommissionRate;
+      // The rate the LINE captured when it was placed. Falling back to the
+      // seller's current rate only for lines older than that column, which
+      // is how they were always computed. Recomputing every historical line
+      // from today's rate is what made a renegotiation silently change what
+      // the platform had already earned.
+      const rate = item.commission_rate ?? seller.commission_rate ?? platformCommissionRate;
       totalMarketplaceSales += gross;
-      totalMarketplaceCommission += gross * (rate / 100);
+      totalMarketplaceCommission += gross * (Number(rate) || 0) / 100;
     }
   }
 

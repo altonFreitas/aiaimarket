@@ -42,7 +42,7 @@ export async function recordReturn(input: RecordReturnInput): Promise<string> {
   if (!lines.length) throw new Error("A return needs at least one line.");
 
   const { data: order, error: orderErr } = await sb
-    .from("orders").select("id, ref, buyer_phone, items, total")
+    .from("orders").select("id, ref, buyer_phone, items, total, pay_method, pay_status")
     .eq("id", input.orderId).single();
   if (orderErr) throw orderErr;
 
@@ -61,6 +61,16 @@ export async function recordReturn(input: RecordReturnInput): Promise<string> {
       already.set(key, (already.get(key) || 0) + (Number(it.qty) || 0));
     }
   }
+
+  /* A refund this application cannot execute.
+   *
+   * Only 'card' goes through a gateway; every other method in this shop is
+   * money a person hands over. And only an order that was actually PAID has
+   * anything to send back -- an unpaid card order that never captured has
+   * nothing at the acquirer to reverse. */
+  const needsGateway =
+    order.pay_method === "card" &&
+    ["paid", "deposit"].includes(String(order.pay_status || ""));
 
   const allowed = returnableQty(
     (order.items || []) as Array<{ product_id: string; qty: number }>, already);
@@ -88,7 +98,21 @@ export async function recordReturn(input: RecordReturnInput): Promise<string> {
     const { data, error } = await sb.from("order_returns").insert({
       order_id: input.orderId, ref, reason: input.reason,
       note: input.note || "", refund_total: refund,
-      refunded_at: refund > 0 ? new Date().toISOString() : null,
+      /* WHEN THE MONEY ACTUALLY MOVED -- and for a card, that is not now.
+       *
+       * Cash, a bank transfer and a wallet are settled by the same person
+       * recording this return, at the same counter, in the same minute, so
+       * stamping it here is simply true. A card refund has to be made at
+       * the acquirer, and nothing in this application can do that: the
+       * PaymentProvider interface has no refund method. Claiming it anyway
+       * is how an order row ends up saying the buyer was refunded while
+       * their money is still with the bank.
+       *
+       * Left null instead, which puts the return on the admin's "refunds
+       * to settle" list until somebody does it at the gateway and marks it
+       * (markRefundSettled below). Only settled returns move the order's
+       * payment status -- see supabase/refund-settlement.sql. */
+      refunded_at: refund > 0 && !needsGateway ? new Date().toISOString() : null,
     }).select("id, ref").single();
     if (!error) { created = data as { id: string; ref: string }; break; }
     // 23505 is a duplicate reference; anything else is a real failure.
@@ -128,4 +152,69 @@ export async function recordReturn(input: RecordReturnInput): Promise<string> {
   revalidatePath("/admin/stock");
   revalidatePath("/admin/sales");
   return created.ref;
+}
+
+/** "I have refunded this at the gateway."
+ *
+ * The one thing this application cannot do for a card order, recorded by
+ * the person who did it. Stamping refunded_at re-fires the trigger in
+ * supabase/refund-settlement.sql, which is what finally moves the order's
+ * payment status to refunded -- so the status is a consequence of the money
+ * moving rather than a claim made in advance of it.
+ *
+ * Audited, because it is a person asserting a fact about money that the
+ * system has no way to verify. */
+export async function markRefundSettled(returnId: string) {
+  const actor = await requireAdmin();
+  const sb = supabaseAdmin();
+
+  const { data: row } = await sb
+    .from("order_returns").select("id, ref, order_id, refund_total, refunded_at")
+    .eq("id", returnId).maybeSingle();
+  if (!row) throw new Error("That return no longer exists.");
+  if (row.refunded_at) return;   // already settled; saying so twice is not an error
+
+  const { error } = await sb.from("order_returns")
+    .update({ refunded_at: new Date().toISOString() })
+    .eq("id", returnId).is("refunded_at", null);
+  if (error) throw error;
+
+  await audit(actor, {
+    action: "return.refund_settled",
+    entity: "order_return",
+    entityId: returnId,
+    summary: `${actor.label} marked ${row.ref} refunded at the gateway`,
+    meta: { ref: row.ref, amount: Number(row.refund_total) || 0 },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+}
+
+/** Returns whose money has not moved yet.
+ *
+ * Read straight from refunded_at rather than inferred from an order's
+ * pay_status, so it is right on a database that has not run
+ * supabase/refund-settlement.sql too -- there the old trigger has already
+ * (wrongly) marked the order refunded, and this list is the only thing that
+ * still knows the truth. */
+export async function pendingGatewayRefunds(): Promise<Array<{
+  id: string; ref: string; orderRef: string; amount: number; createdAt: string;
+}>> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("order_returns")
+      .select("id, ref, refund_total, created_at, orders(ref)")
+      .is("refunded_at", null).gt("refund_total", 0)
+      .order("created_at", { ascending: false }).limit(200);
+    if (error) return [];
+    return (data || []).map((r) => ({
+      id: r.id as string,
+      ref: r.ref as string,
+      orderRef: String((r as { orders?: { ref?: string } }).orders?.ref || ""),
+      amount: Number(r.refund_total) || 0,
+      createdAt: r.created_at as string,
+    }));
+  } catch { return []; }
 }
