@@ -217,6 +217,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["products", "updated_at"]],
   },
   {
+    // Order lines as rows rather than as a document. Named by the table and
+    // the aggregate: the table alone would not distinguish this file from
+    // one that had only got half way.
+    file: "order-items.sql", labelKey: "featOrderItems",
+    tables: ["order_items"],
+    routines: ["seller_earnings", "sync_order_items"],
+  },
+  {
     // Stock held from the moment it is ordered. Named by the view and the
     // reserving function -- sync_order_stock_state is created here too but
     // the view is the thing no other file could have made.
@@ -297,6 +305,7 @@ export const SCHEMA_ORDER: readonly string[] = [
 
   // Catalogue and the marketplace itself.
   "marketplace-v2.sql",
+  "order-items.sql",         // after marketplace-v2.sql
   "notifications.sql",
   "payments.sql",
 

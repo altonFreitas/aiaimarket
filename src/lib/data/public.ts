@@ -203,18 +203,52 @@ export async function getBestSellingProducts(
     // better recommendation than an all-time tally, and it keeps this off
     // a path that grows without bound as the store succeeds.
     const since = new Date(Date.now() - BEST_SELLER_WINDOW_DAYS * 864e5).toISOString();
-    const { data: orders } = await admin
-      .from("orders")
-      .select("items")
-      .eq("status", "completed")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(MAX_ORDERS_SCANNED);
 
+    /* UNITS PER PRODUCT, off the index where there is one.
+     *
+     * This used to read the `items` JSONB of every completed order in the
+     * window and add the lines up in JavaScript -- a scan of the whole
+     * marketplace to rank six products on the homepage. order_items is
+     * indexed on product_id, so the same question is now a filtered read
+     * of only the rows that can answer it.
+     *
+     * Still capped, and still a merchandising signal rather than an
+     * accounting figure: what sold recently is a better recommendation
+     * than an all-time tally, and it keeps this off a path that grows
+     * without bound as the store succeeds. */
     const qtySold = new Map<string, number>();
-    for (const o of orders || []) {
-      for (const item of (o.items as OrderItem[]) || []) {
-        qtySold.set(item.product_id, (qtySold.get(item.product_id) || 0) + item.qty);
+    let counted = false;
+    try {
+      const { data: lines, error } = await admin
+        .from("order_items")
+        .select("product_id, qty, orders!inner(status)")
+        .eq("orders.status", "completed")
+        .gte("created_at", since)
+        .limit(MAX_ORDERS_SCANNED * 4);   // lines, not orders
+      if (!error) {
+        for (const row of lines || []) {
+          const id = row.product_id as string | null;
+          if (!id) continue;
+          qtySold.set(id, (qtySold.get(id) || 0) + (Number(row.qty) || 0));
+        }
+        counted = true;
+      }
+    } catch { /* falls through to the scan below */ }
+
+    // The old scan, for a database that has not run
+    // supabase/order-items.sql.
+    if (!counted) {
+      const { data: orders } = await admin
+        .from("orders")
+        .select("items")
+        .eq("status", "completed")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(MAX_ORDERS_SCANNED);
+      for (const o of orders || []) {
+        for (const item of (o.items as OrderItem[]) || []) {
+          qtySold.set(item.product_id, (qtySold.get(item.product_id) || 0) + item.qty);
+        }
       }
     }
 

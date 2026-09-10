@@ -89,6 +89,52 @@ export interface SellerOrderView {
   myCommission: number;
 }
 
+/** This seller's order ids, newest first, straight off the index.
+ *
+ * Returns null -- not an empty array -- when the database has not run
+ * supabase/order-items.sql. The difference matters: null means "ask the
+ * old way", empty means "this seller genuinely has no orders", and
+ * conflating them would show a working seller an empty dashboard.
+ */
+async function sellerOrderIdsFromIndex(sellerId: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("order_items")
+      .select("order_id, created_at")
+      .eq("seller_id", sellerId)
+      .order("created_at", { ascending: false })
+      .limit(MAX_SELLER_ORDER_SCAN * 4);   // lines, not orders: a basket is several
+    if (error) return null;
+    const seen = new Set<string>();
+    for (const row of data || []) seen.add(row.order_id as string);
+    return [...seen];
+  } catch { return null; }
+}
+
+/** Earnings computed by the database over an index, or null when it cannot.
+ *
+ * The aggregate in supabase/order-items.sql is the same arithmetic
+ * computeSellerEarnings() does, over every completed order this seller has
+ * ever had rather than over whatever fitted in the scan. When it answers,
+ * the truncation caveat does not apply -- there is nothing truncated. */
+export async function getSellerEarningsIndexed(
+  sellerId: string,
+): Promise<Omit<SellerEarnings, "commissionRatePercent"> | null> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .rpc("seller_earnings", { p_seller_id: sellerId });
+    if (error) return null;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+    return {
+      completedOrderCount: Number(row.completed_order_count) || 0,
+      grossSales: Number(row.gross_sales) || 0,
+      commission: Number(row.commission) || 0,
+      earnings: Number(row.earnings) || 0,
+    };
+  } catch { return null; }
+}
+
 /** Every order that contains at least one of this seller's products,
  * reduced down to just their own items + the buyer/delivery info needed
  * to fulfil their part — never another seller's items, and never the
@@ -119,12 +165,29 @@ export async function getSellerOrdersCapped(
    * own current rate for the ones that do. */
   fallbackRatePercent = 0
 ): Promise<Capped<SellerOrderView>> {
+  // THE INDEXED PATH, when the database has one. order_items is indexed on
+  // (seller_id, created_at), so this asks for this seller's orders instead
+  // of asking for the marketplace's and throwing most of them away.
+  const indexed = await sellerOrderIdsFromIndex(sellerId);
+
   const sb = supabaseAdmin();
-  const capped = await readCapped<Order>(MAX_SELLER_ORDER_SCAN, async (limit) => {
-    const { data } = await sb.from("orders").select("*")
-      .order("created_at", { ascending: false }).limit(limit);
-    return (data as Order[]) || [];
-  });
+  const capped = indexed
+    ? await readCapped<Order>(MAX_SELLER_ORDER_SCAN, async (limit) => {
+        if (!indexed.length) return [];
+        const { data } = await sb.from("orders").select("*")
+          .in("id", indexed.slice(0, limit))
+          .order("created_at", { ascending: false });
+        return (data as Order[]) || [];
+      })
+    // THE OLD SCAN, for a database that has not run
+    // supabase/order-items.sql. Reads the newest slice of the WHOLE
+    // marketplace and filters in memory, and says so when it truncates --
+    // which is why the truncation flag was added and why it stays.
+    : await readCapped<Order>(MAX_SELLER_ORDER_SCAN, async (limit) => {
+        const { data } = await sb.from("orders").select("*")
+          .order("created_at", { ascending: false }).limit(limit);
+        return (data as Order[]) || [];
+      });
   const orders = capped.rows;
 
   const views: SellerOrderView[] = [];
