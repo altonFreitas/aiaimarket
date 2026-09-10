@@ -12,13 +12,14 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string; for?: string }>;
 }) {
-  const [{ slug }, sp, settings] = await Promise.all([params, searchParams, getSettings()]);
+  const [{ slug }, sp, settings, lang] = await Promise.all([params, searchParams, getSettings(), getLang()]);
   const cat = await getCategoryBySlug(slug);
   if (!cat) return { title: "404" };
   return listingMetadata({
     title: cat.name,
     description: `${cat.name} — ${settings.store_name}`,
     path: `/c/${cat.slug}`,
+    lang,
     searchParams: sp,
   });
 }

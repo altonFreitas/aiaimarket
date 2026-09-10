@@ -8,6 +8,7 @@ import ProductReviews from "@/components/ProductReviews";
 import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
+import { localeMetadata, localePath } from "@/lib/locale";
 import { breadcrumbLd, serializeJsonLd } from "@/lib/jsonLd";
 import { t } from "@/lib/i18n";
 
@@ -17,11 +18,15 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!p) return { title: "404" };
   const description = p.description?.slice(0, 150);
   const images = p.images?.length ? [p.images[0]] : [];
+  // Three URLs, one per language, each canonical to itself and tied to the
+  // other two by hreflang. See lib/locale.ts.
+  const lang = await getLang();
+  const path = `/p/${p.slug}`;
   return {
     title: p.name,
     description,
-    alternates: { canonical: `/p/${p.slug}` },
-    openGraph: { type: "website", url: `/p/${p.slug}`, title: p.name, description, images },
+    ...localeMetadata(lang, path),
+    openGraph: { type: "website", url: localePath(lang, path), title: p.name, description, images },
     twitter: { card: "summary_large_image", title: p.name, description, images },
   };
 }

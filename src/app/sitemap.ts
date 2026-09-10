@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getLiveProducts, getCategories } from "@/lib/data/public";
+import { LOCALES, localePath, localeAlternates } from "@/lib/locale";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -28,9 +29,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ? new Date(Math.max(...productDates.map((d) => d.getTime())))
     : undefined;
 
+  /* ONE ENTRY PER PAGE PER LANGUAGE, each carrying its alternates.
+   *
+   * 1,023 translated strings were doing no search work at all, because all
+   * three languages rendered at one URL. Three URLs is half the fix; this
+   * is the other half -- telling Google that the three are the same page in
+   * different languages rather than three pages competing with each other.
+   *
+   * Google reads hreflang from a sitemap as readily as from a <link>, and
+   * a sitemap is the only place to state it for a page nobody has linked
+   * to yet, which on a new shop is most of them. */
+  const forEveryLocale = (
+    path: string,
+    lastModified: Date | undefined,
+    changeFrequency: "daily" | "weekly",
+    priority: number,
+  ): MetadataRoute.Sitemap =>
+    LOCALES.map((lang) => ({
+      url: `${base}${localePath(lang, path)}`,
+      lastModified,
+      changeFrequency,
+      priority,
+      alternates: {
+        languages: Object.fromEntries(
+          Object.entries(localeAlternates(path)).map(([code, p]) => [code, `${base}${p}`]),
+        ),
+      },
+    }));
+
   const staticEntries: MetadataRoute.Sitemap = [
-    { url: base, lastModified: newest, changeFrequency: "daily", priority: 1 },
-    { url: `${base}/shop`, lastModified: newest, changeFrequency: "daily", priority: 0.9 },
+    ...forEveryLocale("/", newest, "daily", 1),
+    ...forEveryLocale("/shop", newest, "daily", 0.9),
   ];
 
   // A category has no timestamp of its own and does not need one: what
@@ -41,20 +70,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((p) => p.category_id === c.id)
       .map((p) => date(p.updated_at) || date(p.created_at))
       .filter((d): d is Date => d != null);
-    return {
-      url: `${base}/c/${c.slug}`,
-      lastModified: own.length ? new Date(Math.max(...own.map((d) => d.getTime()))) : undefined,
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-    };
-  });
+    return forEveryLocale(
+      `/c/${c.slug}`,
+      own.length ? new Date(Math.max(...own.map((d) => d.getTime()))) : undefined,
+      "daily",
+      0.7,
+    );
+  }).flat();
 
-  const productEntries: MetadataRoute.Sitemap = products.map((p) => ({
-    url: `${base}/p/${p.slug}`,
-    lastModified: date(p.updated_at) || date(p.created_at),
-    changeFrequency: "weekly",
-    priority: 0.8,
-  }));
+  const productEntries: MetadataRoute.Sitemap = products.flatMap((p) =>
+    forEveryLocale(
+      `/p/${p.slug}`,
+      date(p.updated_at) || date(p.created_at),
+      "weekly",
+      0.8,
+    ));
 
   return [...staticEntries, ...categoryEntries, ...productEntries];
 }

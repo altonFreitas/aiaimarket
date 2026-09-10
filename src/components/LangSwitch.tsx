@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { setLangAction } from "@/lib/actions/lang";
+import { localePath } from "@/lib/locale";
 import type { Lang } from "@/lib/types";
 
 /** What each language is called in itself. A language picker that names
@@ -24,15 +25,33 @@ const ORDER: Lang[] = ["tet", "pt", "en"];
  * the three you were actually reading. */
 export default function LangSwitch({ current }: { current: Lang }) {
   const router = useRouter();
+  const pathname = usePathname();
+  // Kept, so switching language on a filtered listing does not silently
+  // throw away the filter.
+  const query = useSearchParams().toString();
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement | null>(null);
 
+  /* NAVIGATES, rather than only setting a cookie and refreshing.
+   *
+   * Each language now has its own URL (see lib/locale.ts), so switching
+   * language is going to a different page -- and the address bar has to
+   * say so. Refreshing in place would leave somebody reading Portuguese
+   * at a URL that says Tetun, which is the one thing three URLs exist to
+   * stop, and would give them nothing to share or bookmark.
+   *
+   * The cookie is still written, because it is what an unprefixed link
+   * later falls back to. */
   function pick(l: Lang) {
     setOpen(false);
     if (l === current) return;
     start(async () => {
       await setLangAction(l);
+      // The path as it appears to the browser, which still carries the
+      // prefix -- the proxy strips it for routing only.
+      const target = localePath(l, pathname || "/");
+      router.push(query ? `${target}?${query}` : target);
       router.refresh();
     });
   }

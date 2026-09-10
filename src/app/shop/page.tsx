@@ -16,6 +16,7 @@ export async function generateMetadata({
     title: t("catalog", lang),
     description: settings.tagline_tet || undefined,
     path: "/shop",
+    lang,
     searchParams: sp,
   });
 }
