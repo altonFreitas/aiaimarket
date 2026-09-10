@@ -15,6 +15,7 @@ import { readCapped, type Capped } from "./capped";
 import { loveTotals, type LoveTotals } from "@/lib/loves";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
+import { withFreshProofUrl } from "@/lib/paymentProof";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
  * and Excel export genuinely want "everything", but an unbounded read is
@@ -101,7 +102,9 @@ export async function adminOrder(id: string): Promise<Order | null> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("orders").select("*, order_log(*)").eq("id", id).maybeSingle();
   if (data?.order_log) data.order_log.sort((a: { id: number }, b: { id: number }) => a.id - b.id);
-  return (data as Order) || null;
+  // Minted for this viewing rather than read off the row -- see
+  // lib/paymentProof.ts.
+  return await withFreshProofUrl((data as Order) || null);
 }
 export async function adminSettings() {
   const sb = supabaseAdmin();

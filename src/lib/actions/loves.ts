@@ -1,5 +1,6 @@
 "use server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { shouldCountLove } from "@/lib/counterGuard";
 
 /** Move the shop's count for one product, the same way bumpWaClickAction
  * moves the WhatsApp counter: through a SECURITY DEFINER function, so an
@@ -14,6 +15,11 @@ import { supabaseServer } from "@/lib/supabase/server";
  * column honestly means. */
 export async function toggleLoveAction(productId: string, loved: boolean) {
   try {
+    // The shop's count is a popularity signal that feeds what gets shown
+    // and what gets reordered, and this endpoint is unauthenticated. The
+    // browser's own list is unaffected either way -- a heart that is not
+    // counted is still filled for the person who tapped it.
+    if (!(await shouldCountLove())) return;
     const sb = await supabaseServer();
     await sb.rpc(loved ? "increment_loves" : "decrement_loves", { p_id: productId });
   } catch {

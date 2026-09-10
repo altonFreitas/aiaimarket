@@ -67,6 +67,8 @@ const EVERYTHING = snap([
   "sellers.features",
   "products.audience", "products.restock_level", "settings.restock_alert_pct",
   "products.updated_at",
+  "settings.totp_last_counter",
+  "orders.proof_path",
 ]);
 
 describe("checkSchema", () => {

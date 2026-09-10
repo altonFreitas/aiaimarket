@@ -191,6 +191,18 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     ],
   },
   {
+    // A payment proof that stops being readable. Named by the column that
+    // replaces a year-long signed URL with a path nobody can open.
+    file: "proof-path.sql", labelKey: "featProofPath",
+    columns: [["orders", "proof_path"]],
+  },
+  {
+    // One-use TOTP codes. Named by the settings column, because that is
+    // the one table the file touches that admin-users.sql does not.
+    file: "totp-replay.sql", labelKey: "featTotpReplay",
+    columns: [["settings", "totp_last_counter"]],
+  },
+  {
     // The sitemap's <lastmod>. Named by the column, which no other file
     // adds to products -- settings has an updated_at of its own, from
     // schema.sql, which is why the probe is a pair and not a name.
@@ -287,6 +299,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "reorder-policy.sql",
   "audience-restock.sql",
   "product-timestamps.sql",
+  "proof-path.sql",
 
   // Hardening the request path.
   "order-idempotency.sql",
@@ -295,6 +308,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   // Staff accounts, then the roles that describe them.
   "admin-users.sql",
   "admin-roles.sql",
+  "totp-replay.sql",         // after admin-users.sql
 
   // Sellers: what they may be given, then what one of those grants needs.
   "seller-invites.sql",

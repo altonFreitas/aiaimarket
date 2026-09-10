@@ -4,13 +4,35 @@
    No web fonts: system stack only (NFR: data frugality).
    ============================================================ */
 :root{
+  /* MEASURED, not eyeballed. Every foreground token below reaches at
+     least 4.5:1 -- the WCAG AA floor for body text -- against every
+     background it is actually painted on (--card, --paper, --line-2 on a
+     hover row, and its own -soft pair). tests/contrast.test.ts reads these
+     lines and does the arithmetic, so a value cannot be nudged lighter
+     later without something saying so.
+
+     Four were below it and are now not:
+       --muted-2  2.80:1 on --paper. It carries the small print -- the
+                  seller line under a product, timestamps, chart labels,
+                  the "(12)" beside a rating -- at 10.5px, where the
+                  large-text exemption does not apply. --muted moved down
+                  with it so the two are still telling different levels of
+                  the hierarchy apart.
+       --wa       white on it was 3.09:1, and it is the WhatsApp order
+                  button, which is how most orders start.
+       --amber-ink 4.25:1 on --amber, which is the discount badge on a
+                  product card and the skip link.
+       --red      4.26:1 on --red-soft -- the "out of stock" pill and
+                  every error notice in the app.
+       --green    4.49:1 on --line-2, which is the ground under a hovered
+                  sidebar row and behind a product photo while it loads. */
   --ink:#152341; --ink-2:#0b1424; --ink-3:#243356;
   --paper:#eceff3; --card:#fff; --line:#d7dbe3; --line-2:#e8ebf0;
-  --muted:#5c6779; --muted-2:#8590a2;
-  --amber:#f2b705; --amber-soft:#fff3cf; --amber-ink:#6b4e00;
-  --green:#0e7a4f; --green-soft:#dff2e8;
-  --red:#c43d2c; --red-soft:#fbe4e0;
-  --wa:#1fa855; --wa-dark:#17803f;
+  --muted:#4b5463; --muted-2:#5d687a;
+  --amber:#f2b705; --amber-soft:#fff3cf; --amber-ink:#654900;
+  --green:#0d7449; --green-soft:#dff2e8;
+  --red:#bb3a2a; --red-soft:#fbe4e0;
+  --wa:#198845; --wa-dark:#126334;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --r:10px; --r-s:6px;

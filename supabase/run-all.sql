@@ -2837,6 +2837,36 @@ create trigger products_touch_updated_at
 create index if not exists idx_products_updated_at on products (updated_at desc);
 
 
+-- ==== proof-path.sql ====================================================
+
+-- A PAYMENT PROOF THAT STOPS BEING READABLE.
+--
+-- Run AFTER supabase/schema.sql.
+--
+-- orders.proof_url held a signed Supabase Storage URL with a 365-day
+-- expiry, written once at upload and then stored on the order row. Two
+-- problems, and the second is the one that matters:
+--
+--   1. The URL grants access on its own -- no session, no cookie. Anyone
+--      who ever sees that row (a backup, an export, a screenshot of an
+--      admin screen, a support ticket, a leaked service key) can read a
+--      customer's bank transfer slip for a year afterwards.
+--   2. Because it is stored, revoking it is not possible. The only way to
+--      cut off a leaked URL is to delete the file.
+--
+-- So the row keeps the PATH, which grants nothing, and a URL is minted
+-- fresh each time somebody with the right to see it actually looks. That
+-- makes the link's life the length of one viewing rather than a year, and
+-- it makes the storage bucket -- which is already private -- the thing
+-- that decides who may read it.
+alter table orders add column if not exists proof_path text;
+
+comment on column orders.proof_path is
+  'Storage path of the payment proof. Signed URLs are minted per view; see src/lib/paymentProof.ts.';
+
+create index if not exists orders_proof_path_idx on orders (proof_path) where proof_path is not null;
+
+
 -- ==== order-idempotency.sql =============================================
 
 -- ===========================================================================
@@ -3210,6 +3240,39 @@ comment on column admin_users.sections is
 -- access they had; new ones start as a reader with nothing ticked, and you
 -- say what they get.
 -- ---------------------------------------------------------------------------
+
+
+-- ==== totp-replay.sql ===================================================
+
+-- A ONE-TIME CODE THAT CAN ONLY BE USED ONCE.
+--
+-- Run AFTER supabase/schema.sql and supabase/admin-users.sql.
+--
+-- TOTP codes are valid for 30 seconds, and this app accepts a window of
+-- one step either side -- so any given code is good for about 90 seconds.
+-- Inside that window nothing stopped the same six digits being submitted
+-- again. A code read over somebody's shoulder, left in a screenshot,
+-- phished into a lookalike form, or replayed from a proxy was still a
+-- working second login.
+--
+-- The fix is the one the RFC names: remember the last time step that was
+-- accepted for an account, and refuse anything that is not strictly newer.
+-- The counter is not a secret -- it is derived from the clock -- so it
+-- needs no more protection than the columns beside it already have.
+--
+-- All three tables, because all three hold a TOTP secret and the
+-- verification path in lib/totp.ts is written once and shared between
+-- them (see TotpTarget).
+alter table settings    add column if not exists totp_last_counter bigint;
+alter table sellers     add column if not exists totp_last_counter bigint;
+alter table admin_users add column if not exists totp_last_counter bigint;
+
+-- Null means "no code has been accepted since this ran", which lets the
+-- first login after the migration through and starts the chain. It does
+-- NOT mean "accept anything twice": the very first success writes a
+-- counter, and every later one is compared against it.
+comment on column settings.totp_last_counter is
+  'Last accepted TOTP time step. A code at or before this is a replay.';
 
 
 -- ==== seller-invites.sql ================================================

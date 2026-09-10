@@ -4,6 +4,7 @@ import { supabaseAnon } from "@/lib/supabase/anon";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CACHE_TAGS, CATALOG_REVALIDATE_SECONDS } from "@/lib/cache";
 import type { Category, HeroSlide, OrderItem, Product, ProductReview, Promotion, Settings } from "@/lib/types";
+import { shouldCount } from "@/lib/counterGuard";
 
 /* ---------------------------------------------------------------------------
  * Request-level memoization.
@@ -205,12 +206,19 @@ export async function getBestSellingProducts(
 
 /** Fire-and-forget counters (Epic E4). These call SECURITY DEFINER
  * Postgres functions (see schema.sql) so an anonymous visitor can bump
- * a counter without getting general UPDATE rights on products. */
+ * a counter without getting general UPDATE rights on products.
+ *
+ * Deduplicated per caller per product -- see lib/counterGuard.ts. These
+ * feed the homepage's best-sellers strip and the reorder planning, so
+ * "anyone may add to this without limit" was a way to put a product on
+ * the front page of the shop. */
 export async function bumpView(productId: string) {
+  if (!(await shouldCount("view", productId))) return;
   const sb = supabaseAnon();
   await sb.rpc("increment_views", { p_id: productId });
 }
 export async function bumpWaClick(productId: string) {
+  if (!(await shouldCount("wa", productId))) return;
   const sb = supabaseAnon();
   await sb.rpc("increment_wa_clicks", { p_id: productId });
 }

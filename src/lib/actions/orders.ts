@@ -2,6 +2,7 @@
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { PROOF_URL_SECONDS, PROOF_URL_FALLBACK_SECONDS, withFreshProofUrl } from "@/lib/paymentProof";
 import { writeTolerating } from "@/lib/missingColumn";
 import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { assertOrderTransition } from "@/lib/orderFlow";
@@ -394,7 +395,9 @@ export async function lookupOrder(ref: string, phone: string) {
   if (!data) return null;
   if (data.buyer_phone !== phoneNorm(phone)) return null;
   data.order_log?.sort((a: OrderLogEntry, b: OrderLogEntry) => a.id - b.id);
-  return data;
+  // The stored proof_url is not handed out; a fresh, short-lived one is
+  // minted for this viewing. See lib/paymentProof.ts.
+  return await withFreshProofUrl(data);
 }
 
 /** "My Orders" — knowing the phone number alone reveals every order made
@@ -467,8 +470,28 @@ export async function uploadPaymentProof(ref: string, phone: string, dataUrl: st
     contentType,
   });
   if (error) throw error;
-  const { data: signed } = await sb.storage.from("payment-proofs").createSignedUrl(path, 60 * 60 * 24 * 365);
-  await sb.from("orders").update({ proof_url: signed?.signedUrl }).eq("id", order.id);
+
+  /* THE PATH IS THE RECORD, not the URL. A signed URL grants access to
+   * whoever holds it, with no session behind it, so storing one on the
+   * order row means a customer's bank slip is readable by anyone who ever
+   * sees that row. Readers mint their own, briefly -- see lib/paymentProof.
+   *
+   * A short URL is still written alongside it so the page that comes back
+   * from this upload can show what was just uploaded. */
+  const { data: signed } = await sb.storage
+    .from("payment-proofs").createSignedUrl(path, PROOF_URL_SECONDS);
+  const written = await writeTolerating({ proof_path: path }, (extra) =>
+    sb.from("orders").update({ proof_url: signed?.signedUrl, ...extra }).eq("id", order.id));
+
+  // No proof_path column yet: the URL is the only record of this file, so
+  // it has to outlive the request that wrote it. Thirty days, not a year.
+  if (written.degraded) {
+    const { data: longer } = await sb.storage
+      .from("payment-proofs").createSignedUrl(path, PROOF_URL_FALLBACK_SECONDS);
+    if (longer?.signedUrl) {
+      await sb.from("orders").update({ proof_url: longer.signedUrl }).eq("id", order.id);
+    }
+  }
   await sb.from("order_log").insert({ order_id: order.id, text: "Kliente karga komprovante pagamentu" });
   revalidatePath("/admin/orders");
 }

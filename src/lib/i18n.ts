@@ -1127,6 +1127,8 @@ export const STR: Record<string, [string,string,string]> = {
   featAdminUsers:["Konta admin no rejistu","Contas de administração e registo","Admin accounts and activity"],
   featAdminRoles:["Nivel asesu admin","Níveis de acesso","Admin roles and areas"],
   featSellerFeatures:["Asesu ba loja sira","Acesso das lojas","What each store may open"],
+  featProofPath:["Komprovante pagamentu nia link badak","Ligação curta ao comprovativo","Payment proofs behind a short-lived link"],
+  featTotpReplay:["Kódigu 2FA uza dala ida deit","Código 2FA só serve uma vez","A 2FA code works only once"],
   featProductTimestamps:["Produtu nia troka ikus","Última alteração do produto","When a product last changed"],
   featAudienceRestock:["Ba sé, no avisu stock","Para quem, e aviso de stock","Who it is for, and low stock"],
   featStockLedger:["Xek diferensa stock","Verificação de diferenças de stock","Stock drift check"],

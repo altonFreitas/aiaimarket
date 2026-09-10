@@ -453,6 +453,11 @@ export interface Order {
   pay_method: PayMethod;
   pay_status: PayStatus;
   proof_url: string | null;
+  /** Storage path of the payment proof, from which a short-lived URL is
+   * minted per view (see lib/paymentProof.ts). Optional: a database
+   * without supabase/proof-path.sql has no column, and on a row uploaded
+   * before it the stored proof_url is still the only record. */
+  proof_path?: string | null;
   note: string;
   status: OrderStatus;
   cancel_reason: string | null;
