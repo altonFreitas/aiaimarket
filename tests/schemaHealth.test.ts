@@ -10,10 +10,14 @@ import {
 /** Everything a fully migrated database has beyond its tables. */
 const KINDS = {
   views: ["stock_reconciliation"],
-  routines: ["schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves"],
+  routines: [
+    "schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves",
+    "hit_rate_limit", "redact_old_order_pii",
+  ],
   indexes: [
     ["public.products", "idx_products_live"],
     ["public.sellers", "idx_sellers_status"],
+    ["public.order_returns", "order_returns_unsettled_idx"],
   ] as [string, string][],
   /* harden-rls.sql has been run, so the three open-door policies are gone.
    * One unrelated policy is left in place to prove the check looks for the
@@ -54,12 +58,17 @@ const EVERYTHING = snap([
   "hero_slides.video_url",
   "products.loves",
   "seller_invites",
+  "rate_limits",
+  "orders.idempotency_key",
   "suppliers.seller_id", "purchase_orders.seller_id",
   "products.preorder_enabled", "orders.is_preorder",
   "settings.reorder_window_days",
   "admin_users", "audit_log", "admin_users.role", "admin_users.sections",
   "sellers.features",
   "products.audience", "products.restock_level", "settings.restock_alert_pct",
+  "products.updated_at",
+  "settings.totp_last_counter",
+  "orders.proof_path",
 ]);
 
 describe("checkSchema", () => {
@@ -213,7 +222,8 @@ describe("an old schema_inventory() that can only see tables", () => {
     const out = checkSchema(oldShape);
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
-      "loves.sql", "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
+      "loves.sql", "refund-settlement.sql", "rate-limits.sql", "pii-retention.sql",
+      "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {
       expect([f.file, f.applied]).toEqual([f.file, false]);
@@ -298,7 +308,9 @@ describe("the feature list matches the folder", () => {
     // and audience-restock.sql each create their own version of. A shop that
     // had never run stock-ledger.sql would have been told it had.
     const sql = new Map(
-      fs.readdirSync(dir).filter((f) => f.endsWith(".sql"))
+      // run-all.sql is every other file pasted together, so it "creates"
+      // all of them and would be named as a second creator of everything.
+      fs.readdirSync(dir).filter((f) => f.endsWith(".sql") && f !== "run-all.sql")
         .map((f) => [f, fs.readFileSync(path.join(dir, f), "utf8").toLowerCase()])
     );
     for (const f of SCHEMA_FEATURES) {

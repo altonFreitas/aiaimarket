@@ -96,3 +96,10 @@ code without the SQL and the site behaves exactly as it did before.
 The catalog's `search_products()` runs as the caller, so the `products_public_read`
 RLS policy — not the function's own `WHERE` clause — is still what decides which rows
 a visitor can see.
+
+## Where the reasoning lives
+
+This codebase argues with itself in comments rather than in a wiki: the
+why sits beside the what, where somebody changing it will read it.
+[`docs/DECISIONS.md`](docs/DECISIONS.md) is the index — one line per
+decision and a pointer to the comment holding the argument.

@@ -60,6 +60,11 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     paths: [
       "/admin/products", "/admin/stock", "/admin/cats",
       "/admin/demand", "/admin/sales/costs", "/admin/p",
+      // What customers wrote about the catalog. The store-ratings half of
+      // that screen is drawn only for somebody who also holds Sellers, and
+      // deleteSellerRating checks the same thing -- so this belonging to
+      // Catalog does not hand store ratings to a catalog-only account.
+      "/admin/reviews",
       // A retired screen that now redirects into /admin/demand. Listed so
       // it is refused at its own door rather than one hop later, and so
       // "every page belongs to a section" stays literally true.

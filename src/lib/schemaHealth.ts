@@ -136,6 +136,25 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     routines: ["increment_loves", "decrement_loves"],
   },
   {
+    file: "refund-settlement.sql", labelKey: "featRefundSettlement",
+    // NOT the trigger function it replaces: supabase/returns.sql creates one
+    // of the same name, so probing for it would tell an owner who had run
+    // only that file that this one was applied too. The index is this file's
+    // own, and it is the index the admin's "refunds not yet paid" list runs
+    // on -- so its absence means both the honest trigger and the list are
+    // missing, which is exactly what the panel should report.
+    indexes: [["public.order_returns", "order_returns_unsettled_idx"]],
+  },
+  {
+    file: "order-idempotency.sql", labelKey: "featOrderIdempotency",
+    columns: [["orders", "idempotency_key"]],
+  },
+  {
+    file: "rate-limits.sql", labelKey: "featRateLimits",
+    tables: ["rate_limits"],
+    routines: ["hit_rate_limit"],
+  },
+  {
     file: "seller-invites.sql", labelKey: "featSellerInvites",
     tables: ["seller_invites"],
   },
@@ -170,6 +189,32 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
       ["products", "restock_level"],
       ["settings", "restock_alert_pct"],
     ],
+  },
+  {
+    // The retention sweep. Nothing in the application calls it -- it is a
+    // tool an operator runs deliberately -- so the panel is the only place
+    // that can say whether the shop has it at all.
+    file: "pii-retention.sql", labelKey: "featPiiRetention",
+    routines: ["redact_old_order_pii"],
+  },
+  {
+    // A payment proof that stops being readable. Named by the column that
+    // replaces a year-long signed URL with a path nobody can open.
+    file: "proof-path.sql", labelKey: "featProofPath",
+    columns: [["orders", "proof_path"]],
+  },
+  {
+    // One-use TOTP codes. Named by the settings column, because that is
+    // the one table the file touches that admin-users.sql does not.
+    file: "totp-replay.sql", labelKey: "featTotpReplay",
+    columns: [["settings", "totp_last_counter"]],
+  },
+  {
+    // The sitemap's <lastmod>. Named by the column, which no other file
+    // adds to products -- settings has an updated_at of its own, from
+    // schema.sql, which is why the probe is a pair and not a name.
+    file: "product-timestamps.sql", labelKey: "featProductTimestamps",
+    columns: [["products", "updated_at"]],
   },
   {
     // Creates no table and no column, which is how it stayed off this list.
@@ -209,7 +254,94 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
 /** In supabase/ and deliberately not above: demo content, not schema. Named
  * here so the test that compares this list against the folder has something
  * to check the exemption against, rather than the list simply being short. */
-export const NOT_SCHEMA_FILES: readonly string[] = ["seed.sql"];
+/* THE ORDER TO RUN THEM IN.
+ *
+ * SCHEMA_FEATURES above is a list of what each file CREATES, ordered for
+ * reading. It is not a run order and never was -- returns.sql sits tenth in
+ * it and its own header says "Run AFTER supabase/stock-ledger.sql", which is
+ * twenty-fifth. An operator following that list produces a database that
+ * refuses halfway through.
+ *
+ * Until this existed the run order lived in prose inside the files, and
+ * DEPLOY.md named six of the twenty-seven. The nineteen it did not name
+ * included the stock ledger, the payment tables, staff logins, and the two
+ * files whose entire purpose is closing security holes -- so an operator
+ * who followed the guide literally deployed a shop missing all of them.
+ *
+ * This is that order, as data rather than prose, so a test can check it:
+ * every file present exactly once, and every "Run AFTER X" in any header
+ * actually respected. scripts/build-run-all.mjs turns it into one pasteable
+ * supabase/run-all.sql.
+ *
+ * seed.sql is deliberately last and deliberately optional -- it is sample
+ * data, not schema.
+ */
+export const SCHEMA_ORDER: readonly string[] = [
+  // The foundation: every table, index, policy, bucket and trigger.
+  "schema.sql",
+  // The inventory function the health panel reads. Early, so that a
+  // half-finished install can still be diagnosed from the admin screen.
+  "schema-health.sql",
+
+  // Catalogue and the marketplace itself.
+  "marketplace-v2.sql",
+  "notifications.sql",
+  "payments.sql",
+
+  // Buying, then the ledger that receiving writes into, then returns --
+  // this run of four is where the stated dependencies live.
+  "procurement.sql",
+  "po-product-details.sql",
+  "stock-receipt.sql",
+  "stock-ledger.sql",        // after stock-receipt.sql
+  "returns.sql",             // after stock-ledger.sql
+  "refund-settlement.sql",   // after returns.sql
+
+  // Reporting and storefront features. Independent of each other.
+  "sales.sql",
+  "promotions.sql",
+  "hero-video.sql",
+  "loves.sql",
+  "preorders.sql",
+  "reorder-policy.sql",
+  "audience-restock.sql",
+  "product-timestamps.sql",
+  "proof-path.sql",
+  "pii-retention.sql",
+
+  // Hardening the request path.
+  "order-idempotency.sql",
+  "rate-limits.sql",
+
+  // Staff accounts, then the roles that describe them.
+  "admin-users.sql",
+  "admin-roles.sql",
+  "totp-replay.sql",         // after admin-users.sql
+
+  // Sellers: what they may be given, then what one of those grants needs.
+  "seller-invites.sql",
+  "seller-features.sql",
+  "seller-procurement.sql",
+
+  // LAST, both of them. These two REMOVE things -- open policies, and
+  // grants on the audit log -- so anything that creates one has to have run
+  // already or it is dropped and then recreated behind their backs.
+  "harden-rls.sql",
+  "patch-audit-hardening.sql",
+
+  // Optional sample data.
+  "seed.sql",
+];
+
+export const NOT_SCHEMA_FILES: readonly string[] = [
+  // Sample data, not schema.
+  "seed.sql",
+  // Every other file concatenated in SCHEMA_ORDER, generated by
+  // scripts/build-run-all.mjs. It creates nothing of its own, so probing
+  // for it would mean probing for everything at once -- and it must never
+  // appear on the panel as a migration in its own right.
+  "run-all.sql",
+];
 
 export interface FeatureStatus extends FeatureCheck {
   applied: boolean;

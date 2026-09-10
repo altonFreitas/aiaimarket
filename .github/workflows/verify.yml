@@ -1,0 +1,65 @@
+name: verify
+
+# WHAT THIS IS FOR. There are over a thousand unit tests in this repository
+# and, until this file existed, nothing ran them. Vercel builds with `next
+# build`, which typechecks and does not execute Vitest -- so a broken test
+# reached production without anybody being told.
+#
+# Two of those tests matter more than the rest: tests/adminSections.test.ts
+# and tests/sellerFeatures.test.ts walk every page under src/app/admin and
+# src/app/seller and fail if one is missing its requireSection() or
+# requireSellerFeature() guard. That is an authorization regression
+# detector, and it only protects the shop if something runs it before merge.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A second push to the same branch cancels the first: the only run whose
+# answer anybody wants is the one for the newest commit.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches @types/node in package.json. Pinned to a major rather
+          # than to "latest", so a Node release cannot fail this on a
+          # morning nobody changed anything.
+          node-version: "20"
+          cache: npm
+
+      # ci, not install: it installs exactly the lockfile and fails if
+      # package.json and package-lock.json disagree, which is the whole
+      # point of running this somewhere other than the machine that wrote
+      # them.
+      - run: npm ci
+
+      # tsc --noEmit && eslint && vitest run -- the same command a
+      # contributor runs locally, so CI cannot drift from it.
+      - run: npm run verify
+
+      # The build is a separate assertion from the tests: a page can pass
+      # every test and still fail to compile in a production build, which
+      # is the failure Vercel would otherwise be the first to find.
+      - name: Build
+        run: npx next build
+        env:
+          # The build reads these; none is a real credential and none
+          # reaches a real service. A missing SESSION_SECRET makes
+          # lib/session.ts throw at module load, which fails the build for
+          # a reason that has nothing to do with the change under test.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-only-not-a-key
+          SUPABASE_SERVICE_ROLE_KEY: build-only-not-a-key
+          SESSION_SECRET: build-only-not-a-secret-build-only
+          ADMIN_EMAIL: build@example.com
+          ADMIN_PASSWORD: build-only-not-a-password

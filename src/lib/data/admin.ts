@@ -15,6 +15,7 @@ import { readCapped, type Capped } from "./capped";
 import { loveTotals, type LoveTotals } from "@/lib/loves";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
+import { withFreshProofUrl } from "@/lib/paymentProof";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
  * and Excel export genuinely want "everything", but an unbounded read is
@@ -101,8 +102,75 @@ export async function adminOrder(id: string): Promise<Order | null> {
   const sb = supabaseAdmin();
   const { data } = await sb.from("orders").select("*, order_log(*)").eq("id", id).maybeSingle();
   if (data?.order_log) data.order_log.sort((a: { id: number }, b: { id: number }) => a.id - b.id);
-  return (data as Order) || null;
+  // Minted for this viewing rather than read off the row -- see
+  // lib/paymentProof.ts.
+  return await withFreshProofUrl((data as Order) || null);
 }
+/* THE REVIEWS, FOR SOMEBODY WHO CAN ACT ON THEM.
+ *
+ * Both tables are public-facing free text written by anyone holding an
+ * order ref and the phone it was placed with. That check is a good one --
+ * it proves a purchase -- but it says nothing about what somebody then
+ * types, and until this existed the only way to take an abusive, mistaken
+ * or defamatory review off a product page was to open the SQL editor.
+ *
+ * Newest first and capped, like every other admin read here: moderation
+ * is a "what has come in lately" job, and the page that lists everything
+ * ever written is the page nobody opens.
+ *
+ * Read through the admin client because product_reviews and seller_ratings
+ * both revoke plain SELECT from anon (buyer_phone lives in one of them) --
+ * and buyer_phone is deliberately NOT selected even here: a moderator
+ * decides about a comment, not about a person. */
+const MAX_ADMIN_REVIEWS = 500;
+
+export interface AdminProductReview {
+  id: string;
+  product_id: string;
+  order_id: string | null;
+  buyer_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface AdminSellerRating {
+  id: string;
+  seller_id: string;
+  order_id: string | null;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export async function adminProductReviews(): Promise<AdminProductReview[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("product_reviews")
+      .select("id, product_id, order_id, buyer_name, rating, comment, created_at")
+      .order("created_at", { ascending: false })
+      .limit(MAX_ADMIN_REVIEWS);
+    // A shop that has not run supabase/marketplace-v2.sql has no such
+    // table. An empty list and a working screen, not a crash.
+    if (error) return [];
+    return (data as AdminProductReview[]) || [];
+  } catch { return []; }
+}
+
+export async function adminSellerRatings(): Promise<AdminSellerRating[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("seller_ratings")
+      .select("id, seller_id, order_id, rating, comment, created_at")
+      .order("created_at", { ascending: false })
+      .limit(MAX_ADMIN_REVIEWS);
+    if (error) return [];
+    return (data as AdminSellerRating[]) || [];
+  } catch { return []; }
+}
+
 export async function adminSettings() {
   const sb = supabaseAdmin();
   const { data } = await sb.from("settings").select("*").eq("id", 1).single();
@@ -187,12 +255,26 @@ export async function adminSellerLedgers(): Promise<SellerLedgerRow[]> {
   } catch { /* table not migrated yet — treated as "nothing paid out" */ }
 
   const grossBySeller = new Map<string, number>();
+  const commissionBySeller = new Map<string, number>();
   const ordersBySeller = new Map<string, Set<string>>();
+  const rateOf = (id: string) =>
+    sellers.find((x) => x.id === id)?.commission_rate
+      ?? Number(settings?.commission_rate ?? 10);
   for (const o of orders) {
     if (o.status !== "completed") continue;
     for (const item of o.items || []) {
       if (!item.seller_id) continue; // the platform's own catalog, not a seller's
-      grossBySeller.set(item.seller_id, (grossBySeller.get(item.seller_id) || 0) + item.price * item.qty);
+      const gross = item.price * item.qty;
+      grossBySeller.set(item.seller_id, (grossBySeller.get(item.seller_id) || 0) + gross);
+      // Accumulated from the rate each LINE captured, falling back to the
+      // seller's current rate only for lines older than that column. The
+      // multiplication used to happen once at the end against today's rate,
+      // which meant a renegotiation rewrote every statement ever issued.
+      const rate = item.commission_rate ?? rateOf(item.seller_id);
+      commissionBySeller.set(
+        item.seller_id,
+        (commissionBySeller.get(item.seller_id) || 0) + gross * (Number(rate) || 0) / 100
+      );
       // A single order can hold several of one seller's lines; the seller's
       // "completed orders" figure counts orders, not line items.
       if (!ordersBySeller.has(item.seller_id)) ordersBySeller.set(item.seller_id, new Set());
@@ -213,7 +295,7 @@ export async function adminSellerLedgers(): Promise<SellerLedgerRow[]> {
   return sellers.map((seller) => {
     const commissionRatePercent = seller.commission_rate ?? platformRate;
     const grossSales = grossBySeller.get(seller.id) || 0;
-    const commission = grossSales * (commissionRatePercent / 100);
+    const commission = commissionBySeller.get(seller.id) || 0;
     const earnings = grossSales - commission;
     const paidOut = paidBySeller.get(seller.id) || 0;
     return {
@@ -364,7 +446,7 @@ export async function adminAttention() {
   const { adminPurchaseOrders } = await import("@/lib/data/procurement");
   const { adminStockDrift } = await import("@/lib/data/procurement");
 
-  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers] =
+  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers, refunds] =
     await Promise.all([
       adminOrders(), adminProducts(),
       adminPurchaseOrders().catch(() => []),
@@ -373,11 +455,13 @@ export async function adminAttention() {
       adminStockDrift().catch(() => []),
       adminSettings().catch(() => null),
       adminSellers().catch(() => []),
+      (await import("@/lib/actions/returns")).pendingGatewayRefunds().catch(() => []),
     ]);
 
   return buildAttention({
     orders, products, purchaseOrders, replenishment,
     pendingSellers: sellers.filter((s) => s.status === "pending").length,
+    pendingRefunds: refunds.length,
     pendingMessages: pending.length,
     driftCount: drift.length,
     restockPct: (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct,

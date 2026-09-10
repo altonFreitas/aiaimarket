@@ -5,9 +5,10 @@ import ProductInteractive from "@/components/ProductInteractive";
 import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
-import { getCategories, getLiveProducts, getProductBySlug, getProductReviews, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
+import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
+import { breadcrumbLd, serializeJsonLd } from "@/lib/jsonLd";
 import { t } from "@/lib/i18n";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -45,8 +46,9 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [all, reviews] = await Promise.all([getLiveProducts(), getProductReviews(p.id)]);
-  const related = all.filter((x) => x.category_id === p.category_id && x.id !== p.id).slice(0, 4);
+  const [related, reviews] = await Promise.all([
+    getRelatedProducts(p.category_id, p.id), getProductReviews(p.id),
+  ]);
 
   // Only emitted when reviews genuinely exist. Google treats a fabricated or
   // empty aggregateRating as a structured-data violation, and an honest
@@ -59,6 +61,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     bestRating: 5,
     worstRating: 1,
   } : undefined;
+
+  // The trail the page already draws, as data a crawler can read. Built
+  // from the same `trail` the crumb below renders, so the two can never
+  // disagree about where this product sits.
+  const breadcrumb = breadcrumbLd(siteOrigin, [
+    ...trail.map((c) => ({ name: c.name, path: `/c/${c.slug}` })),
+    { name: p.name, path: `/p/${p.slug}` },
+  ]);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -87,13 +97,14 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         // every visitor's page. Escaping < (and the U+2028/2029 line
         // separators, which are literal newlines in JS but legal in JSON)
         // makes the payload inert regardless of what a seller types.
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd)
-            .replace(/</g, "\\u003c")
-            .replace(/\u2028/g, "\\u2028")
-            .replace(/\u2029/g, "\\u2029"),
-        }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
+      {breadcrumb && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumb) }}
+        />
+      )}
       <p className="crumb">
         <Link href="/">{t("catalog", lang)}</Link>
         {trail.map((c) => (

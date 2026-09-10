@@ -4,6 +4,7 @@ import { supabaseAnon } from "@/lib/supabase/anon";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { CACHE_TAGS, CATALOG_REVALIDATE_SECONDS } from "@/lib/cache";
 import type { Category, HeroSlide, OrderItem, Product, ProductReview, Promotion, Settings } from "@/lib/types";
+import { shouldCount } from "@/lib/counterGuard";
 
 /* ---------------------------------------------------------------------------
  * Request-level memoization.
@@ -109,6 +110,17 @@ async function getCategoriesUncached(): Promise<Category[]> {
   } catch { return []; }
 }
 
+/* HOW MANY RATINGS A STORE PAGE READS, AND HOW MANY IT SHOWS.
+ *
+ * The average is computed over what comes back, so the cap is set far above
+ * the ten that are rendered: a store's score should reflect its history,
+ * not its last ten customers. Past this many the average is over the most
+ * recent RATINGS_SCAN, which is the honest reading of a bounded query --
+ * and the count shown is that same number, never a total the read did not
+ * actually see. */
+const RATINGS_SCAN = 500;
+const RATINGS_SHOWN = 10;
+
 async function getLiveProductsUncached(): Promise<Product[]> {
   try {
     const sb = supabaseAnon();
@@ -133,6 +145,37 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .eq("status", "approved") // same rule for a direct/shared link, not just the catalog
     .maybeSingle();
   return (data as Product) || null;
+}
+
+/** The four products shown under a product, from the same category.
+ *
+ * An INDEXED query, not a filter over the catalog. This used to call
+ * getLiveProducts() -- a read of up to MAX_CATALOG_PRODUCTS rows, with
+ * their descriptions and image arrays -- and then keep four of them, on
+ * every product page view. idx_products_live (see
+ * supabase/patch-audit-hardening.sql) covers the archived/status half and
+ * category_id narrows the rest.
+ *
+ * Empty rather than throwing: a product with no category, or a category
+ * with nothing else in it, has no related products, and neither is an
+ * error worth failing a product page over. */
+export async function getRelatedProducts(
+  categoryId: string | null, excludeId: string, limit = 4,
+): Promise<Product[]> {
+  if (!categoryId) return [];
+  try {
+    const sb = supabaseAnon();
+    const { data } = await sb
+      .from("products")
+      .select("*")
+      .eq("archived", false)
+      .eq("status", "approved")
+      .eq("category_id", categoryId)
+      .neq("id", excludeId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data as Product[]) || [];
+  } catch { return []; }
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -194,12 +237,19 @@ export async function getBestSellingProducts(
 
 /** Fire-and-forget counters (Epic E4). These call SECURITY DEFINER
  * Postgres functions (see schema.sql) so an anonymous visitor can bump
- * a counter without getting general UPDATE rights on products. */
+ * a counter without getting general UPDATE rights on products.
+ *
+ * Deduplicated per caller per product -- see lib/counterGuard.ts. These
+ * feed the homepage's best-sellers strip and the reorder planning, so
+ * "anyone may add to this without limit" was a way to put a product on
+ * the front page of the shop. */
 export async function bumpView(productId: string) {
+  if (!(await shouldCount("view", productId))) return;
   const sb = supabaseAnon();
   await sb.rpc("increment_views", { p_id: productId });
 }
 export async function bumpWaClick(productId: string) {
+  if (!(await shouldCount("wa", productId))) return;
   const sb = supabaseAnon();
   await sb.rpc("increment_wa_clicks", { p_id: productId });
 }
@@ -300,11 +350,16 @@ export async function getSellerRatings(sellerId: string): Promise<{
       .from("seller_ratings")
       .select("id, rating, comment, created_at")
       .eq("seller_id", sellerId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      // Bounded. This read fetched EVERY rating a seller had ever received
+      // in order to show ten of them and average the rest -- so a store with
+      // a few thousand reviews pulled a few thousand rows, with their
+      // comments, on every page load. See RATINGS_SCAN.
+      .limit(RATINGS_SCAN);
     const reviews = (data as SellerReview[]) || [];
     const count = reviews.length;
     const average = count ? reviews.reduce((a, r) => a + r.rating, 0) / count : 0;
-    return { average, count, reviews: reviews.slice(0, 10) };
+    return { average, count, reviews: reviews.slice(0, RATINGS_SHOWN) };
   } catch {
     return { average: 0, count: 0, reviews: [] };
   }

@@ -5,6 +5,20 @@ import { searchCatalog, suggestProducts, parseSort, parsePage, parsePrice } from
 import { parseAudienceFilter } from "@/lib/audience";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
+import { searchMetadata } from "@/lib/listingMeta";
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const [lang, sp] = await Promise.all([getLang(), searchParams]);
+  const q = (sp.q || "").trim();
+  // The typed query goes in the title because that is what the tab should
+  // say -- but the page is noindex, so it never becomes a page ABOUT that
+  // query in anybody's index. See searchMetadata.
+  return searchMetadata(q ? `${t("search", lang)}: ${q}` : t("search", lang));
+}
 
 export default async function SearchPage({
   searchParams,

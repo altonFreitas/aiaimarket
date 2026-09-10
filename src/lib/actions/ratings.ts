@@ -3,6 +3,18 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { phoneNorm, phoneOk } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
+/* As long as a review can usefully be, and no longer.
+ *
+ * There was no ceiling at all: a rating comment went straight into the
+ * database at whatever length was posted, and the store page renders every
+ * one of them. A megabyte of text in a comment is a row nobody can moderate
+ * and a storefront nobody can load -- and the field is reachable by anyone
+ * who knows one order ref and its phone number. Cut rather than refused:
+ * somebody who typed too much still gets their rating recorded. */
+/* NOT exported: every export from a "use server" module is a callable
+ * endpoint, so a constant declared here with `export` fails the build. */
+const MAX_COMMENT_LEN = 1000;
+
 export interface SubmitRatingInput {
   ref: string;
   phone: string;
@@ -41,7 +53,7 @@ export async function submitSellerRating(input: SubmitRatingInput) {
       order_id: order.id,
       buyer_phone: order.buyer_phone,
       rating,
-      comment: input.comment.trim(),
+      comment: input.comment.trim().slice(0, MAX_COMMENT_LEN),
     },
     { onConflict: "order_id,seller_id" }
   );

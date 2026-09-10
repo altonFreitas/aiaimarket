@@ -6,6 +6,7 @@ import { customerLogin, customerSignUp, isAdminEmail } from "@/lib/actions/custo
 import PasswordField from "@/components/PasswordField";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
+import { MIN_PASSWORD_LEN } from "@/lib/passwordRules";
 
 /** One form, two modes — the same "person" entry point everyone uses.
  * Before touching Supabase Auth at all, it checks whether the typed
@@ -67,7 +68,7 @@ export default function AccountForm({ lang }: { lang: Lang }) {
 
         <PasswordField id="acc-password" label={t("password", lang)} value={password} onChange={setPassword}
           autoComplete={mode === "login" ? "current-password" : "new-password"}
-          minLength={mode === "signup" ? 8 : undefined} required />
+          minLength={mode === "signup" ? MIN_PASSWORD_LEN : undefined} required />
 
         {mode === "signup" && (
           <div className="field">

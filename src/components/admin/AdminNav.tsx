@@ -49,6 +49,7 @@ const GROUPS: Group[] = [
       ["/admin/cats", "categories"],
       ["/admin/demand", "demand"],
       ["/admin/sales/costs", "unitCosts"],
+      ["/admin/reviews", "reviewsAdmin"],
     ],
   },
   {

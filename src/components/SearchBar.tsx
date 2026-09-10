@@ -45,7 +45,6 @@ export default function SearchBar({
         placeholder={t("search", lang)}
         aria-label={t("search", lang)}
         autoComplete="off"
-        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus={autoFocus}
       />
       <button type="submit">{t("searchGo", lang)}</button>

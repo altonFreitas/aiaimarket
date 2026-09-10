@@ -131,8 +131,14 @@ export async function resolveLogin(
     const { supabaseAdmin } = await import("@/lib/supabase/admin");
     const { verifyPassword } = await import("@/lib/password");
     const sb = supabaseAdmin();
+    // .eq, NOT .ilike -- see the note in lib/actions/customer-auth.ts. Here
+    // it was worse than an oracle: "%" as the identifier matched the FIRST
+    // staff row rather than none, so the deliberate "the owner's email is
+    // nobody else's" guard three lines above could be walked around
+    // entirely by not typing an email at all. The address is lower-cased
+    // above and stored lower-cased, so an exact match is the same lookup.
     const data = await readAdminUser(
-      sb, (cols) => sb.from("admin_users").select(cols).ilike("email", email).maybeSingle()
+      sb, (cols) => sb.from("admin_users").select(cols).eq("email", email).maybeSingle()
     );
     if (!data || !data.active) return null;
     if (!(await verifyPassword(password, data.password_hash as string))) return null;

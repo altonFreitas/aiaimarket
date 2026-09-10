@@ -41,7 +41,7 @@ export async function submitProductReview(input: SubmitProductReviewInput) {
   // Writing a review is unauthenticated in the same sense guest checkout is:
   // proof is a ref + phone, both of which a determined script could grind at.
   // The throttle does not change the trust model, it just prices the attempt.
-  const limit = rateLimit(await callerKey("product-review"), 20, 600);
+  const limit = await rateLimit(await callerKey("product-review"), 20, 600);
   if (!limit.allowed) {
     throw new Error(`Too many reviews from this connection. Try again in ${limit.retryAfterSeconds}s.`);
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { rateLimit } from "@/lib/rateLimit";
+import { rateLimitLocal as rateLimit } from "@/lib/rateLimit";
 
 let n = 0;
 const key = () => `test-key-${++n}`;
@@ -7,7 +7,11 @@ const key = () => `test-key-${++n}`;
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-describe("rateLimit", () => {
+/* These exercise the IN-MEMORY window, which is still the first gate and
+ * the fallback when the database cannot be reached -- see the header of
+ * lib/rateLimit.ts. The shared Postgres counter it defers to is in
+ * supabase/rate-limits.sql and needs a database to test. */
+describe("rateLimitLocal", () => {
   it("allows up to the limit then blocks", () => {
     const k = key();
     for (let i = 0; i < 5; i++) {

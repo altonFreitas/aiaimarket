@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
+import { readCapped, type Capped } from "./capped";
 import type { Order, OrderItem, Product, Seller, SellerPayout } from "@/lib/types";
 
 const MAX_SELLER_ORDER_SCAN = 5000;
@@ -82,6 +83,10 @@ export interface SellerOrderView {
    * shared by the whole order and a mixed-seller order's status isn't
    * this seller's to set alone. */
   allItemsMine: boolean;
+  /** This seller's commission on their own lines, in currency, using the
+   * rate each line captured when it was placed (OrderItem.commission_rate)
+   * and falling back to the rate in force now for lines that predate it. */
+  myCommission: number;
 }
 
 /** Every order that contains at least one of this seller's products,
@@ -90,17 +95,37 @@ export interface SellerOrderView {
  * full unrelated order total. Small dataset (a local marketplace), so a
  * full scan + in-memory filter is fine, same "no pagination needed yet"
  * approach used elsewhere in this app (e.g. category product counts). */
-export async function getSellerOrders(sellerId: string): Promise<SellerOrderView[]> {
+/** The same read, and whether it saw everything.
+ *
+ * WHY THE TRUNCATION FLAG MATTERS MORE HERE THAN ANYWHERE ELSE. A seller's
+ * items live inside `orders.items` as JSONB, so there is no index to query
+ * "orders belonging to seller X" -- this scans the most recent slice of the
+ * WHOLE marketplace and filters in memory. Payouts, by contrast, are read
+ * unbounded. The moment total orders pass the cap, a seller's older
+ * completed orders drop out of the window and stop counting towards gross
+ * sales, while every dollar already paid to them still counts: `outstanding
+ * = earnings - paidOut` drifts steadily negative, the platform believes it
+ * has overpaid people it in fact owes, and nothing on any screen says why.
+ *
+ * The cap stays -- an unbounded scan of every order is not the answer
+ * either. What changes is that it is no longer silent. The real fix is an
+ * order_items table indexed on (seller_id, created_at); until that lands,
+ * a figure that might be wrong is refused rather than shown.
+ */
+export async function getSellerOrdersCapped(
+  sellerId: string,
+  /** The rate to use for lines placed before rates were recorded on them.
+   * Zero for the screens that do not show commission at all; the seller's
+   * own current rate for the ones that do. */
+  fallbackRatePercent = 0
+): Promise<Capped<SellerOrderView>> {
   const sb = supabaseAdmin();
-  // There is no orders->seller index to query on: a seller's items live
-  // inside the order's `items` JSONB, so finding "orders containing this
-  // seller" means scanning and filtering in memory. Bounded to the most
-  // recent slice rather than the whole table; the real fix is an
-  // order_items table (or a GIN index on items) when this becomes the
-  // bottleneck.
-  const { data } = await sb.from("orders").select("*")
-    .order("created_at", { ascending: false }).limit(MAX_SELLER_ORDER_SCAN);
-  const orders = (data as Order[]) || [];
+  const capped = await readCapped<Order>(MAX_SELLER_ORDER_SCAN, async (limit) => {
+    const { data } = await sb.from("orders").select("*")
+      .order("created_at", { ascending: false }).limit(limit);
+    return (data as Order[]) || [];
+  });
+  const orders = capped.rows;
 
   const views: SellerOrderView[] = [];
   for (const o of orders) {
@@ -114,10 +139,33 @@ export async function getSellerOrders(sellerId: string): Promise<SellerOrderView
       status: o.status, created_at: o.created_at,
       myItems: myItems.map(stripCost),
       mySubtotal: myItems.reduce((a, i) => a + i.price * i.qty, 0),
+      myCommission: myItems.reduce((a, i) => a + lineCommission(i, fallbackRatePercent), 0),
       allItemsMine: allItems.every((i) => i.seller_id === sellerId),
     });
   }
-  return views;
+  // Same cap and the same truth about it, carrying the reduced views.
+  return { ...capped, rows: views };
+}
+
+/** The list on its own, for the screens that only show orders. Whether the
+ * scan was complete matters to a MONEY figure; it does not change what a
+ * seller should see in their order list, which is their recent orders. */
+export async function getSellerOrders(
+  sellerId: string, fallbackRatePercent = 0
+): Promise<SellerOrderView[]> {
+  return (await getSellerOrdersCapped(sellerId, fallbackRatePercent)).rows;
+}
+
+/** Commission on one line, in currency.
+ *
+ * The rate the line captured wins. Falling back to "whatever is set now"
+ * for a line that has no rate is not ideal -- it is the old behaviour --
+ * but it is right for exactly the rows it applies to: orders placed before
+ * the rate was ever recorded, whose commission was only ever computed that
+ * way. New lines carry their own. */
+function lineCommission(item: OrderItem, currentRatePercent = 0): number {
+  const pct = item.commission_rate ?? currentRatePercent;
+  return item.price * item.qty * (Number(pct) || 0) / 100;
 }
 
 /** Drop the platform's purchase cost from a line before it leaves the
@@ -150,10 +198,28 @@ export function computeSellerEarnings(
   seller: Seller,
   platformCommissionRate: number
 ): SellerEarnings {
+  // The rate a NEW order would be placed at. Shown on screen as "your
+  // rate", and applied to the historical lines that never recorded one.
   const commissionRatePercent = seller.commission_rate ?? platformCommissionRate;
   const completed = orders.filter((o) => o.status === "completed");
   const grossSales = completed.reduce((a, o) => a + o.mySubtotal, 0);
-  const commission = grossSales * (commissionRatePercent / 100);
+
+  /* SUMMED FROM THE LINES, not recomputed from today's rate.
+   *
+   * This used to be `grossSales * (rate / 100)` with the CURRENT rate --
+   * so negotiating a store from 10% to 8% retroactively increased
+   * everything the platform appeared to owe them, across their entire
+   * history, and every payout and statement already issued stopped
+   * agreeing with the dashboard. There was no authoritative record left to
+   * settle the argument with.
+   *
+   * Each line now carries the rate that was in force when it was placed
+   * (OrderItem.commission_rate). Lines older than that carry none and fall
+   * back to the current rate, which is the behaviour they were always
+   * computed under -- so nothing about the past changes on the day this
+   * ships, and nothing about it changes again afterwards. */
+  const commission = completed.reduce((a, o) => a + o.myCommission, 0);
+
   return {
     commissionRatePercent,
     completedOrderCount: completed.length,

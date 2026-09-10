@@ -1,3 +1,5 @@
+import { MIN_PASSWORD_LEN } from "@/lib/passwordRules";
+
 /* What is wrong with this registration, said before it is sent.
  *
  * The form used to post whatever was typed and print whatever came back.
@@ -29,9 +31,17 @@ export interface FieldProblem {
   key: string;
 }
 
-/** The shortest password the server will take. Stated here as well so the
- * form can say so before asking. */
-export const MIN_PASSWORD = 8;
+/* THE SHORTEST PASSWORD THE SERVER WILL TAKE -- ONE RULE FOR THE WHOLE
+ * APPLICATION, re-exported here so the form can say so before asking.
+ *
+ * This used to be 8 while lib/passwordRules.ts held staff logins to 12 --
+ * so the account that can see one shop's orders was protected by a
+ * shorter password than the account that can see them all, and the app
+ * had two answers to "how long is long enough".
+ *
+ * A seller login opens somebody's storefront, their customers' orders and
+ * their payouts. Whatever the number is, it is the same number. */
+export const MIN_PASSWORD = MIN_PASSWORD_LEN;
 
 /** Deliberately permissive: something, an @, something, a dot, and at
  * least two more characters. It is not this function's job to decide

@@ -47,7 +47,11 @@ export default function SellerOrdersList({ lang, orders, commissionRatePercent }
       {orders.length ? (
         <div className="list">
           {orders.map((o) => {
-            const commission = o.mySubtotal * (commissionRatePercent / 100);
+            // The commission the LINES carry, worked out from the rate
+            // each captured when it was placed (see OrderItem.commission_rate).
+            // Recomputing it here from the current rate is what made a
+            // renegotiation rewrite every past order on this screen.
+            const commission = o.myCommission;
             const earnings = o.mySubtotal - commission;
             const addr = o.mode === "pickup" ? t("pickup", lang) : addrLine(o);
             const flow = flowFor(o.mode);

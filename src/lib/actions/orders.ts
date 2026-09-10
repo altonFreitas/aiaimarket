@@ -2,6 +2,8 @@
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { PROOF_URL_SECONDS, PROOF_URL_FALLBACK_SECONDS, withFreshProofUrl } from "@/lib/paymentProof";
+import { writeTolerating } from "@/lib/missingColumn";
 import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { assertOrderTransition } from "@/lib/orderFlow";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
@@ -11,7 +13,7 @@ import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
 import { notifyStatusChange } from "@/lib/orderNotify";
-import type { OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
+import type { Order, OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Trims and hard-truncates a free-text field. Postgres `text` has no
  * length limit, so without this a single request can write megabytes. */
@@ -65,6 +67,11 @@ export interface PlaceOrderInput {
   municipality?: string; post?: string; suku?: string; aldeia?: string; landmark?: string;
   payMethod: PayMethod;
   note?: string;
+  /** One per checkout attempt, minted in the browser. A retry of the same
+   * attempt returns the order the first one made, rather than making a
+   * second. Optional: an older client that does not send one gets exactly
+   * the behaviour it had before. */
+  idempotencyKey?: string;
 }
 
 /** F1/F2 — guest checkout, no account. Uses the ANON client (not admin):
@@ -77,7 +84,25 @@ const MAX_LINE_QTY = 999;
 const MAX_BASKET_LINES = 50;
 const MAX_NAME_LEN = 120;
 const MAX_NOTE_LEN = 2000;
+/** A UUID is 36; the cap is only there so a caller cannot make the index
+ * entry arbitrarily large. */
+const MAX_IDEM_LEN = 64;
 const MAX_ADDRESS_FIELD_LEN = 200;
+
+/** The order a previous attempt with this key already made, or null.
+ *
+ * Tolerant of the column not existing: on a database that has not run
+ * supabase/order-idempotency.sql the query errors and this reports "no
+ * previous attempt", which is exactly the behaviour the shop had before
+ * the column was introduced. */
+async function findByIdempotencyKey(key: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("orders").select("ref").eq("idempotency_key", key).maybeSingle();
+    if (error) return null;
+    return (data?.ref as string) ?? null;
+  } catch { return null; }
+}
 
 export async function placeOrder(input: PlaceOrderInput) {
   if (!input.name.trim()) throw new Error("Name is required");
@@ -87,15 +112,27 @@ export async function placeOrder(input: PlaceOrderInput) {
 
   // Unauthenticated, writes to the database, sends no payment — exactly the
   // shape of endpoint that gets scripted. 10 orders / 10 minutes per IP.
-  const orderLimit = rateLimit(await callerKey("place-order"), 10, 600);
+  const orderLimit = await rateLimit(await callerKey("place-order"), 10, 600);
   if (!orderLimit.allowed) {
     throw new Error(`Too many orders from this connection. Try again in ${orderLimit.retryAfterSeconds}s.`);
+  }
+
+  // A RETRY IS NOT A SECOND ORDER. Checked before any work is done, so a
+  // resubmission on a flaky connection costs one indexed lookup rather
+  // than a second set of stock movements and a second SMS. The unique
+  // index is what actually guarantees it (supabase/order-idempotency.sql);
+  // this is the fast path, and the conflict handler after the insert is
+  // the one that catches two requests racing each other.
+  const idemKey = clip(input.idempotencyKey, MAX_IDEM_LEN) || null;
+  if (idemKey) {
+    const found = await findByIdempotencyKey(idemKey);
+    if (found) return found;
   }
 
   // Fee + zone resolution happens server-side against real settings,
   // never trusted from the client.
   const sb = supabaseAdmin(); // service role: needed to read settings.zones reliably & to insert with computed ref
-  const { data: settings } = await sb.from("settings").select("zones").eq("id", 1).single();
+  const { data: settings } = await sb.from("settings").select("zones, commission_rate").eq("id", 1).single();
   const zones = (settings?.zones as Zone[]) || [];
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
   let fee = zone && !zone.quote ? Number(zone.fee) : 0;
@@ -134,6 +171,33 @@ export async function placeOrder(input: PlaceOrderInput) {
     }
   } catch { /* costs are optional; the dashboard reports coverage */ }
 
+  /* THE COMMISSION RATE, AS IT STANDS RIGHT NOW.
+   *
+   * Snapshotted onto every line for the same reason the cost above is: a
+   * rate is a term of the deal on the day of the sale, not a property of
+   * the seller for all time. Without this, agreeing a lower rate with a
+   * store rewrote what the platform owed them on every order they had ever
+   * completed.
+   *
+   * A seller's own rate beats the platform default, which is the same
+   * precedence computeSellerEarnings() has always applied -- the change is
+   * WHEN it is applied, not what it resolves to. Lines with no seller (the
+   * marketplace's own goods) carry no rate: there is no commission on
+   * selling to yourself. */
+  const rateBySeller = new Map<string, number>();
+  const platformRate = Number(settings?.commission_rate ?? 0);
+  try {
+    const sellerIds = [...new Set(
+      (prodRows || []).map((r) => (r.seller_id as string | null) ?? "").filter(Boolean))];
+    if (sellerIds.length) {
+      const { data: sellerRows } = await sb
+        .from("sellers").select("id, commission_rate").in("id", sellerIds);
+      for (const r of sellerRows || []) {
+        rateBySeller.set(r.id as string, Number(r.commission_rate ?? platformRate));
+      }
+    }
+  } catch { /* fall back to the platform rate for every line */ }
+
   // Set inside the map below when any line turns out to be out of stock.
   let isPreorder = false;
 
@@ -154,7 +218,12 @@ export async function placeOrder(input: PlaceOrderInput) {
     // matches the column default for a database that has run
     // supabase/preorders.sql and is the friendlier default for one that
     // has not.
-    if (row.stock_status === "out") {
+    // Per LINE, not per order. The order-wide flag below is what the ref
+    // and the is_preorder column are built from, but the quantity ceiling
+    // has to ask about this product -- one pre-ordered line in a basket
+    // must not lift the limit off everything else in it.
+    const linePreorder = row.stock_status === "out";
+    if (linePreorder) {
       const allowed = (row as { preorder_enabled?: boolean }).preorder_enabled !== false;
       if (!allowed) throw new Error(`"${row.name}" is out of stock`);
       isPreorder = true;
@@ -164,7 +233,14 @@ export async function placeOrder(input: PlaceOrderInput) {
     if (!Number.isFinite(qty) || qty < 1 || qty > MAX_LINE_QTY) {
       throw new Error(`Invalid quantity for "${row.name}"`);
     }
-    if (row.qty > 0 && qty > row.qty) {
+    // NO `row.qty > 0 &&` GUARD ON THIS. It used to read
+    // `if (row.qty > 0 && qty > row.qty)`, which meant that a product sitting
+    // at qty = 0 whose stock_status had not yet been flipped to 'out'
+    // short-circuited the whole check -- so ANY quantity was accepted, with
+    // no limit at all, on exactly the products most likely to be racing
+    // towards zero. Out-of-stock is handled above (as a pre-order or a
+    // refusal); this is the quantity ceiling and it applies always.
+    if (!linePreorder && qty > row.qty) {
       throw new Error(`Only ${row.qty} left of "${row.name}"`);
     }
 
@@ -189,6 +265,12 @@ export async function placeOrder(input: PlaceOrderInput) {
       // distinguishable from "costs nothing" for the whole life of the row.
       ...(costByProduct.has(row.id as string)
         ? { cost: costByProduct.get(row.id as string) }
+        : {}),
+      // Same rule, same reason: present only when there is a seller to
+      // take a commission from, so "the shop's own goods" and "a rate
+      // nobody recorded" stay distinguishable forever.
+      ...(rateBySeller.has((row.seller_id as string) || "")
+        ? { commission_rate: rateBySeller.get(row.seller_id as string) }
         : {}),
     };
   });
@@ -229,9 +311,12 @@ export async function placeOrder(input: PlaceOrderInput) {
   // days later.
   const lang = await getLang();
 
-  const { data, error } = await sb
+  const { data, error } = await writeTolerating<Order>(
+    { idempotency_key: idemKey },
+    (extra) => sb
     .from("orders")
     .insert({
+      ...extra,
       ref,
       lang,
       is_preorder: isPreorder,
@@ -261,8 +346,21 @@ export async function placeOrder(input: PlaceOrderInput) {
       status: "new",
     })
     .select()
-    .single();
-  if (error) throw error;
+    .single()
+  );
+  // 23505 on the idempotency index means the SAME attempt arrived twice and
+  // the other one won the race. That is a success, not a failure: read back
+  // what it made and hand the buyer the same reference. Anything else is a
+  // real error.
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (idemKey && code === "23505") {
+      const existing = await findByIdempotencyKey(idemKey);
+      if (existing) return existing;
+    }
+    throw error;
+  }
+  if (!data) throw new Error("The order was not created.");
 
   await sb.from("order_log").insert({
     order_id: data.id,
@@ -297,7 +395,9 @@ export async function lookupOrder(ref: string, phone: string) {
   if (!data) return null;
   if (data.buyer_phone !== phoneNorm(phone)) return null;
   data.order_log?.sort((a: OrderLogEntry, b: OrderLogEntry) => a.id - b.id);
-  return data;
+  // The stored proof_url is not handed out; a fresh, short-lived one is
+  // minted for this viewing. See lib/paymentProof.ts.
+  return await withFreshProofUrl(data);
 }
 
 /** "My Orders" — knowing the phone number alone reveals every order made
@@ -311,7 +411,7 @@ export async function getOrdersByPhone(phone: string) {
   // endpoint is a standing offer to enumerate the store's customers.
   // Throttling doesn't fix the trust model, but it makes bulk harvesting
   // expensive. 20 lookups / 5 minutes per IP.
-  const lookupLimit = rateLimit(await callerKey("order-lookup"), 20, 300);
+  const lookupLimit = await rateLimit(await callerKey("order-lookup"), 20, 300);
   if (!lookupLimit.allowed) return [];
   const sb = supabaseAdmin();
   const normalized = phoneNorm(phone);
@@ -370,8 +470,28 @@ export async function uploadPaymentProof(ref: string, phone: string, dataUrl: st
     contentType,
   });
   if (error) throw error;
-  const { data: signed } = await sb.storage.from("payment-proofs").createSignedUrl(path, 60 * 60 * 24 * 365);
-  await sb.from("orders").update({ proof_url: signed?.signedUrl }).eq("id", order.id);
+
+  /* THE PATH IS THE RECORD, not the URL. A signed URL grants access to
+   * whoever holds it, with no session behind it, so storing one on the
+   * order row means a customer's bank slip is readable by anyone who ever
+   * sees that row. Readers mint their own, briefly -- see lib/paymentProof.
+   *
+   * A short URL is still written alongside it so the page that comes back
+   * from this upload can show what was just uploaded. */
+  const { data: signed } = await sb.storage
+    .from("payment-proofs").createSignedUrl(path, PROOF_URL_SECONDS);
+  const written = await writeTolerating({ proof_path: path }, (extra) =>
+    sb.from("orders").update({ proof_url: signed?.signedUrl, ...extra }).eq("id", order.id));
+
+  // No proof_path column yet: the URL is the only record of this file, so
+  // it has to outlive the request that wrote it. Thirty days, not a year.
+  if (written.degraded) {
+    const { data: longer } = await sb.storage
+      .from("payment-proofs").createSignedUrl(path, PROOF_URL_FALLBACK_SECONDS);
+    if (longer?.signedUrl) {
+      await sb.from("orders").update({ proof_url: longer.signedUrl }).eq("id", order.id);
+    }
+  }
   await sb.from("order_log").insert({ order_id: order.id, text: "Kliente karga komprovante pagamentu" });
   revalidatePath("/admin/orders");
 }
@@ -396,6 +516,28 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   if (before) {
     await sb.from("order_log").insert({ order_id: orderId, text: `Estadu: ${before.status} → ${status}` });
   }
+
+  /* CANCELLING DOES NOTHING AT THE BANK.
+   *
+   * There is no void and no refund on the provider interface (see
+   * lib/payments/types.ts), so a card order that was authorised or
+   * captured and is now cancelled leaves the buyer's money with BNCTL
+   * and nothing in this application asking for it back. Said on the
+   * order itself, where whoever cancelled it is looking, as well as on
+   * the home page's list (attention.ts, "cards_to_void") -- one of them
+   * is read at the moment it happens and the other keeps asking until
+   * it is done. */
+  if (status === "cancelled" && before) {
+    const { data: pay } = await sb
+      .from("orders").select("pay_method, pay_status").eq("id", orderId).maybeSingle();
+    if (pay?.pay_method === "card" && (pay.pay_status === "paid" || pay.pay_status === "deposit")) {
+      await sb.from("order_log").insert({
+        order_id: orderId,
+        text: "* Osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, depois troka pagamentu ba 'refunded'.",
+      });
+    }
+  }
+
   await notifyStatusChange(orderId, status);
   revalidatePath("/admin/orders");
 }

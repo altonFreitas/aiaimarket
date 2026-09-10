@@ -1,14 +1,24 @@
 import "server-only";
 
-/** Minimal in-process fixed-window rate limiter.
+/* Throttling, in two layers.
  *
- * Scope and honesty about it: this counts attempts per serverless instance,
- * not globally. On Vercel that means a determined attacker spread across
- * many cold starts sees a higher effective ceiling than the number below.
- * It is still the difference between "guess ADMIN_PASSWORD at request rate"
- * and "guess it slowly" — and it costs no extra infrastructure. If this
- * store ever holds real money, move the counter into Postgres or Upstash;
- * the call sites won't change.
+ * WHAT WAS WRONG WITH ONE. The counter below is a Map inside one serverless
+ * instance. On Vercel, concurrent requests land on different instances and
+ * the attacker picks the concurrency -- so every limit in the application
+ * was advisory, including the one in front of the admin password and the
+ * one in front of getOrdersByPhone, which returns a customer's name and
+ * order history for a phone number and nothing else.
+ *
+ * SO THERE ARE NOW TWO. The in-memory window still runs first, because it
+ * is free and it stops an obvious flood before it reaches the database.
+ * Whatever it lets through is then counted in Postgres, where every
+ * instance is counting into the same row (supabase/rate-limits.sql).
+ *
+ * AND IT FAILS OPEN, deliberately. If the database cannot be reached the
+ * shared count is skipped and the local answer stands. Failing closed would
+ * mean a transient database blip stops people ordering -- turning a
+ * security control into an outage -- and the fallback is not "no limit",
+ * it is exactly the limit this file has enforced since it was written.
  */
 type Bucket = { count: number; resetAt: number };
 
@@ -21,7 +31,9 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
-export function rateLimit(key: string, limit: number, windowSeconds: number): RateLimitResult {
+/** The in-process window. Exported because it is the fallback, the local
+ * gate, and the thing the unit tests can exercise without a database. */
+export function rateLimitLocal(key: string, limit: number, windowSeconds: number): RateLimitResult {
   const now = Date.now();
   const windowMs = windowSeconds * 1000;
 
@@ -46,6 +58,39 @@ export function rateLimit(key: string, limit: number, windowSeconds: number): Ra
     };
   }
   return { allowed: true, remaining: limit - existing.count, retryAfterSeconds: 0 };
+}
+
+/** The real one: local first, then shared.
+ *
+ * Async now, which every call site already was -- they all `await
+ * callerKey()` on the same line. */
+export async function rateLimit(
+  key: string, limit: number, windowSeconds: number
+): Promise<RateLimitResult> {
+  // Free, and it never has to be reached over a network. An instance that
+  // has already seen more than the limit by itself is over it globally too,
+  // so there is nothing to ask.
+  const local = rateLimitLocal(key, limit, windowSeconds);
+  if (!local.allowed) return local;
+
+  try {
+    const { supabaseAdmin } = await import("@/lib/supabase/admin");
+    const { data, error } = await supabaseAdmin().rpc("hit_rate_limit", {
+      p_key: key, p_limit: limit, p_window_seconds: windowSeconds,
+    });
+    // No such function yet -- supabase/rate-limits.sql has not been run --
+    // or the row came back in a shape this does not recognise. Either way
+    // the local answer is what this file has always returned.
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row || typeof row.allowed !== "boolean") return local;
+    return {
+      allowed: row.allowed,
+      remaining: Number(row.remaining) || 0,
+      retryAfterSeconds: Number(row.retry_after) || 0,
+    };
+  } catch {
+    return local;
+  }
 }
 
 /** Best-effort caller identity for rate-limit keys. Behind Vercel,

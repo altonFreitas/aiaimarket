@@ -16,7 +16,7 @@ export async function startCardPayment(ref: string, phone: string): Promise<{ re
   // Opening a gateway session is a real outbound API call. Throttle it so a
   // script cannot burn through the acquirer's rate limit (or run up a
   // per-transaction cost) on our behalf.
-  const limit = rateLimit(await callerKey("start-payment"), 10, 300);
+  const limit = await rateLimit(await callerKey("start-payment"), 10, 300);
   if (!limit.allowed) {
     throw new Error(`Too many payment attempts. Try again in ${limit.retryAfterSeconds}s.`);
   }
