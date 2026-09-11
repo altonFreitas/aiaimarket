@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { localeMetadata, localePath } from "./locale";
+import type { Lang } from "./types";
 
 /* What a catalog listing tells a crawler about itself.
  *
@@ -52,6 +54,9 @@ export function listingMetadata(input: {
   description?: string;
   path: string;
   searchParams: ListingSearchParams;
+  /** The language this URL asked for. Its canonical is itself and its
+   * hreflang cluster names the other two -- see lib/locale.ts. */
+  lang: Lang;
 }): Metadata {
   const filtered = isFilteredListing(input.searchParams);
   return {
@@ -59,8 +64,13 @@ export function listingMetadata(input: {
     description: input.description,
     ...(filtered
       ? { robots: { index: false, follow: true } }
-      : { alternates: { canonical: input.path } }),
-    openGraph: { type: "website", url: input.path, title: input.title, description: input.description },
+      : localeMetadata(input.lang, input.path)),
+    openGraph: {
+      type: "website",
+      url: localePath(input.lang, input.path),
+      title: input.title,
+      description: input.description,
+    },
   };
 }
 

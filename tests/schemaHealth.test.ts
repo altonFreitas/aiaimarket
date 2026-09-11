@@ -9,10 +9,12 @@ import {
 
 /** Everything a fully migrated database has beyond its tables. */
 const KINDS = {
-  views: ["stock_reconciliation"],
+  views: ["stock_reconciliation", "stock_reservations"],
   routines: [
     "schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves",
     "hit_rate_limit", "redact_old_order_pii",
+    "reserve_order_stock", "release_stale_reservations",
+    "seller_earnings", "sync_order_items",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -51,9 +53,10 @@ const EVERYTHING = snap([
   "payments", "payment_events",
   "suppliers", "purchase_orders", "purchase_order_items",
   "purchase_order_items.sizes", "purchase_order_items.description",
-  "stock_movements",
+  "stock_movements", "order_items",
   "product_costs", "sales_targets",
   "order_returns", "order_return_items",
+  "return_requests", "return_request_items",
   "promotions",
   "hero_slides.video_url",
   "products.loves",
@@ -156,7 +159,10 @@ describe("the objects that need looking past tables", () => {
     }));
     const f = out.find((x) => x.file === "stock-ledger.sql")!;
     expect(f.applied).toBe(false);
-    expect(f.missing).toEqual(["stock_reconciliation", "sync_order_stock()"]);
+    // The view alone. sync_order_stock() used to be probed here too and no
+    // longer is: stock-reservation.sql keeps a wrapper of that name, so its
+    // presence stopped saying anything about this file.
+    expect(f.missing).toEqual(["stock_reconciliation"]);
   });
 
   it("catches a harden-rls.sql that was never run", () => {
@@ -223,7 +229,8 @@ describe("an old schema_inventory() that can only see tables", () => {
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
       "loves.sql", "refund-settlement.sql", "rate-limits.sql", "pii-retention.sql",
-      "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
+      "order-items.sql", "stock-reservation.sql", "stock-ledger.sql",
+      "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {
       expect([f.file, f.applied]).toEqual([f.file, false]);

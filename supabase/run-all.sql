@@ -985,9 +985,326 @@ as $$
 $$;
 
 revoke all on function search_products(text, uuid[], uuid[], numeric, numeric, boolean, text, int, int) from public;
+-- search_products and suggest_products stay reachable by anon on purpose:
+-- they ARE the catalog, they run as the caller, and the RLS policy on
+-- products is still what decides which rows come back.
 revoke all on function suggest_products(text, int) from public;
 grant execute on function search_products(text, uuid[], uuid[], numeric, numeric, boolean, text, int, int) to anon, authenticated;
 grant execute on function suggest_products(text, int) to anon, authenticated;
+
+
+-- ==== order-items.sql ===================================================
+
+-- ===========================================================================
+-- Loja AIAI -- order lines become rows
+--
+-- Run AFTER supabase/schema.sql and supabase/marketplace-v2.sql.
+--
+-- THE ROOT OF FOUR SEPARATE FINDINGS. Order lines live in `orders.items`
+-- as JSONB. JSONB is a fine way to keep a SNAPSHOT -- what this line was
+-- called, what it cost, what rate applied -- and a hopeless way to answer
+-- "which orders belong to seller X", because there is no index into the
+-- inside of a document.
+--
+-- So every seller-facing screen scanned the 5,000 newest orders
+-- MARKETPLACE-WIDE and filtered them in JavaScript. That one choice is:
+--
+--   * the earnings cap. Past 5,000 total orders a seller's older completed
+--     orders fall out of the window and stop counting toward gross sales,
+--     while every dollar already paid to them still counts. The dashboard
+--     now refuses to show a figure it cannot stand behind, which is honest
+--     and is not a fix.
+--   * the cost of every seller screen, which is the same full scan whether
+--     the seller has two orders or two hundred.
+--   * the best-sellers ranking, which scans completed orders to add up
+--     units per product.
+--   * and the reason a mixed-seller order is read-only for everyone in it:
+--     status lives on the order, so there is nowhere to put "I have
+--     dispatched my half".
+--
+-- WHAT THIS FILE DOES NOT DO. It does not remove `orders.items`. That
+-- column stays exactly as it is and stays authoritative for display: it is
+-- the snapshot, written once, never migrated, and every existing reader of
+-- it keeps working untouched. This table is an INDEX INTO it, derived from
+-- it, and kept in step by a trigger rather than by a second write in
+-- application code that somebody will one day forget.
+--
+-- Safe to re-run.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1. The table
+-- ---------------------------------------------------------------------------
+create table if not exists order_items (
+  id           uuid primary key default gen_random_uuid(),
+  order_id     uuid not null references orders(id) on delete cascade,
+
+  -- SET NULL, not CASCADE. Deleting a product must never delete the record
+  -- of having sold it -- that would rewrite history and every total derived
+  -- from it. The name and price below are what keep the line readable
+  -- afterwards.
+  product_id   uuid references products(id) on delete set null,
+  seller_id    uuid references sellers(id) on delete set null,
+
+  -- SNAPSHOTS, all four. Same rule the JSONB already follows and the same
+  -- reason purchase orders capture fx_rate: a line records the deal as it
+  -- was on the day, so re-pricing a product or renegotiating a rate cannot
+  -- silently rewrite what was sold or what was owed.
+  name         text not null default '',
+  size         text not null default '',
+  qty          int not null check (qty > 0),
+  unit_price   numeric(10,2) not null,
+  -- The platform's purchase cost. Null means "not recorded", which stays
+  -- distinguishable from "cost nothing" forever.
+  cost         numeric(14,4),
+  -- Null for the marketplace's own goods: there is no commission on selling
+  -- to yourself, and that is different from a rate nobody wrote down.
+  commission_rate numeric(5,2),
+
+  -- WHERE THIS SELLER'S HALF OF THE ORDER HAS GOT TO.
+  --
+  -- The order's own status is one column shared by everyone in it, which is
+  -- why a mixed-seller order has always been read-only for the sellers in
+  -- it: there was nowhere for one of them to say "mine has gone out" without
+  -- claiming it for the other. This is that somewhere.
+  --
+  -- Deliberately a SHORTER vocabulary than orders.status. A seller is not
+  -- running the delivery and cannot know that a package arrived; what they
+  -- know is whether they have packed it and handed it over.
+  fulfilment_status text not null default 'pending'
+    check (fulfilment_status in ('pending','preparing','ready','dispatched','cancelled')),
+
+  -- Copied from the order, not defaulted to now(). It is what makes
+  -- (seller_id, created_at) answer "this seller's recent orders" without
+  -- joining back to orders at all.
+  created_at   timestamptz not null default now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2. The index the whole file exists for
+-- ---------------------------------------------------------------------------
+-- "This seller's lines, newest first" -- which is every seller screen, the
+-- earnings aggregate and the payout ledger, all served by one index instead
+-- of one marketplace-wide scan each.
+create index if not exists order_items_seller_idx
+  on order_items (seller_id, created_at desc);
+
+-- Reading one order's lines back, which is the join behind the seller's
+-- order list.
+create index if not exists order_items_order_idx on order_items (order_id);
+
+-- GROUP BY product_id, for the best-sellers ranking and demand planning.
+create index if not exists order_items_product_idx on order_items (product_id);
+
+-- ONE ROW PER LINE, and what makes the trigger below idempotent. A line is
+-- identified by its order, its product and its size -- the same product in
+-- two sizes is two lines, which is exactly how the basket treats it.
+--
+-- coalesce on product_id because a null is not equal to a null in a unique
+-- index, and a line whose product was later deleted must still be unique.
+create unique index if not exists order_items_line_uq
+  on order_items (order_id, coalesce(product_id, '00000000-0000-0000-0000-000000000000'::uuid), size);
+
+comment on table order_items is
+  'One row per order line, derived from orders.items and kept in step by a trigger. orders.items stays authoritative for display; this is the index into it. See supabase/order-items.sql.';
+
+-- ---------------------------------------------------------------------------
+-- 3. Kept in step by the database, not by remembering
+-- ---------------------------------------------------------------------------
+-- A second write in placeOrder() would work until the day something else
+-- writes an order -- a backfill script, a support fix, an import -- and
+-- then the two would disagree with nothing to say which was right.
+--
+-- ON CONFLICT DO NOTHING rather than DO UPDATE: fulfilment_status is owned
+-- by the seller who set it, and re-running this must never walk somebody's
+-- "dispatched" back to "pending".
+
+create or replace function sync_order_items() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into order_items (
+    order_id, product_id, seller_id, name, size, qty,
+    unit_price, cost, commission_rate, created_at
+  )
+  select new.id,
+         nullif(i->>'product_id', '')::uuid,
+         nullif(i->>'seller_id', '')::uuid,
+         coalesce(i->>'name', ''),
+         coalesce(i->>'size', ''),
+         (i->>'qty')::int,
+         (i->>'price')::numeric,
+         nullif(i->>'cost', '')::numeric,
+         nullif(i->>'commission_rate', '')::numeric,
+         new.created_at
+    from jsonb_array_elements(new.items) i
+   where coalesce((i->>'qty')::int, 0) > 0
+     -- A line naming a seller that no longer exists would fail the foreign
+     -- key and take the whole order insert down with it. The line is worth
+     -- more than the attribution.
+     and (nullif(i->>'seller_id', '') is null
+          or exists (select 1 from sellers s where s.id = (i->>'seller_id')::uuid))
+     and (nullif(i->>'product_id', '') is null
+          or exists (select 1 from products p where p.id = (i->>'product_id')::uuid))
+  on conflict do nothing;
+
+  return null;
+end $$;
+
+comment on function sync_order_items is
+  'Derives order_items rows from orders.items. Never updates an existing line: fulfilment_status belongs to the seller who set it.';
+
+drop trigger if exists trg_sync_order_items on orders;
+create trigger trg_sync_order_items
+  after insert or update of items on orders
+  for each row execute function sync_order_items();
+
+-- ---------------------------------------------------------------------------
+-- 4. Backfill
+-- ---------------------------------------------------------------------------
+-- Every order already in the table, turned into lines. Without this the
+-- new queries would report that every seller's history began the day this
+-- ran -- which is the earnings bug again, wearing a different hat.
+
+do $$
+declare n bigint;
+begin
+  insert into order_items (
+    order_id, product_id, seller_id, name, size, qty,
+    unit_price, cost, commission_rate, created_at
+  )
+  select o.id,
+         nullif(i->>'product_id', '')::uuid,
+         nullif(i->>'seller_id', '')::uuid,
+         coalesce(i->>'name', ''),
+         coalesce(i->>'size', ''),
+         (i->>'qty')::int,
+         (i->>'price')::numeric,
+         nullif(i->>'cost', '')::numeric,
+         nullif(i->>'commission_rate', '')::numeric,
+         o.created_at
+    from orders o
+    cross join lateral jsonb_array_elements(o.items) i
+   where coalesce((i->>'qty')::int, 0) > 0
+     and (nullif(i->>'seller_id', '') is null
+          or exists (select 1 from sellers s where s.id = (i->>'seller_id')::uuid))
+     and (nullif(i->>'product_id', '') is null
+          or exists (select 1 from products p where p.id = (i->>'product_id')::uuid))
+  on conflict do nothing;
+  get diagnostics n = row_count;
+  raise notice 'order_items backfill: % line(s)', n;
+end $$;
+
+-- A cancelled order's lines are cancelled too. Backfilled once here;
+-- from now on the trigger in section 6 keeps it true.
+update order_items oi
+   set fulfilment_status = 'cancelled'
+  from orders o
+ where o.id = oi.order_id
+   and o.status = 'cancelled'
+   and oi.fulfilment_status <> 'cancelled';
+
+-- ---------------------------------------------------------------------------
+-- 5. Earnings, as one indexed aggregate instead of a scan
+-- ---------------------------------------------------------------------------
+-- What computeSellerEarnings() was doing in JavaScript over 5,000 orders,
+-- expressed once, correctly, over an index.
+--
+-- COMPLETED ORDERS ONLY, which is the rule that has always applied: a
+-- pending order is a possible future sale, not a realised one.
+--
+-- The commission falls back to the rate in force NOW for lines placed
+-- before rates were recorded on them -- the same precedence the TypeScript
+-- applied, and the same reason: those lines were always computed that way,
+-- so nothing about the past changes on the day this ships.
+
+create or replace function seller_earnings(p_seller_id uuid)
+returns table (
+  completed_order_count bigint,
+  gross_sales numeric,
+  commission numeric,
+  earnings numeric
+) language sql stable security definer set search_path = public as $$
+  with rate as (
+    select coalesce(
+      (select s.commission_rate from sellers s where s.id = p_seller_id),
+      (select st.commission_rate from settings st where st.id = 1),
+      0) as fallback
+  ),
+  lines as (
+    select oi.order_id,
+           oi.unit_price * oi.qty as line_total,
+           oi.unit_price * oi.qty
+             * coalesce(oi.commission_rate, (select fallback from rate)) / 100 as line_commission
+      from order_items oi
+      join orders o on o.id = oi.order_id
+     where oi.seller_id = p_seller_id
+       and o.status = 'completed'
+  )
+  select (select count(distinct order_id) from lines),
+         coalesce((select sum(line_total) from lines), 0),
+         coalesce((select sum(line_commission) from lines), 0),
+         coalesce((select sum(line_total) - sum(line_commission) from lines), 0);
+$$;
+
+comment on function seller_earnings is
+  'Gross sales, commission and net earnings for one seller across completed orders. One indexed aggregate; replaces a 5,000-row marketplace-wide scan.';
+
+revoke all on function seller_earnings(uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 6. A cancelled order cancels its lines
+-- ---------------------------------------------------------------------------
+-- Without this a seller's screen would keep showing "ready to dispatch" for
+-- an order the buyer cancelled yesterday, and the seller would pack it.
+
+create or replace function sync_order_item_cancellation() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'cancelled' and coalesce(old.status, '') <> 'cancelled' then
+    update order_items
+       set fulfilment_status = 'cancelled'
+     where order_id = new.id and fulfilment_status <> 'cancelled';
+  end if;
+  return null;
+end $$;
+
+drop trigger if exists trg_sync_order_item_cancellation on orders;
+create trigger trg_sync_order_item_cancellation
+  after update of status on orders
+  for each row execute function sync_order_item_cancellation();
+
+-- ---------------------------------------------------------------------------
+-- 7. Grants
+-- ---------------------------------------------------------------------------
+-- Buyer names and phone numbers are not in this table, but unit costs and
+-- commission rates are -- the platform's margin on every line it has ever
+-- sold. Nothing public reads it; every reader goes through the service role.
+alter table order_items enable row level security;
+revoke all on order_items from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Done.
+--
+-- Verify the derivation agrees with its source:
+--
+--   select count(*) from orders o
+--    cross join lateral jsonb_array_elements(o.items) i
+--    where coalesce((i->>'qty')::int, 0) > 0;
+--   select count(*) from order_items;
+--
+-- The second may be smaller by exactly the lines whose product or seller
+-- no longer exists, which are skipped on purpose.
+--
+-- Until this file is run, every reader falls back to the JSONB scan it has
+-- always used. Nothing half-migrates.
+-- ---------------------------------------------------------------------------
+
+-- Trigger functions, revoked for the same reason as everything else here:
+-- Postgres refuses a direct call to one anyway, but "it fails for another
+-- reason" is not a grant policy, and the next person to make one of these
+-- callable will not re-derive that.
+revoke all on function sync_order_items() from public, anon, authenticated;
+revoke all on function sync_order_item_cancellation() from public, anon, authenticated;
 
 
 -- ==== notifications.sql =================================================
@@ -1617,6 +1934,90 @@ create trigger trg_apply_stock_movement
 -- ---------------------------------------------------------------------------
 
 
+-- ==== preorders.sql =====================================================
+
+-- ===========================================================================
+-- preorders.sql — let a shopper order something that is out of stock.
+--
+-- Safe to run more than once. Run it in Supabase -> SQL Editor -> New query.
+--
+-- A PRE-ORDER IS AN ORDER, not a second kind of thing.
+--
+-- It is the same row in the same table, with one flag set. That is the whole
+-- design, and it is what makes the feature small: tracking links, the buyer
+-- SMS, the admin order screens, the sales dashboard and the payout ledger
+-- all keep working with no changes at all. A parallel "preorders" table
+-- would have needed every one of those rebuilt, and would have drifted from
+-- the real thing the first time either side changed.
+--
+-- What tells them apart is the reference prefix (PRO...) and this flag.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1. The flag
+-- ---------------------------------------------------------------------------
+
+alter table orders add column if not exists is_preorder boolean not null default false;
+
+comment on column orders.is_preorder is
+  'True when the order was placed for goods that were out of stock. Set by the SERVER from live stock, never from the browser.';
+
+create index if not exists orders_preorder_idx on orders (is_preorder) where is_preorder;
+
+-- ---------------------------------------------------------------------------
+-- 2. Per-product opt-out, and the promised date
+-- ---------------------------------------------------------------------------
+-- Enabled by default: an out-of-stock product a shopper wants is a sale
+-- waiting to happen, and the shop's own screens already show which those
+-- are. Turn it off for a line being discontinued, where taking money for
+-- something that will never arrive is the wrong answer.
+
+alter table products add column if not exists preorder_enabled boolean not null default true;
+
+-- When the shop expects to have it. Optional, and shown to the buyer when
+-- set: "we don't know yet" is a legitimate answer and better than inventing
+-- a date that will be missed.
+alter table products add column if not exists preorder_eta date;
+
+comment on column products.preorder_eta is
+  'Expected availability. NULL means genuinely unknown, which is shown as such rather than guessed.';
+
+-- ---------------------------------------------------------------------------
+-- 3. Stock must not move for a pre-order
+-- ---------------------------------------------------------------------------
+-- The original trigger (schema.sql) decrements on confirm. For a pre-order
+-- there is nothing to decrement -- that is the entire point -- and letting
+-- it run would quietly hide the shortage: greatest(0, ...) floors at zero,
+-- so the shelf would keep reading "0" while the promises pile up invisibly.
+-- Stock moves when the goods actually arrive, through the purchase receipt.
+
+create or replace function decrement_stock_on_confirm() returns trigger as $$
+declare item jsonb;
+begin
+  if new.status = 'confirmed' and old.status = 'new' and not coalesce(new.is_preorder, false) then
+    for item in select * from jsonb_array_elements(new.items) loop
+      update products
+        set qty = greatest(0, qty - (item->>'qty')::int),
+            stock_status = case
+              when greatest(0, qty - (item->>'qty')::int) = 0 then 'out'
+              when greatest(0, qty - (item->>'qty')::int) <= 2 then 'low'
+              else stock_status end
+        where id = (item->>'product_id')::uuid;
+    end loop;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+-- ---------------------------------------------------------------------------
+-- Done.
+--
+-- Nothing else changes. A pre-order gets a PRO reference, appears in the
+-- admin order list beside every other order, sends the same tracking SMS,
+-- and is fulfilled the same way once the stock arrives.
+-- ---------------------------------------------------------------------------
+
+
 -- ==== stock-ledger.sql ==================================================
 
 -- ===========================================================================
@@ -1639,6 +2040,8 @@ create trigger trg_apply_stock_movement
 -- back. They were decremented on confirmation and stayed gone.
 --
 -- Safe to re-run. Run AFTER supabase/stock-receipt.sql.
+-- Run AFTER supabase/preorders.sql -- the backfill below and the trigger it
+-- installs both read orders.is_preorder.
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
@@ -1873,6 +2276,418 @@ revoke all on stock_reconciliation from anon, authenticated;
 -- ---------------------------------------------------------------------------
 
 
+-- ==== stock-reservation.sql =============================================
+
+-- ===========================================================================
+-- Loja AIAI -- stock held from the moment it is ordered
+--
+-- Run AFTER supabase/stock-ledger.sql.
+--
+-- THE LAST CRITICAL FINDING. Stock only ever moved when an ADMIN confirmed
+-- an order, so between placing and confirming -- which is minutes at best
+-- and overnight in practice -- nothing held the units. Two consequences,
+-- and the second is the one that bites at today's volume rather than at
+-- scale:
+--
+--   1. placeOrder() read products.qty, decided the order fit, and inserted.
+--      Read-then-write: n buyers arriving together all read qty = 1, all
+--      pass, all get an order. Closing the `row.qty > 0 &&` short-circuit
+--      removed the UNBOUNDED case; it did nothing about the race.
+--   2. Even with no concurrency at all, the last unit stayed purchasable by
+--      everybody until a human noticed. That is not a race, it is just the
+--      shop advertising something it has already promised away.
+--
+-- WHY THIS IS A SMALLER CHANGE THAN IT LOOKS. sync_order_stock() already
+-- states a TARGET and moves to it rather than applying deltas on each
+-- transition -- which is what makes it safe to call repeatedly and in any
+-- order. That design absorbs a third state cleanly: an order now targets a
+-- RESERVATION while it is new, a SALE once it is live, and nothing once it
+-- is cancelled. Every transition between those still converges, because
+-- the function keeps writing only the difference.
+--
+-- WHAT A RESERVATION IS. A stock_movements row like any other, with
+-- reason = 'reservation', and it moves products.qty exactly the way a sale
+-- does. That is deliberate: it means "available" needs no new definition
+-- and no new query. products.qty already IS availability, because
+-- everything holding a unit has taken it out of the balance. The catalog,
+-- the quantity ceiling and the reconciliation view all keep working with
+-- no idea this file exists.
+--
+-- Safe to re-run.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 1. The ledger learns the word
+-- ---------------------------------------------------------------------------
+-- A check constraint listing the reasons has to be replaced, not added to.
+-- Dropped by name and rebuilt so re-running this is a no-op rather than a
+-- second constraint saying something subtly different.
+
+alter table stock_movements
+  drop constraint if exists stock_movements_reason_check;
+
+alter table stock_movements
+  add constraint stock_movements_reason_check
+  check (reason in ('purchase_receipt','sale','adjustment','return',
+                    'correction','reservation'));
+
+comment on column stock_movements.reason is
+  'purchase_receipt, sale, return, adjustment, correction, or reservation -- units held for an order that has been placed and not yet confirmed. A reservation moves the balance exactly like a sale; see supabase/stock-reservation.sql.';
+
+-- The sweep in section 4 asks "which orders are still holding units", which
+-- is a question about a handful of rows in a table that only grows.
+create index if not exists stock_movements_open_reservation_idx
+  on stock_movements (order_id)
+  where reason = 'reservation';
+
+-- ---------------------------------------------------------------------------
+-- 2. Three targets instead of two
+-- ---------------------------------------------------------------------------
+-- The old signature took a boolean, which could only express two states.
+-- This one names the state, and tracks the two kinds of holding SEPARATELY
+-- so that confirming an order writes the pair that converts one into the
+-- other:
+--
+--     reservation  -3    (placed)
+--     reservation  +3    (confirmed: the hold is released...)
+--     sale         -3    (...and becomes a sale)
+--
+-- Net movement on confirmation: zero. The units never come back onto the
+-- shelf and are never taken twice. And the ledger says, in order, exactly
+-- what happened to them -- which is the entire reason for having one.
+--
+-- Cancelling from either state releases whichever is outstanding, so an
+-- order cancelled before confirmation gives back its reservation and one
+-- cancelled after gives back its sale, with no special case for either.
+
+create or replace function sync_order_stock_state(p_order_id uuid, p_state text)
+returns void language plpgsql as $$
+begin
+  if p_state not in ('reserved', 'sold', 'released') then
+    raise exception 'sync_order_stock_state: unknown state %', p_state;
+  end if;
+
+  with want as (
+    -- What this order asks of each product, lines added up: the same
+    -- product can appear twice under two sizes, and stock does not care
+    -- about sizes.
+    select (i->>'product_id')::uuid   as product_id,
+           sum((i->>'qty')::int)::int as want,
+           max(o.ref)                 as ref
+      from orders o
+      cross join lateral jsonb_array_elements(o.items) i
+     where o.id = p_order_id
+       and nullif(i->>'product_id', '') is not null
+       and coalesce((i->>'qty')::int, 0) > 0
+       and exists (select 1 from products p where p.id = (i->>'product_id')::uuid)
+     group by 1
+  ),
+  done as (
+    -- Held and sold are summed apart, because the target for each is
+    -- different in every state and netting them would make 'reserved' and
+    -- 'sold' indistinguishable -- which is exactly the distinction the
+    -- sweep in section 4 depends on.
+    select m.product_id,
+           sum(m.delta) filter (where m.reason = 'reservation')       as held,
+           sum(m.delta) filter (where m.reason in ('sale','return'))  as sold
+      from stock_movements m
+     where m.order_id = p_order_id
+     group by 1
+  ),
+  move as (
+    select w.product_id,
+           w.ref,
+           (case when p_state = 'reserved' then -w.want else 0 end)
+             - coalesce(d.held, 0) as need_hold,
+           (case when p_state = 'sold' then -w.want else 0 end)
+             - coalesce(d.sold, 0) as need_sale
+      from want w
+      left join done d on d.product_id = w.product_id
+  ),
+  rows_to_write as (
+    select product_id, need_hold as delta, 'reservation'::text as reason, ref
+      from move where need_hold <> 0
+    union all
+    select product_id, need_sale,
+           case when need_sale < 0 then 'sale' else 'return' end, ref
+      from move where need_sale <> 0
+  )
+  insert into stock_movements (product_id, delta, reason, order_id, note)
+  select r.product_id, r.delta, r.reason, p_order_id,
+         case
+           when r.reason = 'reservation' and r.delta < 0
+             then 'held for order ' || coalesce(r.ref, '')
+           when r.reason = 'reservation'
+             then 'hold released, order ' || coalesce(r.ref, '')
+           when r.delta < 0 then 'order ' || coalesce(r.ref, '')
+           else 'returned to stock, order ' || coalesce(r.ref, '')
+         end
+    from rows_to_write r;
+end $$;
+
+comment on function sync_order_stock_state is
+  'Moves an order stock effect to one of three targets: reserved (held, not yet confirmed), sold, or released. Writes only the difference, so it is safe to call any number of times and in any order.';
+
+-- The old two-argument form stays, delegating, so anything still calling it
+-- keeps working and keeps meaning the same thing. Not dropped: a function
+-- signature is an interface, and this file should not be able to break a
+-- caller it has not been shown.
+create or replace function sync_order_stock(p_order_id uuid, p_take boolean)
+returns void language plpgsql as $$
+begin
+  perform sync_order_stock_state(p_order_id, case when p_take then 'sold' else 'released' end);
+end $$;
+
+comment on function sync_order_stock is
+  'Legacy two-state wrapper around sync_order_stock_state(). p_take true means sold, false means released.';
+
+-- ---------------------------------------------------------------------------
+-- 3. Reserving, with the check and the write in one place
+-- ---------------------------------------------------------------------------
+-- THE POINT OF THIS FUNCTION IS THE LOCK. Everything else it does was
+-- already being done in TypeScript; what could not be done there is holding
+-- the product row still between deciding there is enough and taking it.
+--
+-- SELECT ... FOR UPDATE makes concurrent callers queue on the row rather
+-- than all reading the same number. Two orders for the last unit therefore
+-- resolve as one success and one refusal, in some order, instead of two
+-- successes -- which is the whole finding.
+--
+-- Rows are locked in product_id order. Two orders containing the same two
+-- products in opposite basket order would otherwise take the two locks in
+-- opposite orders and deadlock; sorting makes that impossible rather than
+-- unlikely.
+--
+-- Raises on insufficient stock, naming the product and what is actually
+-- left, so the caller can put a real sentence in front of the buyer. The
+-- raise aborts the whole function, so a basket that fails on its third line
+-- leaves no hold behind from the first two.
+
+create or replace function reserve_order_stock(p_order_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  r        record;
+  v_qty    int;
+  v_name   text;
+  v_out    boolean;
+  v_pre    boolean;
+begin
+  -- A pre-order has no stock to hold -- that is what makes it a pre-order --
+  -- and holding some would be the shop taking units it has already said it
+  -- does not have.
+  select coalesce(is_preorder, false) into v_pre from orders where id = p_order_id;
+  if v_pre then return; end if;
+
+  for r in
+    select (i->>'product_id')::uuid   as product_id,
+           sum((i->>'qty')::int)::int as want
+      from orders o
+      cross join lateral jsonb_array_elements(o.items) i
+     where o.id = p_order_id
+       and nullif(i->>'product_id', '') is not null
+       and coalesce((i->>'qty')::int, 0) > 0
+     group by 1
+     order by 1                      -- deadlock avoidance; see above
+  loop
+    select p.qty, p.name, p.stock_status = 'out'
+      into v_qty, v_name, v_out
+      from products p
+     where p.id = r.product_id
+     for update;                     -- the lock this function exists for
+
+    if not found then
+      raise exception 'A product in your basket is no longer available'
+        using errcode = 'no_data_found';
+    end if;
+
+    -- An out-of-stock line in a non-pre-order basket should have been
+    -- refused before the order was written. Reaching here means the product
+    -- sold out between then and now, which is precisely the race.
+    if v_out or r.want > v_qty then
+      raise exception 'Only % left of "%"', greatest(v_qty, 0), v_name
+        using errcode = 'check_violation';
+    end if;
+  end loop;
+
+  -- Every row is locked and every line fits. Nothing else can take these
+  -- units until this transaction ends.
+  perform sync_order_stock_state(p_order_id, 'reserved');
+end $$;
+
+comment on function reserve_order_stock is
+  'Locks each product row, verifies the whole basket fits, and holds the units. Raises with the product name if it does not. Called by RPC from placeOrder so the check and the write cannot be separated.';
+
+revoke all on function reserve_order_stock(uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 4. The status trigger, taught the third state
+-- ---------------------------------------------------------------------------
+-- 'new' is now a state that HOLDS stock rather than one that does nothing.
+-- Everything from 'confirmed' onward converts the hold into a sale, and
+-- 'cancelled' releases whichever is outstanding.
+
+create or replace function decrement_stock_on_confirm() returns trigger as $$
+begin
+  if coalesce(new.is_preorder, false) then return new; end if;
+
+  if new.status = 'cancelled' then
+    perform sync_order_stock_state(new.id, 'released');
+  elsif new.status = 'new' then
+    perform sync_order_stock_state(new.id, 'reserved');
+  else
+    perform sync_order_stock_state(new.id, 'sold');
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+comment on function decrement_stock_on_confirm is
+  'Keeps an order stock effect in step with its status: new holds a reservation, live states hold a sale, cancelled holds nothing. products.qty is moved by apply_stock_movement(), never here.';
+
+-- ---------------------------------------------------------------------------
+-- 5. Giving back what was never confirmed
+-- ---------------------------------------------------------------------------
+-- A reservation with nothing behind it is worse than no reservation: it
+-- takes a real unit off the shelf on behalf of somebody who has gone. An
+-- order placed for cash-on-delivery and then abandoned would otherwise hold
+-- its units until a human noticed, which is the same failure as the one
+-- this file fixes, only slower.
+--
+-- So a hold has a lifetime. Anything still sitting at 'new' after
+-- p_hours goes back on the shelf, and the order is cancelled with a reason
+-- rather than left looking live with no stock behind it -- an order the shop
+-- believes in and cannot fill is the state to avoid.
+--
+-- The window is a parameter and not a constant here because it is a
+-- business decision (how long do you give somebody to pay by transfer?) and
+-- belongs with whoever schedules the sweep. See
+-- src/app/api/cron/release-reservations.
+
+create or replace function release_stale_reservations(p_hours int default 48)
+returns table (order_id uuid, order_ref text, released int)
+language plpgsql security definer set search_path = public as $$
+declare
+  r record;
+  v_units int;
+begin
+  if p_hours is null or p_hours < 1 then
+    raise exception 'release_stale_reservations: p_hours must be at least 1 (got %)', p_hours;
+  end if;
+
+  for r in
+    select o.id, o.ref
+      from orders o
+     where o.status = 'new'
+       and o.created_at < now() - make_interval(hours => p_hours)
+       -- Only orders actually holding something. An order that never
+       -- reserved (a pre-order, or one placed before this file was run)
+       -- is not stale stock and is not this function's business.
+       and exists (select 1 from stock_movements m
+                    where m.order_id = o.id and m.reason = 'reservation')
+       -- and still net-holding, rather than one already released by hand
+       and coalesce((select sum(m.delta) from stock_movements m
+                      where m.order_id = o.id and m.reason = 'reservation'), 0) < 0
+     order by o.created_at
+  loop
+    select coalesce(-sum(m.delta), 0)::int into v_units
+      from stock_movements m
+     where m.order_id = r.id and m.reason = 'reservation';
+
+    -- Cancelling fires the trigger in section 4, which releases the hold.
+    -- Done through the status rather than by writing movements directly, so
+    -- there is exactly one path that ends a reservation and the order does
+    -- not survive as a live order with no stock behind it.
+    update orders
+       set status = 'cancelled',
+           cancel_reason = coalesce(nullif(cancel_reason, ''),
+             'Reservation expired: not confirmed within ' || p_hours || ' hours')
+     where id = r.id;
+
+    insert into order_log (order_id, text)
+    values (r.id, 'Rezerva liu tempu (' || p_hours || 'h). Stok fila ba prateleira.');
+
+    order_id := r.id; order_ref := r.ref; released := v_units;
+    return next;
+  end loop;
+end $$;
+
+comment on function release_stale_reservations is
+  'Cancels orders left unconfirmed past p_hours and gives their held units back. Returns one row per order released.';
+
+revoke all on function release_stale_reservations(int) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 6. What is being held right now
+-- ---------------------------------------------------------------------------
+-- The reconciliation view answers "does the ledger agree with the balance".
+-- This answers the other question a shopkeeper asks: "how much of what I
+-- appear not to have is actually just waiting on somebody to pay?"
+
+create or replace view stock_reservations as
+select m.order_id,
+       o.ref,
+       o.buyer_name,
+       o.created_at,
+       p.id                          as product_id,
+       p.ref                         as product_ref,
+       p.name                        as product_name,
+       (-sum(m.delta))::int          as held,
+       (now() - o.created_at)        as waiting
+  from stock_movements m
+  join orders   o on o.id = m.order_id
+  join products p on p.id = m.product_id
+ where m.reason = 'reservation'
+ group by m.order_id, o.ref, o.buyer_name, o.created_at, p.id, p.ref, p.name
+having sum(m.delta) < 0;
+
+comment on view stock_reservations is
+  'Units currently held by orders that have been placed and not yet confirmed. Empty is the healthy steady state for a shop that confirms promptly.';
+
+revoke all on stock_reservations from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7. Existing unconfirmed orders start holding their stock
+-- ---------------------------------------------------------------------------
+-- Without this, every order already sitting at 'new' when this file runs
+-- would keep its units on the shelf forever -- the old behaviour, silently
+-- preserved for exactly the orders most likely to be affected by it.
+--
+-- Runs with the balance trigger LIVE, on purpose: these holds have not been
+-- applied to products.qty yet and should be. A balance that goes negative
+-- here is not this file misbehaving, it is the oversell that had already
+-- happened becoming visible, which is what the ledger is for.
+
+do $$
+declare o record; n int := 0;
+begin
+  for o in
+    select id from orders
+     where status = 'new'
+       and not coalesce(is_preorder, false)
+       and not exists (select 1 from stock_movements m
+                        where m.order_id = orders.id and m.reason = 'reservation')
+  loop
+    perform sync_order_stock_state(o.id, 'reserved');
+    n := n + 1;
+  end loop;
+  raise notice 'reservation backfill: % unconfirmed order(s) now holding stock', n;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Done.
+--
+-- Verify with:
+--   select * from stock_reconciliation where drift <> 0;   -- still nothing
+--   select * from stock_reservations order by waiting desc; -- what is held
+--
+-- Until this file is run, placeOrder's RPC call finds no such function,
+-- treats it as "this database does not reserve yet", and the shop behaves
+-- exactly as it did before -- stock moving on confirmation, and the race
+-- still open. There is no half-applied state.
+-- ---------------------------------------------------------------------------
+
+
 -- ==== returns.sql =======================================================
 
 -- ===========================================================================
@@ -2009,6 +2824,128 @@ revoke all on order_return_items from anon, authenticated;
 -- ---------------------------------------------------------------------------
 
 
+-- ==== return-requests.sql ===============================================
+
+-- ===========================================================================
+-- Loja AIAI -- a buyer can start a return
+--
+-- Run AFTER supabase/returns.sql.
+--
+-- Every return in this shop began with a phone call. The admin-side
+-- machinery is all there and good -- over-return prevention, restock
+-- straight into the ledger, a settlement queue that refuses to claim money
+-- moved before it did -- and none of it could be reached by the person the
+-- goods actually belong to. That is the largest remaining gap between this
+-- and the platforms it competes with: not a missing feature, but that a
+-- buyer cannot do anything on their own after they have paid.
+--
+-- A REQUEST IS NOT A RETURN. This table is deliberately separate from
+-- order_returns rather than a status column on it, because the two are
+-- different kinds of fact:
+--
+--   a request  is a buyer SAYING they want to send something back. It moves
+--              no stock, refunds no money, and can be declined.
+--   a return   is the shop RECORDING that goods came back. It writes to the
+--              stock ledger and owes somebody money.
+--
+-- Folding them together would mean every existing reader of order_returns
+-- -- the ledger trigger, the settlement queue, the refund arithmetic --
+-- would have to learn to skip rows that are not really returns yet, and the
+-- one that forgot would restock goods still sitting in a buyer's house.
+--
+-- Approving a request calls the SAME recordReturn() an admin has always
+-- called. This adds a way in; it does not add a second way to do it.
+--
+-- Safe to re-run.
+-- ===========================================================================
+
+create table if not exists return_requests (
+  id           uuid primary key default gen_random_uuid(),
+  order_id     uuid not null references orders(id) on delete cascade,
+
+  -- RRQ + year + last four + six random, the same shape as an order
+  -- reference so the two can be read out over the same phone call.
+  ref          text not null unique,
+
+  -- The same vocabulary order_returns uses. Not a superset and not a
+  -- subset: a buyer and a shopkeeper describing the same parcel should
+  -- reach for the same word, and approving a request copies this straight
+  -- across.
+  reason       text not null check (reason in
+                 ('damaged','wrong_item','not_as_described','changed_mind','other')),
+  note         text not null default '',
+
+  status       text not null default 'open'
+                 check (status in ('open','approved','declined','cancelled')),
+
+  -- Why it was turned down, shown to the buyer on their tracking page. A
+  -- decline with no reason is worse than no self-service at all: it teaches
+  -- somebody that the button does nothing.
+  decided_at   timestamptz,
+  decided_by   text not null default '',
+  decision_note text not null default '',
+
+  -- The return this became, once approved. Null while open, and the link
+  -- that lets the tracking page show what actually happened.
+  return_id    uuid references order_returns(id) on delete set null,
+
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists return_requests_order_idx
+  on return_requests (order_id, created_at desc);
+
+-- The admin's "waiting on you" list, which is the only query that runs
+-- often. Partial, because an answered request is history.
+create index if not exists return_requests_open_idx
+  on return_requests (created_at desc) where status = 'open';
+
+-- ONE OPEN REQUEST PER ORDER. Without it, a buyer who taps twice on a slow
+-- connection has two requests, an admin approves both, and the shop takes
+-- back the same goods twice. The over-return check in recordReturn() would
+-- catch the second one -- but it would catch it as an error message to an
+-- admin, long after the confusion started.
+create unique index if not exists return_requests_one_open_uq
+  on return_requests (order_id) where status = 'open';
+
+create table if not exists return_request_items (
+  id           uuid primary key default gen_random_uuid(),
+  request_id   uuid not null references return_requests(id) on delete cascade,
+  product_id   uuid references products(id) on delete set null,
+  -- Copied, not joined, for the same reason the order line is: a request
+  -- has to stay readable after a product is deleted.
+  product_name text not null default '',
+  qty          int not null check (qty > 0)
+);
+
+create index if not exists return_request_items_request_idx
+  on return_request_items (request_id);
+
+comment on table return_requests is
+  'A buyer asking to send something back. Not a return: it moves no stock and refunds nothing. Approving one calls recordReturn(). See supabase/return-requests.sql.';
+
+-- ---------------------------------------------------------------------------
+-- Grants
+-- ---------------------------------------------------------------------------
+-- Reached only through server actions that have already proved ref + phone,
+-- exactly like every other buyer-facing write in this shop. Nothing here is
+-- readable with the anon key: a request names what somebody bought and how
+-- much of it they are sending back.
+alter table return_requests enable row level security;
+alter table return_request_items enable row level security;
+revoke all on return_requests from anon, authenticated;
+revoke all on return_request_items from anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Done.
+--
+-- Until this file is run, the buyer-facing form is not offered at all --
+-- the action reports the table missing and the tracking page shows what it
+-- always showed. Returns keep working; they just keep starting with a phone
+-- call.
+-- ---------------------------------------------------------------------------
+
+
 -- ==== refund-settlement.sql =============================================
 
 -- ===========================================================================
@@ -2100,6 +3037,9 @@ comment on column order_returns.refunded_at is
 -- waiting, because that list reads refunded_at directly rather than
 -- inferring it from pay_status.
 -- ---------------------------------------------------------------------------
+
+-- Same rule as the rest: a trigger function is nobody's to call directly.
+revoke all on function sync_order_refund_status() from public, anon, authenticated;
 
 
 -- ==== sales.sql =========================================================
@@ -2405,90 +3345,6 @@ grant execute on function decrement_loves(uuid) to anon, authenticated;
 -- shop's count stays at zero, which is what a missing column honestly means.
 -- The homepage's "Most loved" row and the admin's figure appear as soon as
 -- there is something to count.
--- ---------------------------------------------------------------------------
-
-
--- ==== preorders.sql =====================================================
-
--- ===========================================================================
--- preorders.sql — let a shopper order something that is out of stock.
---
--- Safe to run more than once. Run it in Supabase -> SQL Editor -> New query.
---
--- A PRE-ORDER IS AN ORDER, not a second kind of thing.
---
--- It is the same row in the same table, with one flag set. That is the whole
--- design, and it is what makes the feature small: tracking links, the buyer
--- SMS, the admin order screens, the sales dashboard and the payout ledger
--- all keep working with no changes at all. A parallel "preorders" table
--- would have needed every one of those rebuilt, and would have drifted from
--- the real thing the first time either side changed.
---
--- What tells them apart is the reference prefix (PRO...) and this flag.
--- ===========================================================================
-
--- ---------------------------------------------------------------------------
--- 1. The flag
--- ---------------------------------------------------------------------------
-
-alter table orders add column if not exists is_preorder boolean not null default false;
-
-comment on column orders.is_preorder is
-  'True when the order was placed for goods that were out of stock. Set by the SERVER from live stock, never from the browser.';
-
-create index if not exists orders_preorder_idx on orders (is_preorder) where is_preorder;
-
--- ---------------------------------------------------------------------------
--- 2. Per-product opt-out, and the promised date
--- ---------------------------------------------------------------------------
--- Enabled by default: an out-of-stock product a shopper wants is a sale
--- waiting to happen, and the shop's own screens already show which those
--- are. Turn it off for a line being discontinued, where taking money for
--- something that will never arrive is the wrong answer.
-
-alter table products add column if not exists preorder_enabled boolean not null default true;
-
--- When the shop expects to have it. Optional, and shown to the buyer when
--- set: "we don't know yet" is a legitimate answer and better than inventing
--- a date that will be missed.
-alter table products add column if not exists preorder_eta date;
-
-comment on column products.preorder_eta is
-  'Expected availability. NULL means genuinely unknown, which is shown as such rather than guessed.';
-
--- ---------------------------------------------------------------------------
--- 3. Stock must not move for a pre-order
--- ---------------------------------------------------------------------------
--- The original trigger (schema.sql) decrements on confirm. For a pre-order
--- there is nothing to decrement -- that is the entire point -- and letting
--- it run would quietly hide the shortage: greatest(0, ...) floors at zero,
--- so the shelf would keep reading "0" while the promises pile up invisibly.
--- Stock moves when the goods actually arrive, through the purchase receipt.
-
-create or replace function decrement_stock_on_confirm() returns trigger as $$
-declare item jsonb;
-begin
-  if new.status = 'confirmed' and old.status = 'new' and not coalesce(new.is_preorder, false) then
-    for item in select * from jsonb_array_elements(new.items) loop
-      update products
-        set qty = greatest(0, qty - (item->>'qty')::int),
-            stock_status = case
-              when greatest(0, qty - (item->>'qty')::int) = 0 then 'out'
-              when greatest(0, qty - (item->>'qty')::int) <= 2 then 'low'
-              else stock_status end
-        where id = (item->>'product_id')::uuid;
-    end loop;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
-
--- ---------------------------------------------------------------------------
--- Done.
---
--- Nothing else changes. A pre-order gets a PRO reference, appears in the
--- admin order list beside every other order, sends the same tracking SMS,
--- and is fulfilled the same way once the stock arrives.
 -- ---------------------------------------------------------------------------
 
 
@@ -2961,7 +3817,14 @@ begin
            (select min(created_at) from orders where buyer_phone <> '');
 end $$;
 
-revoke all on function redact_old_order_pii(int) from anon, authenticated;
+-- BOTH `public` AND the two roles by name. Revoking from one is not
+-- enough and looks exactly like it is: `revoke ... from anon` leaves
+-- PUBLIC's grant, which anon inherits, and `revoke ... from public`
+-- leaves the direct grant Supabase's default privileges hand to anon at
+-- creation time. Either revoke on its own reads as done and closes
+-- nothing. Found by tests/rls/rls.test.ts, which calls each of these as
+-- anon and expects to be refused.
+revoke all on function redact_old_order_pii(int) from public, anon, authenticated;
 
 comment on function redact_old_order_pii(int) is
   'Removes buyer name, phone, address and notes from closed orders older than p_years, keeping the financial record. No undo.';
@@ -3109,7 +3972,7 @@ $$;
 
 alter table rate_limits enable row level security;
 revoke all on rate_limits from anon, authenticated;
-revoke all on function hit_rate_limit(text, int, int) from public;
+revoke all on function hit_rate_limit(text, int, int) from public, anon, authenticated;
 -- Only the service role, which is the only thing that ever calls it: a
 -- visitor able to run this could burn somebody else's allowance by naming
 -- their key, which is a denial-of-service dressed as a rate limit.
@@ -3297,6 +4160,19 @@ end $$;
 
 comment on table admin_users_roles_backfilled is
   'Marker: the one-off backfill in supabase/admin-roles.sql has run. Do not drop -- dropping it and re-running the migration would hand full access back to every account that currently has none.';
+
+-- LOCKED DOWN LIKE EVERY OTHER INTERNAL TABLE. It holds nothing secret --
+-- one timestamp, and its EXISTENCE is the whole signal -- but Supabase
+-- grants new tables in `public` to anon by default, so without this the
+-- public key could write to it freely. Nothing bad follows from a row
+-- appearing in it; it is simply not a table the internet has any business
+-- touching, and "harmless today" is how an unprotected table survives long
+-- enough to stop being harmless.
+--
+-- Found by tests/rls/rls.test.ts, which asserts that every table in the
+-- public schema has RLS on. This one did not.
+alter table admin_users_roles_backfilled enable row level security;
+revoke all on admin_users_roles_backfilled from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Constraints, added after the backfill so existing rows cannot fail them

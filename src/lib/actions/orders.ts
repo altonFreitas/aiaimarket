@@ -9,6 +9,8 @@ import { assertOrderTransition } from "@/lib/orderFlow";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
 import { normalizeName } from "@/lib/personName";
 import { decodeImageDataUrl } from "@/lib/uploadGuard";
+import { reportError } from "@/lib/observability";
+import { voidOrderAuthorization } from "@/lib/payments/service";
 import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
@@ -102,6 +104,41 @@ async function findByIdempotencyKey(key: string): Promise<string | null> {
     if (error) return null;
     return (data?.ref as string) ?? null;
   } catch { return null; }
+}
+
+/** Holds this order's units, or explains why it cannot.
+ *
+ * Tolerant of the function not existing: on a database that has not run
+ * supabase/stock-reservation.sql there is nothing to call, and the shop
+ * behaves exactly as it did before -- stock moving on confirmation. A
+ * missing migration must never stop a shop selling.
+ *
+ * Every OTHER failure is refused, and refused loudly. The whole point of
+ * this call is that it is the one thing standing between two buyers and
+ * the same last unit; treating an unrecognised error as "probably fine"
+ * would hand back the bug it was written to close. */
+async function reserveStock(
+  sb: ReturnType<typeof supabaseAdmin>, orderId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const { error } = await sb.rpc("reserve_order_stock", { p_order_id: orderId });
+  if (!error) return { ok: true };
+
+  // 42883 undefined_function, PGRST202 no such RPC in PostgREST's schema
+  // cache. Both mean the migration has not been run.
+  const code = (error as { code?: string }).code || "";
+  if (code === "42883" || code === "PGRST202") return { ok: true };
+
+  // 23514 check_violation is the function saying the basket does not fit,
+  // and its message already names the product and the quantity left --
+  // written for a shopper to read, in reserve_order_stock().
+  const message = (error as { message?: string }).message || "";
+  if (code === "23514" && message) return { ok: false, message };
+  if (code === "P0002" || code === "02000") {
+    return { ok: false, message: "A product in your basket is no longer available" };
+  }
+
+  reportError(error, { scope: "reserve_order_stock", orderId });
+  return { ok: false, message: "We could not hold the stock for this order. Please try again." };
 }
 
 export async function placeOrder(input: PlaceOrderInput) {
@@ -362,6 +399,29 @@ export async function placeOrder(input: PlaceOrderInput) {
   }
   if (!data) throw new Error("The order was not created.");
 
+  /* THE UNITS ARE HELD HERE, NOT WHEN AN ADMIN GETS ROUND TO IT.
+   *
+   * Everything above re-read prices and quantities from the database and
+   * refused a line that did not fit -- but a read followed by an insert is
+   * a race, and the thing being raced for is the last unit of whatever is
+   * selling. This is the half that cannot be written in TypeScript: the
+   * function locks each product row (SELECT ... FOR UPDATE), re-checks the
+   * whole basket against the locked rows, and writes the holds, with
+   * nothing able to slip between the check and the write.
+   *
+   * ORDER FIRST, THEN RESERVE. The ledger's movements reference an order,
+   * so the row has to exist before its stock can be held against it. The
+   * window between the two is real and is closed by unwinding: if the
+   * reservation fails, the order that was just created is deleted and the
+   * buyer is told what actually happened. Nothing has seen that order --
+   * no notification has been sent, no admin screen has been revalidated --
+   * so removing it leaves no trace to explain later. */
+  const reserved = await reserveStock(sb, data.id as string);
+  if (!reserved.ok) {
+    await sb.from("orders").delete().eq("id", data.id);
+    throw new Error(reserved.message);
+  }
+
   await sb.from("order_log").insert({
     order_id: data.id,
     text: `Enkomenda simu (${input.mode === "delivery" ? "entrega" : "foti rasik"})`,
@@ -531,9 +591,28 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
     const { data: pay } = await sb
       .from("orders").select("pay_method, pay_status").eq("id", orderId).maybeSingle();
     if (pay?.pay_method === "card" && (pay.pay_status === "paid" || pay.pay_status === "deposit")) {
+      /* AN AUTHORIZATION IS RELEASED, NOT LEFT TO EXPIRE.
+       *
+       * A hold the shop will never capture sits on the buyer's card until
+       * the acquirer expires it on its own schedule -- typically seven
+       * days, during which the money is neither theirs nor the shop's.
+       * The state machine has always modelled authorized -> cancelled;
+       * until the provider grew a voidAuthorization() nothing could drive
+       * it.
+       *
+       * Tried, not assumed. Only an authorization can be voided; a
+       * captured payment needs a refund, which is a different act with a
+       * different record, and the service says which this is. Either way
+       * the order is already cancelled -- the money is a separate
+       * question and a failure here must not undo that. */
+      const voided = await voidOrderAuthorization(orderId);
       await sb.from("order_log").insert({
         order_id: orderId,
-        text: "* Osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, depois troka pagamentu ba 'refunded'.",
+        text: voided.ok
+          ? "* Osan kliente nian libre ona iha banku (void)."
+          : "* Osan kliente nian sei iha BNCTL. Halo void ka reembolsu iha portál, "
+            + "depois troka pagamentu ba 'refunded'."
+            + (voided.reason ? ` (${voided.reason})` : ""),
       });
     }
   }

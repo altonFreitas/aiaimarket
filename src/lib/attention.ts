@@ -33,6 +33,7 @@ export type AttentionKind =
   | "sellers_to_approve"
   | "refunds_to_settle"
   | "cards_to_void"
+  | "returns_to_answer"
   /* A store's own, from lib/sellerAttention.ts. Same union and the same
    * item shape on purpose: both lists are drawn by the same markup, and a
    * second AttentionItem type differing only in its kinds would be two
@@ -69,6 +70,8 @@ export interface AttentionInput {
   pendingSellers?: number;
   /** Card refunds agreed and not yet made at the gateway. */
   pendingRefunds?: number;
+  /** Buyers asking to send something back, not yet answered. */
+  openReturnRequests?: number;
   purchaseOrders: PurchaseOrder[];
   replenishment: ReplenishmentRow[];
   /** Notifications queued but not yet sent. */
@@ -131,6 +134,13 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
       && (o.pay_status === "paid" || o.pay_status === "deposit"));
   add("cards_to_void", toVoid.length, "urgent",
     "/admin/orders", "attnCardsToVoid", "attnCardsToVoidHint");
+
+  // A buyer waiting to hear whether they may send something back. Urgent
+  // because somebody asked a question and is sitting with the goods until
+  // it is answered -- and because this list is the only place that says so:
+  // the request arrived while nobody was looking at a screen.
+  add("returns_to_answer", input.openReturnRequests ?? 0, "urgent",
+    "/admin/orders", "attnReturnsToAnswer", "attnReturnsToAnswerHint");
 
   // A buyer who has handed goods back and not had their money. Urgent
   // because it is the one thing on this list where somebody is out of

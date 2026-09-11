@@ -18,8 +18,20 @@ import { SCHEMA_ORDER, SCHEMA_FEATURES, NOT_SCHEMA_FILES, INVENTORY_FILE } from 
 const ROOT = path.join(__dirname, "..");
 const DIR = path.join(ROOT, "supabase");
 
+/* Every file that IS a migration.
+ *
+ * run-all.sql is generated from these, and ci-bootstrap.sql stands in for
+ * what Supabase provides before a project's first migration -- it is
+ * applied only to the bare Postgres the integration tests run against and
+ * must never reach a real database. Both are named in NOT_SCHEMA_FILES so
+ * there is one exemption list rather than several that can disagree. */
+/* NOT simply NOT_SCHEMA_FILES: seed.sql is in that list (it is sample data,
+ * not schema, so the health panel ignores it) and IS in SCHEMA_ORDER, since
+ * an operator setting up a demo shop needs to know where it goes. The two
+ * exempted here are the ones that are not migrations at all. */
+const EXEMPT = new Set(["run-all.sql", "ci-bootstrap.sql"]);
 const files = () => fs.readdirSync(DIR)
-  .filter((f) => f.endsWith(".sql") && f !== "run-all.sql");
+  .filter((f) => f.endsWith(".sql") && !EXEMPT.has(f));
 
 describe("SCHEMA_ORDER", () => {
   it("names every SQL file, once", () => {

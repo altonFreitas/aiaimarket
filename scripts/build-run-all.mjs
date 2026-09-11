@@ -33,8 +33,21 @@ function readOrder() {
 }
 
 const order = readOrder();
+/* Files that are deliberately NOT migrations, read out of schemaHealth.ts
+ * so there is one list rather than two that can disagree. ci-bootstrap.sql
+ * is the reason this exists: it stands in for what Supabase provides
+ * before a project's first migration, is applied only to the bare Postgres
+ * the integration tests run against, and must never reach a real database. */
+function readExempt() {
+  const src = fs.readFileSync(path.join(ROOT, "src", "lib", "schemaHealth.ts"), "utf8");
+  const block = /export const NOT_SCHEMA_FILES: readonly string\[\] = \[([\s\S]*?)\n\];/.exec(src);
+  if (!block) throw new Error("NOT_SCHEMA_FILES not found in src/lib/schemaHealth.ts");
+  return [...block[1].matchAll(/"([^"]+\.sql)"/g)].map((m) => m[1]);
+}
+
+const exempt = new Set([...readExempt(), "run-all.sql"]);
 const onDisk = fs.readdirSync(DIR)
-  .filter((f) => f.endsWith(".sql") && f !== "run-all.sql");
+  .filter((f) => f.endsWith(".sql") && !exempt.has(f));
 
 const missing = onDisk.filter((f) => !order.includes(f));
 if (missing.length) {

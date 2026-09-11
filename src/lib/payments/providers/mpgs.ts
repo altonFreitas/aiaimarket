@@ -1,7 +1,8 @@
 import "server-only";
 import crypto from "node:crypto";
 import type {
-  CheckoutSession, CreateCheckoutInput, PaymentProvider, ProviderEvent, WebhookVerification,
+  CheckoutSession, CreateCheckoutInput, PaymentProvider, ProviderEvent,
+  ProviderResult, WebhookVerification,
 } from "../types";
 import type { PaymentStatus } from "../state";
 import { formatMinorUnits, toMinorUnits } from "../money";
@@ -248,4 +249,97 @@ export const mpgsProvider: PaymentProvider = {
       providerRef,
     };
   },
+
+  /* MPGS moves money with a TRANSACTION under an existing order, and the
+   * transaction id is the merchant's to choose. That is what makes both of
+   * the operations below idempotent: PUT the same transaction id twice and
+   * the gateway returns the first one's result rather than moving the money
+   * again. Deriving it from the order reference rather than minting a
+   * random one is what makes a retry -- ours, or a cron's -- safe.
+   *
+   * >>> Both are subject to the same "NOT confirmed against BNCTL's own
+   * integration guide" caveat as the rest of this file. Sandbox-test them
+   * before a real transaction. <<< */
+
+  async refund(providerRef: string, amountMinor?: number) {
+    return await moveMoney("REFUND", providerRef, amountMinor);
+  },
+
+  async voidAuthorization(providerRef: string) {
+    // A void has no amount: it releases the whole hold or it does nothing.
+    // Passing one would be asking for a partial void, which is not a thing
+    // -- the operation for that is a refund.
+    return await moveMoney("VOID", providerRef);
+  },
 };
+
+/** REFUND and VOID differ only in the apiOperation and whether an amount is
+ * meaningful, so they are one function -- two near-identical copies would
+ * drift the first time either was fixed. */
+async function moveMoney(
+  operation: "REFUND" | "VOID",
+  providerRef: string,
+  amountMinor?: number,
+): Promise<ProviderResult> {
+  if (!mpgsProvider.isConfigured()) {
+    return { ok: false, status: "captured", reason: "The card gateway is not configured." };
+  }
+
+  // Derived, not random: the same instruction retried carries the same
+  // transaction id, and MPGS answers with the original result instead of
+  // moving the money twice.
+  const txnId = `${operation.toLowerCase()}-${providerRef}`.slice(0, 40);
+  const url = `${apiBase()}/order/${encodeURIComponent(providerRef)}`
+    + `/transaction/${encodeURIComponent(txnId)}`;
+
+  const body: Record<string, unknown> = { apiOperation: operation };
+  if (operation === "REFUND" && amountMinor != null) {
+    body.transaction = {
+      amount: formatMinorUnits(amountMinor, "USD"),
+      currency: "USD",
+    };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "PUT",
+      headers: { Authorization: authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+      cache: "no-store",
+    });
+  } catch (e) {
+    // A TIMEOUT IS NOT A FAILURE. The gateway may well have processed it;
+    // we simply did not hear. Reported as not-ok so nothing downstream
+    // records the money as moved, and the reason says to go and look --
+    // because retrying is safe (same transaction id) and assuming either
+    // way is not.
+    return {
+      ok: false, status: "captured",
+      reason: `The gateway did not answer (${e instanceof Error ? e.message : "timeout"}). `
+        + "It may still have gone through -- check the portal before retrying.",
+    };
+  }
+
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(text) as Record<string, unknown>; } catch { /* keep {} */ }
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: "captured",
+      reason: pick(json, "error", "explanation")
+        || pick(json, "explanation")
+        || `The gateway refused it (HTTP ${res.status}).`,
+    };
+  }
+
+  const status = mapStatus(pick(json, "result"), pick(json, "status"));
+  return {
+    ok: true,
+    status,
+    providerRef: pick(json, "transaction", "id") || txnId,
+  };
+}

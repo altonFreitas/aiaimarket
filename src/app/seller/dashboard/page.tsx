@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrdersCapped, getSellerPayouts, computeSellerEarnings, computeSellerLedger } from "@/lib/data/seller";
+import { getCurrentSellerOrRedirect, getSellerProducts, getSellerOrdersCapped, getSellerPayouts, getSellerEarningsIndexed, computeSellerEarnings, computeSellerLedger } from "@/lib/data/seller";
 import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
 import { money, nowIso } from "@/lib/utils";
@@ -31,20 +31,39 @@ export default async function SellerDashboardPage() {
 
   const empty: Capped<SellerOrderView> =
     { rows: [], truncated: false, cap: 0, oldestKept: null };
-  const [products, ordersCapped, payouts] = await Promise.all([
+  const [products, ordersCapped, payouts, indexedEarnings] = await Promise.all([
     isApproved ? getSellerProducts(seller.id) : Promise.resolve([]),
     isApproved ? getSellerOrdersCapped(seller.id, rate) : Promise.resolve(empty),
     isApproved ? getSellerPayouts(seller.id) : Promise.resolve([]),
+    // Computed by the database over an index, across EVERY completed order
+    // this seller has had -- not over whatever fitted in a scan. Null on a
+    // database that has not run supabase/order-items.sql, which is when
+    // the caveat below still applies.
+    isApproved ? getSellerEarningsIndexed(seller.id) : Promise.resolve(null),
   ]);
   const orders = ordersCapped.rows;
   const live = products.filter((p) => !p.archived);
   const pendingReview = live.filter((p) => p.status === "pending").length;
   const outOfStock = live.filter((p) => p.stock_status === "out").length;
   const pendingOrders = orders.filter((o) => !["completed", "cancelled"].includes(o.status)).length;
+  /* THE AGGREGATE WINS WHEN THERE IS ONE.
+   *
+   * computeSellerEarnings() adds up the orders that came back from the
+   * scan, which is why it had to refuse to show a figure once the scan
+   * truncated. The database's own aggregate has no such limit -- it reads
+   * this seller's lines off an index rather than the marketplace's newest
+   * five thousand orders -- so when it answers, there is nothing to
+   * caveat. The in-memory version stays as the fallback for a database
+   * that has not run the migration yet. */
+  const fromScan = computeSellerEarnings(orders, seller, settings.commission_rate);
   const ledger = computeSellerLedger(
-    computeSellerEarnings(orders, seller, settings.commission_rate),
+    indexedEarnings
+      ? { commissionRatePercent: fromScan.commissionRatePercent, ...indexedEarnings }
+      : fromScan,
     payouts
   );
+  // Only the scan can be incomplete. An indexed answer saw everything.
+  const earningsIncomplete = !indexedEarnings && ordersCapped.truncated;
 
   return (
     <div className="panel">
@@ -82,7 +101,7 @@ export default async function SellerDashboardPage() {
               "still owed" drifts negative for no reason anyone can see.
               A number that might be wrong about money is worse than no
               number, so this says so instead. */}
-          {ordersCapped.truncated ? (
+          {earningsIncomplete ? (
             <p className="note bad" role="status">
               <b>{t("earningsIncomplete", lang)}</b>{" "}
               {t("earningsIncompleteHint", lang).replace("{n}", String(ordersCapped.cap))}

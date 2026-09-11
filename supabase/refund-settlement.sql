@@ -87,3 +87,6 @@ comment on column order_returns.refunded_at is
 -- waiting, because that list reads refunded_at directly rather than
 -- inferring it from pay_status.
 -- ---------------------------------------------------------------------------
+
+-- Same rule as the rest: a trigger function is nobody's to call directly.
+revoke all on function sync_order_refund_status() from public, anon, authenticated;

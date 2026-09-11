@@ -23,23 +23,38 @@ describe("isFilteredListing", () => {
 });
 
 describe("listingMetadata", () => {
-  it("gives the bare listing a canonical and no robots directive", () => {
-    const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: {} });
-    expect(m.alternates?.canonical).toBe("/shop");
-    expect(m.robots).toBeUndefined();
+  it("gives the bare listing a canonical to ITSELF, in its own language", () => {
+    // Self-referencing, not pointed at the unprefixed URL. Three languages
+    // canonicalising to one would tell Google to index only that one --
+    // which is the bug the locale prefixes exist to fix.
+    const tet = listingMetadata({ title: "Catalog", path: "/shop", searchParams: {}, lang: "tet" });
+    const pt = listingMetadata({ title: "Catálogo", path: "/shop", searchParams: {}, lang: "pt" });
+    expect(tet.alternates?.canonical).toBe("/tet/shop");
+    expect(pt.alternates?.canonical).toBe("/pt/shop");
+    expect(tet.robots).toBeUndefined();
+  });
+
+  it("names the other two languages as alternates", () => {
+    const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: {}, lang: "en" });
+    expect(m.alternates?.languages).toEqual({
+      tet: "/tet/shop",
+      "pt-TL": "/pt/shop",
+      en: "/en/shop",
+      "x-default": "/tet/shop",
+    });
   });
 
   it("noindexes a filtered view, and never also canonicalises it away", () => {
     // noindex plus a canonical pointing somewhere else are contradictory
     // instructions; sending both is how a page ends up ignored in a way
     // nobody intended. One or the other -- never both.
-    const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: { sort: "new" } });
+    const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: { sort: "new" }, lang: "tet" });
     expect(m.robots).toEqual({ index: false, follow: true });
     expect(m.alternates).toBeUndefined();
   });
 
   it("keeps follow on, so page 40 is still reachable", () => {
-    const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: { page: "40" } });
+    const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: { page: "40" }, lang: "tet" });
     expect(m.robots).toEqual({ index: false, follow: true });
   });
 });

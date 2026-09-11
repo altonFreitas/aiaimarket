@@ -89,7 +89,7 @@ $$;
 
 alter table rate_limits enable row level security;
 revoke all on rate_limits from anon, authenticated;
-revoke all on function hit_rate_limit(text, int, int) from public;
+revoke all on function hit_rate_limit(text, int, int) from public, anon, authenticated;
 -- Only the service role, which is the only thing that ever calls it: a
 -- visitor able to run this could burn somebody else's allowance by naming
 -- their key, which is a denial-of-service dressed as a rate limit.

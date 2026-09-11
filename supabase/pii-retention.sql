@@ -90,7 +90,14 @@ begin
            (select min(created_at) from orders where buyer_phone <> '');
 end $$;
 
-revoke all on function redact_old_order_pii(int) from anon, authenticated;
+-- BOTH `public` AND the two roles by name. Revoking from one is not
+-- enough and looks exactly like it is: `revoke ... from anon` leaves
+-- PUBLIC's grant, which anon inherits, and `revoke ... from public`
+-- leaves the direct grant Supabase's default privileges hand to anon at
+-- creation time. Either revoke on its own reads as done and closes
+-- nothing. Found by tests/rls/rls.test.ts, which calls each of these as
+-- anon and expects to be refused.
+revoke all on function redact_old_order_pii(int) from public, anon, authenticated;
 
 comment on function redact_old_order_pii(int) is
   'Removes buyer name, phone, address and notes from closed orders older than p_years, keeping the financial record. No undo.';

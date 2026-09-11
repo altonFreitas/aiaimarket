@@ -78,4 +78,53 @@ export interface PaymentProvider {
    * only as a hint that it is worth asking.
    */
   fetchStatus(providerRef: string): Promise<ProviderEvent | null>;
+
+  /**
+   * Send money back.
+   *
+   * Until this existed, recordReturn() wrote a refund_total and the
+   * database asserted the buyer had been refunded while their money was
+   * still with the acquirer -- and the only thing that moved it was
+   * somebody remembering to open the bank portal, with nothing in the
+   * application prompting them.
+   *
+   * `amountMinor` so a partial return refunds a part. Omitted means all of
+   * it, which is what the gateway defaults to and what the common case
+   * actually is.
+   *
+   * Returns the resulting state rather than a boolean: a refund can be
+   * accepted and still be pending at the acquirer, and reporting that as
+   * "done" is the same class of lie this method was added to stop.
+   */
+  refund(providerRef: string, amountMinor?: number): Promise<ProviderResult>;
+
+  /**
+   * Release a hold that will never be captured.
+   *
+   * A cancelled order leaves the buyer's funds on hold until the
+   * authorization expires on the acquirer's own schedule -- typically
+   * seven days, during which the money is neither theirs nor the shop's.
+   * The state machine already models authorized -> cancelled; nothing
+   * drove it.
+   *
+   * Only meaningful for an authorization. Capturing then voiding is not a
+   * thing; that is a refund.
+   */
+  voidAuthorization(providerRef: string): Promise<ProviderResult>;
+}
+
+/** What came back from asking the gateway to move money.
+ *
+ * `ok` says the gateway ACCEPTED the instruction, and `status` says where
+ * that left the payment. The two are different questions: an accepted
+ * refund can still be pending settlement, and treating acceptance as
+ * completion is exactly the conflation that let the database claim a
+ * refund had happened. */
+export interface ProviderResult {
+  ok: boolean;
+  status: PaymentStatus;
+  /** The gateway's own reference for this movement, for reconciliation. */
+  providerRef?: string | null;
+  /** Why not, when not. Safe to show an admin; never shown to a buyer. */
+  reason?: string;
 }
