@@ -11,6 +11,7 @@ import {
   type OrderFilter, type OrderSort,
 } from "@/lib/orderBook";
 import { type PeriodPreset } from "@/lib/sales";
+import { useRowCap } from "@/lib/useRowCap";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, OrderStatus, PayMethod, PayStatus } from "@/lib/types";
 
@@ -91,6 +92,13 @@ export default function OrdersAdmin({
   );
 
   const active = orderFilterIsActive(f);
+
+  /* Five rows, then it scrolls. Measured from the rows themselves rather
+     than set in the stylesheet: an order row is 56px wide-screen and 83px
+     once the pills wrap under the reference, and WHERE that happens moves
+     with the content -- a long customer name brings it forward. No single
+     number in CSS is right at every width. */
+  const { ref: listRef, style: listStyle } = useRowCap<HTMLDivElement>(5, list.length);
 
   return (
     <>
@@ -265,7 +273,7 @@ export default function OrdersAdmin({
         )}
 
         {list.length ? (
-          <div className="list ord-list">
+          <div className="list ord-list" ref={listRef} style={listStyle}>
             {list.map((o) => {
               const late = isLate(o, today);
               return (

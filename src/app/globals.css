@@ -2233,10 +2233,17 @@ tr.is-ended{opacity:.55}
 .ord-stat div em{display:block;font-size:10.5px;color:var(--muted-2);
   font-family:var(--mono);font-style:normal;margin-top:2px}
 
-/* This page IS the list, so it gets a taller window than the five-row cap
-   the side panels use -- but still a window, so the filters above stay
-   reachable without scrolling back up. */
-.list.ord-list{max-height:calc(var(--adm-item-h) * 9)}
+/* Five rows, then it scrolls -- the same window every other admin list
+   uses. THE EXACT HEIGHT IS SET BY JAVASCRIPT (lib/useRowCap.ts), because
+   an order row is 56px wide-screen and 83px once the payment pills wrap
+   under the reference, and where that happens moves with the content: a
+   long customer name brings it forward. No single number here is right at
+   every width, so the rows are measured instead.
+   This value is the one that applies before that runs, and if it never
+   does. Five wide rows plus the peek; on a narrow screen it will show
+   three and a half rather than five, which is a smaller wrong than a
+   hundred orders sprawling down the page. */
+.list.ord-list{max-height:286px}
 .ord-item{align-items:center}
 /* The row is a link to the order, EXCEPT the phone, which is a button that
    filters to that buyer. Nesting a button inside an anchor is invalid and
@@ -2260,5 +2267,4 @@ tr.is-ended{opacity:.55}
      column of letters before .ord-main got its nowrap. */
   .ord-item{flex-wrap:wrap}
   .ord-item .acts{width:100%;justify-content:flex-start}
-  .list.ord-list{max-height:none}
 }
