@@ -28,7 +28,6 @@ const RUN = Boolean(DATABASE_URL);
 const describeDb = RUN ? describe : describe.skip;
 
 if (!RUN) {
-  // eslint-disable-next-line no-console
   console.warn(
     "\n  RLS tests SKIPPED: set TEST_DATABASE_URL to a database with\n" +
     "  supabase/ci-bootstrap.sql + supabase/run-all.sql applied.\n");

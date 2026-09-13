@@ -2071,3 +2071,68 @@ span.stock-btn:hover{filter:none}
 /* Wide enough for three digits and no wider: a full-width number box next
    to a product name reads as the more important of the two. */
 .ret-list input{width:72px;flex:0 0 auto;text-align:center}
+
+/* ---------- finance: the chart of accounts (/admin/finance) ---------- */
+/* THE ANSWER FIRST. Net profit is the one number this screen exists to
+   give, so it gets its own block at a size nothing else on the page
+   competes with, and the supporting figures sit beside it rather than
+   above. */
+.fin-headline{display:grid;grid-template-columns:minmax(200px,1fr) minmax(220px,1.1fr);
+  gap:18px;align-items:start}
+@media (max-width:700px){.fin-headline{grid-template-columns:1fr}}
+.fin-net{padding:16px 18px;border-radius:var(--r);background:var(--green-soft);
+  border:1px solid var(--green)}
+.fin-net.is-loss{background:var(--red-soft);border-color:var(--red)}
+.fin-net .k{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin-bottom:6px}
+.fin-net b{display:block;font-size:34px;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--green)}
+.fin-net.is-loss b{color:var(--red)}
+.fin-net .n{display:block;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.fin-side{display:flex;flex-direction:column;gap:2px}
+.fin-side .kv b small{font-weight:400;color:var(--muted-2);font-size:11px}
+
+/* The statement. Indentation carries the arithmetic: a sub-row is a
+   deduction from the line above it, a sum closes a group, and the net line
+   is the one the eye should land on last. */
+.fin-pl{display:flex;flex-direction:column;gap:1px}
+.fin-pl-group{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin:12px 0 4px}
+.fin-pl-group:first-child{margin-top:0}
+.fin-pl .kv.sub-row{padding-left:16px}
+.fin-pl .kv.sub-row span{color:var(--muted)}
+.fin-pl .kv.is-sum{border-top:1px solid var(--line-2);padding-top:5px}
+.fin-pl .kv.is-total{border-top:1px solid var(--line);padding-top:6px;font-weight:600}
+.fin-pl .kv.is-net{border-top:2px solid var(--ink);padding-top:8px;margin-top:4px;
+  font-size:15px;font-weight:700}
+.fin-pl .kv.is-net b{color:var(--green)}
+.fin-pl .kv.is-net.is-loss b{color:var(--red)}
+
+/* What is owed. Overdue rows carry a red edge rather than red text: the
+   amount stays readable and the row still reads as a to-do. */
+.fin-due{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.fin-due li{display:flex;align-items:center;gap:12px;padding:9px 11px;
+  border:1px solid var(--line);border-left:3px solid var(--amber);
+  border-radius:var(--r-s);background:var(--card)}
+.fin-due li.is-overdue{border-left-color:var(--red)}
+.fin-due-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.fin-due-who small{color:var(--muted);font-size:11.5px}
+.fin-due-amt{font-family:var(--mono);font-size:13px;white-space:nowrap}
+.fin-form{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+tr.is-ended{opacity:.55}
+
+/* Profit by month, with losses below the line. A chart that silently
+   omitted a loss-making month would be worse than no chart. */
+.pchart{margin-top:4px}
+.pchart-plot{display:flex;align-items:stretch;gap:4px;height:150px}
+.pchart-col{flex:1;min-width:0;display:flex;flex-direction:column;
+  position:relative;padding-bottom:16px}
+.pchart-half{flex:1;display:flex;min-height:0}
+/* The zero line is the boundary between the two halves, drawn once. */
+.pchart-half.is-up{align-items:flex-end;border-bottom:1px solid var(--line)}
+.pchart-half.is-down{align-items:flex-start}
+.pchart-bar{display:block;width:100%;border-radius:3px 3px 0 0}
+.pchart-bar.is-profit{background:var(--green)}
+.pchart-bar.is-loss{background:var(--red);border-radius:0 0 3px 3px}
+.pchart-label{position:absolute;bottom:0;left:0;right:0;text-align:center;
+  font-family:var(--mono);font-size:9.5px;color:var(--muted-2)}

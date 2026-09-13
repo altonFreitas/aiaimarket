@@ -430,3 +430,58 @@ export function DualLine({
     </div>
   );
 }
+
+export interface ProfitPoint {
+  key: string;
+  label: string;
+  value: number;
+  title?: string;
+}
+
+/** Profit by month, with losses drawn below the line.
+ *
+ * BarSeries cannot do this and should not be made to: it renders a
+ * magnitude, and returns Empty when the largest value is zero or less --
+ * which for a month that lost money is exactly the wrong answer. A shop
+ * whose costs exceeded its income in March needs to SEE March, and a chart
+ * that silently omits it is worse than no chart.
+ *
+ * So this one has a zero line, and a bar either side of it. The scale is
+ * the largest ABSOLUTE value, so a $500 profit and a $500 loss are the
+ * same height in opposite directions rather than one dwarfing the other.
+ */
+export function ProfitBars({
+  points, emptyLabel, format = money,
+}: {
+  points: ProfitPoint[];
+  emptyLabel: string;
+  format?: (n: number) => string;
+}) {
+  const max = Math.max(...points.map((p) => Math.abs(p.value)), 0);
+  if (!points.length || max <= 0) return <Empty label={emptyLabel} />;
+
+  return (
+    <div className="pchart">
+      <div className="pchart-plot">
+        {points.map((p) => {
+          const up = p.value >= 0;
+          // Half the plot height either side of the zero line, so the two
+          // directions are measured against the same scale.
+          const h = `${(Math.abs(p.value) / max) * 50}%`;
+          return (
+            <div className="pchart-col" key={p.key}
+              title={p.title || `${p.label}: ${format(p.value)}`}>
+              <span className="pchart-half is-up">
+                {up && <span className="pchart-bar is-profit" style={{ height: h }} />}
+              </span>
+              <span className="pchart-half is-down">
+                {!up && <span className="pchart-bar is-loss" style={{ height: h }} />}
+              </span>
+              <span className="pchart-label">{p.label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

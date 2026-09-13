@@ -217,6 +217,13 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["products", "updated_at"]],
   },
   {
+    // What it costs to run the shop. Named by both tables and the account
+    // guard: one alone would not distinguish this from a half-run file.
+    file: "operating-costs.sql", labelKey: "featOperatingCosts",
+    tables: ["operating_expenses", "recurring_expenses"],
+    routines: ["is_expense_account"],
+  },
+  {
     // A buyer can start a return. Named by both tables: one alone would
     // not distinguish this from a file that got half way.
     file: "return-requests.sql", labelKey: "featReturnRequests",
@@ -330,6 +337,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "returns.sql",             // after stock-ledger.sql
   "return-requests.sql",     // after returns.sql
   "zone-cleanup.sql",
+  "operating-costs.sql",
   "refund-settlement.sql",   // after returns.sql
 
   // Reporting and storefront features. Independent of each other.

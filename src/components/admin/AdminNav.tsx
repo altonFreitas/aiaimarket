@@ -78,6 +78,7 @@ const GROUPS: Group[] = [
     key: "navSettings", section: "settings", href: "/admin/settings",
     tabs: [
       ["/admin/settings", "settings"],
+      ["/admin/finance", "finance"],
       ["/admin/sales/targets", "salesTargets"],
       ["/admin/users", "adminUsers"],
       ["/admin/activity", "activity"],

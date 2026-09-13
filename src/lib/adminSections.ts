@@ -76,7 +76,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { key: "storefront", labelKey: "navStorefront", paths: ["/admin/hero", "/admin/promotions"] },
   {
     key: "settings", labelKey: "navSettings",
-    paths: ["/admin/settings", "/admin/sales/targets", "/admin/users", "/admin/activity"],
+    paths: [
+      "/admin/settings", "/admin/sales/targets", "/admin/users", "/admin/activity",
+      // The books. Under Settings rather than Sales because it carries what
+      // the shop pays its suppliers, its staff and its bank -- more
+      // sensitive than margin, which can at least be guessed from prices.
+      "/admin/finance",
+    ],
   },
 ] as const;
 
