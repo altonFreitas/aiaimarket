@@ -12,6 +12,7 @@ import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { personName } from "@/lib/personName";
 import { t } from "@/lib/i18n";
+import { normalizeZones } from "@/lib/zones";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
 
 const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "card"];
@@ -36,7 +37,14 @@ export default function CheckoutForm({
   const router = useRouter();
 
   const [mode, setMode] = useState<"delivery" | "pickup">("delivery");
-  const [zoneId, setZoneId] = useState<string>(settings.zones[0]?.id || "");
+  /* THE THREE REAL ZONES, whatever the database happens to hold.
+   *
+   * This used to read settings.zones straight through and label each entry
+   * with t("zone_" + id) -- which returns the KEY for an id it does not
+   * know. A shop that ran the seed offered "zone_z1", "zone_z2" and
+   * "zone_z3" to shoppers as if they were places. See lib/zones.ts. */
+  const zones = useMemo(() => normalizeZones(settings.zones), [settings.zones]);
+  const [zoneId, setZoneId] = useState<string>(zones[0]?.id || "");
   const [pay, setPay] = useState<PayMethod>("cod");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -71,7 +79,7 @@ export default function CheckoutForm({
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
   const errorCount = Object.keys(errors).length;
 
-  const zone = useMemo(() => settings.zones.find((z) => z.id === zoneId), [zoneId, settings.zones]);
+  const zone = useMemo(() => zones.find((z) => z.id === zoneId), [zoneId, zones]);
   const fee = mode === "delivery" && zone && !zone.quote ? Number(zone.fee) : 0;
   const total = subtotal + fee;
   const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
@@ -380,7 +388,7 @@ export default function CheckoutForm({
             <div className="field">
               <label htmlFor="zone">{t("zone", lang)}</label>
               <select id="zone" value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
-                {settings.zones.map((z) => (
+                {zones.map((z) => (
                   <option key={z.id} value={z.id}>
                     {t("zone_" + z.id, lang)} — {z.quote ? t("quoteOnRequest", lang) : money(z.fee)}
                   </option>

@@ -329,6 +329,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "stock-reservation.sql",   // after stock-ledger.sql
   "returns.sql",             // after stock-ledger.sql
   "return-requests.sql",     // after returns.sql
+  "zone-cleanup.sql",
   "refund-settlement.sql",   // after returns.sql
 
   // Reporting and storefront features. Independent of each other.
@@ -369,6 +370,14 @@ export const SCHEMA_ORDER: readonly string[] = [
 export const NOT_SCHEMA_FILES: readonly string[] = [
   // Sample data, not schema.
   "seed.sql",
+  // A DATA fix, not a schema one: it rewrites settings.zones so a shop
+  // stops offering "zone_z1" as a delivery option. It creates no table,
+  // column, view or function, so the panel has nothing it could probe --
+  // the only honest probe would be settings.zones, which schema.sql
+  // already creates and which would therefore always read "applied".
+  // It is in SCHEMA_ORDER and so in run-all.sql, which is what DEPLOY.md
+  // tells an operator to run.
+  "zone-cleanup.sql",
   // What Supabase provides before a project's first migration -- roles,
   // auth.users, storage.objects, extensions. Applied only to the bare
   // Postgres the integration tests run against, never to a real database,

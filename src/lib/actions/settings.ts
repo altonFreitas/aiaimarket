@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
 import type { Bank, Wallet, Zone } from "@/lib/types";
+import { normalizeZones } from "@/lib/zones";
 
 export async function saveSettings(input: {
   store_name: string; wa_number: string; hours: string;
@@ -48,7 +49,15 @@ export async function saveWallets(wallets: Wallet[]) {
 export async function saveZones(zones: Zone[]) {
   await requireAdmin();
   const sb = supabaseAdmin();
-  const { error } = await sb.from("settings").update({ zones }).eq("id", 1);
+  /* NORMALISED ON THE WAY IN, which is what actually cleans the database.
+   *
+   * supabase/seed.sql wrote zones with the ids z1, z2 and z3, and the old
+   * editor patched the stored array rather than replacing it -- so the junk
+   * survived every save and the checkout kept offering "zone_z1" as if it
+   * were a place. Writing the canonical three is what removes it, and it
+   * happens the first time anybody touches this screen. */
+  const { error } = await sb
+    .from("settings").update({ zones: normalizeZones(zones) }).eq("id", 1);
   if (error) throw error;
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.settings);

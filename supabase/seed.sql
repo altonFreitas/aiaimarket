@@ -15,9 +15,17 @@ update settings set
   pickup = true,
   banks = '[{"label":"BNCTL","account":"0012 3456 7890","holder":"Loja AIAI Unipessoal"}]',
   wallets = '[{"label":"Telemor Mosan","number":"+670 7712 3456"}]',
-  zones = '[{"id":"z1","name":"Dili sentru","fee":1,"quote":false},
-            {"id":"z2","name":"Dili liur","fee":2,"quote":false},
-            {"id":"z3","name":"Munisípiu seluk","fee":0,"quote":true}]'
+  -- THE REAL ZONE IDS, and no "name" field.
+  --
+  -- This used to write z1, z2 and z3 with names in Tetun. Neither half was
+  -- right: the application labels a zone by looking up t("zone_" + id), so
+  -- an id it does not recognise was shown to shoppers as the literal string
+  -- "zone_z1", and the "name" here was read by nothing at all -- it made
+  -- the row LOOK correct while the checkout offered three untranslated keys
+  -- as if they were places. The ids below are the ones lib/zones.ts knows.
+  zones = '[{"id":"dili_center","fee":1,"quote":false},
+            {"id":"dili_outskirts","fee":2,"quote":false},
+            {"id":"other_municipality","fee":0,"quote":true}]'
 where id = 1;
 
 insert into categories (name, slug, sort_order) values

@@ -7,6 +7,7 @@ import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { normalizeRestockPct } from "@/lib/restock";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
+import { ZONE_IDS, normalizeZones, zoneLabelKey } from "@/lib/zones";
 
 export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: Settings }) {
   const router = useRouter();
@@ -30,7 +31,9 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   });
   const [banks, setBanks] = useState<Bank[]>(settings.banks || []);
   const [wallets, setWallets] = useState<Wallet[]>(settings.wallets || []);
-  const [zones, setZones] = useState<Zone[]>(settings.zones || []);
+  // Normalised up front, so the rows the owner edits ARE what gets saved
+  // and the junk from the seed is gone the first time they touch this.
+  const [zones, setZones] = useState<Zone[]>(() => normalizeZones(settings.zones));
   const [nb, setNb] = useState({ label: "", account: "", holder: "" });
   const [nw, setNw] = useState({ label: "", number: "" });
   const [editingBank, setEditingBank] = useState<number | null>(null);
@@ -228,7 +231,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           {t("zone_dili_center", lang)} / {t("zone_dili_outskirts", lang)} / {t("zone_other_municipality", lang)}
         </p>
         <div className="rows">
-          {(["dili_center", "dili_outskirts", "other_municipality"] as const).map((zid) => {
+          {ZONE_IDS.map((zid) => {
             const z = zones.find((x) => x.id === zid) || { id: zid, fee: 0, quote: false };
             const update = (patch: Partial<Zone>) => {
               const next = zones.some((x) => x.id === zid)
@@ -239,7 +242,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             };
             return (
               <div className="kv" key={zid} style={{ alignItems: "center" }}>
-                <span>{t("zone_" + zid, lang)}</span>
+                <span>{t(zoneLabelKey(zid), lang)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {!z.quote && (
                     <input
