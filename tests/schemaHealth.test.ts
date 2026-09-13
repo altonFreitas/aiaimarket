@@ -15,6 +15,7 @@ const KINDS = {
     "hit_rate_limit", "redact_old_order_pii",
     "reserve_order_stock", "release_stale_reservations",
     "seller_earnings", "sync_order_items", "is_expense_account",
+    "apply_supplier_return_stock",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -57,6 +58,7 @@ const EVERYTHING = snap([
   "product_costs", "sales_targets",
   "order_returns", "order_return_items",
   "return_requests", "return_request_items",
+  "supplier_returns", "supplier_return_items",
   "operating_expenses", "recurring_expenses",
   "promotions",
   "hero_slides.video_url",
@@ -230,7 +232,8 @@ describe("an old schema_inventory() that can only see tables", () => {
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
       "loves.sql", "refund-settlement.sql", "rate-limits.sql", "pii-retention.sql",
-      "operating-costs.sql", "order-items.sql", "stock-reservation.sql",
+      "operating-costs.sql", "supplier-returns.sql",
+      "order-items.sql", "stock-reservation.sql",
       "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {

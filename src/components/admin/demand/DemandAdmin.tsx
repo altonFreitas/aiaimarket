@@ -8,6 +8,7 @@ import {
   demandByCategory, findDemandSignals, signalsOf,
   type DemandSignal,
 } from "@/lib/demand";
+import { mostLoved, loveCount } from "@/lib/loves";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Order, Product } from "@/lib/types";
 
@@ -41,6 +42,26 @@ export default function DemandAdmin({
   const findings = useMemo(() => findDemandSignals(rows), [rows]);
   const byCategory = useMemo(() => demandByCategory(rows), [rows]);
   const health = useMemo(() => computeCatalogHealth(rows), [rows]);
+
+  /* THE HEARTS, RANKED.
+   *
+   * mostLoved() leaves out everything at zero rather than ranking it last,
+   * and that is deliberate: a "most loved" list topped up with products
+   * nobody has hearted is a list the shop invented. The card says so when
+   * it is empty, which on the day the feature ships is the true answer.
+   *
+   * Capped at the same number RankedBars can show without the sixth row
+   * peeking -- past that it scrolls, like every other ranked card here. */
+  const loved = useMemo(() => {
+    const top = mostLoved(products, 20);
+    const total = top.reduce((a, p) => a + loveCount(p), 0) || 1;
+    return top.map((p) => ({
+      key: p.id,
+      label: p.name,
+      value: loveCount(p),
+      share: loveCount(p) / total,
+    }));
+  }, [products]);
 
   const signalFor = useMemo(() => {
     const m = new Map<string, DemandSignal>();
@@ -147,18 +168,38 @@ export default function DemandAdmin({
           />
         </div>
 
-        {/* ---- listing problems that suppress demand before any shopper
-                is involved ---- */}
+        {/* ---- what shoppers said they liked, before buying anything ----
+
+             A view is something a shopper did on the way past. A love is
+             something they went out of their way to do, which makes it the
+             cleanest intent signal in the shop and the one most worth
+             reading next to views: a product with attention and no hearts
+             is being looked at and not wanted. */}
         <div className="panel">
-          <h3>{t("catalogHealth", lang)}</h3>
-          <div className="stat stat-fit">
-            <div><b>{health.live}</b><span>{t("liveProducts", lang)}</span></div>
-            <div><b>{health.outOfStock}</b><span>{t("outOfStock", lang)}</span></div>
-            <div><b>{health.lowStock}</b><span>{t("stockLow", lang)}</span></div>
-            <div><b>{health.neverViewed}</b><span>{t("neverViewed", lang)}</span></div>
-            <div><b>{health.noImage}</b><span>{t("noImage", lang)}</span></div>
-            <div><b>{health.uncategorised}</b><span>{t("uncategorised", lang)}</span></div>
+          <div className="panel-head">
+            <h3>{t("mostLovedProducts", lang)}</h3>
+            <span className="hint">{t("mostLovedHint", lang)}</span>
           </div>
+          <RankedBars
+            rows={loved}
+            emptyLabel={t("noLovesYet", lang)}
+            format={(n) => n.toLocaleString("en-US")}
+          />
+        </div>
+      </div>
+
+      {/* ---- listing problems that suppress demand before any shopper
+              is involved. Full width, because six figures in a row read
+              better than six crammed into half of one. ---- */}
+      <div className="panel">
+        <h3>{t("catalogHealth", lang)}</h3>
+        <div className="stat stat-fit">
+          <div><b>{health.live}</b><span>{t("liveProducts", lang)}</span></div>
+          <div><b>{health.outOfStock}</b><span>{t("outOfStock", lang)}</span></div>
+          <div><b>{health.lowStock}</b><span>{t("stockLow", lang)}</span></div>
+          <div><b>{health.neverViewed}</b><span>{t("neverViewed", lang)}</span></div>
+          <div><b>{health.noImage}</b><span>{t("noImage", lang)}</span></div>
+          <div><b>{health.uncategorised}</b><span>{t("uncategorised", lang)}</span></div>
         </div>
       </div>
 

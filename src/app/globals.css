@@ -2136,3 +2136,61 @@ tr.is-ended{opacity:.55}
 .pchart-bar.is-loss{background:var(--red);border-radius:0 0 3px 3px}
 .pchart-label{position:absolute;bottom:0;left:0;right:0;text-align:center;
   font-family:var(--mono);font-size:9.5px;color:var(--muted-2)}
+
+/* ---------- returns: what came back, both ways (/admin/returns) ---------- */
+/* Deliberately the finance screen's shape: one number that answers the
+   question, the supporting figures beside it. Neither block is green --
+   a return rate is not good news at any value, and the shop should read
+   the figure rather than the colour. */
+.ret-headline{display:grid;grid-template-columns:minmax(200px,1fr) minmax(220px,1.1fr);
+  gap:18px;align-items:start;margin-top:4px}
+@media (max-width:700px){.ret-headline{grid-template-columns:1fr}}
+.ret-rate{padding:16px 18px;border-radius:var(--r);background:var(--paper);
+  border:1px solid var(--line)}
+/* Money the shop is owed and has not chased gets the amber edge the rest
+   of the admin uses for "somebody has to do something". */
+.ret-rate.is-owed{background:var(--amber-soft);border-color:var(--amber)}
+.ret-rate .k{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin-bottom:6px}
+.ret-rate b{display:block;font-size:34px;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--ink)}
+.ret-rate.is-owed b{color:var(--amber-ink)}
+.ret-rate .n{display:block;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.fin-side .kv.is-bad b{color:var(--red)}
+
+/* Recording a credit in place on the chase list, rather than on a second
+   screen -- the amount is already on the row being answered. */
+.ret-credit{display:inline-flex;gap:6px;align-items:center}
+.ret-credit input{width:92px;padding:5px 7px;font-size:13px;
+  font-family:var(--mono)}
+
+/* The lines of a claim. Wraps rather than scrolls: on a phone each line
+   becomes a stack, which is legible, where a horizontal scroll inside a
+   form is not. */
+.ret-lines{display:flex;flex-direction:column;gap:8px;margin:4px 0 2px}
+.ret-line{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
+  padding:10px;border:1px solid var(--line);border-radius:var(--r-s);
+  background:var(--paper)}
+.ret-line .field{flex:1;min-width:140px;margin:0}
+.ret-line .field.is-narrow{flex:0 0 92px;min-width:92px}
+.ret-line .check{flex:0 0 auto;align-items:center}
+
+/* Two counts per month, side by side. Different kinds of thing, so they
+   are never stacked into one height -- see DualBars in Charts.tsx. */
+.dchart{margin-top:4px}
+.dchart-key{display:flex;gap:14px;margin-bottom:8px;font-size:11.5px;
+  color:var(--muted)}
+.dchart-key span{display:inline-flex;align-items:center;gap:5px}
+.dchart-key i{width:9px;height:9px;border-radius:2px}
+.dchart-key i.is-a{background:var(--ink)}
+.dchart-key i.is-b{background:var(--amber)}
+.dchart-plot{display:flex;align-items:stretch;gap:4px}
+.dchart-col{flex:1;min-width:0;display:flex;flex-direction:column;
+  padding-bottom:16px;position:relative}
+.dchart-pair{flex:1;display:flex;align-items:flex-end;gap:2px;min-height:0;
+  border-bottom:1px solid var(--line)}
+.dchart-bar{flex:1;display:block;border-radius:2px 2px 0 0}
+.dchart-bar.is-a{background:var(--ink)}
+.dchart-bar.is-b{background:var(--amber)}
+.dchart-lbl{position:absolute;bottom:0;left:0;right:0;text-align:center;
+  font-family:var(--mono);font-size:9.5px;color:var(--muted-2)}

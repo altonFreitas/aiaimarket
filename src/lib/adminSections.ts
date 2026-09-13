@@ -50,7 +50,14 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     key: "sales", labelKey: "navSales",
     // /admin/o/<id> is an order; it belongs with orders even though the
     // nav has no tab for it.
-    paths: ["/admin/sales", "/admin/orders", "/admin/notifications", "/admin/o"],
+    // What came back. A customer return is a property of an order, so it
+    // belongs here; the supplier half of that screen is drawn only for
+    // somebody who also holds Procurement, and the actions behind it check
+    // the same thing.
+    paths: [
+      "/admin/sales", "/admin/orders", "/admin/notifications", "/admin/o",
+      "/admin/returns",
+    ],
   },
   {
     key: "catalog", labelKey: "navCatalog",

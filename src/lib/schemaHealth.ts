@@ -230,6 +230,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     tables: ["return_requests", "return_request_items"],
   },
   {
+    // Goods going the other way. Named by both tables and the ledger
+    // trigger's function: without the last one the stock never leaves the
+    // shelf, which is the half-run state worth catching.
+    file: "supplier-returns.sql", labelKey: "featSupplierReturns",
+    tables: ["supplier_returns", "supplier_return_items"],
+    routines: ["apply_supplier_return_stock"],
+  },
+  {
     // Order lines as rows rather than as a document. Named by the table and
     // the aggregate: the table alone would not distinguish this file from
     // one that had only got half way.
@@ -336,6 +344,11 @@ export const SCHEMA_ORDER: readonly string[] = [
   "stock-reservation.sql",   // after stock-ledger.sql
   "returns.sql",             // after stock-ledger.sql
   "return-requests.sql",     // after returns.sql
+  // AFTER procurement.sql, whose suppliers and purchase_orders it
+  // references, and after stock-reservation.sql, whose reason constraint
+  // it rebuilds -- applied the other way round, the older file would drop
+  // 'supplier_return' back out of the list again.
+  "supplier-returns.sql",
   "zone-cleanup.sql",
   "operating-costs.sql",
   "refund-settlement.sql",   // after returns.sql

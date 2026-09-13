@@ -485,3 +485,62 @@ export function ProfitBars({
     </div>
   );
 }
+
+export interface DualPoint {
+  key: string;
+  label: string;
+  a: number;
+  b: number;
+  title?: string;
+}
+
+/** Two counts per period, side by side.
+ *
+ * For questions where the two series are DIFFERENT KINDS OF THING rather
+ * than parts of one total -- goods coming back from customers and goods
+ * going back to suppliers. Stacking them would draw a combined height that
+ * means nothing at all, and two separate charts would lose the comparison
+ * that is the whole reason to look.
+ *
+ * One shared scale, so a month with four of one and one of the other reads
+ * as four and one. Counts, not money: these are documents, and the format
+ * defaults accordingly.
+ */
+export function DualBars({
+  points, emptyLabel, labelA, labelB,
+  format = (n: number) => n.toLocaleString("en-US"),
+}: {
+  points: DualPoint[];
+  emptyLabel: string;
+  labelA: string;
+  labelB: string;
+  format?: (n: number) => string;
+}) {
+  const max = Math.max(...points.flatMap((p) => [p.a, p.b]), 0);
+  if (!points.length || max <= 0) return <Empty label={emptyLabel} />;
+
+  return (
+    <div className="dchart">
+      <div className="dchart-key">
+        <span><i className="is-a" />{labelA}</span>
+        <span><i className="is-b" />{labelB}</span>
+      </div>
+      <div className="dchart-plot" style={{ height: CHART_H }}>
+        {points.map((p) => (
+          <div className="dchart-col" key={p.key}
+            title={p.title || `${p.label}: ${labelA} ${format(p.a)} · ${labelB} ${format(p.b)}`}>
+            <span className="dchart-pair">
+              {/* A zero still gets a sliver, so an empty month is visibly a
+                  month rather than a gap in the axis. */}
+              <i className="dchart-bar is-a"
+                style={{ height: `${Math.max(1.5, (p.a / max) * 100)}%` }} />
+              <i className="dchart-bar is-b"
+                style={{ height: `${Math.max(1.5, (p.b / max) * 100)}%` }} />
+            </span>
+            <span className="dchart-lbl">{p.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

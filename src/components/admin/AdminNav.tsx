@@ -38,6 +38,7 @@ const GROUPS: Group[] = [
     tabs: [
       ["/admin/sales", "salesDashboard"],
       ["/admin/orders", "orders"],
+      ["/admin/returns", "returns"],
       ["/admin/notifications", "pendingMessages"],
     ],
   },

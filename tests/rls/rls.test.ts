@@ -97,6 +97,14 @@ describeDb("what the anon key can read", () => {
       "admin_users", "audit_log", "seller_invites", "stock_movements",
       "product_costs", "notifications", "order_items", "rate_limits",
       "return_requests", "return_request_items",
+      // A claim against a supplier carries that supplier's identity and
+      // the shop's unit cost for the goods -- the same commercially
+      // sensitive pair purchase orders carry.
+      "supplier_returns", "supplier_return_items",
+      // What the shop pays to keep the lights on, and what it pays its
+      // staff. More sensitive than margin, which can at least be guessed
+      // from prices.
+      "operating_expenses", "recurring_expenses",
     ]) {
       expect([table, denied(`select count(*) from ${table}`, "anon")])
         .toEqual([table, true]);
