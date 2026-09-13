@@ -5,6 +5,7 @@ import { BarSeries, RankedBars, RateBar } from "../Charts";
 import SalesTable from "./SalesTable";
 import SellerDetail from "./SellerDetail";
 import ExportExcelButton from "../ExportExcelButton";
+import PeriodChips from "../PeriodChips";
 import { money } from "@/lib/utils";
 import {
   buildInsights, buildSalesAlerts, computeSalesKpis, customerAnalysis,
@@ -14,8 +15,7 @@ import {
   salesBySeller, salesByYear, sellerProfile, shiftIso, statusBreakdown, targetProgress, totals,
   paymentSummary,
   PENDING_STATUSES, SALES_STATUSES,
-  PERIOD_PRESETS, presetRange, activePreset,
-  type RankBy, type SalesFilter, type SalesTarget,
+  type PeriodPreset, type RankBy, type SalesFilter, type SalesTarget,
 } from "@/lib/sales";
 import { t } from "@/lib/i18n";
 import { unpackSalesLines, type PackedSalesLines } from "@/lib/salesWire";
@@ -69,11 +69,21 @@ export default function SalesDashboard({
   const [year, setYear] = useState(thisYear);
   const [productRank, setProductRank] = useState<RankBy>("revenue");
   const [customerRank, setCustomerRank] = useState<RankBy>("revenue");
+  /* WHICH PERIOD CHIP IS LIT, remembered rather than re-derived.
+   *
+   * It used to be worked out by matching the date range against each
+   * preset, which is lossy: on a Monday "this week" is the same range as
+   * "today", so the match returned "today", the highlight never moved, and
+   * -- because clicking set the range it was already on -- React re-rendered
+   * nothing at all. The chip was inert. Holding what was clicked fixes it;
+   * any other change to the dates clears it, so a hand-typed range still
+   * lights nothing. See PeriodChips. */
+  const [preset, setPreset] = useState<PeriodPreset | null>(null);
   const set = (patch: Partial<SalesFilter>) => setF((s) => ({ ...s, ...patch }));
-
-  // Lit from the filter itself rather than from a separate piece of state,
-  // so typing a range by hand into the date boxes correctly lights nothing.
-  const chosenPreset = activePreset(f.from, f.to, today);
+  /** A date typed by hand means no preset is selected any more. Separate
+   * from set() rather than a condition inside it, because the chips set the
+   * same two fields and must NOT clear the choice they just made. */
+  const setDates = (patch: Partial<SalesFilter>) => { setPreset(null); set(patch); };
 
   // ---- the one filtered set -------------------------------------------
   const rows = useMemo(() => filterSalesLines(lines, f, today), [lines, f, today]);
@@ -229,27 +239,18 @@ export default function SalesDashboard({
             boxes below still take any range; these are the six that get
             typed over and over, and each is a whole calendar period so two
             people reading the same screen mean the same thing by it. */}
-        <div className="bar preset-bar">
-          {PERIOD_PRESETS.map((p) => (
-            <button key={p} type="button"
-              className={"chip" + (chosenPreset === p ? " is-on" : "")}
-              onClick={() => set(presetRange(p, today))}>
-              {t("range_" + p, lang)}
-            </button>
-          ))}
-          {(f.from || f.to) && (
-            <button type="button" className="chip" onClick={() => set({ from: "", to: "" })}>
-              {t("allTime", lang)}
-            </button>
-          )}
-        </div>
+        <PeriodChips
+          lang={lang} from={f.from} to={f.to} today={today} chosen={preset}
+          onPick={(p, range) => { setPreset(p); set(range); }}
+          onClear={() => { setPreset(null); set({ from: "", to: "" }); }}
+        />
         <div className="bar">
           <input type="search" placeholder={t("searchSales", lang)} value={f.q || ""}
             onChange={(e) => set({ q: e.target.value })} style={{ flex: 1, minWidth: 150 }} />
           <input type="date" value={f.from || ""} aria-label={t("from", lang)}
-            onChange={(e) => set({ from: e.target.value })} />
+            onChange={(e) => setDates({ from: e.target.value })} />
           <input type="date" value={f.to || ""} aria-label={t("to", lang)}
-            onChange={(e) => set({ to: e.target.value })} />
+            onChange={(e) => setDates({ to: e.target.value })} />
           <select value={f.status || ""} onChange={(e) => set({ status: e.target.value as OrderStatus | "" })}>
             <option value="">{t("allStatuses", lang)}</option>
             {SALES_STATUSES.map((s) => <option key={s} value={s}>{t("st_" + s, lang)}</option>)}
@@ -268,7 +269,7 @@ export default function SalesDashboard({
             {municipalities.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           {filterIsActive(f) && (
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => setF({})}>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setPreset(null); setF({}); }}>
               {t("clearFilters", lang)}
             </button>
           )}

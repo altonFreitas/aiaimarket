@@ -687,7 +687,26 @@ export function presetRange(preset: PeriodPreset, today: string): { from: string
 }
 
 /** Which preset the current filter matches, or null for a hand-picked range.
- * Lets the chip row show what is actually selected instead of guessing. */
+ * Lets the chip row show what is actually selected instead of guessing.
+ *
+ * CAUTION -- THIS IS AMBIGUOUS, AND CALLERS HAVE TO HANDLE THAT. Two presets
+ * can mean the same range, and on those days this returns the first one in
+ * PERIOD_PRESETS order rather than the one somebody clicked:
+ *
+ *   a Monday          "this week" has only today in it
+ *   the 1st           "this month" likewise
+ *   1 Jan             today, this month, this quarter and this year are
+ *                     all the single day 1 January
+ *
+ * On Monday 14 September 2026 that made the "This week" chip look broken:
+ * clicking it set the range it was already on, so React had nothing to
+ * re-render, and this function went on reporting "today" -- so the
+ * highlight never moved and the button appeared dead. It was not dead; it
+ * was right, and unable to say so.
+ *
+ * So this is the FALLBACK for a range that arrived some other way, and what
+ * somebody actually clicked has to be remembered separately -- see
+ * PeriodChips, which takes both. */
 export function activePreset(
   from: string | undefined, to: string | undefined, today: string
 ): PeriodPreset | null {
@@ -697,6 +716,20 @@ export function activePreset(
     if (r.from === from && r.to === to) return p;
   }
   return null;
+}
+
+/** Every preset that means the same range as `p` today, `p` included.
+ *
+ * What the chip row needs in order to be honest on a Monday: the week chip
+ * is lit because it was clicked, and this says which other chips describe
+ * the same days -- so the screen can note that "this week" is, so far, just
+ * today rather than leaving somebody to wonder why nothing moved. */
+export function coincidingPresets(p: PeriodPreset, today: string): PeriodPreset[] {
+  const r = presetRange(p, today);
+  return PERIOD_PRESETS.filter((other) => {
+    const o = presetRange(other, today);
+    return o.from === r.from && o.to === r.to;
+  });
 }
 
 /** The last `count` whole weeks ending with the week containing `today`,

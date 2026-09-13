@@ -2194,3 +2194,71 @@ tr.is-ended{opacity:.55}
 .dchart-bar.is-b{background:var(--amber)}
 .dchart-lbl{position:absolute;bottom:0;left:0;right:0;text-align:center;
   font-family:var(--mono);font-size:9.5px;color:var(--muted-2)}
+
+/* ---------- the order book (/admin/orders) ---------- */
+/* Said on the days two periods mean the same range -- a Monday, the 1st,
+   1 January. Sits under the chips it explains, and has to be sized here:
+   .hint carries no size of its own, only context-specific overrides, so a
+   bare one renders at body size and shouts. */
+.period-note{margin:0 0 9px;font-size:12px;color:var(--muted)}
+/* The count beside the page title, likewise. */
+.page-head > .hint{font-size:12.5px;color:var(--muted);white-space:nowrap}
+
+/* What needs somebody to do something, cutting across every status. The
+   count rides inside the chip rather than beside it, so the row reads as
+   "Late 3" and not as two separate things to line up. */
+.flag-bar{padding-top:9px;margin-top:9px;border-top:1px solid var(--line-2)}
+.chip-count{display:inline-flex;align-items:center;gap:7px}
+.chip-count b{font-family:var(--mono);font-size:11.5px;min-width:1.2em;
+  text-align:center;padding:1px 5px;border-radius:10px;
+  background:var(--line-2);color:var(--ink)}
+.chip-count.is-on b{background:rgba(255,255,255,.22);color:#fff}
+/* A zero still gets a chip -- it is the answer "nothing is late", which is
+   worth showing -- but it recedes rather than inviting a click. */
+.chip-count.is-empty{opacity:.55}
+.chip-count.is-empty b{color:var(--muted-2)}
+
+/* The tiles. Eight of them, so they are pinned to four across rather than
+   left to auto-fit -- which packed seven into one row and left the eighth
+   stranded on a line of its own. Two rows of four also give the money
+   figures room to sit on one line. */
+@media (min-width:900px){ .stat.ord-stat{grid-template-columns:repeat(4,1fr)} }
+@media (min-width:560px) and (max-width:899px){
+  .stat.ord-stat{grid-template-columns:repeat(2,1fr)}
+}
+/* Two get a colour, and only when the number is bad: an amber "owed to us"
+   at $0.00 would cry wolf every day the shop is square. */
+.ord-stat div.is-warn b{color:var(--amber-ink)}
+.ord-stat div.is-bad b{color:var(--red)}
+.ord-stat div em{display:block;font-size:10.5px;color:var(--muted-2);
+  font-family:var(--mono);font-style:normal;margin-top:2px}
+
+/* This page IS the list, so it gets a taller window than the five-row cap
+   the side panels use -- but still a window, so the filters above stay
+   reachable without scrolling back up. */
+.list.ord-list{max-height:calc(var(--adm-item-h) * 9)}
+.ord-item{align-items:center}
+/* The row is a link to the order, EXCEPT the phone, which is a button that
+   filters to that buyer. Nesting a button inside an anchor is invalid and
+   swallows the click, so the anchor covers only the left-hand block. */
+.ord-main{flex:1 1 auto;min-width:0;text-decoration:none;color:inherit;display:block}
+.ord-main b{display:block;font-size:14px;font-weight:600;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.ord-main > span{display:block;font-size:11.5px;color:var(--muted);
+  font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ord-item:hover{background:var(--line-2)}
+/* A red left edge rather than red text: the amount stays readable and the
+   row still reads as a thing to deal with. */
+.ord-item.is-late{border-left:3px solid var(--red)}
+.ord-phone{background:none;border:0;padding:2px 4px;border-radius:var(--r-s);
+  font-family:var(--mono);font-size:11.5px;color:var(--muted);cursor:pointer}
+.ord-phone:hover{background:var(--line);color:var(--ink)}
+
+@media (max-width:640px){
+  /* The pills and the phone wrap under the order rather than squeezing it
+     to a few pixels, which is what put a reference on screen as a vertical
+     column of letters before .ord-main got its nowrap. */
+  .ord-item{flex-wrap:wrap}
+  .ord-item .acts{width:100%;justify-content:flex-start}
+  .list.ord-list{max-height:none}
+}
