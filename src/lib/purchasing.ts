@@ -263,6 +263,18 @@ export async function savePurchaseOrderIn(
   if (actual && actual < orderDate) {
     throw new Error("Arrival date cannot be before the order date");
   }
+  /* A landed order with no arrival date can never be assessed afterwards --
+   * no arrival means no lead time and no on-time judgement, so the
+   * supplier's record quietly loses a data point. Stamping today is the
+   * honest default and stays editable. The quick-status buttons have always
+   * done this; saving the form had not, so the SAME move made through the
+   * dropdown produced a different row. */
+  const landed = input.status === "arrived" || input.status === "received";
+  const today = todayIso();
+  // Not stamped onto an order dated in the future: it would be an arrival
+  // before the purchase, which the check just above rejects when a person
+  // types it and should not slip in behind them.
+  const arrival = actual ?? (landed && today >= orderDate ? today : null);
 
   const lines = (input.lines || []).filter((l) => (l.productName || "").trim());
   if (!lines.length) throw new Error("Add at least one line item");
@@ -294,7 +306,7 @@ export async function savePurchaseOrderIn(
     buyer: clip(input.buyer, MAX_NAME),
     order_date: orderDate,
     expected_arrival: expected,
-    actual_arrival: actual,
+    actual_arrival: arrival,
     currency,
     fx_rate: fxRate,
     tax: money(input.tax ?? 0, "Tax"),
@@ -379,6 +391,30 @@ export async function savePurchaseOrderIn(
     .from("purchase_order_items")
     .insert(rows.map((r) => ({ ...r, po_id: poId })));
   if (itemErr) throw itemErr;
+
+  /* SAVING AN ORDER AS "RECEIVED" RECEIVES IT.
+   *
+   * There are two ways to move an order along -- the quick-status buttons
+   * at the top of the form, and the Purchase status dropdown inside it --
+   * and only the first of them used to reach this. So a shop that picked
+   * "received" in the dropdown and pressed Save got an order that SAID the
+   * goods had landed while the shelf never moved: no stock, no catalog
+   * entry for a product bought without one, no landed cost. The product
+   * stayed "Out of stock" and the home page never changed, which is exactly
+   * what it looked like from the outside -- nothing had happened, because
+   * nothing had.
+   *
+   * The same call the buttons make, from the other door. Safe to repeat:
+   * the unique index on stock_movements(po_item_id, size) means a line
+   * already received is reported rather than added twice.
+   *
+   * Last, after the lines are written, because it reads them back. A
+   * failure here therefore cannot lose the order -- it is saved by the time
+   * this runs, and the caller can move it to "received" again. */
+  if (input.status === "received") {
+    const { applyReceipt } = await import("./receiving");
+    await applyReceipt(poId as string, scopeSellerId(scope));
+  }
 
   revalidateFor(scope);
   return poId as string;

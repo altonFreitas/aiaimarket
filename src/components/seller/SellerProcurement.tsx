@@ -169,7 +169,7 @@ export default function SellerProcurement({
 
                 <p className="crumb">{t("poLines", lang)}</p>
                 {lines.map((l, i) => (
-                  <div className="po-line" key={i}>
+                  <div className="po-line-4" key={i}>
                     <input aria-label={t("product", lang)} placeholder={t("product", lang)}
                       value={l.productName}
                       onChange={(e) => setLine(i, { productName: e.target.value })} />

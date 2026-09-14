@@ -1369,7 +1369,20 @@ export const STR: Record<string, [string,string,string]> = {
   whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],
   audienceAnyone:["Ba ema hotu","Para qualquer pessoa","Anyone"],
   qtyPerSize:["Kuantidade tuir tamañu","Quantidade por tamanho","How many of each size"],
-  qtyFromSizes:["Soma husi tamañu sira iha kraik.","Somado dos tamanhos abaixo.","Added up from the sizes below."],
+  /* "below" no longer: the note sits under the size boxes now, not over
+     them -- under the Quantity field it was pushing that one box up out of
+     line with the rest of the row. A sentence that points the wrong way is
+     worse than no sentence. */
+  qtyFromSizes:["Kuantidade iha leten soma husi sira ne'e.","A quantidade acima é a soma destes.","The quantity above is added up from these."],
+  /* The two ways an order's status moves, told apart in words.
+     They are ONE field. The buttons write it straight away; the dropdown
+     is part of the form and goes with Save. Somebody who has just pressed
+     Approved and sees the dropdown still saying Draft is right to think
+     something is broken, so each control now says which it is. */
+  moveOrderOn:["Book ba oin","Avançar a encomenda","Move this order on"],
+  quickStatusHint:["Muda kedas bainhira ita hanehan. Estadu iha formuláriu okos muda deit bainhira ita rai.","Muda logo ao carregar. O estado no formulário abaixo só muda ao guardar.","Changes the moment you press it. The status in the form below changes only when you save."],
+  purchaseStatusHint:["Rai hamutuk ho formuláriu ne'e. Hili \"Simu ona\" atu tau sasán ba prateleira.","Guardado com o resto do formulário. Escolha \"Recebida\" para colocar a mercadoria na prateleira.","Saved with the rest of the form. Choose \"Received\" to put the goods on the shelf."],
+  savedAndReceived:["Rai ona. Sasán iha prateleira ona.","Guardado. A mercadoria está na prateleira.","Saved. The goods are on the shelf."],
   stockBySize:["Stok tuir tamañu","Stock por tamanho","Stock per size"],
   unsized:["La iha tamañu","Sem tamanho","No size"],
   unsizedHint:["Sasán ne'ebé sura molok sistema ne'e, ka sasán ne'ebé la iha tamañu. Bele fa'an ba tamañu saida deit.","Stock contado antes disto existir, ou artigos sem tamanho. Pode ser vendido em qualquer tamanho.","Stock counted before this existed, or goods that have no size. It can be sold as any size."],

@@ -591,6 +591,10 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:76px;z-index:80;background:var(--ink);color:#fff;padding:10px 14px;
   border-radius:var(--r-s);font-size:13.5px;box-shadow:var(--sh);max-width:92vw;animation:up .16s ease-out}
 .toast.bad{background:var(--red)}
+/* Green for a job that went through, red for one that did not, and the
+   shop's ink for everything that is merely a note. --green is 5.8:1 against
+   white, so the text on it is readable rather than decorative. */
+.toast.good{background:var(--green)}
 
 /* ---------- footer ---------- */
 /* No rule above it and no fill behind it: the footer is one quiet line of
@@ -1156,15 +1160,36 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .tbl tr:last-child td{border-bottom:0}
 .tbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 
+/* ---------- where a purchase order is, and moving it on ---------- */
+/* A row of every status with the current one filled in, so the strip
+   answers "where is this order" as well as asking "where next". It wraps
+   on a phone rather than scrolling sideways: nine short words, and a
+   horizontal scroller would hide the last of them behind an edge. */
+.po-status{margin:10px 0 16px}
+.po-status-row{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}
+.po-status .hint{margin:0}
+
 /* ---------- a seller's purchase-order lines ---------- */
 /* Four boxes on one line where there is room, stacked where there is not.
    Product first and widest: it is the only one somebody types words into,
-   and the three numbers after it are short by nature. */
-.po-line{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:8px}
-.po-line input{width:100%;border:1px solid var(--line);border-radius:var(--r-s);
+   and the three numbers after it are short by nature.
+
+   ITS OWN CLASS, AND THE REASON IS A BUG THIS CAUSED. These rules were
+   written on .po-line, which is also the owner's purchase order form --
+   a different row entirely: labelled .field wrappers, a spend category, a
+   shop category, sizes, a per-size grid, a description. Being later in the
+   file, this grid won, and laid that form out on four fixed columns. The
+   Quantity box was the one that showed it, sitting a column out of line
+   with everything around it.
+
+   Two layouts, two names. The seller's form has four bare inputs and wants
+   a grid; the owner's has a dozen labelled fields and wants the flex row
+   above, which wraps and bottom-aligns them. */
+.po-line-4{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:8px}
+.po-line-4 input{width:100%;border:1px solid var(--line);border-radius:var(--r-s);
   background:var(--card);padding:8px 9px;font-size:14px}
 @media(min-width:560px){
-  .po-line{grid-template-columns:2fr 0.7fr 1fr 1fr}
+  .po-line-4{grid-template-columns:2fr 0.7fr 1fr 1fr}
 }
 .po-line-foot{display:flex;align-items:center;gap:10px;margin:10px 0 14px}
 
@@ -2420,7 +2445,12 @@ tr.is-ended{opacity:.55}
 .size-chip.is-unsized{border-style:dashed;color:var(--muted)}
 
 /* The per-size quantity boxes on a purchase order line. */
-.po-sizes{grid-column:1/-1}
+/* The size grid, and the note under it, take a wrap line to themselves.
+   `.po-line .field` sets a 130px basis at the wide breakpoint, so this has
+   to be at least as specific to beat it -- grid-column, which is what was
+   here, meant nothing at all once the row went back to being a flex row. */
+.po-line .field.po-sizes{flex:1 1 100%}
+.po-sizes .hint{margin-top:6px}
 .po-size-grid{display:flex;flex-wrap:wrap;gap:8px}
 .po-size{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;
   border:1px solid var(--line);border-radius:var(--r-s);background:var(--card)}

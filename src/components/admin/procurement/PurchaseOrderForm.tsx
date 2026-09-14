@@ -177,7 +177,7 @@ export default function PurchaseOrderForm({
     e.preventDefault();
     setBusy(true);
     try {
-      const id = await savePurchaseOrder({
+      await savePurchaseOrder({
         id: po?.id,
         supplierId: f.supplierId,
         buyer: f.buyer,
@@ -215,11 +215,22 @@ export default function PurchaseOrderForm({
           };
         }),
       });
-      toast(t("saved", lang));
-      router.push(`/admin/procurement/po/${id}`);
+      /* Green, and back to the list the buyer came from.
+       *
+       * It used to land on the order's own page, which is the page they
+       * were already on -- so the only sign that anything had happened was
+       * a toast in the same ink colour used for every other message. Saving
+       * a purchase order finishes a job, and finishing a job means going
+       * back to the book of them. */
+      toast(f.status === "received" ? t("savedAndReceived", lang) : t("saved", lang), "good");
+      router.push("/admin/procurement");
       router.refresh();
+      // Left busy on the way out: the page is being replaced, and a button
+      // that springs back to "Save" during the navigation invites a second
+      // press that would file the order twice.
+      return;
     } catch (err) {
-      toast(String((err as Error).message), true);
+      toast(String((err as Error).message), "bad");
     }
     setBusy(false);
   }
@@ -236,12 +247,29 @@ export default function PurchaseOrderForm({
     }
   }
 
+  /* THE BUTTONS AND THE DROPDOWN ARE THE SAME FIELD.
+   *
+   * The button writes it now; the dropdown writes it on Save. What they must
+   * never do is disagree -- and they did, because `f.status` is seeded from
+   * the `po` prop once and useState does not re-read a prop. So pressing
+   * Approved changed the database, left the dropdown saying Draft, and the
+   * next Save wrote Draft straight back over it. The status appeared not to
+   * stick anywhere: not in the form, and not in the table on
+   * /admin/procurement either, because Save had undone it.
+   *
+   * Moving the local state here is the whole fix. The arrival date is
+   * mirrored for the same reason: the server stamps today when an order
+   * lands without one, and a form still holding the blank would have
+   * cleared it again on the next Save. The rule is copied, not guessed --
+   * see setPurchaseOrderStatusIn. */
   async function quickStatus(status: PoStatus) {
     if (!po) return;
     setBusy(true);
     try {
       await setPurchaseOrderStatus(po.id, status);
-      toast(t("po_" + status, lang));
+      const landed = status === "arrived" || status === "received";
+      set({ status, ...(landed && !f.actualArrival ? { actualArrival: today } : {}) });
+      toast(status === "received" ? t("savedAndReceived", lang) : t("po_" + status, lang), false);
       router.refresh();
     } catch (err) { toast(String((err as Error).message), true); }
     setBusy(false);
@@ -296,11 +324,24 @@ export default function PurchaseOrderForm({
 
       {po && (
         <WriteOnly>
-          <div className="btn-row" style={{ flexDirection: "row", flexWrap: "wrap" }}>
-            {PO_STATUSES.filter((s) => s !== po.status).map((s) => (
-              <button key={s} type="button" className="btn btn-sm btn-ghost" disabled={busy}
-                onClick={() => quickStatus(s)}>{t("po_" + s, lang)}</button>
-            ))}
+          {/* EVERY status, with the one the order is at marked -- not the
+              other eight with the current one missing. A row of buttons
+              that silently drops the answer to "where is this order" is a
+              row of buttons you cannot read, and it also left no way to
+              re-run a receipt that had half-failed: the only button that
+              would do it was the one being hidden. Pressing the current
+              status again is safe; receiving is idempotent. */}
+          <div className="po-status">
+            <span className="hint">{t("moveOrderOn", lang)}</span>
+            <div className="po-status-row">
+              {PO_STATUSES.map((s) => (
+                <button key={s} type="button" disabled={busy}
+                  className={"btn btn-sm " + (s === f.status ? "btn-amber" : "btn-ghost")}
+                  aria-pressed={s === f.status}
+                  onClick={() => quickStatus(s)}>{t("po_" + s, lang)}</button>
+              ))}
+            </div>
+            <p className="hint">{t("quickStatusHint", lang)}</p>
           </div>
         </WriteOnly>
       )}
@@ -352,6 +393,7 @@ export default function PurchaseOrderForm({
               <select id="st" value={f.status} onChange={(e) => set({ status: e.target.value as PoStatus })}>
                 {PO_STATUSES.map((s) => <option key={s} value={s}>{t("po_" + s, lang)}</option>)}
               </select>
+              <p className="hint">{t("purchaseStatusHint", lang)}</p>
             </div>
           </div>
         </div>
@@ -399,16 +441,20 @@ export default function PurchaseOrderForm({
                     moment it has one, because then the sizes below decide
                     it. Shown rather than hidden: it is still the number the
                     line total is worked out from, and hiding it would make
-                    the money appear from nowhere. */}
+                    the money appear from nowhere.
+
+                    NOTHING BELOW THIS INPUT. The fields on a line are
+                    bottom-aligned so that a label wrapping onto two lines
+                    still leaves the boxes in a row; a note under this one
+                    therefore lifted it above every other box on the line.
+                    The note now sits under the size grid, which is where
+                    the numbers it is talking about are typed. */}
                 <input id={`q${i}`} type="number" min="0.001" step="any"
                   value={sizesForLine(l, products).length
                     ? String(lineUnits(l, sizesForLine(l, products)))
                     : l.qty}
                   readOnly={sizesForLine(l, products).length > 0}
                   onChange={(e) => setLine(i, { qty: e.target.value })} required />
-                {sizesForLine(l, products).length > 0 && (
-                  <p className="hint">{t("qtyFromSizes", lang)}</p>
-                )}
               </div>
               <div className="field">
                 <label htmlFor={`u${i}`}>{t("unitPrice", lang)}</label>
@@ -497,6 +543,7 @@ export default function PurchaseOrderForm({
                       </label>
                     ))}
                   </div>
+                  <p className="hint">{t("qtyFromSizes", lang)}</p>
                 </div>
               )}
               <div className="po-line-total">
