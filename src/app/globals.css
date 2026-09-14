@@ -2326,31 +2326,62 @@ tr.is-ended{opacity:.55}
    less emphatically. */
 .fin-pl .kv.is-total{background:var(--card)}
 
-/* The two money tables. A sticky header, because a column of dates and
-   amounts five rows into a scroll is unreadable without one. */
-.fin-tbl{overflow-y:auto;overscroll-behavior:contain}
-.fin-tbl thead th{position:sticky;top:0;z-index:1;background:var(--paper)}
+/* A capped table scrolls inside itself. */
+.tw-cap{overflow-y:auto;overscroll-behavior:contain}
+/* Sticky only where the box scrolls: a column of dates and amounts five
+   rows into a scroll is unreadable without its heading. */
+.tw-cap thead th{position:sticky;top:0;z-index:1;background:var(--paper)}
 /* Vendor and its description as one block rather than a <br>, so the two
    lines share a baseline grid with the row's other cells. */
 .fin-who{display:flex;flex-direction:column;gap:1px;min-width:0}
 .fin-who b{font-size:13.5px}
 .fin-who small{font-size:10.5px;line-height:1.35}
 
-/* The money tables, given the same manners as .tbl -- which they never had:
-   .tw carries no styling at all, so the finance tables were rendering at
-   browser defaults, columns squeezed left against a wall of empty space. */
-.fin-tbl table{border-collapse:collapse;width:100%;font-size:13px}
-.fin-tbl th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);
+/* .tw -- THE TABLE WRAPPER THAT CARRIED NO STYLING.
+   Every other table in this admin is a .tbl and is styled. Four are not:
+   two on the finance screen and two on returns, all wrapped in a .tw that
+   was never defined, so they rendered at browser defaults -- columns
+   squeezed against the left edge, no header rule, no row separators.
+   Given .tbl's manners here rather than being converted to .tbl, because
+   these four are auto-width tables that should fill their panel, and .tbl
+   carries a 720px min-width for the wide data grids it was built for. */
+.tw table{border-collapse:collapse;width:100%;font-size:13px}
+.tw th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);
   font-family:var(--mono);font-size:10px;letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
-.fin-tbl td{padding:8px 10px;border-bottom:1px solid var(--line-2);
+.tw td{padding:8px 10px;border-bottom:1px solid var(--line-2);
   vertical-align:middle}
-.fin-tbl tbody tr:last-child td{border-bottom:0}
-.fin-tbl tbody tr:hover td{background:var(--line-2)}
+.tw tbody tr:last-child td{border-bottom:0}
+.tw tbody tr:hover td{background:var(--line-2)}
 /* A numeric column is right-aligned in BOTH halves or it is not aligned at
    all -- the same rule .tbl follows. */
-.fin-tbl th.n,.fin-tbl td.n{text-align:right}
-.fin-tbl td.mono,.fin-tbl .mono{font-family:var(--mono)}
+.tw th.n,.tw td.n{text-align:right}
+.tw td.mono,.tw .mono{font-family:var(--mono)}
 /* The account pill is a label, not a button: no border, no hover, just a
    quiet ground so the column reads as one kind of thing down the page. */
-.fin-tbl .pill{font-size:9.5px;padding:2px 6px}
+.tw .pill{font-size:9.5px;padding:2px 6px}
+.tw .sub{color:var(--muted)}
+
+/* A quiet icon button inside a table row. Not .icon-btn -- that one is
+   white-on-transparent for the dark header bar and is invisible here. */
+.row-icon{display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;padding:0;background:none;border:1px solid transparent;
+  border-radius:var(--r-s);color:var(--muted);cursor:pointer}
+.row-icon:hover{background:var(--line-2);border-color:var(--line);color:var(--ink)}
+.row-icon:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.row-icon:disabled{opacity:.4;cursor:default}
+/* The actions cell holds two controls of different heights; this keeps them
+   on one baseline and hard against the right edge with the figures above. */
+.fin-row-acts{display:inline-flex;align-items:center;gap:6px;
+  justify-content:flex-end}
+
+/* A row open for correction. Amber edge rather than a modal: the row keeps
+   its place in the table, so its columns still say which field is which. */
+.tw tr.is-editing td{background:var(--amber-soft)}
+.tw tr.is-editing td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.tw tr.is-editing input,.tw tr.is-editing select{width:100%;height:28px;
+  padding:3px 7px;border:1px solid var(--line);border-radius:var(--r-s);
+  background:var(--card);font:inherit;font-size:13px}
+.tw tr.is-editing input.is-sub{height:24px;font-size:11px;color:var(--muted)}
+.tw tr.is-editing input.is-num{text-align:right;font-family:var(--mono);
+  max-width:96px;margin-left:auto}

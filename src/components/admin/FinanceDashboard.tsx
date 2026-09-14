@@ -6,6 +6,7 @@ import { ProfitBars, RankedBars } from "./Charts";
 import WriteOnly from "./Access";
 import {
   recordExpense, deleteExpense, addRecurring, endRecurring, confirmRecurring,
+  updateRecurring,
 } from "@/lib/actions/expenses";
 import {
   EXPENSE_ACCOUNTS, CADENCES, accountLabelKey, accountHintKey, annualCost,
@@ -55,6 +56,8 @@ export default function FinanceDashboard({
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<"add" | "subscription" | null>(null);
+  /** Which subscription row is open for editing, if any. */
+  const [editing, setEditing] = useState<string | null>(null);
 
   /* Above the early return below: a hook has to run on every render, and
      the "tables are missing" branch is still a render. */
@@ -431,7 +434,7 @@ export default function FinanceDashboard({
               )}
             </span>
           </div>
-          <div className="tw fin-tbl" ref={subRef} style={subStyle}>
+          <div className="tw tw-cap" ref={subRef} style={subStyle}>
             <table>
               <thead>
                 <tr>
@@ -446,6 +449,22 @@ export default function FinanceDashboard({
               <tbody>
                 {sortedRecurring.map((r) => {
                   const ended = !!r.endedOn;
+                  /* EDITING HAPPENS IN PLACE. A dialog for four fields on a
+                     row you are already looking at is a context switch for
+                     no reason, and the row's own columns already say which
+                     field is which. */
+                  if (editing === r.id) {
+                    return (
+                      <EditRow
+                        key={r.id} lang={lang} row={r} busy={busy}
+                        onCancel={() => setEditing(null)}
+                        onSave={(v) => {
+                          run(() => updateRecurring({ id: r.id, ...v }), t("finSaved", lang));
+                          setEditing(null);
+                        }}
+                      />
+                    );
+                  }
                   return (
                     <tr key={r.id} className={ended ? "is-ended" : ""}>
                       <td>
@@ -463,16 +482,30 @@ export default function FinanceDashboard({
                           weight rather than the monthly one beside it. */}
                       <td className="n mono"><b>{money(annualCost(r.amountUsd, r.cadence))}</b></td>
                       <td className="n">
-                        {ended ? (
-                          <span className="sub mono">{r.endedOn}</span>
-                        ) : (
+                        <span className="fin-row-acts">
+                          {/* A stopped subscription can still be corrected:
+                              its name is the grouping key in the breakdown,
+                              and a typo in a cancelled licence still splits
+                              that supplier's history in two. */}
                           <WriteOnly>
-                            <button type="button" className="btn btn-sm btn-danger" disabled={busy}
-                              onClick={() => run(() => endRecurring(r.id, today()), t("finStopped", lang))}>
-                              {t("finStop", lang)}
+                            <button type="button" className="row-icon" disabled={busy}
+                              title={t("finEditBill", lang)}
+                              aria-label={`${t("finEditBill", lang)}: ${r.vendor}`}
+                              onClick={() => setEditing(r.id)}>
+                              <PencilIcon />
                             </button>
                           </WriteOnly>
-                        )}
+                          {ended ? (
+                            <span className="sub mono">{r.endedOn}</span>
+                          ) : (
+                            <WriteOnly>
+                              <button type="button" className="btn btn-sm btn-danger" disabled={busy}
+                                onClick={() => run(() => endRecurring(r.id, today()), t("finStopped", lang))}>
+                                {t("finStop", lang)}
+                              </button>
+                            </WriteOnly>
+                          )}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -494,7 +527,7 @@ export default function FinanceDashboard({
         {!expenses.length ? (
           <p className="hint">{t("finNoCostsYet", lang)}</p>
         ) : (
-          <div className="tw fin-tbl" ref={ledgerRef} style={ledgerStyle}>
+          <div className="tw tw-cap" ref={ledgerRef} style={ledgerStyle}>
             <table>
               <thead>
                 <tr>
@@ -767,5 +800,90 @@ function DownloadIcon() {
       <path d="M8 2v8m0 0L5 7m3 3l3-3M3 13h10" fill="none" stroke="currentColor"
         strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"
+      focusable="false">
+      <path d="M11.3 2.3a1.1 1.1 0 011.6 0l.8.8a1.1 1.1 0 010 1.6L6 12.4l-2.6.7.7-2.6z"
+        fill="none" stroke="currentColor" strokeWidth="1.4"
+        strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** One subscription, open for correction, in the row it already occupies.
+ *
+ * Only the four things that can honestly change: who it is paid to, what it
+ * is for, which account it belongs in, and what it costs. The cadence and
+ * the start date are fixed once expenses have been confirmed against
+ * periods derived from them -- see updateRecurring. */
+function EditRow({
+  lang, row, busy, onSave, onCancel,
+}: {
+  lang: Lang;
+  row: RecurringRow;
+  busy: boolean;
+  onSave: (v: { vendor: string; description: string; account: string; amount: number }) => void;
+  onCancel: () => void;
+}) {
+  const [vendor, setVendor] = useState(row.vendor);
+  const [description, setDescription] = useState(row.description);
+  const [account, setAccount] = useState(row.account);
+  const [amount, setAmount] = useState(String(row.amountUsd));
+
+  const save = () => onSave({ vendor, description, account, amount: Number(amount) });
+  /* Enter saves, Escape abandons. A row that can only be left with the
+     mouse is a row somebody gets stuck in. */
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") { e.preventDefault(); if (vendor.trim()) save(); }
+    if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+  };
+
+  return (
+    <tr className="is-editing" onKeyDown={keys}>
+      <td>
+        <span className="fin-who">
+          {/* autoFocus: the pencil was pressed to change this, so this is
+              where the cursor belongs. */}
+          <input value={vendor} onChange={(e) => setVendor(e.target.value)}
+            aria-label={t("finVendor", lang)} autoFocus />
+          <input value={description} onChange={(e) => setDescription(e.target.value)}
+            aria-label={t("finDescription", lang)} className="is-sub" />
+        </span>
+      </td>
+      <td>
+        <select value={account} onChange={(e) => setAccount(e.target.value)}
+          aria-label={t("finAccount", lang)}>
+          {EXPENSE_ACCOUNTS.map((a) => (
+            <option key={a} value={a}>{t(accountLabelKey(a), lang)}</option>
+          ))}
+        </select>
+      </td>
+      <td className="sub">{t("cad_" + row.cadence, lang)}</td>
+      <td className="n">
+        <input type="number" step="0.01" min="0" inputMode="decimal"
+          className="is-num" aria-label={t("finAmount", lang)}
+          value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </td>
+      {/* The yearly figure follows what is being typed, so the consequence
+          of a change is visible before it is saved. */}
+      <td className="n mono">
+        <b>{money(annualCost(Number(amount) || 0, row.cadence))}</b>
+      </td>
+      <td className="n">
+        <span className="fin-row-acts">
+          <button type="button" className="btn btn-sm btn-amber"
+            disabled={busy || !vendor.trim()} onClick={save}>
+            {t("save", lang)}
+          </button>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onCancel}>
+            {t("cancel", lang)}
+          </button>
+        </span>
+      </td>
+    </tr>
   );
 }

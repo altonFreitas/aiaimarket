@@ -1253,6 +1253,7 @@ export const STR: Record<string, [string,string,string]> = {
   finLedger:["Kustu hotu","Todos os custos","Every cost"],
   finWhoTo:["Haree selu ba sé iha {a}","Ver a quem foi pago em {a}","See who was paid in {a}"],
   finNoVendor:["La hatama naran","Sem nome","Not recorded"],
+  finEditBill:["Troka naran","Editar","Edit"],
   finStop:["Para","Parar","Stop"],
   finStopped:["Para ona","Parado","Stopped"],
   finEnded:["Para iha","Terminou em","Ended"],

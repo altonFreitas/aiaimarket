@@ -16,6 +16,7 @@ import {
   type SupplierReturnStats, type SupplierRankRow, type SupplierReturnRow,
 } from "@/lib/returns";
 import { money } from "@/lib/utils";
+import { useRowCap } from "@/lib/useRowCap";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -91,6 +92,12 @@ export default function ReturnsDashboard({
       ? `${p.returns}× · ${p.scrapped} ${t("retScrapped", lang).toLowerCase()}`
       : `${p.returns}×`,
   })), [products, lang]);
+
+  /* Five rows in each ledger, then it scrolls -- the same window the rest
+     of the admin uses. Above the early return below, because a hook has to
+     run on every render and "the tables are missing" is still one. */
+  const { ref: retRef, style: retStyle } =
+    useRowCap<HTMLDivElement>(5, returns.length);
 
   /* THE MIGRATION NOTICE COMES FIRST AND ALONE.
    *
@@ -244,7 +251,7 @@ export default function ReturnsDashboard({
         {!returns.length ? (
           <p className="hint">{t("retNothingBack", lang)}</p>
         ) : (
-          <div className="tw">
+          <div className="tw tw-cap" ref={retRef} style={retStyle}>
             <table>
               <thead>
                 <tr>
@@ -313,6 +320,9 @@ function SupplierSection({
   setRaising: (v: boolean) => void;
 }) {
   const s = half.stats;
+  /* Five rows, then it scrolls, like every other ledger here. */
+  const { ref: claimRef, style: claimStyle } =
+    useRowCap<HTMLDivElement>(5, half.rows.length);
   const rows = useMemo(() => half.bySupplier.map((x) => ({
     key: x.supplierId,
     label: x.name,
@@ -424,7 +434,7 @@ function SupplierSection({
       {half.rows.length > 0 && (
         <div className="panel">
           <h3>{t("retClaimLedger", lang)}</h3>
-          <div className="tw">
+          <div className="tw tw-cap" ref={claimRef} style={claimStyle}>
             <table>
               <thead>
                 <tr>

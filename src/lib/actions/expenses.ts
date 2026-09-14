@@ -203,6 +203,73 @@ export async function addRecurring(input: RecurringInput): Promise<string> {
   return data?.id as string;
 }
 
+/** Correct what a subscription says about itself.
+ *
+ * A typo in a vendor name -- "supabase" for "Supabase", "Claude code" for
+ * "Claude Code" -- is not a cosmetic problem here: the name is the grouping
+ * key in the profit-and-loss breakdown, so two spellings are two suppliers
+ * and the shop cannot see what it actually spends with either.
+ *
+ * WHAT IT DELIBERATELY DOES NOT TOUCH: the expenses already recorded from
+ * this template. Those carry their own copy of the vendor and the amount,
+ * taken at the moment the money left, and rewriting them would be rewriting
+ * history -- the bill really did say what it said in March. Fixing the
+ * template fixes what happens NEXT, which is the only thing a template can
+ * honestly promise.
+ *
+ * The cadence and the start date are likewise left alone. Both decide which
+ * periods are owed, and changing them under an expense already confirmed
+ * against a period would orphan it -- see the unique index in
+ * supabase/operating-costs.sql. */
+export async function updateRecurring(input: {
+  id: string;
+  vendor: string;
+  description?: string;
+  account: string;
+  amount: number;
+}): Promise<void> {
+  const actor = await requireSection("settings");
+  if (!isExpenseAccount(input.account)) throw new Error("Choose an account for this cost.");
+  const vendor = clip(input.vendor, MAX_TEXT);
+  if (!vendor) throw new Error("Say who it is paid to.");
+  const amount = checkedAmount(input.amount);
+
+  const sb = supabaseAdmin();
+
+  // Read before write: this is a money record, and "somebody renamed a
+  // subscription" with no idea what it used to say is not a trail.
+  const { data: before } = await sb
+    .from("recurring_expenses")
+    .select("id, vendor, description, account, amount")
+    .eq("id", input.id).maybeSingle();
+  if (!before) throw new Error("That subscription no longer exists.");
+
+  const { error } = await sb.from("recurring_expenses").update({
+    vendor,
+    description: clip(input.description, MAX_TEXT),
+    account: input.account,
+    amount,
+  }).eq("id", input.id);
+  if (error) throw error;
+
+  await audit(actor, {
+    action: "expense.recurring_edit", entity: "recurring_expense", entityId: input.id,
+    summary: before.vendor === vendor
+      ? `${actor.label} edited the ${vendor} subscription`
+      : `${actor.label} renamed "${before.vendor}" to "${vendor}"`,
+    meta: {
+      before: {
+        vendor: before.vendor, description: before.description,
+        account: before.account, amount: Number(before.amount),
+      },
+      after: { vendor, description: clip(input.description, MAX_TEXT),
+               account: input.account, amount },
+    },
+  });
+
+  revalidatePath("/admin/finance");
+}
+
 /** Stop a subscription without losing the record of having paid for it.
  *
  * Ended, not deleted: the history is worth more than the tidiness, and
