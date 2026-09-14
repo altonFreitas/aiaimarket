@@ -1,6 +1,6 @@
 "use client";
 import { useId, useState } from "react";
-import { money } from "@/lib/utils";
+import { money, moneyAxis } from "@/lib/utils";
 
 /* Hand-rolled SVG, no charting library, matching the project's
  * data-frugality rule. A charting bundle would be larger than every other
@@ -57,13 +57,17 @@ export interface RankedRow {
  * a pie -- long supplier and country names stay readable, and comparing bar
  * lengths beats comparing wedge angles. */
 export function RankedBars({
-  rows, emptyLabel, limit = 8, format = money, onSelect,
+  rows, emptyLabel, limit = 8, format = money, onSelect, maxRows,
 }: {
   rows: RankedRow[];
   emptyLabel: string;
   limit?: number;
   format?: (n: number) => string;
   onSelect?: (key: string) => void;
+  /** Rows visible before it scrolls. Defaults to the five in the
+   * stylesheet; pass a number where a panel has to match the height of
+   * something beside it. */
+  maxRows?: number;
 }) {
   const shown = rows.slice(0, limit);
   const max = Math.max(...shown.map((r) => r.value), 0);
@@ -76,7 +80,8 @@ export function RankedBars({
   const hasMeta = shown.some((r) => r.meta);
 
   return (
-    <div className={"ranked" + (hasMeta ? " has-meta" : "")}>
+    <div className={"ranked" + (hasMeta ? " has-meta" : "")}
+      style={maxRows ? ({ "--rank-max-rows": maxRows } as React.CSSProperties) : undefined}>
       {shown.map((r) => {
         const Row = onSelect ? "button" : "div";
         return (
@@ -451,7 +456,11 @@ export interface ProfitPoint {
  * same height in opposite directions rather than one dwarfing the other.
  */
 export function ProfitBars({
-  points, emptyLabel, format = money,
+  /* moneyAxis, not money: the label rides on a bar that may be thirty
+     pixels wide, where ".00" is two characters of nothing, and money()
+     puts the minus INSIDE the currency -- "$-117.00" -- which reads as a
+     typo. The tooltip still carries the exact figure. */
+  points, emptyLabel, format = moneyAxis,
 }: {
   points: ProfitPoint[];
   emptyLabel: string;
@@ -470,12 +479,24 @@ export function ProfitBars({
           const h = `${(Math.abs(p.value) / max) * 50}%`;
           return (
             <div className="pchart-col" key={p.key}
-              title={p.title || `${p.label}: ${format(p.value)}`}>
+              title={p.title || `${p.label}: ${money(p.value)}`}>
+              {/* THE FIGURE, ON THE BAR IT BELONGS TO.
+                  A month's profit read off a bar's height against no axis
+                  is a guess. A profit sits above its bar and a loss below
+                  its own, so the number is always on the outside edge and
+                  never overlaps the block it describes. A month of exactly
+                  zero gets no label -- there is no bar to caption. */}
               <span className="pchart-half is-up">
+                {up && p.value !== 0 && (
+                  <span className="pchart-val is-profit">{format(p.value)}</span>
+                )}
                 {up && <span className="pchart-bar is-profit" style={{ height: h }} />}
               </span>
               <span className="pchart-half is-down">
                 {!up && <span className="pchart-bar is-loss" style={{ height: h }} />}
+                {!up && (
+                  <span className="pchart-val is-loss">{format(p.value)}</span>
+                )}
               </span>
               <span className="pchart-label">{p.label}</span>
             </div>

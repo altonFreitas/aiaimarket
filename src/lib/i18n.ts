@@ -1251,6 +1251,8 @@ export const STR: Record<string, [string,string,string]> = {
   finPerYear:["Kada tinan","Por ano","A year"],
   finSubscriptions:["Kustu fulan-fulan","Custos recorrentes","What bills again"],
   finLedger:["Kustu hotu","Todos os custos","Every cost"],
+  finWhoTo:["Haree selu ba sé iha {a}","Ver a quem foi pago em {a}","See who was paid in {a}"],
+  finNoVendor:["La hatama naran","Sem nome","Not recorded"],
   finStop:["Para","Parar","Stop"],
   finStopped:["Para ona","Parado","Stopped"],
   finEnded:["Para iha","Terminou em","Ended"],

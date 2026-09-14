@@ -157,6 +157,68 @@ describe("expenses by account", () => {
       .toEqual([["hosting", 45], ["domain", 12]]);
   });
 
+  it("says who inside an account was actually paid", () => {
+    // THE POINT OF THE BREAKDOWN. "Software and licences: $276" is a
+    // filing cabinet, not an answer -- it cannot be acted on. "$276, of
+    // which Supabase is $253" says what to cancel.
+    const pl = profitAndLoss({
+      ...base,
+      expenses: [
+        exp({ account: "software", vendor: "Supabase", amountUsd: 23 }),
+        exp({ account: "software", vendor: "Supabase", amountUsd: 230 }),
+        exp({ account: "software", vendor: "Claude Code", amountUsd: 20 }),
+      ],
+    });
+    expect(pl.byAccount[0].vendors.map((v) => [v.vendor, v.total]))
+      .toEqual([["Supabase", 253], ["Claude Code", 20]]);
+  });
+
+  it("measures a vendor against its own account, not the whole business", () => {
+    // "Half our software spend is one licence" is the sentence this
+    // supports, and dividing by total costs would not say that.
+    const pl = profitAndLoss({
+      ...base,
+      expenses: [
+        exp({ account: "software", vendor: "A", amountUsd: 25 }),
+        exp({ account: "software", vendor: "B", amountUsd: 75 }),
+        exp({ account: "staff", vendor: "C", amountUsd: 900 }),
+      ],
+    });
+    const software = pl.byAccount.find((a) => a.account === "software")!;
+    expect(software.vendors.map((v) => v.share)).toEqual([0.75, 0.25]);
+  });
+
+  it("keeps one vendor's two accounts apart", () => {
+    // The bank charging for a transfer and for a card terminal is not one
+    // cost, and a flat vendor key would have merged them.
+    const pl = profitAndLoss({
+      ...base,
+      expenses: [
+        exp({ account: "bank_fees", vendor: "BNU", amountUsd: 5 }),
+        exp({ account: "software", vendor: "BNU", amountUsd: 30 }),
+      ],
+    });
+    expect(pl.byAccount.find((a) => a.account === "bank_fees")!.vendors)
+      .toEqual([{ vendor: "BNU", total: 5, share: 1 }]);
+    expect(pl.byAccount.find((a) => a.account === "software")!.vendors)
+      .toEqual([{ vendor: "BNU", total: 30, share: 1 }]);
+  });
+
+  it("still counts a cost with no vendor recorded", () => {
+    // Dropping it would make the breakdown add up to less than the line it
+    // opens under, which is the one thing a breakdown must never do.
+    const pl = profitAndLoss({
+      ...base,
+      expenses: [
+        exp({ account: "other", vendor: "", amountUsd: 10 }),
+        exp({ account: "other", vendor: "Someone", amountUsd: 5 }),
+      ],
+    });
+    const other = pl.byAccount.find((a) => a.account === "other")!;
+    expect(other.vendors.reduce((n, v) => n + v.total, 0)).toBe(other.total);
+    expect(other.vendors.map((v) => v.vendor)).toContain("");
+  });
+
   it("omits an account nobody filed against", () => {
     // A chart of twelve accounts showing nine zeroes is a chart nobody
     // reads.

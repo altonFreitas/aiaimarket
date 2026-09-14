@@ -2127,11 +2127,23 @@ tr.is-ended{opacity:.55}
 .pchart-plot{display:flex;align-items:stretch;gap:4px;height:150px}
 .pchart-col{flex:1;min-width:0;display:flex;flex-direction:column;
   position:relative;padding-bottom:16px}
-.pchart-half{flex:1;display:flex;min-height:0}
+/* COLUMN, not row: each half stacks its figure and its bar vertically so
+   the number sits on the OUTSIDE edge -- above a profit, below a loss --
+   and never overlaps the block it describes. As a row they would sit side
+   by side and halve the bar's width. */
+.pchart-half{flex:1;display:flex;flex-direction:column;min-height:0}
 /* The zero line is the boundary between the two halves, drawn once. */
-.pchart-half.is-up{align-items:flex-end;border-bottom:1px solid var(--line)}
-.pchart-half.is-down{align-items:flex-start}
-.pchart-bar{display:block;width:100%;border-radius:3px 3px 0 0}
+.pchart-half.is-up{justify-content:flex-end;border-bottom:1px solid var(--line)}
+.pchart-half.is-down{justify-content:flex-start}
+/* flex:0 0 auto, or the flex container shrinks the bar and the height
+   percentage stops meaning what it says. */
+.pchart-bar{display:block;width:100%;flex:0 0 auto;border-radius:3px 3px 0 0}
+/* The figure itself. Allowed to overflow its column so a wide amount is
+   readable on a narrow month rather than being clipped to "$1…". */
+.pchart-val{flex:0 0 auto;font-family:var(--mono);font-size:9.5px;
+  line-height:1.5;text-align:center;white-space:nowrap;overflow:visible}
+.pchart-val.is-profit{color:var(--green)}
+.pchart-val.is-loss{color:var(--red)}
 .pchart-bar.is-profit{background:var(--green)}
 .pchart-bar.is-loss{background:var(--red);border-radius:0 0 3px 3px}
 .pchart-label{position:absolute;bottom:0;left:0;right:0;text-align:center;
@@ -2268,3 +2280,77 @@ tr.is-ended{opacity:.55}
   .ord-item{flex-wrap:wrap}
   .ord-item .acts{width:100%;justify-content:flex-start}
 }
+
+/* ---------- finance: costs that open out, and tables that scroll ---------- */
+/* EVERY COST IS RED, on both sides of the statement. Money leaving is the
+   one thing on this screen that should never be mistaken for money
+   arriving, and a minus sign alone is easy to skim past. */
+.fin-pl .kv b.is-cost{color:var(--red)}
+
+/* A cost line you can open to see who was actually paid. The control is
+   the whole label rather than the arrow alone: a 11px arrow is a hard
+   target on a phone and the name beside it is what people aim at. */
+.fin-disclose{display:inline-flex;align-items:center;gap:6px;background:none;
+  border:0;padding:2px 4px;margin-left:-4px;border-radius:var(--r-s);
+  font:inherit;color:inherit;cursor:pointer;text-align:left}
+.fin-disclose:hover{background:var(--line-2)}
+.fin-disclose:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.fin-caret{flex:0 0 auto;color:var(--muted-2);transition:transform .12s ease}
+.fin-caret.is-open{transform:rotate(90deg)}
+/* The vendor count, and on a single-vendor account the vendor's name --
+   both are the same "what is behind this figure" answer at different
+   lengths, so they read as one thing. */
+.fin-disclose em,.fin-flat em{font-style:normal;font-size:10.5px;
+  color:var(--muted-2);font-family:var(--mono)}
+.fin-flat{display:inline-flex;align-items:center;gap:6px;padding:2px 0}
+.fin-pl .kv.is-cost-row.is-open{background:var(--line-2);border-radius:var(--r-s)}
+/* A breakdown row is subordinate to the line above it and has to look it,
+   or the statement reads as though it has twice as many cost accounts. */
+.fin-pl .kv.is-vendor{padding-left:24px;border-bottom-style:dotted}
+.fin-pl .kv.is-vendor span{font-size:12.5px;color:var(--muted)}
+.fin-pl .kv.is-vendor b{font-size:12.5px;font-weight:500}
+
+/* The statement scrolls once it is long. overscroll-behavior so reaching
+   the bottom does not then carry the whole page with it. */
+.fin-pl{overflow-y:auto;overscroll-behavior:contain}
+/* THE ANSWER STAYS ON SCREEN. Capping the box at eleven lines pushed the
+   net profit -- the one figure the whole statement exists to produce --
+   below the fold, so the reader had to scroll to find out whether the
+   business made money. Pinned to the bottom of the scrolling area instead:
+   the lines above it move, the bottom line does not.
+   An opaque ground and a top rule, or the rows scrolling underneath show
+   through it. */
+.fin-pl .kv.is-net{position:sticky;bottom:0;background:var(--card);
+  margin-top:auto;z-index:2}
+/* The two totals are worth keeping in view for the same reason, one step
+   less emphatically. */
+.fin-pl .kv.is-total{background:var(--card)}
+
+/* The two money tables. A sticky header, because a column of dates and
+   amounts five rows into a scroll is unreadable without one. */
+.fin-tbl{overflow-y:auto;overscroll-behavior:contain}
+.fin-tbl thead th{position:sticky;top:0;z-index:1;background:var(--paper)}
+/* Vendor and its description as one block rather than a <br>, so the two
+   lines share a baseline grid with the row's other cells. */
+.fin-who{display:flex;flex-direction:column;gap:1px;min-width:0}
+.fin-who b{font-size:13.5px}
+.fin-who small{font-size:10.5px;line-height:1.35}
+
+/* The money tables, given the same manners as .tbl -- which they never had:
+   .tw carries no styling at all, so the finance tables were rendering at
+   browser defaults, columns squeezed left against a wall of empty space. */
+.fin-tbl table{border-collapse:collapse;width:100%;font-size:13px}
+.fin-tbl th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
+.fin-tbl td{padding:8px 10px;border-bottom:1px solid var(--line-2);
+  vertical-align:middle}
+.fin-tbl tbody tr:last-child td{border-bottom:0}
+.fin-tbl tbody tr:hover td{background:var(--line-2)}
+/* A numeric column is right-aligned in BOTH halves or it is not aligned at
+   all -- the same rule .tbl follows. */
+.fin-tbl th.n,.fin-tbl td.n{text-align:right}
+.fin-tbl td.mono,.fin-tbl .mono{font-family:var(--mono)}
+/* The account pill is a label, not a button: no border, no hover, just a
+   quiet ground so the column reads as one kind of thing down the page. */
+.fin-tbl .pill{font-size:9.5px;padding:2px 6px}

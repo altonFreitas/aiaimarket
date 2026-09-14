@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { ProfitBars, RankedBars } from "./Charts";
@@ -11,6 +11,7 @@ import {
   EXPENSE_ACCOUNTS, CADENCES, accountLabelKey, accountHintKey, annualCost,
   type Cadence,
 } from "@/lib/accounts";
+import { useRowCap } from "@/lib/useRowCap";
 import type {
   ProfitAndLoss, ExpenseRow, RecurringRow, DueExpense, MonthlyPoint,
 } from "@/lib/finance";
@@ -64,6 +65,47 @@ export default function FinanceDashboard({
     share: a.share,
   })), [pl.byAccount, lang]);
 
+  /* WHICH COST LINES ARE OPENED OUT to show who was paid. An account is a
+     filing cabinet, not an answer: "Software and licences $276" cannot be
+     acted on, and "$276, all of it Supabase" can. */
+  const [openAccounts, setOpenAccounts] = useState<string[]>([]);
+  const toggleAccount = (a: string) =>
+    setOpenAccounts((s) => (s.includes(a) ? s.filter((x) => x !== a) : [...s, a]));
+
+  /* Eleven lines, then it scrolls. The dependency is the number of rows
+     actually rendered, breakdown rows included -- opening one has to
+     re-measure, or the window would stay sized for the closed statement. */
+  const plLineCount =
+    pl.byAccount.reduce(
+      (n, a) => n + 1 + (openAccounts.includes(a.account) ? a.vendors.length : 0),
+      0
+    ) + (pl.refunds > 0 ? 1 : 0);
+  const { ref: plRef, style: plStyle } = useRowCap<HTMLDivElement>(11, plLineCount);
+
+  /* Live subscriptions first, stopped ones after -- a cancelled licence is
+     history and should not sit between two things the shop still pays for.
+     Within each group, biggest yearly commitment first: that is the order
+     somebody reviewing what to cut wants to read them in. */
+  const sortedRecurring = useMemo(() => [...recurring].sort((a, b) => {
+    const ae = a.endedOn ? 1 : 0, be = b.endedOn ? 1 : 0;
+    if (ae !== be) return ae - be;
+    return annualCost(b.amountUsd, b.cadence) - annualCost(a.amountUsd, a.cadence);
+  }), [recurring]);
+  const yearlyCommitted = useMemo(
+    () => recurring.filter((r) => !r.endedOn)
+      .reduce((n, r) => n + annualCost(r.amountUsd, r.cadence), 0),
+    [recurring]
+  );
+  const stoppedCount = recurring.filter((r) => r.endedOn).length;
+
+  /* Five rows each, then they scroll. Measured from the rows rather than
+     set in the stylesheet: a row carrying a description is taller than one
+     without, so the height depends on the data. */
+  const { ref: subRef, style: subStyle } =
+    useRowCap<HTMLDivElement>(5, recurring.length);
+  const { ref: ledgerRef, style: ledgerStyle } =
+    useRowCap<HTMLDivElement>(5, expenses.length);
+
   /* THE MIGRATION NOTICE COMES FIRST AND ALONE.
    *
    * A finance screen showing a profit of zero because the tables do not
@@ -96,6 +138,39 @@ export default function FinanceDashboard({
   };
 
   const profitable = pl.netProfit >= 0;
+
+  /* The statement as a document. jspdf is imported here rather than at the
+     top so it never reaches the first-load bundle -- the same arrangement
+     every other PDF in this admin uses. The labels are resolved HERE, in
+     the viewer's language, because lib/pdfProfitLoss has no business
+     knowing which language anyone is reading in. */
+  const savePdf = async () => {
+    try {
+      const { downloadProfitLossPdf } = await import("@/lib/pdfProfitLoss");
+      downloadProfitLossPdf({
+        pl,
+        accountLabel: (a) => t(accountLabelKey(a), lang),
+        labels: {
+          title: t("finStatement", lang),
+          income: t("finIncome", lang),
+          ownSales: t("finOwnSales", lang),
+          costOfGoods: t("finCostOfGoods", lang),
+          ownGross: t("finOwnGross", lang),
+          commission: t("finCommission", lang),
+          deliveryFees: t("finDeliveryFees", lang),
+          refunds: t("finRefunds", lang),
+          totalIncome: t("finTotalIncome", lang),
+          costs: t("finCosts", lang),
+          runningCosts: t("finRunningCosts", lang),
+          netProfit: t("finNetProfit", lang),
+          netLoss: t("finNetLoss", lang),
+          noVendor: t("finNoVendor", lang),
+        },
+      });
+    } catch (e) {
+      toast(String((e as Error).message), true);
+    }
+  };
 
   return (
     <>
@@ -180,13 +255,23 @@ export default function FinanceDashboard({
       {/* ---- the arithmetic ---- */}
       <div className="two-col">
         <div className="panel">
-          <h3>{t("finStatement", lang)}</h3>
-          <div className="fin-pl">
+          <div className="panel-head">
+            <h3>{t("finStatement", lang)}</h3>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={savePdf}>
+              <DownloadIcon /> {t("downloadPdf", lang)}
+            </button>
+          </div>
+
+          {/* Eleven lines, then it scrolls -- and the count includes any
+              breakdown rows opened below a cost, which is why it is counted
+              here rather than assumed from pl.byAccount.length. */}
+          <div className="fin-pl" ref={plRef} style={plStyle}>
             <div className="fin-pl-group">{t("finIncome", lang)}</div>
 
             <div className="kv"><span>{t("finOwnSales", lang)}</span><b>{money(pl.ownSales)}</b></div>
             <div className="kv sub-row">
-              <span>{t("finCostOfGoods", lang)}</span><b>−{money(pl.ownCost)}</b>
+              <span>{t("finCostOfGoods", lang)}</span>
+              <b className="is-cost">−{money(pl.ownCost)}</b>
             </div>
             <div className="kv is-sum">
               <span>{t("finOwnGross", lang)}</span><b>{money(pl.ownGrossProfit)}</b>
@@ -195,7 +280,10 @@ export default function FinanceDashboard({
             <div className="kv"><span>{t("finCommission", lang)}</span><b>{money(pl.commission)}</b></div>
             <div className="kv"><span>{t("finDeliveryFees", lang)}</span><b>{money(pl.deliveryFees)}</b></div>
             {pl.refunds > 0 && (
-              <div className="kv"><span>{t("finRefunds", lang)}</span><b>−{money(pl.refunds)}</b></div>
+              <div className="kv">
+                <span>{t("finRefunds", lang)}</span>
+                <b className="is-cost">−{money(pl.refunds)}</b>
+              </div>
             )}
 
             <div className="kv is-total">
@@ -203,22 +291,65 @@ export default function FinanceDashboard({
             </div>
 
             <div className="fin-pl-group">{t("finCosts", lang)}</div>
-            {pl.byAccount.map((a) => (
-              <div className="kv" key={a.account}>
-                <span>{t(accountLabelKey(a.account), lang)}</span>
-                <b>−{money(a.total)}</b>
-              </div>
-            ))}
+            {pl.byAccount.map((a) => {
+              const open = openAccounts.includes(a.account);
+              /* An account with ONE vendor is not worth opening: the
+                 breakdown would restate the line above it word for word.
+                 The control is left out entirely rather than disabled --
+                 a button that does nothing teaches people to stop
+                 pressing buttons. */
+              const splits = a.vendors.length > 1;
+              return (
+                <Fragment key={a.account}>
+                  <div className={"kv is-cost-row" + (open ? " is-open" : "")}>
+                    <span>
+                      {splits ? (
+                        <button type="button" className="fin-disclose"
+                          aria-expanded={open}
+                          aria-label={t("finWhoTo", lang).replace(
+                            "{a}", t(accountLabelKey(a.account), lang))}
+                          onClick={() => toggleAccount(a.account)}>
+                          <Caret open={open} />
+                          {t(accountLabelKey(a.account), lang)}
+                          <em>{a.vendors.length}</em>
+                        </button>
+                      ) : (
+                        <span className="fin-flat">
+                          {t(accountLabelKey(a.account), lang)}
+                          {/* One vendor, so its name IS the account's
+                              answer and costs nothing to show inline. */}
+                          {a.vendors[0]?.vendor
+                            ? <em>{a.vendors[0].vendor}</em> : null}
+                        </span>
+                      )}
+                    </span>
+                    <b className="is-cost">−{money(a.total)}</b>
+                  </div>
+                  {open && a.vendors.map((v) => (
+                    <div className="kv is-vendor" key={a.account + "|" + v.vendor}>
+                      <span>{v.vendor || t("finNoVendor", lang)}</span>
+                      <b className="is-cost">−{money(v.total)}</b>
+                    </div>
+                  ))}
+                </Fragment>
+              );
+            })}
             {!pl.byAccount.length && (
               <p className="hint" style={{ margin: "4px 0" }}>{t("finNoCostsYet", lang)}</p>
             )}
             <div className="kv is-total">
-              <span>{t("finRunningCosts", lang)}</span><b>−{money(pl.expensesTotal)}</b>
+              <span>{t("finRunningCosts", lang)}</span>
+              <b className="is-cost">−{money(pl.expensesTotal)}</b>
             </div>
 
+            {/* A loss reads "Net loss  −$586.30", never "$-586.30": money()
+                puts the sign inside the currency, which looks like a typo
+                where it matters most. The label already says which it is,
+                so the figure carries its magnitude and a leading minus --
+                the same shape as every cost line above it. */}
             <div className={"kv is-net" + (profitable ? "" : " is-loss")}>
               <span>{profitable ? t("finNetProfit", lang) : t("finNetLoss", lang)}</span>
-              <b>{money(pl.netProfit)}</b>
+              <b>{profitable ? money(pl.netProfit) : `−${money(Math.abs(pl.netProfit))}`}</b>
             </div>
           </div>
 
@@ -234,12 +365,11 @@ export default function FinanceDashboard({
 
         <div className="panel">
           <h3>{t("finWhereItGoes", lang)}</h3>
-          <RankedBars rows={byAccountRows} emptyLabel={t("finNoCostsYet", lang)} />
-          {pl.platformCost > 0 && (
-            <p className="hint" style={{ marginTop: 10 }}>
-              {t("finPlatformCost", lang).replace("{v}", money(pl.platformCost))}
-            </p>
-          )}
+          {/* Eight bars, then it scrolls -- and the panel is held to the
+              statement's height beside it, so the pair reads as one block
+              rather than two boxes of different sizes. */}
+          <RankedBars rows={byAccountRows} emptyLabel={t("finNoCostsYet", lang)}
+            limit={EXPENSE_ACCOUNTS.length} maxRows={8} />
         </div>
       </div>
 
@@ -288,8 +418,20 @@ export default function FinanceDashboard({
       {/* ---- what bills again ---- */}
       {recurring.length > 0 && (
         <div className="panel">
-          <h3>{t("finSubscriptions", lang)}</h3>
-          <div className="tw">
+          <div className="panel-head">
+            <h3>{t("finSubscriptions", lang)}</h3>
+            {/* What the live ones add up to a year, said once at the top.
+                It is the figure somebody opens this table to work out, and
+                adding a column of yearly amounts in your head is the
+                arithmetic the screen should have done. */}
+            <span className="hint">
+              {t("finPerYear", lang)}: <b className="mono">{money(yearlyCommitted)}</b>
+              {stoppedCount > 0 && (
+                <> · {stoppedCount} {t("finEnded", lang).toLowerCase()}</>
+              )}
+            </span>
+          </div>
+          <div className="tw fin-tbl" ref={subRef} style={subStyle}>
             <table>
               <thead>
                 <tr>
@@ -298,25 +440,31 @@ export default function FinanceDashboard({
                   <th>{t("finEvery", lang)}</th>
                   <th className="n">{t("finAmount", lang)}</th>
                   <th className="n">{t("finPerYear", lang)}</th>
-                  <th />
+                  <th className="n">{t("status", lang)}</th>
                 </tr>
               </thead>
               <tbody>
-                {recurring.map((r) => {
+                {sortedRecurring.map((r) => {
                   const ended = !!r.endedOn;
                   return (
                     <tr key={r.id} className={ended ? "is-ended" : ""}>
                       <td>
-                        <b>{r.vendor}</b>
-                        {r.description ? <><br /><small className="sub">{r.description}</small></> : null}
+                        <span className="fin-who">
+                          <b>{r.vendor}</b>
+                          {r.description
+                            ? <small className="sub">{r.description}</small> : null}
+                        </span>
                       </td>
-                      <td>{t(accountLabelKey(r.account), lang)}</td>
-                      <td>{t("cad_" + r.cadence, lang)}</td>
-                      <td className="n">{money(r.amountUsd)}</td>
-                      <td className="n">{money(annualCost(r.amountUsd, r.cadence))}</td>
+                      <td><span className="pill muted">{t(accountLabelKey(r.account), lang)}</span></td>
+                      <td className="sub">{t("cad_" + r.cadence, lang)}</td>
+                      <td className="n mono">{money(r.amountUsd)}</td>
+                      {/* The yearly figure is the one that decides whether a
+                          subscription is worth keeping, so it carries the
+                          weight rather than the monthly one beside it. */}
+                      <td className="n mono"><b>{money(annualCost(r.amountUsd, r.cadence))}</b></td>
                       <td className="n">
                         {ended ? (
-                          <span className="sub">{t("finEnded", lang)} {r.endedOn}</span>
+                          <span className="sub mono">{r.endedOn}</span>
                         ) : (
                           <WriteOnly>
                             <button type="button" className="btn btn-sm btn-danger" disabled={busy}
@@ -337,11 +485,16 @@ export default function FinanceDashboard({
 
       {/* ---- the ledger ---- */}
       <div className="panel">
-        <h3>{t("finLedger", lang)}</h3>
+        <div className="panel-head">
+          <h3>{t("finLedger", lang)}</h3>
+          <span className="hint">
+            {expenses.length} · <b className="mono">{money(pl.expensesTotal)}</b>
+          </span>
+        </div>
         {!expenses.length ? (
           <p className="hint">{t("finNoCostsYet", lang)}</p>
         ) : (
-          <div className="tw">
+          <div className="tw fin-tbl" ref={ledgerRef} style={ledgerStyle}>
             <table>
               <thead>
                 <tr>
@@ -356,16 +509,23 @@ export default function FinanceDashboard({
               <tbody>
                 {expenses.map((e) => (
                   <tr key={e.id}>
-                    <td className="mono">{e.incurredOn}</td>
+                    <td className="mono sub">{e.incurredOn}</td>
                     <td>
-                      <b>{e.vendor}</b>
-                      {e.description ? <><br /><small className="sub">{e.description}</small></> : null}
+                      <span className="fin-who">
+                        <b>{e.vendor}</b>
+                        {e.description
+                          ? <small className="sub">{e.description}</small> : null}
+                      </span>
                     </td>
-                    <td>{t(accountLabelKey(e.account), lang)}</td>
-                    <td className="sub">
-                      {e.periodStart ? `${e.periodStart} → ${e.periodEnd ?? "…"}` : "—"}
+                    <td><span className="pill muted">{t(accountLabelKey(e.account), lang)}</span></td>
+                    {/* The period a payment covers, which is the difference
+                        between a month of hosting and a year of it. An
+                        en dash for a one-off, not a blank: blank reads as
+                        missing data rather than as "nothing to say". */}
+                    <td className="sub mono">
+                      {e.periodStart ? `${e.periodStart} → ${e.periodEnd ?? "…"}` : "–"}
                     </td>
-                    <td className="n">{money(e.amountUsd)}</td>
+                    <td className="n mono"><b>{money(e.amountUsd)}</b></td>
                     <td className="n">
                       <WriteOnly>
                         <button type="button" className="btn btn-sm btn-danger" disabled={busy}
@@ -585,3 +745,27 @@ function RecurringForm({
   );
 }
 
+
+/* ------------------------------------------------------------------ */
+
+/** The disclosure arrow on a cost line. currentColor and a rotation rather
+ * than two glyphs, so it turns with the row and inherits its colour. */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <svg className={"fin-caret" + (open ? " is-open" : "")} viewBox="0 0 16 16"
+      width="11" height="11" aria-hidden="true" focusable="false">
+      <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"
+      focusable="false" style={{ verticalAlign: "-2px", marginRight: 4 }}>
+      <path d="M8 2v8m0 0L5 7m3 3l3-3M3 13h10" fill="none" stroke="currentColor"
+        strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

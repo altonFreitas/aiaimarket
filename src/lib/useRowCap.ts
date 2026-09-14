@@ -51,14 +51,34 @@ export function useRowCap<T extends HTMLElement>(
   const measure = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const rows = el.children;
+
+    /* A table's rows are not the container's children -- the <table> is.
+     * Looked up rather than required from the caller: every capped table in
+     * this admin is a .tw wrapper around one table, and a caller that had
+     * to say so would eventually be given a selector that no longer
+     * matches anything and would silently stop capping. */
+    const body = el.querySelector("tbody");
+    const rows = body ? body.children : el.children;
+
     // Nothing to cap: fewer rows than the window. "none" rather than
     // nothing, so the stylesheet's fallback is lifted -- see above.
     if (rows.length <= visible) { setMaxHeight("none"); return; }
 
+    const elTop = el.getBoundingClientRect().top;
     const first = rows[0].getBoundingClientRect().top;
     const cutoff = rows[visible].getBoundingClientRect().top;
-    const height = cutoff - first;
+
+    /* Anything ABOVE the first row and inside the box -- a table header,
+     * padding -- is part of the height the box needs, or five rows plus a
+     * header would show four and a half.
+     *
+     * Adding scrollTop is what makes this safe to re-measure on a box that
+     * is already scrolled: the container's own rect does not move when it
+     * scrolls internally but its rows do, so the raw difference shrinks by
+     * exactly the scroll offset. The row-to-row span below needs no such
+     * correction -- both rows move together. */
+    const header = first - elTop + el.scrollTop;
+    const height = cutoff - first + header;
     if (height > 0) setMaxHeight(`${Math.ceil(height) + PEEK}px`);
   }, [visible]);
 

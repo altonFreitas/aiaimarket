@@ -77,10 +77,27 @@ export interface FinanceInput {
   ownSellerId?: string | null;
 }
 
+export interface VendorTotal {
+  vendor: string;
+  total: number;
+  /** Of THIS ACCOUNT, not of all costs. "Half our software spend is one
+   * licence" is the sentence this is here to support, and measuring it
+   * against the whole business would not say that. */
+  share: number;
+}
+
 export interface AccountTotal {
   account: ExpenseAccount;
   total: number;
   share: number;
+  /** Who inside this account the money actually went to, biggest first.
+   *
+   * An account is a filing cabinet, not an answer. "Software and licences:
+   * $276" tells the shop nothing it can act on; "$276, of which Supabase is
+   * $276" tells it what to cancel. Carried on the total rather than looked
+   * up separately so the breakdown and the figure it opens under can never
+   * disagree. */
+  vendors: VendorTotal[];
 }
 
 export interface ProfitAndLoss {
@@ -150,15 +167,37 @@ export function profitAndLoss(input: FinanceInput): ProfitAndLoss {
   const expensesTotal = input.expenses.reduce((a, e) => a + e.amountUsd, 0);
 
   const sums = new Map<string, number>();
+  // account -> vendor -> total. Two levels rather than a flat key, so a
+  // vendor billing two different accounts stays two separate lines: the
+  // bank charging for a transfer and for a card terminal is not one cost.
+  const byVendor = new Map<string, Map<string, number>>();
   for (const e of input.expenses) {
     sums.set(e.account, (sums.get(e.account) || 0) + e.amountUsd);
+    const inner = byVendor.get(e.account) || new Map<string, number>();
+    // A cost with no vendor recorded is still a cost. It groups under a
+    // blank key here and the screen labels it; dropping it would make the
+    // breakdown add up to less than the line it opens under.
+    const who = (e.vendor || "").trim();
+    inner.set(who, (inner.get(who) || 0) + e.amountUsd);
+    byVendor.set(e.account, inner);
   }
   const byAccount: AccountTotal[] = EXPENSE_ACCOUNTS
-    .map((account) => ({
-      account,
-      total: round2(sums.get(account) || 0),
-      share: expensesTotal > 0 ? (sums.get(account) || 0) / expensesTotal : 0,
-    }))
+    .map((account) => {
+      const total = round2(sums.get(account) || 0);
+      return {
+        account,
+        total,
+        share: expensesTotal > 0 ? (sums.get(account) || 0) / expensesTotal : 0,
+        vendors: [...(byVendor.get(account) || new Map())]
+          .map(([vendor, v]) => ({
+            vendor,
+            total: round2(v),
+            // Against this account, not the whole business -- see VendorTotal.
+            share: total > 0 ? v / total : 0,
+          }))
+          .sort((a, b) => b.total - a.total),
+      };
+    })
     // An account nobody has filed against is not a row of zero -- it is
     // absent. A chart of twelve accounts showing nine zeroes is a chart
     // nobody reads.
