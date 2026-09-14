@@ -45,7 +45,8 @@ export default function LoginForm({ lang }: { lang: Lang }) {
     try {
       const res = await finishTotpSetupAction(identifier, password, code);
       if (!res.ok) { setError(t("totpWrongCode", lang)); setPending(false); return; }
-      router.push("/admin");
+      // Signed in: Back must not return to the sign-in screen.
+      router.replace("/admin");
     } catch {
       setError(t("totpWrongCode", lang));
       setPending(false);
@@ -63,7 +64,7 @@ export default function LoginForm({ lang }: { lang: Lang }) {
         setPending(false);
         return;
       }
-      router.push("/admin");
+      router.replace("/admin");
     } catch {
       setError(t("totpWrongCode", lang));
       setPending(false);

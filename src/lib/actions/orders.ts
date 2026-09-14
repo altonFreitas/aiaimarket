@@ -1,6 +1,7 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
+import { issueTrackToken } from "@/lib/trackToken";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { PROOF_URL_SECONDS, PROOF_URL_FALLBACK_SECONDS, withFreshProofUrl } from "@/lib/paymentProof";
 import { writeTolerating } from "@/lib/missingColumn";
@@ -97,6 +98,25 @@ const MAX_ADDRESS_FIELD_LEN = 200;
  * supabase/order-idempotency.sql the query errors and this reports "no
  * previous attempt", which is exactly the behaviour the shop had before
  * the column was introduced. */
+/** What placeOrder hands back: the reference, and a token that unlocks that
+ * one order without the phone number appearing in the URL.
+ *
+ * A type rather than a bare string because there are THREE ways out of
+ * placeOrder -- the ordinary one, the fast idempotency replay, and the
+ * conflict handler when two copies of the same attempt race -- and a retry
+ * on a flaky connection has to land the buyer on their order exactly as the
+ * first attempt would have. Returning a plain ref from the replay paths
+ * would have sent a retrying buyer to the phone gate. */
+export interface PlacedOrder {
+  ref: string;
+  token: string;
+}
+
+/** The pair, built in one place so the three exits cannot drift apart. */
+function placed(ref: string, phone: string): PlacedOrder {
+  return { ref, token: issueTrackToken(ref, phoneNorm(phone)) };
+}
+
 async function findByIdempotencyKey(key: string): Promise<string | null> {
   try {
     const { data, error } = await supabaseAdmin()
@@ -163,7 +183,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   const idemKey = clip(input.idempotencyKey, MAX_IDEM_LEN) || null;
   if (idemKey) {
     const found = await findByIdempotencyKey(idemKey);
-    if (found) return found;
+    if (found) return placed(found, input.phone);
   }
 
   // Fee + zone resolution happens server-side against real settings,
@@ -393,7 +413,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     const code = (error as { code?: string }).code;
     if (idemKey && code === "23505") {
       const existing = await findByIdempotencyKey(idemKey);
-      if (existing) return existing;
+      if (existing) return placed(existing, input.phone);
     }
     throw error;
   }
@@ -434,7 +454,20 @@ export async function placeOrder(input: PlaceOrderInput) {
   notifyOrderEventInBackground(data, "placed", storeRow?.store_name || "Loja");
 
   revalidatePath("/admin/orders");
-  return data.ref as string;
+  /* THE REFERENCE AND A TOKEN THAT UNLOCKS IT.
+   *
+   * The token is the same one the store's own SMS carries -- an HMAC over
+   * the reference and the phone, keyed with SESSION_SECRET (lib/trackToken).
+   * It does NOT contain the phone number, which is the whole reason it
+   * exists: an earlier /o/<ref>?phone=... link leaked the number into
+   * browser history, WhatsApp previews and every Referer header the page
+   * emitted.
+   *
+   * It is returned rather than stashed in sessionStorage because the buyer
+   * is about to be sent to a page that must render their order on the FIRST
+   * paint and must still do so if they reload it. A handoff that is read
+   * once and erased could do neither. */
+  return placed(data.ref as string, input.phone);
 }
 
 /** I — order lookup gate: reference + phone, no password. Runs with the

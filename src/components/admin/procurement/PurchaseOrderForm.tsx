@@ -281,7 +281,10 @@ export default function PurchaseOrderForm({
     setBusy(true);
     try {
       await deletePurchaseOrder(po.id);
-      router.push("/admin/procurement");
+      // REPLACE: the page we are leaving is the deleted order's own, so
+      // pressing Back would return to a URL that no longer resolves. The
+      // same reason checkout replaces itself once the basket is emptied.
+      router.replace("/admin/procurement");
     } catch (err) { toast(String((err as Error).message), true); setBusy(false); }
   }
 

@@ -157,7 +157,7 @@ export default function CheckoutForm({
 
     setBusy(true);
     try {
-      const ref = await placeOrder({
+      const { ref, token } = await placeOrder({
         // Upper-cased and single-spaced here and again on the server, so
         // one shopper ordering three times is one customer on the sales
         // screens however they typed it. See lib/personName.ts.
@@ -182,12 +182,29 @@ export default function CheckoutForm({
       attemptKey.current = null;
       clear();
       toast(t("orderPlaced", lang));
-      // A query string is the least private place to put a phone number: it
-      // lands in server logs, browser history, the Referer header of every
-      // outbound link, and any analytics script on the page. sessionStorage
-      // hands it to the very next page and nowhere else.
-      try { sessionStorage.setItem("loja:justOrdered", JSON.stringify({ ref, phone: fullPhone })); } catch {}
-      router.push(`/o/${ref}`);
+
+      /* STRAIGHT TO THE ORDER, WITH THE PROOF IN THE LINK.
+       *
+       * The phone number is still not in the URL -- the token is an HMAC
+       * over it, not the number itself (lib/trackToken.ts), which is the
+       * same link the store texts the buyer a moment later.
+       *
+       * It replaced a sessionStorage handoff that the order page read in an
+       * effect AFTER mounting. That meant the buyer watched three screens
+       * to see one order: checkout while the server worked, then the
+       * "enter your phone" gate they had just proved they did not need,
+       * then finally their order once a second round trip came back. Worse,
+       * the handoff was read once and erased, so RELOADING the order page
+       * threw them back to the gate permanently.
+       *
+       * With the token in the link the server verifies it before the page
+       * is sent, so the order is in the first paint and a reload works.
+       *
+       * REPLACE, NOT PUSH. The basket was emptied two lines above, so the
+       * checkout left behind in history is a form for goods that are no
+       * longer in it -- and a browser restoring that form is an invitation
+       * to order the same thing twice. Back should return to the shop. */
+      router.replace(`/o/${ref}?t=${encodeURIComponent(token)}`);
     } catch (err) {
       console.error(err);
       toast(String((err as Error).message || "Error"), true);

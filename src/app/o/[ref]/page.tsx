@@ -3,6 +3,7 @@ import { getLang } from "@/lib/lang";
 import { getSettings, getApprovedSellersById } from "@/lib/data/public";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyTrackToken } from "@/lib/trackToken";
+import { lookupOrder } from "@/lib/actions/orders";
 
 /** Resolves the `?t=` token on a link the store sent to the buyer's phone.
  *
@@ -48,6 +49,22 @@ export default async function OrderPage({
   const [lang, settings, sellersById, unlockedPhone] = await Promise.all([
     getLang(), getSettings(), getApprovedSellersById(), phoneFromToken(ref, sp.t),
   ]);
+
+  /* THE ORDER ITSELF, FETCHED HERE RATHER THAN BY THE BROWSER.
+   *
+   * The token above already proved this phone owns this order, so there is
+   * nothing left to ask and nothing left to wait for -- and the page used to
+   * do both. TrackForm rendered its "enter your phone" gate on the first
+   * paint and only then, in an effect, went back to the server for the
+   * order. Anyone arriving from checkout or from the shop's own SMS watched
+   * a gate they had already passed, for as long as a second round trip
+   * takes on a phone in Dili.
+   *
+   * Resolved on the server, the order is in the HTML that arrives. The gate
+   * still exists, and is still exactly right, for somebody arriving cold at
+   * /o/<ref> with no token. */
+  const initialOrder = unlockedPhone ? await lookupOrder(ref, unlockedPhone) : null;
+
   return (
     <TrackForm
       lang={lang}
@@ -55,6 +72,7 @@ export default async function OrderPage({
       settings={settings}
       sellersById={sellersById}
       unlockedPhone={unlockedPhone}
+      initialOrder={initialOrder}
     />
   );
 }

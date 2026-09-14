@@ -20,7 +20,9 @@ export default function SellerLoginForm({ lang }: { lang: Lang }) {
     setPending(true);
     try {
       await loginSeller(email, password);
-      router.push("/seller/dashboard");
+      // Signed in: the login screen behind us has done its job, and going
+      // Back to it while authenticated is a dead end wearing a form.
+      router.replace("/seller/dashboard");
       router.refresh();
     } catch (err) {
       setError((err as Error).message || "Error");

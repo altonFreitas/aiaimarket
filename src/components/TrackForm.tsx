@@ -26,7 +26,7 @@ interface OrderSummary {
 }
 
 export default function TrackForm({
-  lang, initialRef, settings, sellersById, unlockedPhone,
+  lang, initialRef, settings, sellersById, unlockedPhone, initialOrder,
 }: {
   lang: Lang; initialRef: string; settings?: Settings;
   sellersById?: Record<string, { store_name: string }>;
@@ -35,43 +35,60 @@ export default function TrackForm({
    * server has already proved this phone owns this order, so the gate below
    * is skipped rather than asked. */
   unlockedPhone?: string | null;
+  /** The order itself, already fetched by the page because the token above
+   * made asking unnecessary. Present means: render it, on the first paint,
+   * with no gate and no round trip. Null means somebody arrived cold, and
+   * the gate is the right thing to show them. */
+  initialOrder?: Order | null;
 }) {
   const params = useSearchParams();
   const { toast } = useToast();
   const [ref, setRef] = useState(initialRef);
-  const [phone, setPhone] = useState("");
-  const [order, setOrder] = useState<Order | null>(null);
+  /* SEEDED FROM THE VERIFIED TOKEN, and this is not cosmetic.
+   *
+   * Every action on the order below is called with this value --
+   * requestCancellation, updateOrderAddress, uploadPaymentProof, the return
+   * request, Pay now, the seller rating and the product review. They each
+   * re-check it server-side, which is right: the page proving the token once
+   * is not a licence for the browser to act unchecked afterwards.
+   *
+   * So a buyer arriving on a verified link with this left empty would see
+   * their order render perfectly and find that every button on it failed.
+   * The gate used to fill it in as a side effect of asking; nothing asks any
+   * more, so it is filled in here. */
+  const [phone, setPhone] = useState(unlockedPhone ?? "");
+  /* SEEDED, NOT FETCHED. `if (!order && !history)` a few screens down is
+     what renders the phone gate, so an order that arrives as a prop and is
+     only moved into state by an effect means one paint of the gate first --
+     which is precisely what the buyer saw between confirming their order
+     and being able to read it. */
+  const [order, setOrder] = useState<Order | null>(initialOrder ?? null);
   const [history, setHistory] = useState<OrderSummary[] | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Coming straight from checkout: the phone is handed over once through
-  // sessionStorage (never the URL — see CheckoutForm) so the buyer doesn't
-  // have to retype it to see the order they just placed. Read and cleared
-  // in one go: it is good for exactly this one navigation.
-  //
-  // The work sits in an async closure rather than the effect body itself:
-  // a setState called synchronously while an effect runs schedules a second
-  // render pass before the browser has painted the first one, which is what
-  // react-hooks/set-state-in-effect flags. Inside the closure it is an
-  // ordinary asynchronous update, same as any event handler.
+  /* THE ONE CASE STILL LEFT FOR THE BROWSER TO RESOLVE.
+   *
+   * A verified arrival -- from checkout, or from the store's own SMS --
+   * brings its order with it now: the page resolves the token and fetches
+   * the order before any HTML is sent, so there is nothing here to do and
+   * nothing to wait for. `initialOrder` is already in state above.
+   *
+   * What is left is the legacy /o/<ref>?phone=… link, bookmarked before
+   * tokens existed. It still has to be honoured, and it can only be
+   * honoured here, because the phone in that URL is a claim rather than a
+   * proof -- lookupOrder is what checks it. Anyone arriving with neither
+   * gets the gate, which for them is the correct screen.
+   *
+   * The work sits in an async closure rather than the effect body itself:
+   * a setState called synchronously while an effect runs schedules a second
+   * render pass before the browser has painted the first one, which is what
+   * react-hooks/set-state-in-effect flags. Inside the closure it is an
+   * ordinary asynchronous update, same as any event handler. */
   useEffect(() => {
     void (async () => {
-      let handoff: { ref?: string; phone?: string } | null = null;
-      try {
-        const raw = sessionStorage.getItem("loja:justOrdered");
-        if (raw) {
-          handoff = JSON.parse(raw);
-          sessionStorage.removeItem("loja:justOrdered");
-        }
-      } catch { handoff = null; }
-
-      // Three ways in, in order of trust: a token the server already
-      // verified, the one-shot handoff from checkout, then a legacy
-      // /o/<ref>?phone=… link bookmarked before either existed.
-      const p = unlockedPhone || handoff?.phone || params.get("phone") || "";
+      if (initialOrder) return;             // already here, already proved
+      const p = params.get("phone") || "";
       if (!p || !initialRef) return;
-      if (!unlockedPhone && handoff?.ref && handoff.ref !== initialRef) return;
-
       setPhone(p);
       await find(initialRef, p);
     })();

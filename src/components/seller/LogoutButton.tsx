@@ -9,7 +9,8 @@ export default function LogoutButton({ lang }: { lang: Lang }) {
   return (
     <button className="btn btn-ghost btn-sm" type="button" onClick={async () => {
       await logoutSeller();
-      router.push("/seller/login");
+      // Signed out: every page behind this one now belongs to nobody.
+      router.replace("/seller/login");
       router.refresh();
     }}>
       {t("logOut", lang)}
