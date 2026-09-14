@@ -374,11 +374,21 @@ export async function adminPendingNotifications(): Promise<OrderNotification[]> 
  * products and orders the dashboard and export already load, reconciled by
  * buildStockReport() instead of queried again. */
 export async function adminStockReport() {
-  const [products, orders, cats, sellers] = await Promise.all([
+  const [products, orders, cats, sellers, settings] = await Promise.all([
     adminProducts(), adminOrders(), adminCategories(), adminSellers(),
+    // Optional: a shop whose database predates the column still gets the
+    // default, and the screen still works.
+    adminSettings().catch(() => null),
   ]);
   const { buildStockReport, withPurchaseFacts } = await import("@/lib/stockReport");
-  const report = buildStockReport(products, orders, cats, sellers);
+  const { normalizeRestockPct } = await import("@/lib/restock");
+  /* THE SETTING THE SHOP ALREADY FILLED IN. "Warn when stock reaches (%)"
+     drove the admin home's restock alert and nothing else -- so the screen
+     you open to act on that alert was still judging every product against a
+     flat two units, and disagreed with the alert that sent you there. */
+  const restockPct = normalizeRestockPct(
+    (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct);
+  const report = buildStockReport(products, orders, cats, sellers, restockPct);
 
   // Purchasing facts are layered on separately and degrade to nothing when
   // supabase/stock-receipt.sql has not been run: the stock screen still
@@ -391,6 +401,9 @@ export async function adminStockReport() {
   ]);
   return {
     ...withPurchaseFacts(report, receipts, onOrder),
+    // Shown on the screen, so the shop can see which number it is being
+    // judged against and where to change it.
+    restockPct,
     movements,
     /* Per size, keyed by product. Built here rather than in the component
        so the screen and the storefront read the same shape from the same

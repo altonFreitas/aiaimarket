@@ -74,12 +74,34 @@ comment on column products.restock_level is
 -- Postgres has no way to add a statement to an existing function, and
 -- because a copy that silently drifts from the original would be worse
 -- than an obvious one. If you change stock-ledger.sql, change this too.
+--
+-- IT DRIFTED. The copy below used to set qty and restock_level and NOT
+-- stock_status, which the original sets and which nothing else writes. This
+-- file runs last, so on every database built from run-all.sql the column
+-- froze at whatever it held when the product was created. A shop that
+-- received twenty-one shirts had twenty-one shirts and a catalog, a product
+-- page and a stock screen all saying OUT OF STOCK -- because the only line
+-- that could have said otherwise had been dropped in a copy that claimed in
+-- its own comment to be adding one.
+--
+-- The lesson is in the comment above, and the comment was right. The guard
+-- is now in tests/schemaHealth.test.ts: a declared replacement has to keep
+-- writing every column the definition it replaces wrote.
 -- ---------------------------------------------------------------------------
 create or replace function apply_stock_movement() returns trigger
 language plpgsql as $$
 begin
   update products
      set qty = qty + new.delta,
+         -- The shopper's answer, and the same thresholds stock-ledger.sql
+         -- has always used. Deliberately NOT the shop's restock percentage:
+         -- that is read from settings at the moment a screen is drawn, so
+         -- changing it takes effect at once instead of waiting for each
+         -- product's next delivery to re-stamp a column.
+         stock_status = case
+           when qty + new.delta <= 0 then 'out'
+           when qty + new.delta <= 2 then 'low'
+           else 'in' end,
          -- Only a delivery moves the reference. A sale must not, or the
          -- alert would re-baseline itself downward on every purchase and
          -- never fire at all.
@@ -91,7 +113,30 @@ begin
 end $$;
 
 comment on function apply_stock_movement is
-  'Turns a stock_movements row into the products.qty balance, and records restock_level whenever stock is added. The ONLY thing that writes products.qty.';
+  'Turns a stock_movements row into the products.qty balance and stock_status, and records restock_level whenever stock is added. The ONLY thing that writes products.qty.';
+
+-- ---------------------------------------------------------------------------
+-- Repairing what the drift left behind
+--
+-- Every database that has run this file before is carrying a stock_status
+-- that stopped following the balance, in both directions: a restocked
+-- product still reading 'out', and a product sold down to nothing still
+-- reading 'in' -- which is the worse of the two, because it offers goods
+-- the shop cannot ship.
+--
+-- Recomputed from the balance, which is the ledger's sum and the one number
+-- that was never wrong. Only rows that actually disagree are touched, so
+-- re-running this changes nothing and writes nothing.
+-- ---------------------------------------------------------------------------
+update products
+   set stock_status = case
+         when qty <= 0 then 'out'
+         when qty <= 2 then 'low'
+         else 'in' end
+ where stock_status is distinct from (case
+         when qty <= 0 then 'out'
+         when qty <= 2 then 'low'
+         else 'in' end);
 
 -- ---------------------------------------------------------------------------
 -- Backfill

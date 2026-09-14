@@ -3,12 +3,18 @@ import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { placeholder } from "@/lib/placeholder";
 import { money, nowIso } from "@/lib/utils";
-import { sortStockRows, type StockReport, type StockRow, type StockSortKey } from "@/lib/stockReport";
+import { LOW_STOCK_THRESHOLD, sortStockRows, type StockReport, type StockRow,
+  type StockSortKey } from "@/lib/stockReport";
+import { DEFAULT_RESTOCK_PCT } from "@/lib/restock";
 import { t } from "@/lib/i18n";
 import type { SizedStock } from "@/lib/sizeStock";
 import type { Lang, StockMovement, StockMovementReason } from "@/lib/types";
 
 const STOCK_KEY = { in: "stockIn", low: "stockLow", out: "stockOut" } as const;
+
+/** The urgency score, back into the three words the pills are painted in.
+ *  4 is oversold and 3/2 are out; 1 is running low; 0 is fine. */
+const URGENCY_STATUS = ["in", "low", "out", "out", "out"] as const;
 
 /** Which rows a filter chip shows. `attention` is the default view because a
  * stock screen is opened to find problems, not to browse a catalog. */
@@ -37,6 +43,9 @@ export default function StockAdmin({ lang, report }: {
     /** Per size, keyed by product. Absent on a shop that has not run
      * supabase/size-stock.sql, in which case the panel says nothing. */
     sizes?: Map<string, SizedStock>;
+    /** The shop's "Warn when stock reaches (%)", so the screen can say which
+     * number it is judging against rather than leaving it a mystery. */
+    restockPct?: number;
   };
 }) {
   // Which row is showing its history. One at a time: two open drill-downs
@@ -136,6 +145,18 @@ export default function StockAdmin({ lang, report }: {
         ))}
       </div>
 
+      {/* WHAT "LOW" MEANS ON THIS SCREEN, stated where the low rows are.
+          A warning nobody can trace back to a rule is a warning that gets
+          ignored, and the rule here is the shop's own setting -- so saying
+          it is also the only way anybody notices it is set wrong. */}
+      {(view === "low" || view === "attention") && rows.length > 0 && (
+        <p className="period-note">
+          {t("lowStockRule", lang)
+            .replace("{pct}", String(report.restockPct ?? DEFAULT_RESTOCK_PCT))
+            .replace("{n}", String(LOW_STOCK_THRESHOLD))}
+        </p>
+      )}
+
       {!rows.length ? (
         <div className="empty">
           <p>{view === "attention" ? t("stockAllHealthy", lang) : t("noResults", lang)}</p>
@@ -212,8 +233,29 @@ function StockRowView({ r, lang, drift, open, onToggle }: {
         </Link>
       </td>
       <td className="num">
-        <span className={"stock-btn s-" + r.stockStatus}>{t(STOCK_KEY[r.stockStatus], lang)}</span>
+        {/* THE SCREEN'S OWN ANSWER, not the products.stock_status column.
+            They differ on purpose: the column is what a shopper is told
+            ("can I buy this"), and it turns 'low' at two units because
+            below that a shopper needs to know. This screen is asking "do I
+            need to reorder", which the shop answers in Settings as a
+            percentage of the last delivery -- so a product at 15 of 21 is
+            worth ordering here and is emphatically in stock out there.
+            Reading the column here would have had the Low stock chip
+            counting rows whose own pill said In stock. */}
+        <span className={"stock-btn s-" + URGENCY_STATUS[r.urgency]}>
+          {t(STOCK_KEY[URGENCY_STATUS[r.urgency]], lang)}
+        </span>
         <b className="stock-qty">{r.onHand}</b>
+        {/* WHY it is low, in the only terms that can be acted on. "Below
+            threshold" is unfalsifiable; "15 of 21 left" is a fact, and it
+            is also how somebody notices the threshold is set wrong. */}
+        {r.urgency === 1 && r.remainingPct != null && r.restockLevel != null && (
+          <span className="stock-sub">
+            {t("lowFromDelivery", lang)
+              .replace("{pct}", String(r.remainingPct))
+              .replace("{n}", String(r.restockLevel))}
+          </span>
+        )}
         {/* The balance and its ledger disagree. After stock-ledger.sql this
             should never appear; if it does, something wrote products.qty
             without leaving a movement and the count cannot be trusted. */}

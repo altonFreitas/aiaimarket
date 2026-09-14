@@ -432,4 +432,185 @@ describe("no file quietly overwrites another's function", () => {
         .toEqual([name, declared![declared!.length - 1]]);
     }
   });
+
+  it("keeps every column an earlier definition wrote", () => {
+    /* DECLARING A REPLACEMENT IS NOT THE SAME AS CHECKING IT.
+     *
+     * The test above asks whether a second definition was INTENDED. It said
+     * yes for apply_stock_movement, which was true -- audience-restock.sql
+     * genuinely means to replace stock-ledger.sql's copy, to add the
+     * restock_level high-water mark. Its own comment says it is "the same
+     * function with one added line".
+     *
+     * It was not. It had also dropped the stock_status assignment, which
+     * nothing else in the schema writes. That file runs last, so on every
+     * database built from run-all.sql the column froze: a shop received
+     * twenty-one shirts and its catalog, product page and stock screen all
+     * went on saying OUT OF STOCK. Nothing failed. The paperwork was in
+     * order and the function had quietly stopped doing half its job.
+     *
+     * So the declaration no longer exempts it. A replacement may add
+     * columns, and may not lose one: an UPDATE that set a column before and
+     * does not now has to be deliberate enough to come and edit this test.
+     *
+     * Crude -- it reads `set` clauses out of the text -- and it is exactly
+     * the crudeness that catches a line going missing from a copy. */
+    const dir = path.join(process.cwd(), "supabase");
+    const read = (f: string) =>
+      fs.readFileSync(path.join(dir, f), "utf8").toLowerCase();
+
+    /** The columns a function's body assigns, from `set x = ...` and the
+     * `, y = ...` continuations that follow it.
+     *
+     * Comments are stripped FIRST. An explanatory line sitting between the
+     * comma and the column it introduces -- which is how this codebase
+     * writes a multi-column UPDATE -- otherwise hides that column from the
+     * scan, and a column this cannot see is a column it cannot miss. */
+    const columnsWritten = (body: string): Set<string> => {
+      const bare = body.replace(/--[^\n]*/g, " ");
+      const out = new Set<string>();
+      for (const m of bare.matchAll(/(?:^|\s|,)set\s+([a-z0-9_]+)\s*=/g)) out.add(m[1]);
+      for (const m of bare.matchAll(/,\s*([a-z0-9_]+)\s*=\s*(?:case|coalesce|greatest|least|[a-z0-9_.']|\()/g)) {
+        out.add(m[1]);
+      }
+      return out;
+    };
+
+    /** One function's body within a file: the text between the $$ that opens
+     * it and the $$ that closes it.
+     *
+     * Delimited on the dollar quotes rather than on "end $$", which is how
+     * this was written first and which silently ran past the end of any
+     * function closing with `end loop; end; $$` -- swallowing whatever came
+     * next in the file and reporting its columns as this one's. */
+    const bodyOf = (sql: string, name: string): string | null => {
+      const at = sql.search(
+        new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+${name}\\b`));
+      if (at < 0) return null;
+      const open = sql.indexOf("$$", at);
+      if (open < 0) return null;
+      const close = sql.indexOf("$$", open + 2);
+      return sql.slice(open + 2, close === -1 ? undefined : close);
+    };
+
+    /* Columns a replacement deliberately stops writing, and why.
+     *
+     * The escape hatch has to exist -- a replacement CAN legitimately hand a
+     * column to somebody else -- and it has to cost a sentence, or it is not
+     * a guard, it is a switch. Anything not listed here is a line that went
+     * missing. */
+    const DELIBERATELY_DROPPED: Record<string, readonly string[]> = {
+      // THE POINT OF THE LEDGER. schema.sql's version wrote products.qty
+      // straight onto the row; stock-reservation.sql's records a movement
+      // and lets apply_stock_movement() move the balance, so that qty has
+      // exactly one writer and stock_reconciliation can prove it.
+      decrement_stock_on_confirm: ["qty", "stock_status"],
+    };
+
+    for (const [name, chain] of Object.entries(INTENDED_REPLACEMENTS)) {
+      const bodies = chain
+        .map((file) => [file, bodyOf(read(file), name)] as const)
+        .filter((pair): pair is readonly [string, string] => pair[1] !== null);
+      if (bodies.length < 2) continue;
+
+      const last = bodies[bodies.length - 1];
+      const kept = columnsWritten(last[1]);
+
+      const allowed = DELIBERATELY_DROPPED[name] ?? [];
+      for (const [file, body] of bodies.slice(0, -1)) {
+        for (const col of columnsWritten(body)) {
+          if (allowed.includes(col)) continue;
+          // Named in the failure rather than counted, so the message says
+          // which column stopped being written and by which file.
+          expect([`${name}: ${file} -> ${last[0]}`, col, kept.has(col)])
+            .toEqual([`${name}: ${file} -> ${last[0]}`, col, true]);
+        }
+      }
+    }
+  });
+
+  it("keeps every call an earlier definition made", () => {
+    /* THE SAME BUG AGAIN, THROUGH THE OTHER DOOR, AND IT WAS ALREADY HERE.
+     *
+     * The test above watches the columns a replacement writes. It cannot see
+     * work a function delegates -- and reserve_order_stock delegates the
+     * only thing it is for. stock-reservation.sql's version ends
+     *
+     *     perform sync_order_stock_state(p_order_id, 'reserved');
+     *
+     * which is the line that actually HOLDS the units. size-stock.sql
+     * replaced that function to add a per-size availability check and
+     * dropped it. What was left checks and does not hold: the check passes,
+     * nothing is written, the row lock goes at commit, and the next shopper
+     * passes the same check against the same unit. Two orders for the last
+     * shirt were both accepted, both confirmed, and the shelf went to -1 --
+     * proved against a real Postgres, not reasoned about.
+     *
+     * A replacement may add calls. Losing one has to be deliberate enough to
+     * come and say so here. */
+    const dir = path.join(process.cwd(), "supabase");
+    const read = (f: string) =>
+      fs.readFileSync(path.join(dir, f), "utf8").toLowerCase();
+
+    /** Calls to the schema's own functions: `perform f(...)`, `select f(...)`
+     * and `f(...)` in a statement. Restricted to names the folder actually
+     * defines, so Postgres's own built-ins are not treated as the schema's
+     * work. */
+    const callsMade = (body: string, known: ReadonlySet<string>): Set<string> => {
+      const bare = body.replace(/--[^\n]*/g, " ");
+      const out = new Set<string>();
+      for (const m of bare.matchAll(/([a-z0-9_]+)\s*\(/g)) {
+        if (known.has(m[1])) out.add(m[1]);
+      }
+      return out;
+    };
+
+    const bodyOf = (sql: string, name: string): string | null => {
+      const at = sql.search(
+        new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+${name}\\b`));
+      if (at < 0) return null;
+      const open = sql.indexOf("$$", at);
+      if (open < 0) return null;
+      const close = sql.indexOf("$$", open + 2);
+      return sql.slice(open + 2, close === -1 ? undefined : close);
+    };
+
+    // Every function the folder defines, so a call to one of them is the
+    // schema calling itself rather than calling Postgres.
+    const known = new Set<string>();
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".sql") && x !== "run-all.sql")) {
+      for (const m of read(f).matchAll(
+        /create\s+(?:or\s+replace\s+)?function\s+([a-z0-9_]+)/g
+      )) known.add(m[1]);
+    }
+
+    /* Calls a replacement deliberately stops making, and why. Same rule as
+       the column list: the hatch exists, and it costs a sentence. */
+    const DELIBERATELY_DROPPED_CALLS: Record<string, readonly string[]> = {
+      // schema.sql's version did the arithmetic inline; the ledger versions
+      // delegate to sync_order_stock_state, so the inline helpers it used
+      // are gone on purpose.
+      decrement_stock_on_confirm: ["sync_order_stock"],
+    };
+
+    for (const [name, chain] of Object.entries(INTENDED_REPLACEMENTS)) {
+      const bodies = chain
+        .map((file) => [file, bodyOf(read(file), name)] as const)
+        .filter((pair): pair is readonly [string, string] => pair[1] !== null);
+      if (bodies.length < 2) continue;
+
+      const last = bodies[bodies.length - 1];
+      const kept = callsMade(last[1], known);
+      const allowed = DELIBERATELY_DROPPED_CALLS[name] ?? [];
+
+      for (const [file, body] of bodies.slice(0, -1)) {
+        for (const call of callsMade(body, known)) {
+          if (call === name) continue;          // recursion, not delegation
+          if (allowed.includes(call)) continue;
+          expect([`${name}: ${file} -> ${last[0]}`, call, kept.has(call)])
+            .toEqual([`${name}: ${file} -> ${last[0]}`, call, true]);
+        }
+      }
+    }
+  });
 });

@@ -1431,6 +1431,10 @@ export const STR: Record<string, [string,string,string]> = {
   audienceHint:["Ne'e mak tau produtu iha Feto ka Mane iha menu loja nian. Husik mamuk ba sasán ne'ebé pergunta ne'e la aplika — frigorífiku la'ós ropa ema nian.","É isto que o coloca em Mulher ou Homem no menu da loja. Deixe vazio para artigos a que a pergunta não se aplica — um frigorífico não é roupa de ninguém.","This is what puts it under Women or Men in the shop menu. Leave empty for goods the question does not apply to — a fridge is nobody's clothing."],
   restockSoon:["Stock tun ba kraik","Stock a baixar","Running low"],
   restockSoonHint:["Produtu sira ne'e iha {pct}% ka menus husi entrega ikus.","Estes produtos estão a {pct}% ou menos da última entrega.","These are at {pct}% or less of their last delivery."],
+  /* Shown on a low row, so the shop can see what the warning is measuring
+     and judge whether the percentage is set where it wants it. */
+  lowFromDelivery:["{pct}% husi {n} entrega ikus","{pct}% de {n} da última entrega","{pct}% of the last {n} delivered"],
+  lowStockRule:["Avizu iha {pct}% husi entrega ikus, ka {n} unidade. Troka iha Konfigurasaun.","Aviso a {pct}% da última entrega, ou {n} unidades. Altere em Definições.","Warned at {pct}% of the last delivery, or {n} units. Change it in Settings."],
   restockAlertPct:["Avisu stock iha (%)","Aviso de stock a (%)","Warn when stock reaches (%)"],
   restockAlertPctHint:["Husi entrega ikus. 75 katak avisa bainhira parte ida-haat lakon ona.","Da última entrega. 75 significa avisar quando um quarto já saiu.","Of the last delivery. 75 means warn once a quarter has gone."],
   ofLastDelivery:["husi entrega ikus","da última entrega","of last delivery"],

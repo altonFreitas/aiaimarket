@@ -260,6 +260,21 @@ begin
         using errcode = 'check_violation';
     end if;
   end loop;
+
+  /* AND THEN ACTUALLY HOLD THEM.
+   *
+   * This line was in stock-reservation.sql's version and was lost when this
+   * file replaced it to add the per-size check above. Checking without
+   * holding is not a reservation: the check passes, nothing is written, the
+   * lock is dropped at commit, and the next shopper passes the same check
+   * against the same unit. Two orders for the last shirt were both accepted
+   * and both confirmed, and the shelf went to -1 -- the exact oversell the
+   * lock four screens up exists to prevent.
+   *
+   * It must stay INSIDE this function and after the loops, so it runs under
+   * the row locks taken above. Writing the hold from anywhere else would
+   * put it outside them, which is the same race wearing a different hat. */
+  perform sync_order_stock_state(p_order_id, 'reserved');
 end $$;
 
 comment on function reserve_order_stock is

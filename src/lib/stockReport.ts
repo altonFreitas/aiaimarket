@@ -1,4 +1,5 @@
 import { effectivePrice } from "@/lib/utils";
+import { DEFAULT_RESTOCK_PCT, needsRestock, normalizeRestockPct } from "@/lib/restock";
 import type { Category, Order, Product, Seller, StockStatus } from "@/lib/types";
 
 /* ---------------------------------------------------------------------------
@@ -23,10 +24,19 @@ const AWAITING_CONFIRM: ReadonlySet<string> = new Set(["new"]);
  * Useful on its own: it is the stock currently moving through the shop. */
 const IN_FULFILMENT: ReadonlySet<string> = new Set(["confirmed", "preparing", "out", "arrived"]);
 
-/** At or below this many units, a listing is worth restocking before it sells
- * out. Matches the threshold the database trigger uses when it flips
- * stock_status to 'low' (see decrement_stock_on_confirm in schema.sql), so
- * the dashboard and the badge on a product card never disagree. */
+/** The FLOOR, in units, under which a listing is low however big or small
+ * its last delivery was.
+ *
+ * It is the threshold the database trigger uses when it sets stock_status
+ * (apply_stock_movement, supabase/stock-ledger.sql), so the badge a shopper
+ * sees and the one on a product card never disagree.
+ *
+ * IT IS NO LONGER THE WHOLE ANSWER ON THE STOCK SCREEN. Two units is the
+ * right warning for something the shop stocks five of and far too late for
+ * something it stocks two hundred of -- and the shop had already said which
+ * it wanted, in Settings, under "Warn when stock reaches (%)". That setting
+ * did nothing here. It does now; this is what it falls back to for a product
+ * that has never been restocked and so has nothing to be a percentage of. */
 export const LOW_STOCK_THRESHOLD = 2;
 
 /** The stock status a quantity implies.
@@ -68,6 +78,15 @@ export interface StockRow {
   available: number;
   /** Units across completed orders, all time. */
   unitsSold: number;
+  /** Units on hand straight after the last delivery -- what the shop's
+   * restock percentage is a percentage OF. Null on a product that has not
+   * been restocked since supabase/audience-restock.sql was applied, in which
+   * case only the flat floor applies to it. */
+  restockLevel: number | null;
+  /** How much of that last delivery is still on the shelf, 0-100. Null when
+   * there is no reference to measure against. What lets the screen say "18
+   * of 60 left" instead of the unfalsifiable "below threshold". */
+  remainingPct: number | null;
   /** The price a buyer pays today: the discount when one is running. */
   unitPrice: number;
   /* ---- purchasing, from the receipt ledger and open purchase orders.
@@ -129,20 +148,52 @@ export interface StockReport {
  *
  * "Was selling" deliberately beats plain "out of stock": a listing nobody
  * ever ordered being at zero is not urgent, it is just empty. */
-function scoreUrgency(row: Omit<StockRow, "urgency">): number {
+function scoreUrgency(row: Omit<StockRow, "urgency">, pct: number): number {
   if (row.archived) return 0; // archived listings cannot be sold; never urgent
   if (row.available < 0) return 4;
   if (row.stockStatus === "out" || row.onHand === 0) return row.unitsSold > 0 ? 3 : 2;
-  if (row.stockStatus === "low" || row.onHand <= LOW_STOCK_THRESHOLD) return 1;
+  if (isRunningLow(row, pct)) return 1;
   return 0;
+}
+
+/** Is this shelf emptying?
+ *
+ * TWO RULES, AND A PRODUCT IS LOW IF EITHER SAYS SO.
+ *
+ *   the shop's percentage   at or below pct% of the last delivery. This is
+ *                           the setting in Settings, and it is the one that
+ *                           scales: a quarter gone is a quarter gone whether
+ *                           the delivery was eight or eight hundred.
+ *   the flat floor          at or below LOW_STOCK_THRESHOLD units, whatever
+ *                           the percentage works out to. Three left of
+ *                           something delivered a thousand at a time is 0.3%
+ *                           and the percentage would have caught it; two left
+ *                           of something delivered two at a time is 100% and
+ *                           nothing would have.
+ *
+ * `needsRestock` is lib/restock.ts's, not a second copy of the arithmetic:
+ * the admin home already alerts on exactly this rule, and the screen the
+ * shop opens to act on that alert has to agree with it or one of the two is
+ * lying. It answers false for a product with no reference and for one that
+ * has run out entirely -- out of stock is a louder thing, scored above. */
+function isRunningLow(row: Omit<StockRow, "urgency">, pct: number): boolean {
+  if (row.stockStatus === "low") return true;
+  if (row.onHand <= LOW_STOCK_THRESHOLD) return true;
+  return needsRestock(row.onHand, row.restockLevel, pct);
 }
 
 export function buildStockReport(
   products: Product[],
   orders: Order[],
   cats: Category[],
-  sellers: Seller[] = []
+  sellers: Seller[] = [],
+  /** The shop's "Warn when stock reaches (%)". Read at the moment the screen
+   * is drawn rather than stamped onto a column by the trigger, so changing it
+   * in Settings takes effect on the next page load instead of waiting for
+   * every product's next delivery to re-stamp it. */
+  restockPct: number = DEFAULT_RESTOCK_PCT
 ): StockReport {
+  const pct = normalizeRestockPct(restockPct);
   const catById = new Map(cats.map((c) => [c.id, c]));
   const sellerById = new Map(sellers.map((s) => [s.id, s]));
 
@@ -179,6 +230,8 @@ export function buildStockReport(
     const cat = p.category_id ? catById.get(p.category_id) : null;
     const parent = cat?.parent_id ? catById.get(cat.parent_id) : null;
     const onHand = Number(p.qty) || 0;
+    const rawLevel = Number(p.restock_level);
+    const level = Number.isFinite(rawLevel) && rawLevel > 0 ? rawLevel : null;
     const awaitingConfirm = awaiting.get(p.id) || 0;
     const unitPrice = effectivePrice(p);
     const soldAt = lastSold.get(p.id) || null;
@@ -198,6 +251,11 @@ export function buildStockReport(
       inFulfilment: fulfilling.get(p.id) || 0,
       available: onHand - awaitingConfirm,
       unitsSold: sold.get(p.id) || 0,
+      restockLevel: level,
+      // Null rather than 0 when there is no reference: "we have no idea how
+      // full this shelf is" and "it is empty" are different answers.
+      remainingPct: level && level > 0
+        ? Math.round((onHand / level) * 100) : null,
       unitPrice,
       stockValue: onHand * unitPrice,
       lastSoldAt: soldAt,
@@ -207,7 +265,7 @@ export function buildStockReport(
       views: Number(p.views) || 0,
     };
 
-    return { ...base, urgency: scoreUrgency(base) };
+    return { ...base, urgency: scoreUrgency(base, pct) };
   });
 
   // Urgency first, then the biggest money at risk within each band, then name

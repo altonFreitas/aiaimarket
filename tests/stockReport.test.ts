@@ -375,3 +375,100 @@ describe("statusForQty", () => {
     expect(statusForQty(-404)).toBe("out");
   });
 });
+
+describe("low stock follows the shop's own percentage", () => {
+  /* THE SETTING THAT DID NOTHING. Settings has "Warn when stock reaches
+   * (%)", default 75, and it drove the admin home's restock alert and
+   * nothing else. The stock screen -- the one the alert sends you to --
+   * judged every product against a flat two units, so a shop with two
+   * hundred shirts was warned by one screen and told all was well by the
+   * other.
+   *
+   * Two units is also simply the wrong warning at any scale but one: too
+   * late for something delivered two hundred at a time, and unreachable
+   * for something delivered three at a time. */
+
+  const shirt = (qty: number, level: number) =>
+    product({ id: "sh", qty, restock_level: level, stock_status: "in" });
+
+  const urgency = (qty: number, level: number, pct?: number) =>
+    rowFor(buildStockReport([shirt(qty, level)], [], [], [], pct), "sh").urgency;
+
+  it("warns at the configured share of the last delivery", () => {
+    // 75% of 200 is 150: a shop holding 149 of its last 200 wants to know,
+    // and no flat threshold in units could have told it.
+    expect(urgency(149, 200)).toBe(1);
+    expect(urgency(151, 200)).toBe(0);
+  });
+
+  it("takes the percentage from the shop, not from a constant", () => {
+    // Half gone rather than a quarter: the same shelf, a different answer,
+    // decided in Settings.
+    expect(urgency(149, 200, 50)).toBe(0);
+    expect(urgency(99, 200, 50)).toBe(1);
+  });
+
+  it("still warns on the last few units when the percentage would not", () => {
+    /* THE FLOOR EARNS ITS KEEP HERE. Two left of something delivered two at
+     * a time is 100% of the last delivery -- the percentage says the shelf
+     * is untouched, and it is also nearly empty. */
+    expect(urgency(2, 2)).toBe(1);
+    expect(urgency(1, 1)).toBe(1);
+  });
+
+  it("says nothing about a product that has never been restocked", () => {
+    // No reference means no percentage to take. Falling back to "low"
+    // would have flagged every product in the catalog on the day the
+    // column was added, which is a hundred warnings that mean nothing.
+    expect(rowFor(buildStockReport(
+      [product({ id: "sh", qty: 40, restock_level: null })], [], [], [], 75), "sh").urgency)
+      .toBe(0);
+  });
+
+  it("keeps out-of-stock louder than running low", () => {
+    // An empty shelf is scored above a low one whatever the percentage
+    // says, and never reported as both.
+    const r = rowFor(buildStockReport(
+      [product({ id: "sh", qty: 0, restock_level: 200, stock_status: "out" })],
+      [], [], [], 75), "sh");
+    expect(r.urgency).toBeGreaterThan(1);
+  });
+
+  it("falls back to the default when the setting is nonsense", () => {
+    // 0 and 120 are not percentages anybody meant; a stored 0 is far more
+    // likely to be "never configured" than "warn me about everything".
+    expect(urgency(149, 200, 0)).toBe(1);
+    expect(urgency(149, 200, 120)).toBe(1);
+  });
+
+  it("reports how much of the delivery is left, not just that it is low", () => {
+    // "18 of 60 left" can be acted on and checked. "Below threshold"
+    // cannot be either.
+    const r = rowFor(buildStockReport([shirt(18, 60)], [], [], [], 75), "sh");
+    expect([r.remainingPct, r.restockLevel]).toEqual([30, 60]);
+  });
+
+  it("leaves the percentage unknown rather than zero with no reference", () => {
+    const r = rowFor(buildStockReport(
+      [product({ id: "sh", qty: 5, restock_level: null })], [], [], [], 75), "sh");
+    expect([r.remainingPct, r.restockLevel]).toEqual([null, null]);
+  });
+
+  it("counts the low rows in the summary the chip reads", () => {
+    const r = buildStockReport(
+      [shirt(149, 200), product({ id: "ok", ref: "B", qty: 190, restock_level: 200 })],
+      [], [], [], 75);
+    expect(r.summary.lowStock).toBe(1);
+  });
+
+  it("agrees with the flat rule the database writes for a shopper", () => {
+    /* The two are deliberately different questions and must not be confused:
+       statusForQty is what a SHOPPER is told, and mirrors the thresholds
+       apply_stock_movement() writes into products.stock_status. The screen
+       rule above is what the SHOP is asked to act on. */
+    expect(statusForQty(LOW_STOCK_THRESHOLD)).toBe("low");
+    expect(statusForQty(LOW_STOCK_THRESHOLD + 1)).toBe("in");
+    // 149 of 200 is low to reorder and emphatically in stock to buy.
+    expect(statusForQty(149)).toBe("in");
+  });
+});
