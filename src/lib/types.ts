@@ -371,6 +371,20 @@ export interface Settings {
    * home mentions it, 1-99. Absent on a database that has not run
    * supabase/audience-restock.sql; treated as the default when so. */
   restock_alert_pct?: number;
+  /* The five facts the policy pages cannot know, and the money settings.
+     All optional: a database that has not run
+     supabase/legal-currency-tax.sql has none of these columns, and every
+     reader treats absent as "not stated yet" rather than as a value. */
+  legal_address?: string | null;
+  legal_registration?: string | null;
+  legal_retention_years?: number | null;
+  legal_return_days?: number | null;
+  legal_refund_days?: number | null;
+  display_currency?: string | null;
+  /** A FRACTION, not a percentage: 0.025 is 2.5%. See lib/money.ts. */
+  tax_rate?: number | null;
+  tax_label?: string | null;
+  tax_included?: boolean | null;
   id: number;
   store_name: string;
   tagline_tet: string;
@@ -450,6 +464,14 @@ export interface Order {
   fee: number;
   quote_requested: boolean;
   subtotal: number;
+  /** What this order was quoted in, and the rate to the shop's books, both
+   * frozen at placement. Absent on orders placed before they existed. */
+  currency?: string | null;
+  fx_rate?: number | null;
+  /** Tax charged, and the rate that produced it. Frozen for the same
+   * reason: a later rate change must not restate an old order. */
+  tax?: number | null;
+  tax_rate?: number | null;
   total: number;
   // Central Dili orders use a simple street address (address_line);
   // outskirts/other-municipality orders use the full hierarchy below.

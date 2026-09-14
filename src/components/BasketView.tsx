@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useBasket } from "@/lib/useBasket";
 import { money } from "@/lib/utils";
+import EmptyBasketArt from "./EmptyBasketArt";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -28,6 +29,10 @@ export default function BasketView({ lang, storeName }: { lang: Lang; storeName:
         <div className="empty">
           <p>{t("emptyList", lang)}</p>
           <Link className="btn" href="/">{t("browse", lang)}</Link>
+          {/* Under the button, deliberately: the way out of an empty basket
+              is the thing to reach first, and the drawing is what you look
+              at while deciding to. */}
+          <EmptyBasketArt />
         </div>
       </div>
     );

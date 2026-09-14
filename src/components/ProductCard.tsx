@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { placeholder } from "@/lib/placeholder";
 import { money, discountPercent, ratingAverage, stars } from "@/lib/utils";
+import CartIcon from "./CartIcon";
 import { t } from "@/lib/i18n";
 import { useBasket } from "@/lib/useBasket";
 import { useLoves } from "@/lib/useLoves";
@@ -128,6 +129,10 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
         <div className="card-add-slot">
           {p.stock_status !== "out" && (
             <button type="button" className="btn btn-sm btn-amber card-add" onClick={addToList}>
+              {/* The shop's own cart, the one in the header and the bottom
+                  bar -- same component, so the button and the place the
+                  goods land are recognisably the same thing. */}
+              <CartIcon size={15} />
               {t("addList", lang)}
             </button>
           )}

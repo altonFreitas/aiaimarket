@@ -76,6 +76,9 @@ const EVERYTHING = snap([
   "products.updated_at",
   "settings.totp_last_counter",
   "orders.proof_path",
+  // legal-currency-tax.sql
+  "settings.legal_address", "settings.display_currency", "settings.tax_rate",
+  "orders.tax", "orders.currency", "order_items.tax",
 ]);
 
 describe("checkSchema", () => {
@@ -395,6 +398,8 @@ const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
   search_products: ["marketplace-v2.sql", "audience-restock.sql"],
   // A refund counts when it has SETTLED, not when it was agreed.
   sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
+  // The line-building trigger gains the line's share of the order's tax.
+  sync_order_items: ["order-items.sql", "legal-currency-tax.sql"],
 };
 
 describe("no file quietly overwrites another's function", () => {

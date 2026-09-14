@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import CartIcon from "./CartIcon";
 import BasketBadge from "./BasketBadge";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
@@ -18,11 +19,7 @@ export default function BottomNav({ lang }: { lang: Lang }) {
         <span>{t("catalog", lang)}</span>
       </Link>
       <Link href="/list" aria-current={isAt("/list")} style={{ position: "relative" }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-          <path d="M3 6h18" />
-          <path d="M16 10a4 4 0 0 1-8 0" />
-        </svg>
+        <CartIcon strokeWidth={1.8} />
         <BasketBadge as="bump" />
         <span>{t("navList", lang)}</span>
       </Link>

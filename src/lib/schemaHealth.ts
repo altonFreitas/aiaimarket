@@ -191,6 +191,17 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     ],
   },
   {
+    file: "legal-currency-tax.sql", labelKey: "featLegalCurrencyTax",
+    columns: [
+      ["settings", "legal_address"],
+      ["settings", "display_currency"],
+      ["settings", "tax_rate"],
+      ["orders", "tax"],
+      ["orders", "currency"],
+      ["order_items", "tax"],
+    ],
+  },
+  {
     // The retention sweep. Nothing in the application calls it -- it is a
     // tool an operator runs deliberately -- so the panel is the only place
     // that can say whether the shop has it at all.
@@ -247,12 +258,18 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["purchase_order_items", "size_qty"]],
   },
   {
-    // Order lines as rows rather than as a document. Named by the table and
-    // the aggregate: the table alone would not distinguish this file from
-    // one that had only got half way.
+    /* Order lines as rows rather than as a document. Named by the table and
+       the EARNINGS aggregate: the table alone would not distinguish this
+       file from one that had only got half way.
+     *
+     * sync_order_items is deliberately NOT probed, though this file creates
+     * it. legal-currency-tax.sql replaces it to add the line's tax and runs
+     * later, so its presence says nothing about whether THIS file ran -- the
+     * same trap that once had stock-ledger.sql identified by a function two
+     * other files also create. seller_earnings is created only here. */
     file: "order-items.sql", labelKey: "featOrderItems",
     tables: ["order_items"],
-    routines: ["seller_earnings", "sync_order_items"],
+    routines: ["seller_earnings"],
   },
   {
     // Stock held from the moment it is ordered. Named by the view and the
@@ -375,6 +392,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "sales.sql",
   "promotions.sql",
   "hero-video.sql",
+  "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql
   "loves.sql",
   "reorder-policy.sql",
   "audience-restock.sql",

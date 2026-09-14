@@ -1,3 +1,4 @@
+import { formatMoney } from "./money";
 import type { Order, Product, Settings } from "./types";
 
 /** Grouped to thousands: "$284,610.05", not "$284610.05". A product price
@@ -7,11 +8,18 @@ import type { Order, Product, Settings } from "./types";
  * read. Fixed "en-US" grouping rather than the visitor's locale: the store
  * prices in USD, and a locale that groups with "." would render $1.234,50
  * beside a $ sign for a number that is not in that currency. */
-export function money(n: number | string): string {
-  const v = Math.round((Number(n) || 0) * 100) / 100;
-  return "$" + v.toLocaleString("en-US", {
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  });
+/** Money, as this shop writes it.
+ *
+ * DELEGATES rather than formatting: lib/money.ts is where the symbol, the
+ * decimal places and the position of the sign are decided, and two
+ * formatters is one too many -- this one used to put the minus INSIDE the
+ * symbol, which is how "$-586.30" reached the profit-and-loss screen.
+ *
+ * The currency is optional and defaults to USD, which is what Timor-Leste
+ * uses and what every existing call site means. A screen that knows the
+ * shop's chosen currency, or an ORDER's frozen one, passes it. */
+export function money(n: number | string, currency?: string): string {
+  return formatMoney(n, currency);
 }
 
 /** Money with the noise taken out, for a chart axis.

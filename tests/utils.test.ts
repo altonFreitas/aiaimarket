@@ -15,8 +15,13 @@ describe("money", () => {
     expect(money(1000)).toBe("$1,000.00");
     expect(money(999.99)).toBe("$999.99");
   });
-  it("groups negatives too, sign first", () => {
-    expect(money(-1234.5)).toBe("$-1,234.50");
+  it("puts the minus OUTSIDE the symbol", () => {
+    /* This used to assert "$-1,234.50", which is what concatenating a symbol
+       onto a formatted negative gives you -- and on the net line of a
+       profit-and-loss screen it reads as a typo rather than as a loss. Two
+       call sites had grown their own workaround around it; formatMoney does
+       it properly and they were removed. */
+    expect(money(-1234.5)).toBe("-$1,234.50");
   });
 });
 

@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
+import CookieNotice from "@/components/CookieNotice";
 import { ToastProvider } from "@/components/Toast";
 import { getSettings } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
@@ -85,6 +86,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <main id="view" tabIndex={-1}>{children}</main>
           <Footer settings={settings} lang={lang} />
           <BottomNav lang={lang} />
+          {/* Last in the tree so it sits above everything, and outside the
+              page content so it does not move when a page renders. */}
+          <CookieNotice lang={lang} />
         </ToastProvider>
       </body>
     </html>

@@ -2,10 +2,26 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { openChecks, siteUrlOk, unfinishedLegal } from "@/lib/launchReadiness";
-import { LEGAL_DOCS, fillLegal, hasPlaceholders, pick, type LegalSlug } from "@/lib/legal";
+import {
+  LEGAL_DOCS, fillLegal, hasPlaceholders, legalVars, pick,
+  type LegalSlug, type LegalVars,
+} from "@/lib/legal";
 
 const ROOT = path.join(__dirname, "..");
 const GOOD = { siteUrl: "https://loja.tl", storeName: "Loja AIAI", contact: "+67077000000" };
+
+/* A shop that has not yet told the policies anything about itself -- which
+   is every shop on the day it installs this. */
+const BLANK: LegalVars = { store: "Loja AIAI", contact: "+67077000000" };
+
+/* And one that has. These are the five facts no author could supply: where
+   it trades, what it is registered as, and the three periods it commits to. */
+const FILLED: LegalVars = legalVars({
+  store_name: "Loja AIAI", wa_number: "+67077000000",
+  legal_address: "Rua Caicoli, Dili",
+  legal_registration: "SERVE 12345",
+  legal_retention_years: 7, legal_return_days: 14, legal_refund_days: 7,
+});
 
 describe("siteUrlOk", () => {
   it("accepts a real site", () => {
@@ -45,10 +61,13 @@ describe("siteUrlOk", () => {
 
 describe("openChecks", () => {
   it("passes nothing back when everything is set", () => {
-    // Except the policy pages, which are genuinely unfinished in this repo
-    // and are supposed to fail until someone fills them in.
-    const bad = openChecks(GOOD).filter((c) => !c.ok).map((c) => c.key);
-    expect(bad).toEqual(unfinishedLegal().length ? ["readyLegal"] : []);
+    // With the five legal facts supplied, nothing is outstanding. This used
+    // to carve out the policy pages as permanently failing, because
+    // hasPlaceholders read the raw source text and the markers live there --
+    // it could never pass. Now it passes exactly when the shop has done the
+    // work, which is the only version of this check worth having.
+    const bad = openChecks({ ...GOOD, legal: FILLED }).filter((c) => !c.ok).map((c) => c.key);
+    expect(bad).toEqual([]);
   });
 
   it("catches an unset site address", () => {
@@ -73,8 +92,8 @@ describe("openChecks", () => {
   });
 
   it("names the policy pages a shopper would land on", () => {
-    const c = openChecks(GOOD).find((x) => x.key === "readyLegal")!;
-    for (const slug of unfinishedLegal()) expect(c.detail).toContain(`/legal/${slug}`);
+    const c = openChecks({ ...GOOD, legal: BLANK }).find((x) => x.key === "readyLegal")!;
+    for (const slug of unfinishedLegal(BLANK)) expect(c.detail).toContain(`/legal/${slug}`);
   });
 
   it("has every check say what to do about it", () => {
@@ -102,10 +121,35 @@ describe("what the checks are actually about", () => {
     expect(fillLegal("Contact: {CONTACT}.", { store: "x", contact: "" })).toBe("Contact: —.");
   });
 
+  it("calls every policy unfinished until the shop fills its facts in", () => {
+    // The state every shop is in on day one.
+    expect(unfinishedLegal(BLANK).sort()).toEqual(["privacy", "returns", "terms"]);
+  });
+
+  it("calls them finished once it has", () => {
+    expect(unfinishedLegal(FILLED)).toEqual([]);
+  });
+
+  it("leaves an unanswered marker standing rather than blanking it", () => {
+    /* THE DANGEROUS ALTERNATIVE. Substituting an empty string would produce
+       "We keep order records for  years" -- a sentence that reads as
+       finished, on a public policy page, committing the shop to nothing it
+       can point at. The marker stays so it is visibly unfinished. */
+    const line = "We keep order records for {RETENTION YEARS — FILL IN} years.";
+    expect(fillLegal(line, BLANK)).toContain("FILL IN");
+    expect(fillLegal(line, FILLED)).toBe("We keep order records for 7 years.");
+  });
+
+  it("does not let one filled-in fact finish a page on its own", () => {
+    // terms needs BOTH the address and the registration.
+    const half = { ...BLANK, address: "Rua Caicoli, Dili" };
+    expect(unfinishedLegal(half)).toContain("terms");
+  });
+
   it("agrees with hasPlaceholders about which pages are unfinished", () => {
     const byDoc = (Object.keys(LEGAL_DOCS) as LegalSlug[])
-      .filter((s) => hasPlaceholders(LEGAL_DOCS[s]));
-    expect(unfinishedLegal()).toEqual(byDoc);
+      .filter((s) => hasPlaceholders(LEGAL_DOCS[s], BLANK));
+    expect(unfinishedLegal(BLANK)).toEqual(byDoc);
   });
 
   it("still describes the fallback the app really uses", () => {

@@ -34,16 +34,66 @@ export interface LegalDoc {
   sections: LegalSection[];
 }
 
-/** True while any FILL IN marker remains anywhere. The pages show a notice
- * when so, which is deliberately visible to shoppers too: better that a
- * customer sees an unfinished policy than that the shop believes it has a
- * finished one. */
-export function hasPlaceholders(doc: LegalDoc): boolean {
+/** What the shop must tell these documents about itself.
+ *
+ * THESE ARE NOT TEXT SOMEBODY FORGOT TO WRITE. They are facts about this
+ * business -- where it trades from, what it is registered as, and the three
+ * periods it chooses to commit to -- and no author could supply them. Filling
+ * a plausible number in would have been the one genuinely dangerous option:
+ * a returns policy stating a refund window the shop never agreed to is a
+ * promise it did not make, published in its name.
+ *
+ * So they come from settings, the owner states them once, and the pages keep
+ * showing their unfinished-policy notice until every one is there. */
+export interface LegalVars {
+  store: string;
+  contact: string;
+  address?: string | null;
+  registration?: string | null;
+  retentionYears?: number | null;
+  returnDays?: number | null;
+  refundDays?: number | null;
+}
+
+/** True while any FILL IN marker survives substitution.
+ *
+ * CHECKED AFTER FILLING, not before. It used to read the raw document, so it
+ * was true forever by construction -- the markers live in the source text and
+ * nothing could ever remove them. The notice was therefore permanent and told
+ * the shop nothing about whether it had done the work. Now it goes away
+ * exactly when the work is done.
+ *
+ * The notice is shown to shoppers as well as to the owner, on purpose:
+ * better that a customer sees an unfinished policy than that the shop
+ * believes it has a finished one. */
+export function hasPlaceholders(doc: LegalDoc, vars: LegalVars): boolean {
   const all = [
     ...doc.title, ...doc.intro,
     ...doc.sections.flatMap((s) => [...s.heading, ...s.body.flat()]),
   ];
-  return all.some((s) => s.includes("FILL IN"));
+  return all.some((text) => fillLegal(text, vars).includes("FILL IN"));
+}
+
+/** The vars, built from a settings row, in ONE place.
+ *
+ * The page and the launch-readiness panel both ask "is this policy
+ * finished". Two call sites assembling this by hand is two chances for the
+ * panel to say yes while the page still shows a marker. */
+export function legalVars(settings: {
+  store_name?: string | null; wa_number?: string | null;
+  legal_address?: string | null; legal_registration?: string | null;
+  legal_retention_years?: number | null; legal_return_days?: number | null;
+  legal_refund_days?: number | null;
+} | null | undefined): LegalVars {
+  return {
+    store: settings?.store_name || "",
+    contact: settings?.wa_number || "",
+    address: settings?.legal_address,
+    registration: settings?.legal_registration,
+    retentionYears: settings?.legal_retention_years,
+    returnDays: settings?.legal_return_days,
+    refundDays: settings?.legal_refund_days,
+  };
 }
 
 export function pick(three: [string, string, string], lang: Lang): string {
@@ -217,10 +267,28 @@ export const LEGAL_DOCS: Record<LegalSlug, LegalDoc> = {
 
 /** Substitutes what the shop already knows about itself, so the store name
  * and contact number are never a second place to keep up to date. */
-export function fillLegal(
-  text: string, vars: { store: string; contact: string }
-): string {
+/** Substitutes what the shop has said about itself, and leaves the rest
+ * standing.
+ *
+ * A marker whose setting is still blank is left EXACTLY as written, so it
+ * appears on the page and hasPlaceholders() above can see it. Replacing it
+ * with an empty string or a dash would produce a sentence that reads as
+ * finished -- "We keep order records for  years" -- which is the failure
+ * these markers exist to prevent. */
+export function fillLegal(text: string, vars: LegalVars): string {
+  const keep = (marker: string, value: string | number | null | undefined) =>
+    value == null || String(value).trim() === "" ? marker : String(value).trim();
+
   return text
     .replaceAll("{STORE}", vars.store)
-    .replaceAll("{CONTACT}", vars.contact || "—");
+    .replaceAll("{CONTACT}", vars.contact || "—")
+    .replaceAll("{ADDRESS — FILL IN}", keep("{ADDRESS — FILL IN}", vars.address))
+    .replaceAll("{REGISTRATION — FILL IN}",
+      keep("{REGISTRATION — FILL IN}", vars.registration))
+    .replaceAll("{RETENTION YEARS — FILL IN}",
+      keep("{RETENTION YEARS — FILL IN}", vars.retentionYears))
+    .replaceAll("{RETURN DAYS — FILL IN}",
+      keep("{RETURN DAYS — FILL IN}", vars.returnDays))
+    .replaceAll("{REFUND DAYS — FILL IN}",
+      keep("{REFUND DAYS — FILL IN}", vars.refundDays));
 }

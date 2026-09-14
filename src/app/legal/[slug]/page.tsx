@@ -5,7 +5,7 @@ import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import {
-  LEGAL_DOCS, pick, fillLegal, hasPlaceholders, type LegalSlug,
+  LEGAL_DOCS, pick, fillLegal, hasPlaceholders, legalVars, type LegalSlug,
 } from "@/lib/legal";
 
 const SLUGS: LegalSlug[] = ["terms", "privacy", "returns"];
@@ -43,10 +43,7 @@ export default async function LegalPage(
   if (!doc) notFound();
 
   const [lang, settings] = await Promise.all([getLang(), getSettings()]);
-  const vars = {
-    store: settings.store_name || "",
-    contact: settings.wa_number || "",
-  };
+  const vars = legalVars(settings);
   const fill = (three: [string, string, string]) => fillLegal(pick(three, lang), vars);
 
   return (
@@ -54,7 +51,7 @@ export default async function LegalPage(
       <h1>{fill(doc.title)}</h1>
       <p className="sub">{fill(doc.intro)}</p>
 
-      {hasPlaceholders(doc) && (
+      {hasPlaceholders(doc, vars) && (
         // Shown to shoppers as well as to the owner, on purpose. An
         // unfinished policy that looks finished is the failure worth
         // avoiding; one that says so is merely embarrassing.

@@ -352,7 +352,7 @@ export default function FinanceDashboard({
                 the same shape as every cost line above it. */}
             <div className={"kv is-net" + (profitable ? "" : " is-loss")}>
               <span>{profitable ? t("finNetProfit", lang) : t("finNetLoss", lang)}</span>
-              <b>{profitable ? money(pl.netProfit) : `−${money(Math.abs(pl.netProfit))}`}</b>
+              <b>{money(pl.netProfit)}</b>
             </div>
           </div>
 

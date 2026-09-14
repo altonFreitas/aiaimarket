@@ -1,17 +1,39 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { normalizeRestockPct } from "@/lib/restock";
+import { normalizeCurrencyCode, normalizeTaxRate } from "@/lib/money";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
 import type { Bank, Wallet, Zone } from "@/lib/types";
 import { normalizeZones } from "@/lib/zones";
 
+/** A period a shop commits to, in days or years.
+ *
+ * Empty is a real answer and is NOT zero: it means "we have not decided",
+ * which is what keeps the policy page showing its unfinished notice. Storing
+ * 0 instead would publish "you may return within 0 days". */
+function period(v: unknown, max: number): number | null {
+  if (v == null || String(v).trim() === "") return null;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n >= 1 && n <= max ? n : null;
+}
+
 export async function saveSettings(input: {
   store_name: string; wa_number: string; hours: string;
   municipality: string; post: string; suku: string; landmark: string;
   pickup: boolean; commission_rate: number; seller_registration_enabled: boolean;
   restock_alert_pct?: number;
+  /* The five facts the policy pages cannot know, and the money settings.
+     All optional: a database that has not run
+     supabase/legal-currency-tax.sql has none of these columns, and a save
+     naming a column that does not exist fails the whole save. */
+  legal_address?: string; legal_registration?: string;
+  legal_retention_years?: number | null;
+  legal_return_days?: number | null;
+  legal_refund_days?: number | null;
+  display_currency?: string;
+  tax_rate?: number; tax_label?: string; tax_included?: boolean;
 }) {
   await requireAdmin();
   const sb = supabaseAdmin();
@@ -21,6 +43,13 @@ export async function saveSettings(input: {
   const patch = {
     ...input,
     restock_alert_pct: normalizeRestockPct(input.restock_alert_pct),
+    legal_retention_years: period(input.legal_retention_years, 99),
+    legal_return_days: period(input.legal_return_days, 365),
+    legal_refund_days: period(input.legal_refund_days, 365),
+    display_currency: normalizeCurrencyCode(input.display_currency),
+    // A percentage typed by a person, stored as the fraction the arithmetic
+    // wants. 2.5 in the box is 0.025 in the column.
+    tax_rate: normalizeTaxRate(input.tax_rate),
   };
   const { error } = await sb.from("settings").update(patch).eq("id", 1);
   if (error) throw error;

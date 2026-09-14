@@ -2,6 +2,7 @@
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { issueTrackToken } from "@/lib/trackToken";
+import { apportionTax, normalizeCurrencyCode, taxOn } from "@/lib/money";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { PROOF_URL_SECONDS, PROOF_URL_FALLBACK_SECONDS, withFreshProofUrl } from "@/lib/paymentProof";
 import { writeTolerating } from "@/lib/missingColumn";
@@ -126,6 +127,52 @@ async function findByIdempotencyKey(key: string): Promise<string | null> {
   } catch { return null; }
 }
 
+/** The shop's currency and tax settings, or the defaults where the columns
+ * do not exist yet.
+ *
+ * ITS OWN QUERY, AND ITS OWN TRY/CATCH. Adding these columns to the select
+ * that reads `zones` would mean that on a database which has not run
+ * supabase/legal-currency-tax.sql the whole select fails -- and that select
+ * is on the path of every order. A shop would stop being able to sell
+ * because it had not run a migration about tax it does not charge. Falling
+ * back is not laziness here; it is the difference between a missing feature
+ * and a closed shop.
+ *
+ * The fallbacks are exactly how this shop already behaved: dollars, rate of
+ * one, no tax. */
+async function moneySettings(sb: ReturnType<typeof supabaseAdmin>) {
+  let row: {
+    display_currency?: string; tax_rate?: number; tax_included?: boolean;
+  } | null = null;
+  try {
+    const { data, error } = await sb.from("settings")
+      .select("display_currency, tax_rate, tax_included").eq("id", 1).maybeSingle();
+    if (!error) row = data;
+  } catch { row = null; }
+
+  const currency = normalizeCurrencyCode(row?.display_currency);
+  const taxRate = Number(row?.tax_rate) > 0 ? Number(row?.tax_rate) : 0;
+  return {
+    currency,
+    taxRate,
+    taxIncluded: Boolean(row?.tax_included),
+    /** The columns to write onto the order, omitted entirely when the
+     * database has none -- writeTolerating drops what it cannot write, and
+     * an order with no tax column is simply an order from before tax. */
+    orderColumns(tax: number) {
+      return {
+        currency,
+        /* One. The shop quotes and settles in the same currency today; the
+         * column exists so that the day it does not, every historical total
+         * still means what it meant when it was agreed. */
+        fx_rate: 1,
+        tax,
+        tax_rate: taxRate,
+      };
+    },
+  };
+}
+
 /** Holds this order's units, or explains why it cannot.
  *
  * Tolerant of the function not existing: on a database that has not run
@@ -190,6 +237,15 @@ export async function placeOrder(input: PlaceOrderInput) {
   // never trusted from the client.
   const sb = supabaseAdmin(); // service role: needed to read settings.zones reliably & to insert with computed ref
   const { data: settings } = await sb.from("settings").select("zones, commission_rate").eq("id", 1).single();
+  /* THE MONEY SETTINGS, read separately and tolerantly.
+   *
+   * Selected in their own query rather than added to the one above, because
+   * a database that has not run supabase/legal-currency-tax.sql has none of
+   * these columns and naming a missing column fails the WHOLE select -- which
+   * would stop the shop taking orders at all. A missing migration must never
+   * do that. Absent, everything below falls back to dollars and no tax, which
+   * is exactly how this shop already worked. */
+  const money = await moneySettings(sb);
   const zones = (settings?.zones as Zone[]) || [];
   const zone = input.mode === "delivery" ? zones.find((z) => z.id === input.zoneId) : null;
   let fee = zone && !zone.quote ? Number(zone.fee) : 0;
@@ -368,12 +424,30 @@ export async function placeOrder(input: PlaceOrderInput) {
   // days later.
   const lang = await getLang();
 
+  /* TAX, WORKED OUT ONCE AND FROZEN ONTO THE ORDER.
+   *
+   * The RATE is stored beside the amount, not looked up when a screen
+   * renders: a shop that changes its rate in March must not silently restate
+   * what it charged in February. Same reason purchase orders have always
+   * frozen fx_rate. */
+  const taxed = taxOn(subtotal, fee, money.taxRate, money.taxIncluded);
+  const lineTax = apportionTax(
+    itemsWithSeller.map((i) => i.price * i.qty),
+    taxed.tax || taxed.includedTax);
+
+  /* The line's share travels in the items jsonb, because order_items is
+     built from it by a trigger (sync_order_items). A line's tax is what a
+     RETURN of that line has to give back -- refunding the net price alone
+     quietly keeps tax on goods the shop no longer sold. */
+  const itemsWithTax = itemsWithSeller.map((i, n) => ({ ...i, tax: lineTax[n] ?? 0 }));
+
   const { data, error } = await writeTolerating<Order>(
     { idempotency_key: idemKey },
     (extra) => sb
     .from("orders")
     .insert({
       ...extra,
+      ...money.orderColumns(taxed.tax),
       ref,
       lang,
       is_preorder: isPreorder,
@@ -384,13 +458,13 @@ export async function placeOrder(input: PlaceOrderInput) {
       // whatever actually arrives.
       buyer_name: clip(normalizeName(input.name), MAX_NAME_LEN),
       buyer_phone: normalizedPhone,
-      items: itemsWithSeller,
+      items: itemsWithTax,
       mode: input.mode,
       zone_id: input.mode === "delivery" ? input.zoneId : null,
       fee,
       quote_requested: !!(zone && zone.quote),
       subtotal,
-      total: subtotal + fee,
+      total: taxed.total,
       address_line: input.mode === "delivery" ? clip(input.addressLine, MAX_ADDRESS_FIELD_LEN) || null : null,
       municipality: input.mode === "delivery" ? clip(input.municipality, MAX_ADDRESS_FIELD_LEN) || null : null,
       post: input.mode === "delivery" ? clip(input.post, MAX_ADDRESS_FIELD_LEN) || null : null,

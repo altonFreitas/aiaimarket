@@ -1,4 +1,4 @@
-import { LEGAL_DOCS, hasPlaceholders, type LegalSlug } from "@/lib/legal";
+import { LEGAL_DOCS, hasPlaceholders, type LegalSlug, type LegalVars } from "@/lib/legal";
 
 /* The things that must be true before this shop opens to the public, and
  * that nothing else on any screen reports.
@@ -42,17 +42,29 @@ export function siteUrlOk(url: string): boolean {
   return !/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i.test(u);
 }
 
-/** Which policy pages still carry a FILL IN marker. */
-export function unfinishedLegal(): LegalSlug[] {
-  return (Object.keys(LEGAL_DOCS) as LegalSlug[]).filter((s) => hasPlaceholders(LEGAL_DOCS[s]));
+/** Which policy pages still carry a FILL IN marker once the shop's own
+ * settings have been substituted in.
+ *
+ * Takes the vars rather than reading the raw documents: before, this was
+ * true forever by construction, because the markers live in the source text
+ * and nothing could remove them. A launch check that can never pass is a
+ * launch check nobody reads. */
+export function unfinishedLegal(vars: LegalVars): LegalSlug[] {
+  return (Object.keys(LEGAL_DOCS) as LegalSlug[])
+    .filter((s) => hasPlaceholders(LEGAL_DOCS[s], vars));
 }
 
 export function openChecks(input: {
   siteUrl: string;
   storeName: string;
   contact: string;
+  /** Everything the policy pages substitute. Optional so a caller that has
+   * only the two old fields still type-checks; it then reports the policies
+   * as unfinished, which on such a caller is the truth. */
+  legal?: LegalVars;
 }): OpenCheck[] {
-  const legal = unfinishedLegal();
+  const legal = unfinishedLegal(
+    input.legal ?? { store: input.storeName, contact: input.contact });
   return [
     {
       // The one that costs money silently. notifyOrderEvent() refuses to

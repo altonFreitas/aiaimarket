@@ -309,7 +309,11 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .b-out{background:var(--red-soft);color:var(--red)}
 .card.is-out .ph img{filter:grayscale(1) opacity(.65)}
 .card-add-slot{min-height:36px;margin-top:4px}
-.card .card-add{width:100%;margin-top:0}
+/* The bag sits beside the words rather than above or apart from them:
+   flex + gap, centred as one unit, so the pair reads as a single label. */
+.card .card-add{width:100%;margin-top:0;display:inline-flex;align-items:center;
+  justify-content:center;gap:7px}
+.card .card-add svg{flex:0 0 auto}
 
 /* "Add to cart" only appears on hover for devices that actually support
    real hover (a mouse) -- on touch devices (most of this app's traffic)
@@ -322,6 +326,55 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .card .card-add{opacity:0;transition:opacity .15s ease}
   .card:hover .card-add,.card:focus-within .card-add{opacity:1}
 }
+
+/* ---------- the cookie notice ---------- */
+/* Sits above the bottom bar on a phone, not over it: a notice that covers
+   the navigation is a notice that traps you on the page it appeared on.
+   env(safe-area-inset-bottom) keeps it clear of the home indicator. */
+.cookie-note{position:fixed;left:12px;right:12px;z-index:70;
+  bottom:calc(78px + env(safe-area-inset-bottom));
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+  padding:12px 14px;border-radius:var(--r);background:var(--card);
+  border:1px solid var(--line);box-shadow:var(--sh);
+  animation:up .18s ease-out}
+.cookie-note p{margin:0;flex:1 1 260px;font-size:13.5px;color:var(--ink-3, var(--ink))}
+.cookie-note .btn{flex:0 0 auto}
+@media(min-width:760px){
+  /* No bottom bar on a wide screen, so it can sit lower and narrower --
+     a full-width band across a desktop reads as an interstitial. */
+  .cookie-note{left:auto;right:18px;bottom:18px;max-width:440px}
+}
+@media (prefers-reduced-motion:reduce){.cookie-note{animation:none}}
+
+/* ---------- an empty basket ---------- */
+/* SIZED AS A SHARE OF THE SCREEN, which is what "about a third of the page"
+   means on a phone and on a desktop alike: 30vmin is 30% of whichever side
+   is shorter, so it stays roughly the same fraction of the view in portrait
+   and landscape. Clamped at both ends -- below 150px the tears stop reading,
+   above 320px it starts competing with the button it is meant to sit under.
+
+   NOT OPAQUE. At full strength a bright yellow face is the loudest thing on
+   the page and the button stops being the thing you press. At .82 it sits
+   on the tais like part of the paper, and the grey cart is quieter still so
+   the face leads. Dark mode needs less, not more: the same yellow on a dark
+   ground is far brighter to the eye than it is on white. */
+.empty-art{display:block;margin:18px auto 0;width:clamp(150px,30vmin,320px);
+  height:auto;opacity:.82}
+.eb-face{opacity:.96}
+.eb-ink{stroke:#5a4a12;fill:none;stroke-linecap:round}
+.eb-eye{fill:#3d3416}
+.eb-glint{fill:#fff;opacity:.9}
+.eb-cart{fill:none;stroke:var(--muted);stroke-linecap:round;stroke-linejoin:round;
+  opacity:.5}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .empty-art{opacity:.7}
+  :root:not([data-theme="light"]) .eb-cart{opacity:.6}
+}
+:root[data-theme="dark"] .empty-art{opacity:.7}
+:root[data-theme="dark"] .eb-cart{opacity:.6}
+/* A drawing that exists to be looked at, not read: it must not be the first
+   thing a reduced-motion or high-contrast reader fights with. */
+@media (prefers-contrast:more){.empty-art{opacity:1}}
 
 /* ---------- product page ---------- */
 .gal{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}

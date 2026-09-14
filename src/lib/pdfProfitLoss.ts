@@ -158,7 +158,7 @@ export function downloadProfitLossPdf(input: ProfitLossPdfInput) {
    * a typo. ASCII hyphen rather than the screen's U+2212: jsPDF's built-in
    * Helvetica has no glyph for the real minus sign and would drop it. */
   line(profitable ? labels.netProfit : labels.netLoss,
-    profitable ? money(pl.netProfit) : `-${money(Math.abs(pl.netProfit))}`,
+    money(pl.netProfit),
     { bold: true, size: 13, color: profitable ? GREEN : RED });
 
   doc.save(`profit-and-loss-${new Date().toISOString().slice(0, 10)}.pdf`);

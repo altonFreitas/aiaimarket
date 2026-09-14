@@ -6,6 +6,7 @@ import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/s
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { normalizeRestockPct } from "@/lib/restock";
+import { DISPLAY_CURRENCIES, normalizeCurrencyCode, taxRateAsPercent } from "@/lib/money";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 import { ZONE_IDS, normalizeZones, zoneLabelKey } from "@/lib/zones";
 
@@ -28,6 +29,21 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     commission_rate: settings.commission_rate ?? 10,
     seller_registration_enabled: settings.seller_registration_enabled ?? true,
     restock_alert_pct: normalizeRestockPct(settings.restock_alert_pct),
+    /* THE FIVE FACTS THE POLICY PAGES CANNOT KNOW. Empty strings rather
+       than nulls because these are form inputs; saveSettings turns an empty
+       period back into null, which is what keeps the policy page showing
+       its unfinished notice rather than publishing "within 0 days". */
+    legal_address: settings.legal_address || "",
+    legal_registration: settings.legal_registration || "",
+    legal_retention_years: settings.legal_retention_years ?? "",
+    legal_return_days: settings.legal_return_days ?? "",
+    legal_refund_days: settings.legal_refund_days ?? "",
+    display_currency: normalizeCurrencyCode(settings.display_currency),
+    // Shown as the percentage a person types; stored as the fraction the
+    // arithmetic wants. See lib/money.ts.
+    tax_rate: taxRateAsPercent(settings.tax_rate),
+    tax_label: settings.tax_label || "",
+    tax_included: !!settings.tax_included,
   });
   const [banks, setBanks] = useState<Bank[]>(settings.banks || []);
   const [wallets, setWallets] = useState<Wallet[]>(settings.wallets || []);
@@ -100,9 +116,93 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             onChange={(e) => set("restock_alert_pct", Number(e.target.value))} />
           <p className="hint">{t("restockAlertPctHint", lang)}</p>
         </div>
+        {/* ---- the shop's own legal facts ---- */}
+        <h3 style={{ marginTop: 22 }}>{t("legalFacts", lang)}</h3>
+        <p className="hint" style={{ marginTop: -6 }}>{t("legalFactsHint", lang)}</p>
+        <div className="two">
+          <div className="field">
+            <label htmlFor="lgl-addr">{t("legalAddress", lang)}</label>
+            <input id="lgl-addr" value={f.legal_address} disabled={busy || !canWrite}
+              onChange={(e) => set("legal_address", e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="lgl-reg">{t("legalRegistration", lang)}</label>
+            <input id="lgl-reg" value={f.legal_registration} disabled={busy || !canWrite}
+              onChange={(e) => set("legal_registration", e.target.value)} />
+          </div>
+        </div>
+        <div className="two">
+          <div className="field">
+            <label htmlFor="lgl-ret">{t("legalRetentionYears", lang)}</label>
+            <input id="lgl-ret" type="number" min={1} max={99} value={f.legal_retention_years}
+              disabled={busy || !canWrite}
+              onChange={(e) => set("legal_retention_years", e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="lgl-rtn">{t("legalReturnDays", lang)}</label>
+            <input id="lgl-rtn" type="number" min={1} max={365} value={f.legal_return_days}
+              disabled={busy || !canWrite}
+              onChange={(e) => set("legal_return_days", e.target.value)} />
+          </div>
+        </div>
+        <div className="field" style={{ maxWidth: 220 }}>
+          <label htmlFor="lgl-rfd">{t("legalRefundDays", lang)}</label>
+          <input id="lgl-rfd" type="number" min={1} max={365} value={f.legal_refund_days}
+            disabled={busy || !canWrite}
+            onChange={(e) => set("legal_refund_days", e.target.value)} />
+        </div>
+
+        {/* ---- money ---- */}
+        <h3 style={{ marginTop: 22 }}>{t("moneySettings", lang)}</h3>
+        <div className="two">
+          <div className="field">
+            <label htmlFor="cur">{t("displayCurrency", lang)}</label>
+            <select id="cur" value={f.display_currency} disabled={busy || !canWrite}
+              onChange={(e) => set("display_currency", e.target.value)}>
+              {Object.keys(DISPLAY_CURRENCIES).map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <p className="hint">{t("displayCurrencyHint", lang)}</p>
+          </div>
+          <div className="field">
+            <label htmlFor="taxr">{t("taxRate", lang)}</label>
+            <input id="taxr" type="number" min={0} max={100} step={0.01}
+              value={f.tax_rate} disabled={busy || !canWrite}
+              onChange={(e) => set("tax_rate", Number(e.target.value))} />
+            <p className="hint">{t("taxRateHint", lang)}</p>
+          </div>
+        </div>
+        <div className="two">
+          <div className="field">
+            <label htmlFor="taxl">{t("taxLabel", lang)}</label>
+            <input id="taxl" value={f.tax_label} disabled={busy || !canWrite}
+              placeholder={t("taxDefaultLabel", lang)}
+              onChange={(e) => set("tax_label", e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="taxi">{t("taxIncluded", lang)}</label>
+            <select id="taxi" value={f.tax_included ? "1" : "0"} disabled={busy || !canWrite}
+              onChange={(e) => set("tax_included", e.target.value === "1")}>
+              <option value="0">{t("taxAddedOn", lang)}</option>
+              <option value="1">{t("taxInPrices", lang)}</option>
+            </select>
+            <p className="hint">{t("taxIncludedHint", lang)}</p>
+          </div>
+        </div>
+
         <WriteOnly>
           <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
-            onClick={() => run(() => saveSettings(f))}>
+            onClick={() => run(() => saveSettings({
+              ...f,
+              // The boxes hold strings; the action wants numbers or null.
+              legal_retention_years: f.legal_retention_years === ""
+                ? null : Number(f.legal_retention_years),
+              legal_return_days: f.legal_return_days === ""
+                ? null : Number(f.legal_return_days),
+              legal_refund_days: f.legal_refund_days === ""
+                ? null : Number(f.legal_refund_days),
+            }))}>
             {t("save", lang)}
           </button>
         </WriteOnly>
