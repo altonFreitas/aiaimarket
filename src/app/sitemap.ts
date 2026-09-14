@@ -1,10 +1,13 @@
 import type { MetadataRoute } from "next";
-import { getLiveProducts, getCategories } from "@/lib/data/public";
+import { getLiveProducts, getCategories, getApprovedSellersById } from "@/lib/data/public";
 import { LOCALES, localePath, localeAlternates } from "@/lib/locale";
+import { LEGAL_DOCS, type LegalSlug } from "@/lib/legal";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const [products, categories] = await Promise.all([getLiveProducts(), getCategories()]);
+  const [products, categories, sellers] = await Promise.all([
+    getLiveProducts(), getCategories(), getApprovedSellersById(),
+  ]);
 
   /* <lastmod>, and only where it is true.
    *
@@ -60,7 +63,41 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     ...forEveryLocale("/", newest, "daily", 1),
     ...forEveryLocale("/shop", newest, "daily", 0.9),
+    /* THE POLICY PAGES WERE IN NO SITEMAP AT ALL.
+     *
+     * Terms, privacy and returns are what a buyer looks up when they are
+     * deciding whether to trust a shop they have not bought from, and what
+     * they look up again when something has gone wrong. They are also a
+     * trust signal a search engine reads directly. Low priority because
+     * they are not what anybody searches FOR; present because a page
+     * nobody can find is a policy the shop does not really publish.
+     *
+     * No lastModified: the text lives in lib/legal.ts and changes when
+     * that file is edited, which the database has no record of. A wrong
+     * date is worse than none -- see the note above. */
+    ...(Object.keys(LEGAL_DOCS) as LegalSlug[])
+      .flatMap((slug) => forEveryLocale(`/legal/${slug}`, undefined, "weekly", 0.2)),
   ];
+
+  /* A SELLER'S STOREFRONT, which had the same problem as the policy pages:
+     three real URLs in three languages, in no sitemap and confirming no
+     alternates. Only approved sellers are here, because that is all
+     getApprovedSellersById returns -- a pending or suspended seller's page
+     404s, and listing it would be pointing a crawler at a dead end. */
+  const storeEntries: MetadataRoute.Sitemap = Object.values(sellers).flatMap((seller) => {
+    // Dated by the seller's freshest product, for the same reason a
+    // category is: what changes about a storefront is what is on it.
+    const own = products
+      .filter((p) => p.seller_id === seller.id)
+      .map((p) => date(p.updated_at) || date(p.created_at))
+      .filter((d): d is Date => d != null);
+    return forEveryLocale(
+      `/store/${seller.slug}`,
+      own.length ? new Date(Math.max(...own.map((d) => d.getTime()))) : undefined,
+      "weekly",
+      0.5,
+    );
+  });
 
   // A category has no timestamp of its own and does not need one: what
   // changes about /c/shoes is the products in it, so it is dated by the
@@ -86,5 +123,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       0.8,
     ));
 
-  return [...staticEntries, ...categoryEntries, ...productEntries];
+  return [...staticEntries, ...storeEntries, ...categoryEntries, ...productEntries];
 }

@@ -2,14 +2,25 @@ import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
 import { getSellerBySlug, getLiveProducts, getSellerRatings } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
+import { localeMetadata } from "@/lib/locale";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+  const [{ slug }, lang] = await Promise.all([params, getLang()]);
   const seller = await getSellerBySlug(slug);
+  // No alternates on a 404: there is no page here in any language, and
+  // naming three URLs for one would invite a crawler to fetch two more.
   if (!seller) return { title: "404" };
-  return { title: seller.store_name, description: seller.description?.slice(0, 150) };
+  return {
+    title: seller.store_name,
+    description: seller.description?.slice(0, 150),
+    // A storefront renders in whichever language the shopper asked for,
+    // so it has the same three URLs every other public page has and needs
+    // to say so. Without this the three compete with each other for the
+    // seller's own name.
+    ...localeMetadata(lang, `/store/${seller.slug}`),
+  };
 }
 
 /** Public storefront for one seller. Only reachable for an approved

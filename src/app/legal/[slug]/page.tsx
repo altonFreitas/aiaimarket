@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSettings } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
+import { localeMetadata } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import {
   LEGAL_DOCS, pick, fillLegal, hasPlaceholders, type LegalSlug,
@@ -20,7 +21,13 @@ export async function generateMetadata(
   const doc = LEGAL_DOCS[slug as LegalSlug];
   if (!doc) return {};
   const lang = await getLang();
-  return { title: pick(doc.title, lang) };
+  /* THE POLICY PAGES ARE THE ONES A SHOPPER MOST NEEDS IN THEIR OWN
+     LANGUAGE, and they were the least equipped to be found in it: three
+     URLs, three translations, and nothing telling a crawler the three were
+     the same document. Terms, privacy and returns are also what a buyer
+     looks up when something has already gone wrong, which is the worst
+     moment to be served the wrong language. */
+  return { title: pick(doc.title, lang), ...localeMetadata(lang, `/legal/${slug}`) };
 }
 
 /** The three policy pages, from one template.

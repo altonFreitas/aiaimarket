@@ -137,5 +137,10 @@ jobs:
       - name: Apply it a second time
         run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/run-all.sql
 
-      - name: Test the policies by running them
+      # Named for the policies because that is what it started as. It now
+      # also runs the stock integration tests, which need the same thing: a
+      # real Postgres with the real schema. Overselling is not a question
+      # you can answer by reading source -- it only happens when two
+      # sessions are inside reserve_order_stock() at once.
+      - name: Test the policies and the stock path by running them
         run: npx vitest run tests/rls/

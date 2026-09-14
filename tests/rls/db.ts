@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 
 /* TALKING TO A REAL DATABASE, WITHOUT A NEW DEPENDENCY.
  *
@@ -81,3 +81,42 @@ export function blockedByPolicy(statement: string, role: string): boolean {
   const r = sql(statement, role);
   return !r.ok && /row-level security/i.test(r.error);
 }
+
+/* ---------------------------------------------------------------------------
+ * Two sessions at once
+ * ------------------------------------------------------------------------ */
+
+/** Runs SQL in its own session WITHOUT waiting for it.
+ *
+ * Everything above is deliberately synchronous, because a question about
+ * what one role can see needs exactly one session and reads better without
+ * promises in it. Overselling is not that kind of question: it only happens
+ * when two sessions are inside reserve_order_stock() at the same time, and a
+ * test that runs them one after another proves nothing about the lock --
+ * the second would pass or fail identically with no lock at all.
+ *
+ * So this returns a promise and does not block, which lets a test start A,
+ * let it take its row lock and sit there, then start B and watch B wait. One
+ * psql invocation is still one session, which is what makes the lock real.
+ */
+export function sqlAsync(statement: string): Promise<SqlResult> {
+  return new Promise((done) => {
+    const child = spawn(
+      "psql",
+      [DATABASE_URL, "-v", "ON_ERROR_STOP=1", "-tAX", "-c", statement],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let out = "", err = "";
+    child.stdout.on("data", (d) => { out += d; });
+    child.stderr.on("data", (d) => { err += d; });
+    child.on("close", (code) => done({
+      ok: code === 0,
+      rows: out.split("\n").map((r) => r.trim()).filter((r) => r && r !== "SET"),
+      error: err.trim(),
+    }));
+    child.on("error", (e) => done({ ok: false, rows: [], error: String(e) }));
+  });
+}
+
+/** Pause, for letting a session get far enough to hold its lock. */
+export const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));

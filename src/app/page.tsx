@@ -6,8 +6,26 @@ import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, ge
 import { audienceHighlights } from "@/lib/nav";
 import { mostLoved } from "@/lib/loves";
 import { getLang } from "@/lib/lang";
+import { localeMetadata } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import type { Category, Product } from "@/lib/types";
+
+/* THE HOMEPAGE HAS THREE URLS AND WAS CONFIRMING NONE OF THEM.
+ *
+ * sitemap.ts lists /, /tet/, /pt/ and /en/ and gives each the other two as
+ * alternates. The page itself said nothing: the root layout's metadata has
+ * no `alternates` at all, and this file had no generateMetadata to add
+ * one. A sitemap claiming a cluster that the pages never confirm is the
+ * weaker half of an hreflang pair, and Google treats an unconfirmed
+ * annotation as an error rather than as a hint.
+ *
+ * Title and description are deliberately left to the layout -- it already
+ * builds them from the settings row, and restating them here would be a
+ * second place for the shop's name to go stale. */
+export async function generateMetadata() {
+  const lang = await getLang();
+  return localeMetadata(lang, "/");
+}
 
 const SECTION_SIZE = 12;
 const MAX_CATEGORY_SECTIONS = 3;
