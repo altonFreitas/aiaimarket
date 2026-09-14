@@ -238,6 +238,15 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     routines: ["apply_supplier_return_stock"],
   },
   {
+    // Stock counted per size. Named by the view and the availability
+    // function rather than by the column, because the column alone would
+    // not distinguish this from a file that stopped after section 1.
+    file: "size-stock.sql", labelKey: "featSizeStock",
+    views: ["product_size_stock"],
+    routines: ["size_available"],
+    columns: [["purchase_order_items", "size_qty"]],
+  },
+  {
     // Order lines as rows rather than as a document. Named by the table and
     // the aggregate: the table alone would not distinguish this file from
     // one that had only got half way.
@@ -247,11 +256,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
   },
   {
     // Stock held from the moment it is ordered. Named by the view and the
-    // reserving function -- sync_order_stock_state is created here too but
-    // the view is the thing no other file could have made.
+    // sweep -- the two things no LATER file redefines. reserve_order_stock
+    // and sync_order_stock_state are created here too and then replaced by
+    // size-stock.sql, so their presence says nothing about whether this
+    // file ran; probing for them would report a database that has only run
+    // the newer file as having run this one.
     file: "stock-reservation.sql", labelKey: "featStockReservation",
     views: ["stock_reservations"],
-    routines: ["reserve_order_stock", "release_stale_reservations"],
+    routines: ["release_stale_reservations"],
   },
   {
     // Creates no table and no column, which is how it stayed off this list.
@@ -349,6 +361,12 @@ export const SCHEMA_ORDER: readonly string[] = [
   // it rebuilds -- applied the other way round, the older file would drop
   // 'supplier_return' back out of the list again.
   "supplier-returns.sql",
+  // AFTER stock-reservation.sql, whose sync_order_stock_state and
+  // reserve_order_stock it replaces with size-aware versions, and after
+  // procurement.sql, whose purchase_order_items it adds two columns to.
+  // Applied the other way round, the older file would put the sizeless
+  // functions back.
+  "size-stock.sql",
   "zone-cleanup.sql",
   "operating-costs.sql",
   "refund-settlement.sql",   // after returns.sql

@@ -79,40 +79,35 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- 4. [MEDIUM] Stock can go negative under concurrent confirmations.
 --
--- decrement_stock_on_confirm() reads and writes products.qty without a lock,
--- so two admins confirming two orders for the last unit at the same moment
--- both see qty=1. `greatest(0, ...)` keeps the number non-negative but the
--- store has still promised stock it does not have. An explicit row lock
--- serializes the two updates.
+-- SUPERSEDED, AND THE REPLACEMENT HAS BEEN DELETED FROM THIS FILE. Read
+-- this before adding anything like it back.
+--
+-- This section used to `create or replace decrement_stock_on_confirm()`
+-- with a row lock added. That was the right fix when it was written. It has
+-- since become the single most damaging line in the schema, because
+-- supabase/stock-reservation.sql replaced the same function with one that
+-- moves stock THROUGH THE LEDGER -- and this file runs last, so it put the
+-- old direct-write version back every single time the schema was applied.
+--
+-- What that cost, on a database where run-all.sql had been run:
+--
+--   * confirming an order wrote products.qty directly and recorded no
+--     movement, so stock_reconciliation drifted by the size of the order
+--     and the ledger stopped being the history of the shelf;
+--   * no reservation was ever written, so the hold placed at checkout did
+--     not exist, release_stale_reservations swept nothing, and the whole
+--     of stock-reservation.sql was inert;
+--   * two orders could still take the last unit, which is the very thing
+--     this section was added to prevent -- the lock it takes is per
+--     confirmation, and the race moved to placement.
+--
+-- The locking this was for now happens in reserve_order_stock(), which
+-- takes the row lock at PLACEMENT, where the race actually is. Nothing here
+-- needs to redefine the trigger, so nothing here does.
+--
+-- Found by applying run-all.sql to an empty Postgres and confirming one
+-- order: products.qty went 30 -> 27 with no ledger row behind it.
 -- ---------------------------------------------------------------------------
-create or replace function decrement_stock_on_confirm() returns trigger as $$
-declare
-  item jsonb;
-  new_qty int;
-begin
-  if new.status = 'confirmed' and old.status = 'new' then
-    for item in select * from jsonb_array_elements(new.items) loop
-      -- Lock the product row first: without this, two concurrent confirms
-      -- read the same qty and one decrement is silently lost.
-      select greatest(0, p.qty - (item->>'qty')::int) into new_qty
-        from products p
-        where p.id = (item->>'product_id')::uuid
-        for update;
-
-      if found then
-        update products
-          set qty = new_qty,
-              stock_status = case
-                when new_qty = 0 then 'out'
-                when new_qty <= 2 then 'low'
-                else stock_status end
-          where id = (item->>'product_id')::uuid;
-      end if;
-    end loop;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
 
 -- ---------------------------------------------------------------------------
 -- 5. [MEDIUM] Missing indexes on the marketplace's hottest lookups.

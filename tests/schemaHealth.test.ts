@@ -2,20 +2,20 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  SCHEMA_FEATURES, NOT_SCHEMA_FILES, INVENTORY_FILE,
+  SCHEMA_FEATURES, SCHEMA_ORDER, NOT_SCHEMA_FILES, INVENTORY_FILE,
   checkSchema, memberKey, outstandingFiles, uncheckedFiles, snapshotFromRows,
   type SchemaSnapshot,
 } from "@/lib/schemaHealth";
 
 /** Everything a fully migrated database has beyond its tables. */
 const KINDS = {
-  views: ["stock_reconciliation", "stock_reservations"],
+  views: ["stock_reconciliation", "stock_reservations", "product_size_stock"],
   routines: [
     "schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves",
     "hit_rate_limit", "redact_old_order_pii",
     "reserve_order_stock", "release_stale_reservations",
     "seller_earnings", "sync_order_items", "is_expense_account",
-    "apply_supplier_return_stock",
+    "apply_supplier_return_stock", "size_available",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -59,6 +59,7 @@ const EVERYTHING = snap([
   "order_returns", "order_return_items",
   "return_requests", "return_request_items",
   "supplier_returns", "supplier_return_items",
+  "purchase_order_items.size_qty",
   "operating_expenses", "recurring_expenses",
   "promotions",
   "hero_slides.video_url",
@@ -232,7 +233,7 @@ describe("an old schema_inventory() that can only see tables", () => {
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
       "loves.sql", "refund-settlement.sql", "rate-limits.sql", "pii-retention.sql",
-      "operating-costs.sql", "supplier-returns.sql",
+      "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",
       "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
@@ -326,13 +327,109 @@ describe("the feature list matches the folder", () => {
     );
     for (const f of SCHEMA_FEATURES) {
       for (const name of [...(f.views ?? []), ...(f.routines ?? [])]) {
-        const creators = [...sql.entries()]
-          .filter(([, body]) => new RegExp(
-            `create\\s+(or\\s+replace\\s+)?(view|function|procedure)\\s+${name}\\b`
-          ).test(body))
-          .map(([file]) => file);
-        expect([f.file, name, creators]).toEqual([f.file, name, [f.file]]);
+        const creators = creatorsOf(sql, name);
+        // The probing file must be among them, and must be the LAST of them
+        // to run -- otherwise a later file's version is what the database
+        // actually ends up with and the probe is describing something else.
+        expect([f.file, name, creators.includes(f.file)])
+          .toEqual([f.file, name, true]);
+        expect([f.file, name, lastToRun(creators)])
+          .toEqual([f.file, name, f.file]);
       }
+    }
+  });
+});
+
+/** Which files create this view or function. */
+function creatorsOf(sql: Map<string, string>, name: string): string[] {
+  return [...sql.entries()]
+    .filter(([, body]) => new RegExp(
+      `create\\s+(or\\s+replace\\s+)?(view|function|procedure)\\s+${name}\\b`
+    ).test(body))
+    .map(([file]) => file);
+}
+
+/** Of these files, the one SCHEMA_ORDER runs last -- which is the one whose
+ * definition the database is left holding. */
+function lastToRun(files: string[]): string | undefined {
+  return [...files].sort(
+    (a, b) => SCHEMA_ORDER.indexOf(a) - SCHEMA_ORDER.indexOf(b)
+  ).pop();
+}
+
+/* ---------------------------------------------------------------------------
+ * The check that would have caught it
+ * ------------------------------------------------------------------------ */
+
+/** Functions two files both define, where the later one MEANS to replace the
+ * earlier -- listed here so that doing it by accident cannot pass.
+ *
+ * Every entry is a deliberate upgrade: a later file teaching an existing
+ * function something the earlier one could not know about.
+ *
+ * THIS LIST EXISTS BECAUSE ONE WAS MISSING FROM IT. patch-audit-hardening
+ * .sql -- the last file to run -- re-created decrement_stock_on_confirm()
+ * with the pre-ledger version that writes products.qty directly. So on every
+ * database built from run-all.sql: confirming an order moved stock with no
+ * movement behind it, stock_reconciliation drifted by the size of the order,
+ * no reservation was ever written, and the whole of stock-reservation.sql
+ * was inert. Nothing failed. Nothing said anything. */
+const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
+  /* Each list is in SCHEMA_ORDER, and the LAST entry is the definition the
+     database is left holding. */
+
+  // Direct write -> pre-orders skipped -> through the ledger -> reservations.
+  decrement_stock_on_confirm: [
+    "schema.sql", "preorders.sql", "stock-ledger.sql", "stock-reservation.sql",
+  ],
+  // Reservations, then sizes.
+  sync_order_stock_state: ["stock-reservation.sql", "size-stock.sql"],
+  reserve_order_stock: ["stock-reservation.sql", "size-stock.sql"],
+  // The two-argument wrapper, kept for callers predating the three-state form.
+  sync_order_stock: ["stock-ledger.sql", "stock-reservation.sql"],
+  // The trigger that moves products.qty gains the restock high-water mark.
+  apply_stock_movement: [
+    "stock-receipt.sql", "stock-ledger.sql", "audience-restock.sql",
+  ],
+  // Catalogue search gains the audience filter.
+  search_products: ["marketplace-v2.sql", "audience-restock.sql"],
+  // A refund counts when it has SETTLED, not when it was agreed.
+  sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
+};
+
+describe("no file quietly overwrites another's function", () => {
+  it("has every double definition declared, and running last where it should", () => {
+    const dir = path.join(process.cwd(), "supabase");
+    const sql = new Map(
+      fs.readdirSync(dir).filter((f) => f.endsWith(".sql") && f !== "run-all.sql")
+        .map((f) => [f, fs.readFileSync(path.join(dir, f), "utf8").toLowerCase()])
+    );
+
+    // Every function or view defined anywhere in the folder.
+    const names = new Set<string>();
+    for (const body of sql.values()) {
+      for (const m of body.matchAll(
+        /create\s+(?:or\s+replace\s+)?(?:view|function|procedure)\s+([a-z0-9_]+)/g
+      )) names.add(m[1]);
+    }
+
+    for (const name of [...names].sort()) {
+      const creators = creatorsOf(sql, name);
+      if (creators.length < 2) continue;
+
+      const declared = INTENDED_REPLACEMENTS[name];
+      // An undeclared double definition is the bug this test is named for.
+      expect([name, declared ? "declared" : "UNDECLARED"])
+        .toEqual([name, "declared"]);
+
+      // And the declaration has to match what is actually in the folder,
+      // or it stops describing anything.
+      expect([name, [...creators].sort()]).toEqual([name, [...declared!].sort()]);
+
+      // The LAST file to run must be the last one named -- that is the
+      // definition the database keeps, and the one the author intended.
+      expect([name, lastToRun(creators)])
+        .toEqual([name, declared![declared!.length - 1]]);
     }
   });
 });
