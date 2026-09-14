@@ -2385,3 +2385,46 @@ tr.is-ended{opacity:.55}
 .tw tr.is-editing input.is-sub{height:24px;font-size:11px;color:var(--muted)}
 .tw tr.is-editing input.is-num{text-align:right;font-family:var(--mono);
   max-width:96px;margin-left:auto}
+
+/* ---------- stock per size ---------- */
+/* THE COUNT ON THE SIZE BUTTON. Offering Large on a product with none left
+   in Large is the thing the whole feature exists to stop. A size with
+   nothing behind it stays VISIBLE and struck through rather than being
+   removed: "they do not stock my size" and "they are out of my size" are
+   different answers, and only one of them means come back next week. */
+.sizes.has-counts button{display:inline-flex;flex-direction:column;
+  align-items:center;gap:1px;line-height:1.15;padding-top:5px;padding-bottom:4px}
+.sizes.has-counts button em{font-style:normal;font-size:9.5px;
+  font-family:var(--mono);color:var(--muted-2)}
+.sizes button.is-gone{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+.sizes button.is-gone em{color:var(--red);text-decoration:none}
+.sizes.has-counts button[aria-pressed="true"] em{color:rgba(255,255,255,.75)}
+
+/* The breakdown under a row on the stock screen. */
+.size-break{margin:2px 0 12px}
+.size-break h4{font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 6px}
+.size-chips{display:flex;flex-wrap:wrap;gap:6px}
+.size-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;
+  border:1px solid var(--line);border-radius:20px;background:var(--card);
+  font-size:12px}
+.size-chip b{font-weight:600}
+.size-chip em{font-style:normal;font-family:var(--mono);font-size:11.5px;
+  color:var(--muted)}
+.size-chip.is-low{border-color:var(--amber);background:var(--amber-soft)}
+.size-chip.is-low em{color:var(--amber-ink)}
+.size-chip.is-out{border-color:var(--red);background:var(--red-soft)}
+.size-chip.is-out em{color:var(--red)}
+/* Stock whose size nobody recorded. Dashed, because it is a state to be
+   resolved by counting rather than a size the shop stocks. */
+.size-chip.is-unsized{border-style:dashed;color:var(--muted)}
+
+/* The per-size quantity boxes on a purchase order line. */
+.po-sizes{grid-column:1/-1}
+.po-size-grid{display:flex;flex-wrap:wrap;gap:8px}
+.po-size{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;
+  border:1px solid var(--line);border-radius:var(--r-s);background:var(--card)}
+.po-size span{font-size:12px;font-weight:600;min-width:1.6em}
+.po-size input{width:64px;height:28px;padding:3px 7px;border:1px solid var(--line);
+  border-radius:var(--r-s);font:inherit;font-size:13px;text-align:right;
+  font-family:var(--mono)}

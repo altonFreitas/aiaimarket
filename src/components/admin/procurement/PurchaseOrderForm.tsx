@@ -7,8 +7,10 @@ import { savePurchaseOrder, setPurchaseOrderStatus, deletePurchaseOrder } from "
 import { PO_CURRENCIES, countryFlag, countryName } from "@/lib/countries";
 import { money } from "@/lib/utils";
 import {
-  PO_STATUSES, deliveryState, poDelayDays, poLeadTime, poQty, poTotal, todayIso,
+  PO_STATUSES, deliveryState, parseSizes, poDelayDays, poLeadTime, poQty, poTotal,
+  todayIso,
 } from "@/lib/procurement";
+import { AUDIENCES, AUDIENCE_KEY } from "@/lib/audience";
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "../Access";
 import type {
@@ -37,13 +39,46 @@ interface LineDraft {
   sellPrice: string;
   /** "S, M, L, XL" as the supplier writes it. */
   sizes: string;
+  /** How many of each size, keyed by label. Strings because they are what
+   * a text input holds; a half-typed "1" must not become a number and snap
+   * back under the cursor. */
+  sizeQty: Record<string, string>;
+  /** Who the goods are for, copied onto the product at receipt. "" is "not
+   * said", which is a real state and not the same as unisex. */
+  audience: string;
   description: string;
 }
 
 const blankLine = (): LineDraft => ({
   productName: "", category: "goods_for_resale", qty: "1", unitPrice: "0",
-  productId: "", catalogCategoryId: "", sellPrice: "", sizes: "", description: "",
+  productId: "", catalogCategoryId: "", sellPrice: "", sizes: "",
+  sizeQty: {}, audience: "", description: "",
 });
+
+/** The sizes a line can be broken down by.
+ *
+ * Two sources, and which one applies is decided by whether the line points
+ * at something that already exists: a NEW product's sizes are whatever the
+ * buyer is typing into the sizes box on this very line, and an EXISTING
+ * one's are its own -- restocking a t-shirt the shop already sells must
+ * offer that shirt's sizes, not invite somebody to invent a second list. */
+function sizesForLine(l: LineDraft, products: Product[]): string[] {
+  if (l.productId) {
+    const p = products.find((x) => x.id === l.productId);
+    return (p?.sizes || []).filter(Boolean);
+  }
+  return parseSizes(l.sizes);
+}
+
+/** What the line's quantity becomes once it has a size breakdown.
+ *
+ * THE BREAKDOWN DECIDES, and the quantity box goes read-only. Two fields
+ * that must agree are two fields that will not, and this one sets both the
+ * stock and the money. */
+function lineUnits(l: LineDraft, sizes: string[]): number {
+  if (!sizes.length) return Number(l.qty) || 0;
+  return sizes.reduce((n, s) => n + (Math.floor(Number(l.sizeQty[s])) || 0), 0);
+}
 
 /** The reorder plan's suggestion, turned into lines. Quantities come from
  * the plan; the unit price is left at zero because the plan does not know
@@ -113,6 +148,14 @@ export default function PurchaseOrderForm({
           catalogCategoryId: i.catalog_category_id || "",
           sellPrice: i.sell_price == null ? "" : String(i.sell_price),
           sizes: i.sizes || "",
+          // Back into strings for the inputs. A stored 0 is dropped rather
+          // than shown: an explicit zero and an untouched box mean the
+          // same thing here and only one of them looks like a decision.
+          sizeQty: Object.fromEntries(
+            Object.entries(i.size_qty || {})
+              .filter(([, v]) => Number(v) > 0)
+              .map(([k, v]) => [k, String(v)])),
+          audience: i.audience || "",
           description: i.description || "",
         }))
       : prefilledLines(prefill, products)
@@ -123,7 +166,10 @@ export default function PurchaseOrderForm({
   // Live totals in the ORDER's currency: the buyer is reading an invoice
   // denominated in it, so showing them a converted figure while they type
   // would mean checking the form against arithmetic they cannot see.
-  const subtotal = lines.reduce((a, l) => a + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0), 0);
+  // Units come from the size breakdown where there is one, so the money
+  // agrees with the stock rather than with a quantity box nobody updated.
+  const subtotal = lines.reduce(
+    (a, l) => a + lineUnits(l, sizesForLine(l, products)) * (Number(l.unitPrice) || 0), 0);
   const total = subtotal + (Number(f.tax) || 0) + (Number(f.shipping) || 0) - (Number(f.discount) || 0);
   const inBase = total * (Number(f.fxRate) || 1);
 
@@ -147,15 +193,27 @@ export default function PurchaseOrderForm({
         paymentStatus: f.paymentStatus,
         paymentDate: f.paymentDate || null,
         notes: f.notes,
-        lines: lines.map((l) => ({
-          productName: l.productName, category: l.category,
-          qty: Number(l.qty), unitPrice: Number(l.unitPrice),
-          productId: l.productId || null,
-          catalogCategoryId: l.catalogCategoryId || null,
-          sellPrice: l.sellPrice === "" ? null : Number(l.sellPrice),
-          sizes: l.sizes,
-          description: l.description,
-        })),
+        lines: lines.map((l) => {
+          const sizes = sizesForLine(l, products);
+          const sizeQty: Record<string, number> = {};
+          for (const sz of sizes) {
+            const n = Math.floor(Number(l.sizeQty[sz]));
+            if (Number.isFinite(n) && n > 0) sizeQty[sz] = n;
+          }
+          return {
+            productName: l.productName, category: l.category,
+            // From the breakdown when there is one. The two cannot
+            // disagree because only one of them is ever typed.
+            qty: lineUnits(l, sizes), unitPrice: Number(l.unitPrice),
+            productId: l.productId || null,
+            catalogCategoryId: l.catalogCategoryId || null,
+            sellPrice: l.sellPrice === "" ? null : Number(l.sellPrice),
+            sizes: l.sizes,
+            sizeQty,
+            audience: l.audience || null,
+            description: l.description,
+          };
+        }),
       });
       toast(t("saved", lang));
       router.push(`/admin/procurement/po/${id}`);
@@ -337,8 +395,20 @@ export default function PurchaseOrderForm({
               </div>
               <div className="field">
                 <label htmlFor={`q${i}`}>{t("quantity", lang)}</label>
-                <input id={`q${i}`} type="number" min="0.001" step="any" value={l.qty}
+                {/* Typed while the line has no size breakdown; READ-ONLY the
+                    moment it has one, because then the sizes below decide
+                    it. Shown rather than hidden: it is still the number the
+                    line total is worked out from, and hiding it would make
+                    the money appear from nowhere. */}
+                <input id={`q${i}`} type="number" min="0.001" step="any"
+                  value={sizesForLine(l, products).length
+                    ? String(lineUnits(l, sizesForLine(l, products)))
+                    : l.qty}
+                  readOnly={sizesForLine(l, products).length > 0}
                   onChange={(e) => setLine(i, { qty: e.target.value })} required />
+                {sizesForLine(l, products).length > 0 && (
+                  <p className="hint">{t("qtyFromSizes", lang)}</p>
+                )}
               </div>
               <div className="field">
                 <label htmlFor={`u${i}`}>{t("unitPrice", lang)}</label>
@@ -374,6 +444,23 @@ export default function PurchaseOrderForm({
                     <input id={`sz${i}`} value={l.sizes} placeholder="S, M, L, XL"
                       onChange={(e) => setLine(i, { sizes: e.target.value })} />
                   </div>
+                  {/* WHO THE GOODS ARE FOR, asked once, here, where the
+                      buyer already knows. It is copied onto the product at
+                      receipt, so the shop never has to open Catalog and
+                      answer a question it already answered. */}
+                  <div className="field">
+                    <label htmlFor={`au${i}`}>{t("whoIsItFor", lang)}</label>
+                    <select id={`au${i}`} value={l.audience}
+                      onChange={(e) => setLine(i, { audience: e.target.value })}>
+                      {/* "" is not a blank to be filled in later -- it is
+                          the answer for a fridge, which is not unisex, it
+                          is simply not a question that applies. */}
+                      <option value="">{t("audienceAnyone", lang)}</option>
+                      {AUDIENCES.map((a) => (
+                        <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="field po-line-desc">
                     <label htmlFor={`ds${i}`}>{t("description", lang)}</label>
                     <textarea id={`ds${i}`} rows={2} value={l.description}
@@ -388,9 +475,36 @@ export default function PurchaseOrderForm({
                   <span className="pill ok">{t("existingProduct", lang)}</span>
                 </div>
               )}
+              {/* HOW MANY OF EACH SIZE. Shown for any resale line whose
+                  sizes are known -- typed above for a new product, or the
+                  product's own when the line points at one. This is what
+                  reaches the ledger: one movement per size at receipt, so
+                  the shop can answer "how many Medium" afterwards. */}
+              {l.category === "goods_for_resale"
+                && sizesForLine(l, products).length > 0 && (
+                <div className="field po-sizes">
+                  <label>{t("qtyPerSize", lang)}</label>
+                  <div className="po-size-grid">
+                    {sizesForLine(l, products).map((sz) => (
+                      <label key={sz} className="po-size">
+                        <span>{sz}</span>
+                        <input type="number" min="0" step="1" inputMode="numeric"
+                          value={l.sizeQty[sz] ?? ""}
+                          placeholder="0"
+                          onChange={(e) => setLine(i, {
+                            sizeQty: { ...l.sizeQty, [sz]: e.target.value },
+                          })} />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="po-line-total">
                 <span className="hint">{t("lineTotal", lang)}</span>
-                <b className="mono">{((Number(l.qty) || 0) * (Number(l.unitPrice) || 0)).toFixed(2)}</b>
+                <b className="mono">
+                  {(lineUnits(l, sizesForLine(l, products))
+                    * (Number(l.unitPrice) || 0)).toFixed(2)}
+                </b>
               </div>
               <WriteOnly>
                 <button className="btn btn-sm btn-danger" type="button"

@@ -240,6 +240,15 @@ export interface PurchaseOrderItem {
   /** Sizes as typed on the supplier's order, e.g. "S, M, L, XL".
    * Parsed into products.sizes at receipt by parseSizes(). */
   sizes?: string;
+  /** How many of each size this line buys: {"S":5,"M":10,"L":15}. Empty
+   * for goods that have no sizes. Sums to qty -- the application writes qty
+   * FROM this rather than trusting two fields to stay in step. Absent on a
+   * database that has not run supabase/size-stock.sql. */
+  size_qty?: Record<string, number> | null;
+  /** Who the goods on this line are for. Copied onto the product at
+   * receipt so the catalog does not have to be edited afterwards. Null is
+   * "not said", which is not the same as unisex -- see lib/audience.ts. */
+  audience?: string | null;
   /** Product description. Fills a product this line creates, or a blank
    * one on an existing product -- it never overwrites text already there. */
   description?: string;

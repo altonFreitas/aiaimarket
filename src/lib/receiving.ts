@@ -1,6 +1,8 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
+import { normalizeSizeQty, receiptMovements } from "@/lib/sizeStock";
+import { normalizeAudience } from "@/lib/audience";
 import { slugify } from "@/lib/utils";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
@@ -148,6 +150,13 @@ export async function applyReceipt(
           // they had just entered on the order.
           sizes: parseSizes(item.sizes),
           description: item.description || "",
+          /* WHO THE GOODS ARE FOR, from the line that bought them.
+             Without this every product created by a receipt arrived
+             unlabelled and had to be edited afterwards from memory -- by
+             the same person who had already answered the question when
+             they placed the order. Null stays null: "not said" is a real
+             state and is not the same as unisex (see lib/audience.ts). */
+          audience: normalizeAudience(item.audience),
           images: [],
         })
         .select("id")
@@ -166,9 +175,10 @@ export async function applyReceipt(
     // have written a careful description for the shop's own listing, and a
     // restock must not replace it with whatever the supplier called it.
     // Only genuinely blank fields are touched.
-    else if (item.sizes || item.description) {
+    else if (item.sizes || item.description || item.audience) {
       const { data: current } = await sb
-        .from("products").select("sizes, description").eq("id", productId).maybeSingle();
+        .from("products").select("sizes, description, audience")
+        .eq("id", productId).maybeSingle();
       if (current) {
         const patch: Record<string, unknown> = {};
         const incomingSizes = parseSizes(item.sizes);
@@ -178,22 +188,43 @@ export async function applyReceipt(
         if (item.description && !String(current.description || "").trim()) {
           patch.description = item.description;
         }
+        // Filled in only when the shop has not said. Someone may have
+        // deliberately marked a product unisex that the supplier calls
+        // men's, and a restock must not argue with them.
+        const incomingAudience = normalizeAudience(item.audience);
+        if (incomingAudience && !normalizeAudience(current.audience)) {
+          patch.audience = incomingAudience;
+        }
         if (Object.keys(patch).length) {
           await sb.from("products").update(patch).eq("id", productId);
         }
       }
     }
 
-    // The ledger row. The trigger on stock_movements moves products.qty.
-    const { error: moveErr } = await sb.from("stock_movements").insert({
-      product_id: productId,
-      delta: units,
-      reason: "purchase_receipt",
-      po_id: order.id,
-      po_item_id: item.id,
-      unit_cost: cost ? Number(cost.landedUnitCost.toFixed(4)) : null,
-      note: order.po_number,
-    });
+    /* THE LEDGER ROWS -- one per size. The trigger on stock_movements
+       moves products.qty, which stays the sum of all of them.
+
+       A line that names no sizes yields a single unsized movement, which
+       is exactly what every receipt did before this existed and what a
+       fridge still does. A line buying 5 S, 10 M and 15 L yields three,
+       and the unique index is on (po_item_id, size) so each is idempotent
+       on its own -- see supabase/size-stock.sql.
+
+       Inserted as ONE statement rather than a loop: all the sizes of a
+       line arrive together or none do, so a receipt cannot half-land and
+       leave the shop believing in stock that was never counted. */
+    const moves = receiptMovements(normalizeSizeQty(item.size_qty), units);
+    const { error: moveErr } = await sb.from("stock_movements").insert(
+      moves.map((m) => ({
+        product_id: productId,
+        size: m.size,
+        delta: m.qty,
+        reason: "purchase_receipt",
+        po_id: order.id,
+        po_item_id: item.id,
+        unit_cost: cost ? Number(cost.landedUnitCost.toFixed(4)) : null,
+        note: order.po_number,
+      })));
 
     if (moveErr) {
       // Already received. Not an error -- the point of the constraint.

@@ -7,6 +7,7 @@ import { useToast } from "@/components/Toast";
 import { bumpWaClickAction } from "@/lib/actions/track";
 import { money, waLink, waProductMsg, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { availableInSize, type SizedStock } from "@/lib/sizeStock";
 import type { Lang, Product, Settings } from "@/lib/types";
 
 const STOCK_CLS = { in: "stock-in", low: "stock-low", out: "stock-out" } as const;
@@ -21,9 +22,20 @@ function WaIcon() {
 }
 
 export default function ProductInteractive({
-  p, settings, lang, siteOrigin, seller,
-}: { p: Product; settings: Settings; lang: Lang; siteOrigin: string; seller?: { store_name: string; slug: string } | null }) {
+  p, settings, lang, siteOrigin, seller, stock,
+}: {
+  p: Product; settings: Settings; lang: Lang; siteOrigin: string;
+  seller?: { store_name: string; slug: string } | null;
+  /** How many of each size are on the shelf. Absent on a database that has
+   * not run supabase/size-stock.sql, and on a product nobody has counted
+   * by size -- in both cases the picker behaves exactly as it always did. */
+  stock?: SizedStock | null;
+}) {
   const [size, setSize] = useState<string | null>(p.sizes?.length === 1 ? p.sizes[0] : null);
+  /* Counts are shown only once the shop has actually counted a size. Until
+     then every size would read 0 and the page would say the shelf is empty
+     when it is full -- see lib/sizeStock.ts. */
+  const tracked = !!stock?.tracked;
   const [qty, setQty] = useState(1);
   const { add } = useBasket();
   const { toast } = useToast();
@@ -51,6 +63,14 @@ export default function ProductInteractive({
   ];
 
   function addToList() {
+    // Belt and braces with the disabled button: the size could have sold
+    // out in another tab since this page was rendered. The database refuses
+    // it too (reserve_order_stock), so this is the polite version of an
+    // answer the shop will give anyway.
+    if (tracked && size && availableInSize(stock!, size) <= 0) {
+      toast(t("sizeSoldOut", lang), true);
+      return;
+    }
     if (p.sizes?.length > 1 && !size) {
       toast(t("chooseSize", lang), true);
       return;
@@ -63,6 +83,14 @@ export default function ProductInteractive({
 
   const router = useRouter();
   function buyNow() {
+    // Belt and braces with the disabled button: the size could have sold
+    // out in another tab since this page was rendered. The database refuses
+    // it too (reserve_order_stock), so this is the polite version of an
+    // answer the shop will give anyway.
+    if (tracked && size && availableInSize(stock!, size) <= 0) {
+      toast(t("sizeSoldOut", lang), true);
+      return;
+    }
     if (p.sizes?.length > 1 && !size) {
       toast(t("chooseSize", lang), true);
       return;
@@ -120,12 +148,30 @@ export default function ProductInteractive({
           <div className="aab-q">{t("qSize", lang)}</div>
           <div className="aab-a">
             {p.sizes?.length ? (
-              <div className="sizes">
-                {p.sizes.map((s) => (
-                  <button key={s} type="button" aria-pressed={size === s} onClick={() => setSize(s)}>
-                    {s}
-                  </button>
-                ))}
+              /* HOW MANY OF EACH, on the button for it.
+                 Offering Large on a product with none left in Large is the
+                 thing this whole feature exists to stop. A size with
+                 nothing behind it is shown struck through and cannot be
+                 picked -- shown rather than hidden, because "they do not
+                 stock my size" and "they are out of my size" are different
+                 answers and only one of them means come back later. */
+              <div className={"sizes" + (tracked ? " has-counts" : "")}>
+                {p.sizes.map((s) => {
+                  const left = tracked ? availableInSize(stock!, s) : null;
+                  const gone = left === 0;
+                  return (
+                    <button key={s} type="button" disabled={gone}
+                      className={gone ? "is-gone" : ""}
+                      aria-pressed={size === s}
+                      aria-label={left == null ? s
+                        : gone ? `${s} — ${t("sizeSoldOut", lang)}`
+                        : `${s} — ${left} ${t("unitsLeft", lang)}`}
+                      onClick={() => setSize(s)}>
+                      {s}
+                      {left != null && <em>{gone ? "0" : left}</em>}
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <span>—</span>

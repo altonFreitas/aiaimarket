@@ -119,7 +119,10 @@ describeDb("what the anon key can read", () => {
   });
 
   it("is refused the reconciliation and reservation views", () => {
-    for (const view of ["stock_reconciliation", "stock_reservations"]) {
+    for (const view of ["stock_reconciliation", "stock_reservations",
+                        // Sits on stock_movements, which carries the landed
+                        // unit cost of everything the shop has ever bought.
+                        "product_size_stock"]) {
       expect([view, denied(`select count(*) from ${view}`, "anon")])
         .toEqual([view, true]);
     }

@@ -3456,6 +3456,32 @@ comment on column purchase_order_items.size_qty is
   'How many of each size this line buys, e.g. {"S":5,"M":10,"L":15}. Empty for goods with no sizes. Sums to qty -- see lib/sizeStock.ts.';
 
 -- ---------------------------------------------------------------------------
+-- 6b. Receiving the same line once PER SIZE
+-- ---------------------------------------------------------------------------
+-- stock_movements_receipt_once is unique on po_item_id alone. That is what
+-- makes receiving idempotent -- a second click is rejected by Postgres
+-- rather than by a check the application has to remember to do -- and it is
+-- exactly wrong now: a line buying 5 S, 10 M and 15 L writes THREE
+-- movements, and the old index would accept the first and reject the other
+-- two. The shop would receive five shirts and believe it had thirty.
+--
+-- Replaced, not added to: two overlapping unique indexes would both have to
+-- be satisfied, and the old one would still reject the second size.
+--
+-- The guarantee is unchanged in the case it was written for -- one receipt
+-- per line per size, and an unsized line has exactly one size ('') so it is
+-- still once per line.
+
+drop index if exists stock_movements_receipt_once;
+
+create unique index if not exists stock_movements_receipt_once
+  on stock_movements (po_item_id, size)
+  where reason = 'purchase_receipt' and po_item_id is not null;
+
+comment on index stock_movements_receipt_once is
+  'Receiving is idempotent per purchase-order line PER SIZE. A second receipt of the same line and size is rejected by Postgres, not by a check-then-insert that two concurrent clicks could both pass.';
+
+-- ---------------------------------------------------------------------------
 -- 7. Who the goods are for, decided when they are bought
 -- ---------------------------------------------------------------------------
 -- products.audience (men / women / unisex / unset) is set by hand in the

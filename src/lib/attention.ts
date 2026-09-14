@@ -29,6 +29,7 @@ export type AttentionKind =
   | "po_unpaid"
   | "preorders_waiting"
   | "restock_soon"
+  | "size_running_out"
   | "stock_drift"
   | "sellers_to_approve"
   | "refunds_to_settle"
@@ -81,6 +82,11 @@ export interface AttentionInput {
   /** How far a product may fall below its last delivery before it is worth
    * mentioning. Absent on a shop that has not set one. */
   restockPct?: number;
+  /** Sizes at or below the threshold, on products the shop has actually
+   * counted by size. Empty on a shop that has not started -- see
+   * lib/sizeStock.ts, which skips untracked products rather than reporting
+   * every size of everything as out. */
+  lowSizes?: ReadonlyArray<{ productName: string; size: string; qty: number }>;
   nowMs?: number;
 }
 
@@ -182,6 +188,17 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
   const lowShelves = restockAlerts(input.products as RestockInput[], pct);
   add("restock_soon", lowShelves.length, "warn",
     "/admin/stock", "restockSoon", "restockSoonHint", { pct });
+
+  /* ONE SIZE RUNNING OUT, which the total could never say. Thirty shirts
+     is a healthy number and no comfort at all to the shopper who wants
+     Medium, of which there are two. Counted as items rather than products:
+     two sizes of the same shirt are two things to order. */
+  const sizes = input.lowSizes ?? [];
+  add("size_running_out", sizes.length, "warn",
+    "/admin/stock", "sizeRunningOut", "sizeRunningOutHint",
+    // The emptiest one, named, so the card says something before it is
+    // opened. lowSizes() sorts emptiest first.
+    sizes.length ? { name: `${sizes[0].productName} · ${sizes[0].size}` } : undefined);
 
   // Empty AND still selling. A listing nobody orders being at zero is not a
   // problem to solve today; one that people are still trying to buy is.

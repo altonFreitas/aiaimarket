@@ -5,6 +5,7 @@ import { placeholder } from "@/lib/placeholder";
 import { money, nowIso } from "@/lib/utils";
 import { sortStockRows, type StockReport, type StockRow, type StockSortKey } from "@/lib/stockReport";
 import { t } from "@/lib/i18n";
+import type { SizedStock } from "@/lib/sizeStock";
 import type { Lang, StockMovement, StockMovementReason } from "@/lib/types";
 
 const STOCK_KEY = { in: "stockIn", low: "stockLow", out: "stockOut" } as const;
@@ -30,7 +31,13 @@ const COLUMNS: Array<{ key: StockSortKey; label: string; numeric: boolean }> = [
 
 export default function StockAdmin({ lang, report }: {
   lang: Lang;
-  report: StockReport & { movements?: StockMovement[]; drift?: Map<string, number> };
+  report: StockReport & {
+    movements?: StockMovement[];
+    drift?: Map<string, number>;
+    /** Per size, keyed by product. Absent on a shop that has not run
+     * supabase/size-stock.sql, in which case the panel says nothing. */
+    sizes?: Map<string, SizedStock>;
+  };
 }) {
   // Which row is showing its history. One at a time: two open drill-downs
   // push everything else off the screen and neither can be compared to the
@@ -167,6 +174,7 @@ export default function StockAdmin({ lang, report }: {
                   {openRow === r.id && (
                     <tr className="detail-row">
                       <td colSpan={COLUMNS.length}>
+                        <SizeBreakdown lang={lang} stock={report.sizes?.get(r.id)} />
                         <MovementHistory lang={lang} moves={movesByProduct.get(r.id) || []}
                           onHand={r.onHand} />
                       </td>
@@ -337,6 +345,41 @@ function MovementHistory({ lang, moves, onHand }: {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+
+/** How many of each size, under the product it belongs to.
+ *
+ * Shown only once the shop has counted a size in. Before that every size
+ * would read zero on a full shelf, which is not "we have none" but "nobody
+ * has said" -- and a screen that cannot tell those apart is worse than one
+ * that stays quiet. The unsized pool is named for what it is rather than
+ * folded into a size, because calling it Medium would be inventing stock.
+ */
+function SizeBreakdown({ lang, stock }: { lang: Lang; stock?: SizedStock }) {
+  if (!stock || (!stock.tracked && !stock.unsized)) return null;
+  return (
+    <div className="size-break">
+      <h4>{t("stockBySize", lang)}</h4>
+      {stock.tracked ? (
+        <div className="size-chips">
+          {stock.sizes.map((s) => (
+            <span key={s.size}
+              className={"size-chip" + (s.qty <= 0 ? " is-out" : s.qty <= 2 ? " is-low" : "")}>
+              <b>{s.size}</b><em>{s.qty}</em>
+            </span>
+          ))}
+          {stock.unsized > 0 && (
+            <span className="size-chip is-unsized" title={t("unsizedHint", lang)}>
+              <b>{t("unsized", lang)}</b><em>{stock.unsized}</em>
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="hint" style={{ margin: 0 }}>{t("unsizedHint", lang)}</p>
+      )}
     </div>
   );
 }

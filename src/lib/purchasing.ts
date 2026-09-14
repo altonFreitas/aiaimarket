@@ -2,6 +2,8 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { todayIso } from "@/lib/procurement";
+import { normalizeSizeQty } from "@/lib/sizeStock";
+import { normalizeAudience } from "@/lib/audience";
 import { scopeSellerId, scopeCanWrite, type ProcurementScope } from "@/lib/procurementScope";
 import type { PoCategory, PoPaymentStatus, PoStatus } from "@/lib/types";
 
@@ -200,6 +202,12 @@ export interface PoLineInput {
   sellPrice?: number | null;
   /** Sizes as typed, e.g. "S, M, L, XL". */
   sizes?: string;
+  /** How many of each size: {"S":5,"M":10,"L":15}. When present it is what
+   * qty was computed from, and what receipt splits into one ledger
+   * movement per size. */
+  sizeQty?: Record<string, number> | null;
+  /** Who the goods are for, copied onto the product at receipt. */
+  audience?: string | null;
   description?: string;
 }
 
@@ -317,6 +325,11 @@ export async function savePurchaseOrderIn(
       catalog_category_id: l.catalogCategoryId || null,
       sell_price: sellPrice,
       sizes: clip(l.sizes, MAX_NAME),
+      /* Normalised on the way in, not trusted from the browser: a
+         breakdown carrying -3 or 2.5 would reach the ledger, and the
+         ledger is the shop's record of what is on the shelf. */
+      size_qty: normalizeSizeQty(l.sizeQty),
+      audience: normalizeAudience(l.audience),
       description: clip(l.description, MAX_TEXT),
     };
   });

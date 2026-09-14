@@ -13,6 +13,8 @@ import {
 } from "@/lib/adminSections";
 import { readCapped, type Capped } from "./capped";
 import { loveTotals, type LoveTotals } from "@/lib/loves";
+import { sizedStock, lowSizes } from "@/lib/sizeStock";
+import { allSizeStock } from "@/lib/data/sizeStock";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
 import { withFreshProofUrl } from "@/lib/paymentProof";
@@ -383,12 +385,20 @@ export async function adminStockReport() {
   // works, it just has no purchase columns to show.
   const { adminReceipts, adminOnOrder, adminStockMovements, adminStockDrift } =
     await import("@/lib/data/procurement");
-  const [receipts, onOrder, movements, drift] = await Promise.all([
+  const [receipts, onOrder, movements, drift, bySize] = await Promise.all([
     adminReceipts(), adminOnOrder(), adminStockMovements(), adminStockDrift(),
+    allSizeStock(),
   ]);
   return {
     ...withPurchaseFacts(report, receipts, onOrder),
     movements,
+    /* Per size, keyed by product. Built here rather than in the component
+       so the screen and the storefront read the same shape from the same
+       function -- sizedStock() -- and cannot disagree about what "tracked"
+       means. Empty on a shop that has not run supabase/size-stock.sql. */
+    sizes: new Map(products.map((pr) => [
+      pr.id, sizedStock(bySize.get(pr.id) ?? [], pr.sizes || []),
+    ])),
     // Keyed by product so the screen can flag a row without scanning a list
     // for every one of them.
     drift: new Map(drift.map((d) => [d.product_id, d.drift])),
@@ -446,7 +456,7 @@ export async function adminAttention() {
   const { adminPurchaseOrders } = await import("@/lib/data/procurement");
   const { adminStockDrift } = await import("@/lib/data/procurement");
 
-  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers, refunds] =
+  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers, refunds, bySize] =
     await Promise.all([
       adminOrders(), adminProducts(),
       adminPurchaseOrders().catch(() => []),
@@ -456,6 +466,7 @@ export async function adminAttention() {
       adminSettings().catch(() => null),
       adminSellers().catch(() => []),
       (await import("@/lib/actions/returns")).pendingGatewayRefunds().catch(() => []),
+      allSizeStock(),
     ]);
 
   return buildAttention({
@@ -465,6 +476,15 @@ export async function adminAttention() {
     pendingMessages: pending.length,
     driftCount: drift.length,
     restockPct: (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct,
+    /* Sizes running low, on products the shop has actually counted by
+       size. Archived products are left out: a size of something no longer
+       sold is not a thing to reorder. */
+    lowSizes: lowSizes(
+      products.filter((p) => !p.archived).map((p) => ({
+        id: p.id, name: p.name,
+        stock: sizedStock(bySize.get(p.id) ?? [], p.sizes || []),
+      }))
+    ),
   });
 }
 
