@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   SCHEMA_FEATURES, SCHEMA_ORDER, NOT_SCHEMA_FILES, INVENTORY_FILE,
   checkSchema, memberKey, outstandingFiles, uncheckedFiles, snapshotFromRows,
+  INTENDED_REPLACEMENTS,
   type SchemaSnapshot,
 } from "@/lib/schemaHealth";
 
@@ -377,30 +378,6 @@ function lastToRun(files: string[]): string | undefined {
  * movement behind it, stock_reconciliation drifted by the size of the order,
  * no reservation was ever written, and the whole of stock-reservation.sql
  * was inert. Nothing failed. Nothing said anything. */
-const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
-  /* Each list is in SCHEMA_ORDER, and the LAST entry is the definition the
-     database is left holding. */
-
-  // Direct write -> pre-orders skipped -> through the ledger -> reservations.
-  decrement_stock_on_confirm: [
-    "schema.sql", "preorders.sql", "stock-ledger.sql", "stock-reservation.sql",
-  ],
-  // Reservations, then sizes.
-  sync_order_stock_state: ["stock-reservation.sql", "size-stock.sql"],
-  reserve_order_stock: ["stock-reservation.sql", "size-stock.sql"],
-  // The two-argument wrapper, kept for callers predating the three-state form.
-  sync_order_stock: ["stock-ledger.sql", "stock-reservation.sql"],
-  // The trigger that moves products.qty gains the restock high-water mark.
-  apply_stock_movement: [
-    "stock-receipt.sql", "stock-ledger.sql", "audience-restock.sql",
-  ],
-  // Catalogue search gains the audience filter.
-  search_products: ["marketplace-v2.sql", "audience-restock.sql"],
-  // A refund counts when it has SETTLED, not when it was agreed.
-  sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
-  // The line-building trigger gains the line's share of the order's tax.
-  sync_order_items: ["order-items.sql", "legal-currency-tax.sql"],
-};
 
 describe("no file quietly overwrites another's function", () => {
   it("has every double definition declared, and running last where it should", () => {

@@ -607,3 +607,43 @@ export function snapshotFromRows(rows: readonly SchemaRow[]): SchemaSnapshot {
 
   return { tables, columns, views, routines, policies, indexes, seesKinds };
 }
+
+/** Functions this schema deliberately defines more than once, in run order,
+ * with the LAST entry the definition the database is left holding.
+ *
+ * LIVES HERE, NOT IN A TEST, because it is a fact about the schema rather
+ * than about one test file -- and because two tests now depend on it: the
+ * text guards in tests/schemaHealth.test.ts, and the behavioural proofs in
+ * tests/rls/replacements.test.ts. A chain added to one list and not the
+ * other is exactly the gap this is meant to close.
+ *
+ * ADDING AN ENTRY IS NOT FREE. Every key here must also have a test that
+ * runs the final definition against a real Postgres and asserts what it
+ * does. Three of these chains silently lost a line this year; the text
+ * guards caught two shapes of that and would not have caught a changed
+ * threshold or a dropped clause. */
+export const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
+  /* Each list is in SCHEMA_ORDER, and the LAST entry is the definition the
+     database is left holding. */
+
+  // Direct write -> pre-orders skipped -> through the ledger -> reservations.
+  decrement_stock_on_confirm: [
+    "schema.sql", "preorders.sql", "stock-ledger.sql", "stock-reservation.sql",
+  ],
+  // Reservations, then sizes.
+  sync_order_stock_state: ["stock-reservation.sql", "size-stock.sql"],
+  reserve_order_stock: ["stock-reservation.sql", "size-stock.sql"],
+  // The two-argument wrapper, kept for callers predating the three-state form.
+  sync_order_stock: ["stock-ledger.sql", "stock-reservation.sql"],
+  // The trigger that moves products.qty gains the restock high-water mark.
+  apply_stock_movement: [
+    "stock-receipt.sql", "stock-ledger.sql", "audience-restock.sql",
+  ],
+  // Catalogue search gains the audience filter.
+  search_products: ["marketplace-v2.sql", "audience-restock.sql"],
+  // A refund counts when it has SETTLED, not when it was agreed.
+  sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
+  // The line-building trigger gains the line's share of the order's tax.
+  sync_order_items: ["order-items.sql", "legal-currency-tax.sql"],
+};
+

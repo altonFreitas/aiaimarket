@@ -4337,8 +4337,26 @@ begin
     unit_price, cost, commission_rate, tax, created_at
   )
   select new.id,
-         nullif(i->>'product_id', '')::uuid,
-         nullif(i->>'seller_id', '')::uuid,
+         /* AN UNKNOWN REFERENCE IS NULLED, NOT USED TO DROP THE LINE.
+          *
+          * The previous version excluded the row when the seller or product
+          * did not exist, under a comment saying "the line is worth more
+          * than the attribution" -- which is what it MEANT and the opposite
+          * of what it did. The order still inserted, and the line vanished
+          * from order_items: invisible to seller earnings, to per-line
+          * fulfilment, and to every analytics screen, while the buyer's own
+          * order still showed it.
+          *
+          * It is reachable. products has NO foreign key to sellers, so a
+          * product can carry the id of a deleted seller indefinitely, and
+          * every order for that product would silently lose its line.
+          *
+          * Nulling keeps the line and drops only the attribution, which is
+          * also exactly what the ON DELETE SET NULL on both columns does
+          * when the row disappears later. Same end state, whichever order
+          * things happen in. */
+         (select p.id from products p where p.id = nullif(i->>'product_id', '')::uuid),
+         (select s.id from sellers  s where s.id = nullif(i->>'seller_id',  '')::uuid),
          coalesce(i->>'name', ''),
          coalesce(i->>'size', ''),
          (i->>'qty')::int,
@@ -4351,13 +4369,6 @@ begin
          new.created_at
     from jsonb_array_elements(new.items) i
    where coalesce((i->>'qty')::int, 0) > 0
-     -- A line naming a seller that no longer exists would fail the foreign
-     -- key and take the whole order insert down with it. The line is worth
-     -- more than the attribution.
-     and (nullif(i->>'seller_id', '') is null
-          or exists (select 1 from sellers s where s.id = (i->>'seller_id')::uuid))
-     and (nullif(i->>'product_id', '') is null
-          or exists (select 1 from products p where p.id = (i->>'product_id')::uuid))
   on conflict do nothing;
 
   return null;
