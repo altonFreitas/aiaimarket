@@ -1,5 +1,6 @@
 import { formatMoney } from "./money";
 import type { Order, Product, Settings } from "./types";
+import { storeStamp } from "./tz";
 
 /** Grouped to thousands: "$284,610.05", not "$284610.05". A product price
  * rarely reaches four digits so this changes almost nothing on the
@@ -80,13 +81,18 @@ export function phoneNorm(v: string): string {
   return "+" + d;
 }
 
+/** A timestamp as "03 Sep 21:09", on the shop's clock.
+ *
+ * The name is a leftover and a poor one -- it is neither "now" nor ISO --
+ * but it is spelled out at twenty call sites, so it stays until there is a
+ * reason to touch all of them.
+ *
+ * It used to format with the runtime's own locale and timezone, which meant
+ * the server and the browser produced different strings for the same moment
+ * and React reported a hydration mismatch. See storeStamp for what that was
+ * hiding. */
 export function nowIso(ts: string | number): string {
-  const d = new Date(ts);
-  return (
-    d.toLocaleDateString(undefined, { day: "2-digit", month: "short" }) +
-    " " +
-    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-  );
+  return storeStamp(ts);
 }
 
 export function addrLine(a: {

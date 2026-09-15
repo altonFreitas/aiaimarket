@@ -304,14 +304,14 @@ function StockRowView({ r, lang, drift, open, onToggle }: {
       <td className="num">
         {r.lastReceived ? (
           <>
-            <span suppressHydrationWarning>{r.lastReceived}</span>
+            <span>{r.lastReceived}</span>
             {r.lastSupplier && <span className="stock-sub">{r.lastSupplier}</span>}
           </>
         ) : <span className="hint">—</span>}
       </td>
       <td className="num">
         {r.lastSoldAt ? (
-          <span title={nowIso(r.lastSoldAt)} suppressHydrationWarning>
+          <span title={nowIso(r.lastSoldAt)}>
             {r.daysSinceLastSale === 0 ? t("today", lang) : `${r.daysSinceLastSale}d`}
           </span>
         ) : (

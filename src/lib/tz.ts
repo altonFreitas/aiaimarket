@@ -128,6 +128,56 @@ export function storeHourKey(at: Date | number = Date.now()): string {
   return `${w.year}-${pad(w.month)}-${pad(w.day)}T${pad(w.hour)}`;
 }
 
+/* ---------------------------------------------------------------------------
+ * Showing a moment to a person
+ * ------------------------------------------------------------------------ */
+
+/** Month names, written out rather than asked for.
+ *
+ * NOT FROM Intl. A locale's short month name is ICU data, and ICU data
+ * differs between Node and the browser -- en-GB is "Sep" in one build and
+ * "Sept" in the next. Rendering a month from ICU on the server and again in
+ * the browser is therefore a hydration mismatch waiting for the two to
+ * disagree, which is exactly how this function came to be written.
+ *
+ * English, because that is what the screens already showed. Wire a per-
+ * language table to this constant if the months should ever follow the
+ * shop's three languages; nothing else has to change. */
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
+/** A timestamp as "03 Sep 21:09" -- the day, the month and the time of day,
+ * on the shop's clock.
+ *
+ * THE SAME STRING ON THE SERVER AND IN THE BROWSER, which is the whole
+ * point. The old version asked each runtime for its own default locale and
+ * its own default timezone, so React rendered one thing on the server and a
+ * different thing on the client and reported a hydration mismatch. Four
+ * screens had been given suppressHydrationWarning to quieten it.
+ *
+ * Quietening it was hiding a real error underneath. The browser's timezone
+ * is the ADMIN's, not the shop's: on a host running in UTC -- which is every
+ * deployment of this app -- every timestamp rendered on the server was nine
+ * hours off Dili, and React only "fixed" it by throwing the server's markup
+ * away on hydration. Anything that does not hydrate, such as a PDF invoice,
+ * kept the wrong time.
+ *
+ * So the shop's timezone decides, the same way it already decides which day
+ * a sale belongs to, and the answer no longer depends on who is reading or
+ * on which machine rendered it. */
+export function storeStamp(at: Date | number | string): string {
+  const ms = typeof at === "number" ? at
+    : typeof at === "string" ? Date.parse(at)
+    : at.getTime();
+  // An unparseable timestamp renders as nothing rather than as the words
+  // "Invalid Date" in the middle of a table.
+  if (!Number.isFinite(ms)) return "";
+  const w = wallClock(ms);
+  return `${pad(w.day)} ${MONTHS[w.month - 1]} ${pad(w.hour)}:${pad(w.minute)}`;
+}
+
 /** The first millisecond of a store hour, from a key made above. */
 export function storeHourStart(key: string): number {
   const day = key.slice(0, 10);

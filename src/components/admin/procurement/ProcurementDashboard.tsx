@@ -213,7 +213,7 @@ export default function ProcurementDashboard({
           )}
         </div>
         <div><b>{kpis.orderCount}</b><span>{t("purchaseOrders", lang)}</span></div>
-        <div><b>{kpis.totalQty.toLocaleString()}</b><span>{t("quantityPurchased", lang)}</span></div>
+        <div><b>{kpis.totalQty.toLocaleString("en-US")}</b><span>{t("quantityPurchased", lang)}</span></div>
         <div><b>{kpis.supplierCount}</b><span>{t("suppliers", lang)}</span></div>
         <div><b>{kpis.countryCount}</b><span>{t("countries", lang)}</span></div>
         <div><b>{kpis.pendingOrders}</b><span>{t("pendingOrders", lang)}</span></div>
@@ -277,7 +277,7 @@ export default function ProcurementDashboard({
               share: r.share, meta: money(r.value),
             }))}
             emptyLabel={t("noDataYet", lang)}
-            format={(n) => n.toLocaleString()}
+            format={(n) => n.toLocaleString("en-US")}
             onSelect={(key) => set({ category: key as PoCategory })}
           />
         </div>
@@ -302,7 +302,7 @@ export default function ProcurementDashboard({
                   <tr key={p.id}>
                     <td><Link className="mono" href={`/admin/procurement/po/${p.id}`}>{p.po_number}</Link></td>
                     <td>{supplierName(p.supplier_id)}</td>
-                    <td className="num">{poQty(p).toLocaleString()}</td>
+                    <td className="num">{poQty(p).toLocaleString("en-US")}</td>
                     <td className="num">{money(poTotal(p))}</td>
                     <td className="num"><span className={"pill " + (left <= 3 ? "warn" : "info")}>{left}d</span></td>
                   </tr>
@@ -411,7 +411,7 @@ export default function ProcurementDashboard({
                 <tr key={p.name}>
                   <td><b>{p.name}</b></td>
                   <td>{t("cat_" + p.category, lang)}</td>
-                  <td className="num">{p.qty.toLocaleString()}</td>
+                  <td className="num">{p.qty.toLocaleString("en-US")}</td>
                   <td className="num">{money(p.value)}</td>
                   <td className="num">{money(p.avgUnitPrice)}</td>
                   <td className="num">{p.orders}</td>
@@ -459,7 +459,7 @@ export default function ProcurementDashboard({
                     <td className="num">{p.order_date}</td>
                     <td>{supplierName(p.supplier_id)}</td>
                     <td>{countryFlag(supplierCountry(p.supplier_id))} {countryName(supplierCountry(p.supplier_id))}</td>
-                    <td className="num">{poQty(p).toLocaleString()}</td>
+                    <td className="num">{poQty(p).toLocaleString("en-US")}</td>
                     <td className="num">
                       {money(poTotal(p))}
                       {/* The original currency is kept beside the converted

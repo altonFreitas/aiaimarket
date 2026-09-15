@@ -175,7 +175,7 @@ export default function SuppliersAdmin({
                 </td>
                 <td className="num">{p.orders}{p.pendingOrders ? <span className="stock-sub">{p.pendingOrders} {t("pendingOrders", lang).toLowerCase()}</span> : null}</td>
                 <td className="num">{money(p.value)}<span className="stock-sub">{(p.share * 100).toFixed(1)}%</span></td>
-                <td className="num">{p.qty.toLocaleString()}</td>
+                <td className="num">{p.qty.toLocaleString("en-US")}</td>
                 <td className="num">{p.avgUnitPrice == null ? "—" : money(p.avgUnitPrice)}</td>
                 <td className="num">{p.avgDeliveryDays == null ? "—" : Math.round(p.avgDeliveryDays) + "d"}</td>
                 <td className="num"><RateBar rate={p.onTimeRate} /></td>

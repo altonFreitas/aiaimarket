@@ -79,7 +79,7 @@ export default function OrderNotifications({
                   {t("notif_" + n.status, lang)}
                 </span>
                 <b className="face-sans">{t("notifEvent_" + n.event, lang)}</b>
-                <span className="hint" suppressHydrationWarning>
+                <span className="hint">
                   {n.sent_at ? nowIso(n.sent_at) : nowIso(n.created_at)}
                   {n.channel === "manual" ? ` · ${t("byHand", lang)}` : ` · ${n.provider}`}
                 </span>

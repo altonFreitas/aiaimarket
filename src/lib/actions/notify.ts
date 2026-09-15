@@ -2,6 +2,7 @@ import "server-only";
 import nodemailer from "nodemailer";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
+import { storeStamp, STORE_TZ } from "@/lib/tz";
 
 /** Emails the admin (ADMIN_EMAIL, same account used to log into
  * /admin) whenever someone applies to become a seller, so review
@@ -85,7 +86,12 @@ export async function notifySellerLogin(seller: { store_name: string; email: str
       text: [
         `Someone just logged into your Loja AIAI seller account (${seller.store_name}) and verified it with your two-factor code.`,
         "",
-        `Time: ${new Date().toLocaleString()}`,
+        // The SHOP's clock, and named, because this is the line the
+        // seller reads to decide whether the login was theirs. Rendered
+        // with the server's own timezone it said UTC -- nine hours off
+        // Dili -- which is exactly enough to make a login they made
+        // themselves look like one they did not.
+        `Time: ${storeStamp(Date.now())} (${STORE_TZ})`,
         "",
         "If this wasn't you, contact us right away and change your password.",
       ].join("\n"),

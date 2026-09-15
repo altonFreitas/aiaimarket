@@ -313,7 +313,7 @@ export default function PurchaseOrderForm({
       {po && (
         <div className="stat stat-fit">
           <div><b>{money(poTotal(po))}</b><span>{t("totalPurchaseValue", lang)}</span></div>
-          <div><b>{poQty(po).toLocaleString()}</b><span>{t("quantity", lang)}</span></div>
+          <div><b>{poQty(po).toLocaleString("en-US")}</b><span>{t("quantity", lang)}</span></div>
           <div><b>{poLeadTime(po) == null ? "—" : poLeadTime(po) + "d"}</b>
             <span>{t("daysInTransit", lang)}</span></div>
           <div>

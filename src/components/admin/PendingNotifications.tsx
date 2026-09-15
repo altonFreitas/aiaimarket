@@ -40,7 +40,7 @@ export default function PendingNotifications({
               <Link className="mono" style={{ fontSize: 12 }} href={`/admin/o/${n.order_id}`}>
                 {n.order_ref}
               </Link>
-              <span className="hint" suppressHydrationWarning>{nowIso(n.created_at)}</span>
+              <span className="hint">{nowIso(n.created_at)}</span>
               <SmsCostBadge body={n.body} lang={lang} />
             </div>
 

@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { STORE_TZ, storeDay, storeDayStart, storeDayRange } from "@/lib/tz";
+import fs from "node:fs";
+import path from "node:path";
+import { STORE_TZ, storeDay, storeDayStart, storeDayRange, storeStamp } from "@/lib/tz";
 
 /* These tests are only meaningful because vitest runs them in ONE server
  * timezone while asserting answers in the SHOP's. That is exactly the
@@ -104,5 +106,129 @@ describe("storeDayRange", () => {
       if (at >= s && at < e) hits.push(storeDay(s));
     }
     expect(hits).toEqual(["2026-08-27"]);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * storeStamp -- the one that caused a hydration error
+ * ------------------------------------------------------------------------ */
+
+describe("storeStamp", () => {
+  // 12:09 UTC is 21:09 the same day in Dili (UTC+9).
+  const AT = "2026-09-03T12:09:00Z";
+
+  it("reads the shop's clock, not the server's", () => {
+    expect(storeStamp(AT)).toBe("03 Sep 21:09");
+  });
+
+  it("gives the same answer for a Date, a number and a string", () => {
+    // The call sites pass all three. They are the same moment, so they are
+    // the same string -- anything else is the table disagreeing with itself
+    // depending on which query loaded the row.
+    const ms = Date.parse(AT);
+    expect(storeStamp(new Date(ms))).toBe(storeStamp(ms));
+    expect(storeStamp(ms)).toBe(storeStamp(AT));
+  });
+
+  it("does not take a month name from Intl", () => {
+    /* THE HYDRATION BUG, and the half that survives a timezone fix.
+       A locale's short month is ICU data: en-GB is "Sep" in one ICU build
+       and "Sept" in the next, so Node and the browser can disagree about
+       the same locale. The server rendered "03 Sept 09:09 pm" while the
+       browser rendered "03 Sep 21:09" and React threw the markup away.
+
+       Asserting against Intl's own answer rather than against a literal,
+       so this fails if the month ever starts coming from ICU again. */
+    const viaIntl = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: STORE_TZ })
+      .format(new Date(AT));
+    expect(["Sep", "Sept"]).toContain(viaIntl);   // whichever this ICU has
+    expect(storeStamp(AT).split(" ")[1]).toBe("Sep");  // always this one
+  });
+
+  it("is 24-hour, so 21:09 is never 09:09", () => {
+    // The server was rendering "09:09 pm" against the browser's "21:09".
+    // Losing the "pm" in a table of timestamps turns evening into morning.
+    expect(storeStamp(AT)).not.toMatch(/[ap]m/i);
+    expect(storeStamp("2026-09-03T00:30:00Z")).toBe("03 Sep 09:30");
+  });
+
+  it("crosses midnight on the shop's clock, not on UTC's", () => {
+    // 16:00 UTC on the 3rd is 01:00 on the 4th in Dili.
+    expect(storeStamp("2026-09-03T16:00:00Z")).toBe("04 Sep 01:00");
+    // And 23:30 in Dili is still the 3rd, though UTC has not got there.
+    expect(storeStamp("2026-09-03T14:30:00Z")).toBe("03 Sep 23:30");
+  });
+
+  it("pads the day and the hour, so the column lines up", () => {
+    expect(storeStamp("2026-01-01T00:00:00Z")).toBe("01 Jan 09:00");
+  });
+
+  it("names every month", () => {
+    const seen = Array.from({ length: 12 }, (_, m) =>
+      storeStamp(Date.UTC(2026, m, 15, 0, 0)).split(" ")[1]);
+    expect(seen).toEqual(
+      ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+  });
+
+  it("renders nothing for a timestamp it cannot read", () => {
+    // Rather than the words "Invalid Date" in the middle of a table.
+    expect(storeStamp("not a date")).toBe("");
+    expect(storeStamp(Number.NaN)).toBe("");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The whole class, not just the one that was reported
+ * ------------------------------------------------------------------------ */
+
+describe("nothing formats with the runtime's own locale", () => {
+  /* WHY THIS IS A GREP AND NOT A BEHAVIOUR TEST.
+   *
+   * The defect is that the answer depends on the process: its default
+   * locale and its default timezone. Vitest runs in one process, so a test
+   * that calls the function cannot see the difference -- the server and the
+   * browser have to disagree for the bug to show, and that is not a thing
+   * that happens inside a test runner.
+   *
+   * What CAN be checked is that nobody asks the runtime in the first place.
+   * toLocaleString() with no locale is the shape of the bug: it rendered
+   * "Sep 03 12:09 PM" on a UTC server and "03 Sep 21:09" in a browser in
+   * Dili, and React threw away the server's markup on every admin page that
+   * showed a timestamp. */
+  const SRC = path.join(process.cwd(), "src");
+
+  function walk(dir: string): string[] {
+    return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) return walk(full);
+      return /\.tsx?$/.test(e.name) ? [full] : [];
+    });
+  }
+
+  it("never leaves the locale to whoever is running the code", () => {
+    const bad: string[] = [];
+    for (const file of walk(SRC)) {
+      const body = fs.readFileSync(file, "utf8");
+      body.split("\n").forEach((line, i) => {
+        // toLocaleString() / toLocaleDateString(undefined, ...) and friends:
+        // an empty first argument, or an explicit undefined, both mean
+        // "whatever this machine prefers".
+        if (/\.toLocale(Date|Time)?String\(\s*(\)|undefined)/.test(line)) {
+          bad.push(`${path.relative(process.cwd(), file)}:${i + 1}`);
+        }
+      });
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("routes every timestamp shown to a person through the shop's clock", () => {
+    // nowIso is the name twenty call sites use; it must not grow its own
+    // formatting again. If it stops delegating, the grep above would still
+    // pass while the bug came back with an explicit locale and the wrong
+    // timezone.
+    const utils = fs.readFileSync(path.join(SRC, "lib", "utils.ts"), "utf8");
+    const body = utils.slice(utils.indexOf("export function nowIso"));
+    expect(body.slice(0, body.indexOf("}"))).toContain("storeStamp");
   });
 });
