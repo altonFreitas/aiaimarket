@@ -13,7 +13,7 @@ import { requireSection } from "@/lib/actions/guard";
  * order. That is why it lives in the nav rather than buried on an order
  * page -- an empty queue here is the thing worth being able to check. */
 export default async function AdminNotificationsPage() {
-  await requireSection("sales");
+  await requireSection("sales.notifications");
   const [lang, pending] = await Promise.all([getLang(), adminPendingNotifications()]);
   return (
     <>

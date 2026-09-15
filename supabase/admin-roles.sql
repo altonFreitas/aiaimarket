@@ -102,10 +102,24 @@ end $$;
 -- is read (normalizeSections), so a bad value cannot grant anything. This
 -- keeps them out of the table in the first place, where a typo would
 -- otherwise sit looking like a granted permission on the screen.
+--
+-- THE SECOND NAME IS NOT AN ALTERNATIVE SPELLING. admin-subsections.sql
+-- replaces this constraint with a wider one under the name
+-- admin_users_section_keys_check, because a constraint replaced in place is
+-- invisible to the Settings -> Database panel, which compares NAMES.
+--
+-- So this file must not re-create the narrow one once the wide one is there.
+-- A check constraint is enforced whenever it is present, so the two side by
+-- side would mean the narrow one rejecting every tab key while the wide one
+-- allowed it -- and every tab grant failing to save, on a shop whose panel
+-- reported both files applied. Running the files in either order, or twice,
+-- now lands in the same place.
 do $$
 begin
   if not exists (
-    select 1 from pg_constraint where conname = 'admin_users_sections_check'
+    select 1 from pg_constraint
+     where conname in ('admin_users_sections_check',
+                       'admin_users_section_keys_check')
   ) then
     alter table admin_users
       add constraint admin_users_sections_check check (

@@ -20,7 +20,7 @@ import { recentMonths } from "@/lib/finance";
  * account can act on, and not showing them the shop's cost prices.
  */
 export default async function ReturnsPage() {
-  const actor = await requireSection("sales");
+  const actor = await requireSection("sales.returns");
   const seesSupplier = canSee(actor, "procurement");
 
   const [lang, customer, supplier, orderCount, suppliers, products] = await Promise.all([

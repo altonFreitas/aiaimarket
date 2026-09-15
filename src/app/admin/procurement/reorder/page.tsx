@@ -9,7 +9,7 @@ import { requireSection } from "@/lib/actions/guard";
 /** What to buy, how much, and by when -- the question the stock screen
  * cannot answer, because "low" depends entirely on how fast a thing sells. */
 export default async function ReorderPage() {
-  await requireSection("procurement");
+  await requireSection("procurement.reorder");
   const [lang, ready] = await Promise.all([getLang(), procurementReady()]);
   if (!ready) notFound();
   const [rows, settings] = await Promise.all([

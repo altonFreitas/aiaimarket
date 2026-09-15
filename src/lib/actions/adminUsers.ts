@@ -6,8 +6,9 @@ import { audit } from "@/lib/audit";
 import { hashPassword } from "@/lib/password";
 import { passwordProblem } from "@/lib/passwordRules";
 import {
-  GRANTABLE_SECTIONS, normalizeRole, normalizeSections,
-  type AdminRole, type SectionKey,
+  normalizeRole,
+  normalizeSections,
+  type AdminRole,
 } from "@/lib/adminSections";
 
 /* Staff accounts.
@@ -56,13 +57,16 @@ function ownerOnly(actorKind: string) {
  * signed-in account and is not a checkbox, so storing it would put a
  * permission in the row that nothing reads -- and make the screen and the
  * database disagree about what was granted. */
-function grantable(value: unknown): SectionKey[] {
-  return normalizeSections(value).filter((s) => GRANTABLE_SECTIONS.includes(s));
+function grantable(value: unknown): string[] {
+  // normalizeSections already drops anything that is not a grantable area
+  // or a non-owner-only tab, and already drops a tab that sits beside its
+  // own area. Home is not in ALL_GRANT_KEYS, so it cannot arrive here.
+  return normalizeSections(value);
 }
 
 /** A line for the audit trail that a person can read a year from now
  * without knowing what a section key is. */
-function describe(role: AdminRole, sections: SectionKey[]): string {
+function describe(role: AdminRole, sections: string[]): string {
   const what = role === "admin" ? "full access" : "read-only";
   if (!sections.length) return `${what}, no areas`;
   return `${what} in ${sections.join(", ")}`;

@@ -578,8 +578,11 @@ end $$;
 -- is worse than no panel: an owner who reads it has been told the database
 -- is finished.
 --
--- So it now reports five kinds -- table, view, routine, policy, index --
--- and the feature list checks the objects that each file actually creates.
+-- So it now reports six kinds -- table, view, routine, policy, index,
+-- constraint -- and the feature list checks the objects that each file
+-- actually creates. The last of those was added for admin-subsections.sql,
+-- a file whose whole effect is to widen one check constraint: real, and
+-- until then unseeable.
 -- harden-rls.sql is the odd one: it REMOVES policies, so it is applied when
 -- the named policies are ABSENT.
 --
@@ -642,11 +645,32 @@ as $$
 
   select 'index'::text, (schemaname || '.' || tablename)::text, indexname::text
     from pg_indexes
-   where schemaname in ('public', 'storage');
+   where schemaname in ('public', 'storage')
+
+  union all
+
+  -- CHECK constraints, by name. Not their expressions: an expression is
+  -- source, and this function reports shape.
+  --
+  -- Which means a file that REPLACES a check constraint in place is
+  -- invisible here, and the panel would call it applied on a shop that had
+  -- never run it. So such a file renames what it replaces --
+  -- admin_users_sections_check became admin_users_section_keys_check when
+  -- admin-subsections.sql widened it -- and the new name is what the panel
+  -- looks for. Names only, and still enough to tell the two states apart.
+  --
+  -- Only 'c': primary keys, foreign keys and unique constraints are already
+  -- reachable as indexes above, and listing them twice would be noise.
+  select 'constraint'::text, (n.nspname || '.' || t.relname)::text, c.conname::text
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+   where n.nspname in ('public', 'storage')
+     and c.contype = 'c';
 $$;
 
 comment on function schema_inventory is
-  'Names of tables, columns, views, functions, policies and indexes, for the admin''s "which SQL still needs running" panel. No data, no function bodies. Service role only.';
+  'Names of tables, columns, views, functions, policies, indexes and check constraints, for the admin''s "which SQL still needs running" panel. No data, no function bodies, no constraint expressions. Service role only.';
 
 revoke all on function schema_inventory() from public, anon, authenticated;
 
@@ -5341,10 +5365,24 @@ end $$;
 -- is read (normalizeSections), so a bad value cannot grant anything. This
 -- keeps them out of the table in the first place, where a typo would
 -- otherwise sit looking like a granted permission on the screen.
+--
+-- THE SECOND NAME IS NOT AN ALTERNATIVE SPELLING. admin-subsections.sql
+-- replaces this constraint with a wider one under the name
+-- admin_users_section_keys_check, because a constraint replaced in place is
+-- invisible to the Settings -> Database panel, which compares NAMES.
+--
+-- So this file must not re-create the narrow one once the wide one is there.
+-- A check constraint is enforced whenever it is present, so the two side by
+-- side would mean the narrow one rejecting every tab key while the wide one
+-- allowed it -- and every tab grant failing to save, on a shop whose panel
+-- reported both files applied. Running the files in either order, or twice,
+-- now lands in the same place.
 do $$
 begin
   if not exists (
-    select 1 from pg_constraint where conname = 'admin_users_sections_check'
+    select 1 from pg_constraint
+     where conname in ('admin_users_sections_check',
+                       'admin_users_section_keys_check')
   ) then
     alter table admin_users
       add constraint admin_users_sections_check check (
@@ -5365,6 +5403,101 @@ comment on column admin_users.sections is
 -- Settings -> Admin users. Accounts that already existed keep the full
 -- access they had; new ones start as a reader with nothing ticked, and you
 -- say what they get.
+-- ---------------------------------------------------------------------------
+
+
+-- ==== admin-subsections.sql =============================================
+
+-- ---------------------------------------------------------------------------
+-- Access down to the tab, not only the area
+-- ---------------------------------------------------------------------------
+-- admin_users.sections held one of six area keys. It now also holds TAB keys
+-- -- "settings.finance", "sales.orders" -- so an account can be given the
+-- Settings area and, inside it, only Finance and Activity.
+--
+-- NOTHING CHANGES FOR ANY EXISTING ROW. An area key still means the whole
+-- area, exactly as it always did, and every account today holds area keys.
+-- The two grants are deliberately different and stay so:
+--
+--   'settings'         the whole area, INCLUDING tabs added in a later
+--                      version. Somebody trusted with Settings was trusted
+--                      with Settings, not with a list.
+--   'settings.finance' exactly that tab, and nothing that appears beside it
+--                      afterwards.
+--
+-- Getting that the other way round is how a permission quietly widens
+-- between releases, which is the failure nobody is watching for.
+--
+-- Safe to re-run.
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- WHY THE CONSTRAINT IS RENAMED AND NOT JUST REPLACED
+-- ---------------------------------------------------------------------------
+-- admin-roles.sql creates admin_users_sections_check, allowing the six area
+-- keys and nothing else. This file needs a wider list.
+--
+-- Replacing it under the same name works, and is invisible. schema_inventory
+-- reports NAMES, so a constraint replaced in place looks identical before and
+-- after, and the Settings -> Database panel would report this file as applied
+-- on a shop that had never run it. That panel exists because the shop has
+-- twice been broken by an unrun file; a file it cannot see is the same bug
+-- with a fresh coat of paint.
+--
+-- A new NAME is a thing the panel can see, using names alone. So the narrow
+-- constraint is dropped and a differently named wide one takes its place --
+-- and the panel can tell the two states apart.
+--
+-- The two must never coexist: the narrow one would go on rejecting every tab
+-- key while the wide one permitted it, and a check constraint that is present
+-- is enforced whatever sits beside it. Hence the drop, and hence the matching
+-- guard in admin-roles.sql, which now declines to re-create the narrow
+-- constraint when the wide one is already there. Without that guard, running
+-- admin-roles.sql on its own AFTER this file would silently re-narrow the
+-- column and every tab grant would start failing to save.
+-- ---------------------------------------------------------------------------
+
+alter table admin_users drop constraint if exists admin_users_sections_check;
+alter table admin_users drop constraint if exists admin_users_section_keys_check;
+
+-- KEPT IN STEP WITH src/lib/adminSections.ts BY A TEST. tests/adminSections
+-- reads this file and fails if the list here and ALL_GRANT_KEYS disagree --
+-- because a key the app grants and the database refuses is a save that fails
+-- with a constraint error, and a key the database allows and the app does not
+-- recognise is a row that reads as a permission and grants nothing.
+alter table admin_users
+  add constraint admin_users_section_keys_check check (
+    sections <@ array[
+      -- areas
+      'sales','catalog','procurement','sellers','storefront','settings',
+      -- tabs
+      'sales.dashboard','sales.orders','sales.returns','sales.notifications',
+      'catalog.products','catalog.stock','catalog.categories','catalog.demand',
+      'catalog.costs','catalog.reviews',
+      'procurement.orders','procurement.reorder','procurement.suppliers',
+      'sellers.list','sellers.payouts',
+      'storefront.hero','storefront.promotions',
+      'settings.shop','settings.finance','settings.targets','settings.activity'
+    ]::text[]
+  );
+
+comment on column admin_users.sections is
+  'Which parts of the admin this account may open. An area key ("settings") grants the whole area including tabs added later; a tab key ("settings.finance") grants exactly that tab. Keys from src/lib/adminSections.ts; enforced in requireSection(), src/lib/actions/guard.ts.';
+
+-- ---------------------------------------------------------------------------
+-- Note on settings.users
+-- ---------------------------------------------------------------------------
+-- Admin users is NOT in the list above, deliberately. It is the owner's
+-- alone: an account that could edit accounts could grant itself everything,
+-- which is not a permission but the absence of one. The application refuses
+-- it in two independent places (normalizeSections drops it on the way in,
+-- canOpenSubsection refuses it on the way out) and the database will not
+-- store it at all. Either alone would do; all three means a gap in one is
+-- not a breach.
+--
+-- ---------------------------------------------------------------------------
+-- Done. Nothing on any screen changes until somebody edits an account and
+-- ticks a tab rather than an area.
 -- ---------------------------------------------------------------------------
 
 

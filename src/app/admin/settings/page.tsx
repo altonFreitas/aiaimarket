@@ -10,7 +10,7 @@ import { currentActor, sessionMinutes } from "@/lib/session";
 import { getTotpStatus } from "@/lib/totp";
 
 export default async function SettingsPage() {
-  await requireSection("settings");
+  await requireSection("settings.shop");
   const [lang, settings, actor] = await Promise.all([
     getLang(), adminSettings(), currentActor(),
   ]);

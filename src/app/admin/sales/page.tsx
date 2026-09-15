@@ -7,7 +7,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function SalesPage() {
-  await requireSection("sales");
+  await requireSection("sales.dashboard");
   const [lang, data, returns] = await Promise.all([
     getLang(), adminSalesData(), returnedUnits(),
   ]);

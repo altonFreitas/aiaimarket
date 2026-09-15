@@ -5,7 +5,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function OrdersPage() {
-  await requireSection("sales");
+  await requireSection("sales.orders");
   const [lang, view] = await Promise.all([getLang(), adminOrdersView()]);
   return (
     <OrdersAdmin

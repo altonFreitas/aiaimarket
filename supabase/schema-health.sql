@@ -31,8 +31,11 @@
 -- is worse than no panel: an owner who reads it has been told the database
 -- is finished.
 --
--- So it now reports five kinds -- table, view, routine, policy, index --
--- and the feature list checks the objects that each file actually creates.
+-- So it now reports six kinds -- table, view, routine, policy, index,
+-- constraint -- and the feature list checks the objects that each file
+-- actually creates. The last of those was added for admin-subsections.sql,
+-- a file whose whole effect is to widen one check constraint: real, and
+-- until then unseeable.
 -- harden-rls.sql is the odd one: it REMOVES policies, so it is applied when
 -- the named policies are ABSENT.
 --
@@ -95,11 +98,32 @@ as $$
 
   select 'index'::text, (schemaname || '.' || tablename)::text, indexname::text
     from pg_indexes
-   where schemaname in ('public', 'storage');
+   where schemaname in ('public', 'storage')
+
+  union all
+
+  -- CHECK constraints, by name. Not their expressions: an expression is
+  -- source, and this function reports shape.
+  --
+  -- Which means a file that REPLACES a check constraint in place is
+  -- invisible here, and the panel would call it applied on a shop that had
+  -- never run it. So such a file renames what it replaces --
+  -- admin_users_sections_check became admin_users_section_keys_check when
+  -- admin-subsections.sql widened it -- and the new name is what the panel
+  -- looks for. Names only, and still enough to tell the two states apart.
+  --
+  -- Only 'c': primary keys, foreign keys and unique constraints are already
+  -- reachable as indexes above, and listing them twice would be noise.
+  select 'constraint'::text, (n.nspname || '.' || t.relname)::text, c.conname::text
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+   where n.nspname in ('public', 'storage')
+     and c.contype = 'c';
 $$;
 
 comment on function schema_inventory is
-  'Names of tables, columns, views, functions, policies and indexes, for the admin''s "which SQL still needs running" panel. No data, no function bodies. Service role only.';
+  'Names of tables, columns, views, functions, policies, indexes and check constraints, for the admin''s "which SQL still needs running" panel. No data, no function bodies, no constraint expressions. Service role only.';
 
 revoke all on function schema_inventory() from public, anon, authenticated;
 

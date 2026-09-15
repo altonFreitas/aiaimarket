@@ -53,6 +53,13 @@ export interface FeatureCheck {
   routines?: readonly string[];
   /** Indexes that must exist, as [schema-qualified table, index]. */
   indexes?: readonly (readonly [string, string])[];
+  /** CHECK constraints that must exist, as [schema-qualified table, name].
+   *
+   * For the files whose whole effect is to tighten or widen one. Such a
+   * file RENAMES what it replaces -- see admin-subsections.sql -- because
+   * the inventory reports names, and a constraint swapped under its own
+   * name looks the same before and after. */
+  constraints?: readonly (readonly [string, string])[];
   /** Policies the file REMOVES, as [schema-qualified table, policy]. The
    * file has been run when these are gone -- the only check here that is
    * satisfied by an absence, and the reason harden-rls.sql could not be
@@ -60,6 +67,14 @@ export interface FeatureCheck {
   droppedPolicies?: readonly (readonly [string, string])[];
   /** True for the ones the shop cannot open without. */
   core?: boolean;
+}
+
+/** "public.admin_users" -> "admin_users".
+ *
+ * Constraints are keyed schema-qualified, like policies and indexes, but
+ * `tables` holds bare names for the public schema. */
+function bareTable(qualified: string): string {
+  return qualified.replace(/^public\./i, "").toLowerCase();
 }
 
 /** How a policy or index is keyed in a snapshot: the schema-qualified table,
@@ -177,6 +192,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
   {
     file: "admin-roles.sql", labelKey: "featAdminRoles",
     columns: [["admin_users", "role"], ["admin_users", "sections"]],
+  },
+  {
+    // No table, no column, no function: this file widens one check
+    // constraint and that is all it does. It is here because the panel
+    // saying "every file has been run" while this one has not is a shop
+    // whose Admin users screen offers tab checkboxes the database refuses.
+    file: "admin-subsections.sql", labelKey: "featAdminSubsections",
+    constraints: [["public.admin_users", "admin_users_section_keys_check"]],
   },
   {
     file: "seller-features.sql", labelKey: "featSellerFeatures",
@@ -407,6 +430,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   // Staff accounts, then the roles that describe them.
   "admin-users.sql",
   "admin-roles.sql",
+  "admin-subsections.sql",   // must follow admin-roles.sql: it replaces that
+                             // file's check constraint, and the table it sits
+                             // on does not exist before admin-users.sql
   "totp-replay.sql",         // after admin-users.sql
 
   // Sellers: what they may be given, then what one of those grants needs.
@@ -472,12 +498,25 @@ export interface SchemaSnapshot {
   policies: ReadonlySet<string>;
   /** memberKey(qualified table, index name) */
   indexes: ReadonlySet<string>;
+  /** memberKey(qualified table, check constraint name) */
+  constraints: ReadonlySet<string>;
   /** False when the database still has the older schema_inventory(), which
-   * reported tables and columns and nothing else. Then the four sets above
+   * reported tables and columns and nothing else. Then the sets above
    * are empty because the database was never asked, NOT because the objects
    * are absent -- and reading an empty set as an absence is how a panel ends
    * up telling an owner to re-run files that are already in place. */
   seesKinds: boolean;
+  /** False when the installed schema_inventory() is kind-aware but predates
+   * check constraints. Same trap one version later, and it needs its own
+   * flag: seesKinds would be true while `constraints` was empty for the
+   * reason it was never asked.
+   *
+   * Unlike seesKinds this IS inferred from a value being present, which is
+   * sound only because it cannot legitimately be absent: schema.sql onward
+   * declares dozens of check constraints across most tables, so a database
+   * holding this application's schema always has some. A function that
+   * reports none is a function that does not report them. */
+  seesConstraints: boolean;
 }
 
 /** Compares the features against a snapshot. Pure, so the interesting part
@@ -497,8 +536,23 @@ export function checkSchema(snapshot: SchemaSnapshot): FeatureStatus[] {
     // Everything an old inventory function cannot see. Reported as not
     // checked -- not as missing, which would send the owner off to re-run
     // files that may well be fine.
-    const looksPastTables = !!(f.views || f.routines || f.indexes || f.droppedPolicies);
+    const looksPastTables = !!(f.views || f.routines || f.indexes || f.droppedPolicies || f.constraints);
     if (looksPastTables && !snapshot.seesKinds) {
+      return { ...f, applied: false, unknown: true, missing: [], lingering: [] };
+    }
+
+    // And the same again for the kind added after the rest. A kind-aware
+    // inventory installed before check constraints were reported cannot
+    // answer for them, so a file checked only by one is NOT CHECKED rather
+    // than outstanding.
+    //
+    // UNLESS THE TABLE IS NOT THERE EITHER, which is the one case where an
+    // empty constraint set is an honest answer rather than a question never
+    // asked: a database without admin_users has not run the file that adds
+    // a constraint to admin_users, and no inventory version is needed to
+    // know that. Saying "not checked" there would hide a real answer.
+    if (f.constraints && !snapshot.seesConstraints
+        && f.constraints.every(([tbl]) => snapshot.tables.has(bareTable(tbl)))) {
       return { ...f, applied: false, unknown: true, missing: [], lingering: [] };
     }
 
@@ -524,6 +578,17 @@ export function checkSchema(snapshot: SchemaSnapshot): FeatureStatus[] {
     }
     for (const [tbl, ix] of f.indexes ?? []) {
       if (!snapshot.indexes.has(memberKey(tbl, ix))) missing.push(ix);
+    }
+    for (const [tbl, con] of f.constraints ?? []) {
+      // Reported as the table when the table is what is missing, for the
+      // same reason as columns above: "admin_users_section_keys_check is
+      // missing" is a puzzle when the answer is that admin_users is.
+      const bare = bareTable(tbl);
+      if (!snapshot.tables.has(bare)) {
+        if (!missing.includes(bare)) missing.push(bare);
+      } else if (!snapshot.constraints.has(memberKey(tbl, con))) {
+        missing.push(con);
+      }
     }
 
     // The inverted one: still there means still to do.
@@ -559,8 +624,8 @@ export function uncheckedFiles(statuses: readonly FeatureStatus[]): string[] {
  *
  * TWO SHAPES. schema_inventory() used to return (table_name, column_name)
  * and could therefore see nothing but tables. It now returns (kind,
- * object_name, member_name) and covers views, functions, policies and
- * indexes as well.
+ * object_name, member_name) and covers views, functions, policies, indexes
+ * and check constraints as well.
  *
  * A shop upgraded from the older one keeps the older function until its
  * owner re-runs the file, so both shapes are read here. */
@@ -575,6 +640,7 @@ export function snapshotFromRows(rows: readonly SchemaRow[]): SchemaSnapshot {
   const routines = new Set<string>();
   const policies = new Set<string>();
   const indexes = new Set<string>();
+  const constraints = new Set<string>();
 
   // The presence of the column, not of a particular value: a database with
   // the new function but (impossibly) no policies at all must still count as
@@ -602,10 +668,14 @@ export function snapshotFromRows(rows: readonly SchemaRow[]): SchemaSnapshot {
       case "routine": routines.add(name); break;
       case "policy": policies.add(memberKey(name, member)); break;
       case "index": indexes.add(memberKey(name, member)); break;
+      case "constraint": constraints.add(memberKey(name, member)); break;
     }
   }
 
-  return { tables, columns, views, routines, policies, indexes, seesKinds };
+  return {
+    tables, columns, views, routines, policies, indexes, constraints,
+    seesKinds, seesConstraints: constraints.size > 0,
+  };
 }
 
 /** Functions this schema deliberately defines more than once, in run order,

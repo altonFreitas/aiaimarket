@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  ADMIN_SECTIONS, ALL_SECTIONS, GRANTABLE_SECTIONS,
-  sectionForPath, canSee, canWrite, normalizeRole, normalizeSections,
-  type Access, type SectionKey,
+  ADMIN_SECTIONS, ALL_SECTIONS, ALL_SUBSECTIONS, ALL_GRANT_KEYS, GRANTABLE_SECTIONS,
+  sectionForPath, subsectionForPath,
+  canSee, canOpenSubsection, canOpenPath, visibleSubsections,
+  canWrite, normalizeRole, normalizeSections,
+  type Access,
 } from "@/lib/adminSections";
 
 const staff = (role: "admin" | "reader", sections: string[]): Access =>
@@ -185,21 +187,37 @@ describe("every admin page is accounted for", () => {
     expect(unmapped).toEqual([]);
   });
 
-  it("guards each page with the section that page's route belongs to", () => {
-    // A guard with the WRONG section is worse than none: it looks locked
-    // and hands the page to the wrong people. This reads the argument out
-    // of each file and checks it against the map.
+  it("guards each page with the SUBSECTION that page's route belongs to", () => {
+    /* A guard with the wrong key is worse than none: it looks locked and
+       hands the page to the wrong people. And now it must name the TAB, not
+       the area -- a Finance page still guarding "settings" would open to
+       anybody granted only Activity, which is the whole point of splitting
+       them. This reads the argument out of each file and checks it. */
     const wrong: string[] = [];
     for (const file of pages) {
       const route = routeOf(file);
       if (route === "/admin/login") continue;
       const src = fs.readFileSync(file, "utf8");
-      const m = /requireSection\s*\(\s*["']([a-z]+)["']/.exec(src);
+      const m = /requireSection\s*\(\s*["']([a-z.]+)["']/.exec(src);
       if (!m) continue; // reported by the test below
-      const expected = sectionForPath(route.replace(/\[[^\]]+\]/g, "x"));
+      const expected = subsectionForPath(route.replace(/\[[^\]]+\]/g, "x"))?.key;
       if (m[1] !== expected) wrong.push(`${route}: guards "${m[1]}", belongs to "${expected}"`);
     }
     expect(wrong).toEqual([]);
+  });
+
+  it("names a subsection, never just an area", () => {
+    // The area form still works -- requireSection accepts both, so a page
+    // that has not been narrowed locks itself rather than opening. But no
+    // page should be left that way, and this is what says so.
+    const broad: string[] = [];
+    for (const file of pages) {
+      const route = routeOf(file);
+      if (route === "/admin/login") continue;
+      const m = /requireSection\s*\(\s*["']([a-z.]+)["']/.exec(fs.readFileSync(file, "utf8"));
+      if (m && !m[1].includes(".")) broad.push(`${route}: guards the whole "${m[1]}" area`);
+    }
+    expect(broad).toEqual([]);
   });
 
   it("guards every page with requireSection, or names it as deliberately open", () => {
@@ -242,19 +260,35 @@ describe("the sign-in page gets no navigation", () => {
 });
 
 describe("the navigation offers no door that refuses", () => {
-  const NAV = fs.readFileSync(
-    path.join(__dirname, "..", "src", "components", "admin", "AdminNav.tsx"), "utf8");
+  it("keeps Admin users out of a non-owner's tabs", () => {
+    /* The page is the owner's alone. A tab everyone can see and nobody but
+       the owner can open is a broken link with a label on it -- and that is
+       exactly what it was: staff holding Settings were shown the tab and
+       then bounced.
 
-  it("keeps /admin/users out of a non-owner's tabs", () => {
-    // The page is the owner's alone. A tab everyone can see and nobody but
-    // the owner can open is a broken link with a label on it -- and that is
-    // exactly what it was: staff holding Settings were shown the tab and
-    // then bounced.
-    expect(NAV).toMatch(/isOwner \|\| href !== "\/admin\/users"/);
+       Asserted on the BEHAVIOUR now rather than on a line of the nav's
+       source. It used to match a regex against AdminNav.tsx, which stopped
+       meaning anything the moment the nav was rewritten -- the test would
+       have kept passing while the tab came back. */
+    const everything = staff("admin", [...GRANTABLE_SECTIONS]);
+    expect(canOpenSubsection(everything, "settings.users")).toBe(false);
+    expect(visibleSubsections(everything, "settings").map((x) => x.key))
+      .not.toContain("settings.users");
   });
 
-  it("still lists the tab, so the owner has not lost it", () => {
-    expect(NAV).toContain('["/admin/users", "adminUsers"]');
+  it("still lists the tab for the owner, who has not lost it", () => {
+    expect(canOpenSubsection(owner, "settings.users")).toBe(true);
+    expect(visibleSubsections(owner, "settings").map((x) => x.key))
+      .toContain("settings.users");
+  });
+
+  it("refuses to hand it out even if the row somehow names it", () => {
+    // Belt and braces: normalizeSections drops an owner-only key on the way
+    // in, and canOpenSubsection refuses it on the way out. Either alone
+    // would do; both means a gap in one is not a breach.
+    expect(normalizeSections(["settings.users"])).toEqual([]);
+    expect(canOpenSubsection(staff("admin", ["settings.users"]), "settings.users"))
+      .toBe(false);
   });
 });
 
@@ -263,21 +297,31 @@ describe("the section list itself", () => {
     expect(new Set(ALL_SECTIONS).size).toBe(ALL_SECTIONS.length);
   });
 
-  it("has no path claimed by two sections", () => {
-    const seen = new Map<string, SectionKey>();
-    for (const section of ADMIN_SECTIONS) {
-      for (const p of section.paths) {
-        expect(seen.get(p)).toBeUndefined();
-        seen.set(p, section.key);
+  it("has no path claimed by two subsections", () => {
+    const seen = new Map<string, string>();
+    for (const sub of ALL_SUBSECTIONS) {
+      for (const p of sub.paths) {
+        expect([p, seen.get(p)]).toEqual([p, undefined]);
+        seen.set(p, sub.key);
       }
     }
   });
 
   it("resolves each of its own paths back to itself", () => {
-    // Catches a path being shadowed by a longer one in another section.
+    // Catches a path being shadowed by a longer one somewhere else.
+    for (const sub of ALL_SUBSECTIONS) {
+      for (const p of sub.paths) {
+        expect([p, subsectionForPath(p)?.key]).toEqual([p, sub.key]);
+      }
+    }
+  });
+
+  it("gives every subsection a key namespaced on its own area", () => {
+    // sectionOfSubsection reads the area off the key, so a key that does
+    // not start with its area would resolve to the wrong one -- or to none.
     for (const section of ADMIN_SECTIONS) {
-      for (const p of section.paths) {
-        expect([p, sectionForPath(p)]).toEqual([p, section.key]);
+      for (const sub of section.subsections) {
+        expect([sub.key, sub.key.split(".")[0]]).toEqual([sub.key, section.key]);
       }
     }
   });
@@ -345,3 +389,168 @@ describe("admin components that can change things know who is looking", () => {
   });
 });
 
+
+describe("the database agrees with the app about what may be granted", () => {
+  /* TWO LISTS, AND THEY MUST BE THE SAME LIST.
+   *
+   * admin_users.sections carries a check constraint naming every key that
+   * may be stored. If the app offers a key the database refuses, saving
+   * that account fails with a constraint error in the owner's face. If the
+   * database allows one the app does not recognise, the row reads as a
+   * granted permission on screen and opens nothing.
+   *
+   * Neither is caught by any other test, because the SQL is text to the
+   * TypeScript and the TypeScript is invisible to the SQL. This reads both. */
+  const SQL = fs.readFileSync(
+    path.join(process.cwd(), "supabase/admin-subsections.sql"), "utf8");
+
+  /** The keys named inside the constraint's array literal. */
+  function keysInConstraint(): string[] {
+    const body = SQL.slice(SQL.indexOf("sections <@ array["), SQL.indexOf("]::text[]"));
+    return [...body.matchAll(/'([a-z.]+)'/g)].map((m) => m[1]);
+  }
+
+  it("names the same keys, in both directions", () => {
+    expect([...keysInConstraint()].sort()).toEqual([...ALL_GRANT_KEYS].sort());
+  });
+
+  it("does not let the owner-only tab be stored at all", () => {
+    // Refused in three independent places: here, normalizeSections, and
+    // canOpenSubsection. A gap in one is then not a breach.
+    expect(keysInConstraint()).not.toContain("settings.users");
+    expect(ALL_GRANT_KEYS).not.toContain("settings.users");
+  });
+
+  it("does not offer Home, which is not a permission", () => {
+    expect(keysInConstraint().some((k) => k.startsWith("home"))).toBe(false);
+  });
+
+  /* THE TWO CONSTRAINTS MUST NEVER COEXIST.
+   *
+   * admin-roles.sql creates the narrow admin_users_sections_check; this file
+   * replaces it with the wide admin_users_section_keys_check under a new
+   * name, so the Settings -> Database panel -- which compares names -- can
+   * tell a shop that has run it from one that has not.
+   *
+   * A check constraint is enforced whenever it is present. Leave both and
+   * the narrow one goes on rejecting every tab key while the wide one
+   * allows it: every tab grant fails to save, on a shop whose panel reports
+   * both files applied. These two tests read the SQL because that failure
+   * cannot be reproduced from TypeScript at all. */
+  const ROLES_SQL = fs.readFileSync(
+    path.join(process.cwd(), "supabase/admin-roles.sql"), "utf8");
+
+  it("drops the narrow constraint it replaces", () => {
+    expect(SQL).toMatch(
+      /drop constraint if exists admin_users_sections_check/);
+    expect(SQL).toMatch(
+      /add constraint admin_users_section_keys_check/);
+  });
+
+  it("is not undone by running admin-roles.sql afterwards", () => {
+    // That file only adds the narrow constraint when NEITHER name is
+    // present. Without the second name in its guard, running it on its own
+    // after this file would silently re-narrow the column.
+    //
+    // COMMENTS ARE STRIPPED FIRST, and that is not a detail. The prose above
+    // this guard names both constraints; a check that read the raw text
+    // would pass on the strength of the explanation while the code below it
+    // said something else entirely. Only the SQL counts.
+    const add = ROLES_SQL.indexOf("add constraint admin_users_sections_check");
+    const block = ROLES_SQL.slice(ROLES_SQL.lastIndexOf("do $$", add), add)
+      .split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
+    expect(block).toContain("admin_users_sections_check");
+    expect(block).toContain("admin_users_section_keys_check");
+  });
+});
+
+describe("granting one tab of an area", () => {
+  /* THE WHOLE POINT OF THIS FEATURE, and the thing that would quietly not
+   * work: a grant of Activity must open Activity and must NOT open Finance,
+   * which sits in the same area and holds what the shop pays its staff. */
+  const activityOnly = staff("reader", ["settings.activity"]);
+
+  it("opens the area, or there is no way to reach the tab", () => {
+    expect(canSee(activityOnly, "settings")).toBe(true);
+  });
+
+  it("opens that tab", () => {
+    expect(canOpenSubsection(activityOnly, "settings.activity")).toBe(true);
+    expect(canOpenPath(activityOnly, "/admin/activity")).toBe(true);
+  });
+
+  it("does NOT open the others in the same area", () => {
+    for (const other of ["settings.shop", "settings.finance", "settings.targets"]) {
+      expect([other, canOpenSubsection(activityOnly, other)]).toEqual([other, false]);
+    }
+    // Said again as a URL, because that is how somebody would actually try.
+    for (const url of ["/admin/settings", "/admin/finance", "/admin/sales/targets"]) {
+      expect([url, canOpenPath(activityOnly, url)]).toEqual([url, false]);
+    }
+  });
+
+  it("shows only that tab in the navigation", () => {
+    expect(visibleSubsections(activityOnly, "settings").map((s) => s.key))
+      .toEqual(["settings.activity"]);
+  });
+
+  it("does not leak into another area", () => {
+    expect(canSee(activityOnly, "sales")).toBe(false);
+    expect(canOpenPath(activityOnly, "/admin/orders")).toBe(false);
+  });
+});
+
+describe("granting a whole area", () => {
+  const settings = staff("reader", ["settings"]);
+
+  it("opens every tab in it", () => {
+    for (const sub of ADMIN_SECTIONS.find((s) => s.key === "settings")!.subsections) {
+      // Except the owner-only one, which is nobody's to grant.
+      const want = !sub.ownerOnly;
+      expect([sub.key, canOpenSubsection(settings, sub.key)]).toEqual([sub.key, want]);
+    }
+  });
+
+  it("is NOT the same stored grant as ticking every tab", () => {
+    /* The distinction that decides what happens when a tab is added in a
+       later version: the area grant picks it up, a list of tabs does not.
+       If these normalised to the same thing the choice would be lost. */
+    const everyTab = ADMIN_SECTIONS.find((s) => s.key === "settings")!
+      .subsections.filter((s) => !s.ownerOnly).map((s) => s.key);
+    expect(normalizeSections(["settings"])).not.toEqual(normalizeSections(everyTab));
+  });
+
+  it("swallows a tab key sitting beside it, so the row cannot say both", () => {
+    // ["settings","settings.finance"] would have to mean either "everything"
+    // or "just finance", and nothing on the row says which.
+    expect(normalizeSections(["settings", "settings.finance"])).toEqual(["settings"]);
+  });
+});
+
+describe("a stale key left on a row", () => {
+  it("opens nothing", () => {
+    // A tab removed in a later version leaves its key behind on accounts.
+    // It must not resolve to its area and quietly grant all of it.
+    const stale = staff("admin", ["settings.gone"]);
+    expect(normalizeSections(["settings.gone"])).toEqual([]);
+    expect(canOpenSubsection(stale, "settings.gone")).toBe(false);
+    expect(canOpenSubsection(stale, "settings.finance")).toBe(false);
+  });
+
+  it("does not open the area either", () => {
+    // canSee asks whether any key belongs to the area. A key that only
+    // LOOKS like one must not be enough.
+    expect(canSee(staff("admin", normalizeSections(["settings.gone"])), "settings")).toBe(false);
+  });
+});
+
+describe("every page's guard, against a real grant", () => {
+  it("refuses a Finance-only account everywhere except Finance", () => {
+    /* End to end over the real path table rather than a handful of
+       examples: exactly one subsection should open, and it should be the
+       one granted. */
+    const financeOnly = staff("reader", ["settings.finance"]);
+    const opened = ALL_SUBSECTIONS.filter((sub) => canOpenSubsection(financeOnly, sub.key));
+    expect(opened.map((s) => s.key)).toEqual(["home.overview", "settings.finance"]);
+  });
+});

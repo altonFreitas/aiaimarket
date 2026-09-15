@@ -45,8 +45,10 @@ describe("review moderation", () => {
 
   it("files the page under Catalog, where its guard says it is", () => {
     expect(sectionForPath("/admin/reviews")).toBe("catalog");
-    const guard = /requireSection\(\s*"([a-z]+)"/.exec(PAGE);
-    expect(guard?.[1]).toBe("catalog");
+    // The guard names the TAB now, not the area: somebody granted only
+    // Stock inside Catalog must not reach reviews.
+    const guard = /requireSection\(\s*"([a-z.]+)"/.exec(PAGE);
+    expect(guard?.[1]).toBe("catalog.reviews");
   });
 
   it("means a catalog-only account can open the page and not the ratings", () => {

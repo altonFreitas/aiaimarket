@@ -25,7 +25,7 @@ import { canSee, sectionForPath } from "@/lib/adminSections";
  * account holding neither section sees the to-do list alone, exactly as
  * before. */
 export default async function AdminHomePage() {
-  const actor = await requireSection("home");
+  const actor = await requireSection("home.overview");
   const canSales = canSee(actor, "sales");
   const canProcurement = canSee(actor, "procurement");
   // The heart lives on the catalog's product cards, so the figure counting

@@ -15,7 +15,7 @@ import { t } from "@/lib/i18n";
  * exception to the rule that every page guards itself -- if it were, this
  * page would be readable by someone with no session at all. */
 export default async function NoAccessPage() {
-  await requireSection("home");
+  await requireSection("home.overview");
   const lang = await getLang();
 
   return (

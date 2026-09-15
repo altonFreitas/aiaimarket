@@ -6,7 +6,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireSection("procurement");
+  await requireSection("procurement.orders");
   const { id } = await params;
   const [lang, po, suppliers, products, categories] = await Promise.all([
     getLang(), adminPurchaseOrder(id), adminSuppliers(), adminProducts(), adminCategories(),

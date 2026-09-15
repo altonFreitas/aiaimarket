@@ -1183,6 +1183,7 @@ export const STR: Record<string, [string,string,string]> = {
   featReorderPolicy:["Regra sosa fali","Regras de reposição","Reorder rules"],
   featAdminUsers:["Konta admin no rejistu","Contas de administração e registo","Admin accounts and activity"],
   featAdminRoles:["Nivel asesu admin","Níveis de acesso","Admin roles and areas"],
+  featAdminSubsections:["Asesu ba tab ida-idak","Acesso ao nível do separador","Access down to the tab"],
   featSellerFeatures:["Asesu ba loja sira","Acesso das lojas","What each store may open"],
   /* per-seller fulfilment (order_items.fulfilment_status) */
   fulPending:["Seidauk hahu","Por iniciar","Not started"],
@@ -1387,6 +1388,12 @@ export const STR: Record<string, [string,string,string]> = {
   taxAddedOn:["Lae — tau tan iha checkout","Não — acrescentado no checkout","No — added at checkout"],
   taxInPrices:["Sin — folin inklui ona","Sim — já incluído","Yes — already included"],
   taxIncludedHint:["Se inklui ona, ami hatudu \"inklui taxa\" no la tau tan.","Se já incluído, mostramos \"inclui imposto\" e não acrescentamos nada.","If prices already include it, we show it as \"of which\" instead of adding it on."],
+  /* The access checklist's two levels, said in words on the area row so
+     "Settings" ticked and "Settings, 2 of 5" are not the same sentence. */
+  accessWholeArea:["Area tomak, inklui parte foun sira","Toda a área, incluindo o que for adicionado","The whole area, including anything added later"],
+  accessSomeTabs:["Parte {n} hili ona","{n} separador(es) selecionado(s)","{n} selected"],
+  accessNoTabs:["Seidauk hili ida","Nada selecionado","Nothing selected"],
+  accessAllTabsNow:["Parte hotu ohin loron, maibé la inklui parte foun sira","Todos os separadores de hoje, mas não os futuros","All {n} tabs, but not ones added later"],
   cookieTitle:["Kookie sira","Cookies","Cookies"],
   cookieBody:["Website ne'e rai de'it buat ne'ebé presiza: lian ne'ebé Ita hili, no sesaun tama ba funsionáriu. La iha rastreiu, la iha anúnsiu.","Este site guarda apenas o necessário: o idioma que escolheu e a sessão de quem trabalha na loja. Sem rastreio, sem publicidade.","This site stores only what it needs: the language you chose, and a sign-in session for shop staff. No tracking, no advertising."],
   cookieMore:["Lee tan","Saiba mais","Read more"],

@@ -10,7 +10,7 @@ import PasswordField from "@/components/PasswordField";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import AccessPicker, { accessSummary } from "./AccessPicker";
-import type { AdminRole, SectionKey } from "@/lib/adminSections";
+import type { AdminRole } from "@/lib/adminSections";
 import type { AdminUserRow } from "@/lib/data/admin";
 import type { Lang } from "@/lib/types";
 
@@ -39,13 +39,13 @@ export default function AdminUsers({ lang, users, ownerEmail }: {
   // screen; starting it at "everything" would make the decision skippable.
   const BLANK = {
     name: "", email: "", password: "",
-    role: "reader" as AdminRole, sections: [] as SectionKey[],
+    role: "reader" as AdminRole, sections: [] as string[],
   };
   const [f, setF] = useState(BLANK);
   const [resetFor, setResetFor] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [accessFor, setAccessFor] = useState<string | null>(null);
-  const [draft, setDraft] = useState<{ role: AdminRole; sections: SectionKey[] }>(
+  const [draft, setDraft] = useState<{ role: AdminRole; sections: string[] }>(
     { role: "reader", sections: [] });
 
   function openAccess(u: AdminUserRow) {

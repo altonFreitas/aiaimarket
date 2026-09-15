@@ -22,7 +22,7 @@ import { requireSection } from "@/lib/actions/guard";
  * the wrong one.
  */
 export default async function FinancePage() {
-  await requireSection("settings");
+  await requireSection("settings.finance");
 
   const [lang, data, returns, tables, paidPeriods, cash, ledgers] = await Promise.all([
     getLang(),

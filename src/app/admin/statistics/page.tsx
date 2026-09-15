@@ -10,6 +10,6 @@ import { requireSection } from "@/lib/actions/guard";
  * bookmarks and any link still in the wild should land somewhere useful
  * instead of a 404. */
 export default async function StatisticsPage() {
-  await requireSection("catalog");
+  await requireSection("catalog.demand");
   redirect("/admin/demand");
 }

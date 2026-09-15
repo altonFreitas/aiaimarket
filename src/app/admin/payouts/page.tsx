@@ -9,7 +9,7 @@ import { requireSection } from "@/lib/actions/guard";
  * adminSellerLedgers) rather than a per-seller query, so this page costs the
  * same whether the marketplace has three sellers or three hundred. */
 export default async function AdminPayoutsPage() {
-  await requireSection("sellers");
+  await requireSection("sellers.payouts");
   const [lang, ledgers, payouts] = await Promise.all([
     getLang(), adminSellerLedgers(), adminPayouts(),
   ]);

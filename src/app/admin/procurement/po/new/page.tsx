@@ -9,7 +9,7 @@ import { requireSection } from "@/lib/actions/guard";
 export default async function NewPurchaseOrderPage({ searchParams }: {
   searchParams: Promise<{ supplier?: string; lines?: string }>;
 }) {
-  await requireSection("procurement");
+  await requireSection("procurement.orders");
   const params = await searchParams;
   const [lang, ready] = await Promise.all([getLang(), procurementReady()]);
   if (!ready) notFound();

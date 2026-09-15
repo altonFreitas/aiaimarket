@@ -3,7 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/lib/actions/auth";
 import { t } from "@/lib/i18n";
-import { canSee, canWrite, type Access, type SectionKey } from "@/lib/adminSections";
+import {
+  ADMIN_SECTIONS, canWrite, sectionOfSubsection, subsectionForPath, visibleSubsections,
+  type Access, type AdminSection,
+} from "@/lib/adminSections";
 import type { Lang } from "@/lib/types";
 
 /* Two tiers, not twelve flat tabs.
@@ -17,89 +20,26 @@ import type { Lang } from "@/lib/types";
  * Routes are unchanged. Grouping is a navigation concern; moving pages would
  * break every bookmark and inbound link for no gain. */
 
-interface Group {
-  key: string;
-  /** Which section of the admin this group is; what the account must hold
-   * to be shown it. Same keys the page guards and the checklist use. */
-  section: SectionKey;
-  /** Where the group's own label links to -- its most-used tab. */
-  href: string;
-  tabs: Array<readonly [href: string, key: string]>;
-}
 
-const GROUPS: Group[] = [
-  {
-    // The admin opens on what needs doing, not on a list of everything.
-    key: "navHome", section: "home", href: "/admin",
-    tabs: [["/admin", "attnTitle"]],
-  },
-  {
-    key: "navSales", section: "sales", href: "/admin/sales",
-    tabs: [
-      ["/admin/sales", "salesDashboard"],
-      ["/admin/orders", "orders"],
-      ["/admin/returns", "returns"],
-      ["/admin/notifications", "pendingMessages"],
-    ],
-  },
-  {
-    key: "navCatalog", section: "catalog", href: "/admin/products",
-    tabs: [
-      ["/admin/products", "products"],
-      ["/admin/stock", "stockControl"],
-      ["/admin/cats", "categories"],
-      ["/admin/demand", "demand"],
-      ["/admin/sales/costs", "unitCosts"],
-      ["/admin/reviews", "reviewsAdmin"],
-    ],
-  },
-  {
-    key: "navProcurement", section: "procurement", href: "/admin/procurement",
-    tabs: [
-      ["/admin/procurement", "procurement"],
-      ["/admin/procurement/reorder", "reorderPlan"],
-      ["/admin/procurement/suppliers", "suppliers"],
-    ],
-  },
-  {
-    key: "navSellers", section: "sellers", href: "/admin/sellers",
-    tabs: [
-      ["/admin/sellers", "sellers"],
-      ["/admin/payouts", "payoutsShort"],
-    ],
-  },
-  {
-    key: "navStorefront", section: "storefront", href: "/admin/hero",
-    tabs: [
-      ["/admin/hero", "heroSlides"],
-      ["/admin/promotions", "promotions"],
-    ],
-  },
-  {
-    key: "navSettings", section: "settings", href: "/admin/settings",
-    tabs: [
-      ["/admin/settings", "settings"],
-      ["/admin/finance", "finance"],
-      ["/admin/sales/targets", "salesTargets"],
-      ["/admin/users", "adminUsers"],
-      ["/admin/activity", "activity"],
-    ],
-  },
-];
+/* NO SECOND LIST HERE ANY MORE.
+ *
+ * This file used to carry its own table of areas and tabs -- the same
+ * structure as ADMIN_SECTIONS, with labels bolted on. Two lists of "which
+ * pages are Sales" is two chances to disagree, and the file that defines
+ * the LOCK is the one that has to win. The labels moved into
+ * lib/adminSections.ts beside the paths, and the nav reads them.
+ *
+ * So a tab added to that file appears here, is guarded at its page, and
+ * shows up in the access checklist, from one edit. */
 
 /** The group owning a path. Longest matching tab href wins, so
  * /admin/procurement/suppliers resolves to Procurement rather than to
  * whichever group happens to list a shorter prefix first. "/admin" is only
  * ever an exact match -- as a prefix it would swallow every admin page. */
-function activeGroup(pathname: string): Group {
-  let best: { group: Group; length: number } | null = null;
-  for (const group of GROUPS) {
-    for (const [href] of group.tabs) {
-      const hit = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
-      if (hit && (!best || href.length > best.length)) best = { group, length: href.length };
-    }
-  }
-  return best?.group ?? GROUPS[1];
+function activeSection(pathname: string): AdminSection {
+  const sub = subsectionForPath(pathname);
+  const key = sub ? sectionOfSubsection(sub.key) : null;
+  return ADMIN_SECTIONS.find((s) => s.key === key) ?? ADMIN_SECTIONS[1];
 }
 
 function isCurrent(pathname: string, href: string): boolean {
@@ -139,23 +79,32 @@ export default function AdminNav({ lang, access }: {
   // itself, so a link removed here is a courtesy, not the lock. Showing the
   // other five and bouncing them off each one is just a worse way to say
   // the same thing.
-  const isOwner = access.kind === "owner";
-  const groups = GROUPS.filter((g) => canSee(access, g.section)).map((g) => ({
-    ...g,
-    // Managing accounts is the owner's alone -- the page refuses everyone
-    // else. A tab that always refuses is a broken link with a label on it,
-    // so staff are not offered it.
-    tabs: g.tabs.filter(([href]) => isOwner || href !== "/admin/users"),
-  }));
-  const group = activeGroup(pathname);
+  /* ONLY WHAT THIS ACCOUNT CAN ACTUALLY OPEN, area and tab alike.
+   *
+   * Cosmetic -- every page checks for itself, so a link removed here is a
+   * courtesy and not the lock. But a tab that always refuses is a broken
+   * link with a label on it, and showing somebody five tabs that bounce
+   * them is a worse way of saying the same thing.
+   *
+   * An area with no openable tab is dropped entirely: an area whose every
+   * tab refuses is a heading over nothing. */
+  const sections = ADMIN_SECTIONS
+    .map((s) => ({ section: s, tabs: visibleSubsections(access, s.key) }))
+    .filter((g) => g.tabs.length > 0);
+  const section = activeSection(pathname);
+  const current = sections.find((g) => g.section.key === section.key) ?? sections[0];
   const readOnly = !canWrite(access);
 
   return (
     <>
       <nav className="adm-nav adm-nav-top">
-        {groups.map((g) => (
-          <Link key={g.key} href={g.href} aria-current={g.key === group.key}>
-            {t(g.key, lang)}
+        {sections.map((g) => (
+          // The area lands on the FIRST tab this account can open, not on
+          // the area's own first tab -- somebody granted only Activity must
+          // not be sent to Settings and bounced.
+          <Link key={g.section.key} href={g.tabs[0].paths[0]}
+            aria-current={g.section.key === current?.section.key}>
+            {t(g.section.labelKey, lang)}
           </Link>
         ))}
         {access.label && (
@@ -187,13 +136,15 @@ export default function AdminNav({ lang, access }: {
         </form>
       </nav>
 
-      {/* Second tier. Hidden for a single-tab group, where it would be a row
-          of one repeating the label directly above it. */}
-      {group.tabs.length > 1 && canSee(access, group.section) && (
+      {/* Second tier. Hidden for a single-tab area, where it would be a row
+          of one repeating the label directly above it -- and that now
+          includes an area where this account holds only ONE of the tabs. */}
+      {current && current.tabs.length > 1 && (
         <nav className="adm-nav adm-nav-sub">
-          {group.tabs.map(([href, key]) => (
-            <Link key={href} href={href} aria-current={isCurrent(pathname, href)}>
-              {t(key, lang)}
+          {current.tabs.map((sub) => (
+            <Link key={sub.key} href={sub.paths[0]}
+              aria-current={isCurrent(pathname, sub.paths[0])}>
+              {t(sub.labelKey, lang)}
             </Link>
           ))}
         </nav>

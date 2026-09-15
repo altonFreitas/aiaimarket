@@ -3,7 +3,9 @@ import crypto from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import {
-  normalizeRole, normalizeSections, type AdminRole, type SectionKey,
+  normalizeRole,
+  normalizeSections,
+  type AdminRole,
 } from "@/lib/adminSections";
 
 const COOKIE = "loja_admin_session";
@@ -231,7 +233,11 @@ export interface AdminActor extends ActorIdentity {
   role: AdminRole;
   /** Which parts of the admin they may open. Empty for the owner, who is
    * not filtered by it at all -- see canSee(). */
-  sections: SectionKey[];
+  /* AREA KEYS AND TAB KEYS TOGETHER, in one list. "settings" is the whole
+   * area; "settings.users" is one tab inside it. Not two columns, because
+   * they answer the same question and splitting them would let a row say
+   * both at once -- see normalizeSections. */
+  sections: string[];
 }
 
 /** The owner as the cookie carries them. */

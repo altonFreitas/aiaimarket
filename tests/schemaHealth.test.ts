@@ -27,6 +27,12 @@ const KINDS = {
    * One unrelated policy is left in place to prove the check looks for the
    * named ones rather than for an empty set. */
   policies: [["public.products", "products_public_read"]] as [string, string][],
+  /* The wide one, so admin-subsections.sql reads as applied. An unrelated
+   * constraint sits beside it for the same reason as the policy above. */
+  constraints: [
+    ["public.admin_users", "admin_users_section_keys_check"],
+    ["public.orders", "orders_status_check"],
+  ] as [string, string][],
 };
 
 /** A snapshot from a plain list of "table" and "table.column", plus
@@ -44,7 +50,11 @@ function snap(names: string[], kinds: Partial<typeof KINDS> = KINDS): SchemaSnap
     routines: new Set(kinds.routines ?? []),
     indexes: new Set((kinds.indexes ?? []).map(([t, i]) => memberKey(t, i))),
     policies: new Set((kinds.policies ?? []).map(([t, x]) => memberKey(t, x))),
+    constraints: new Set((kinds.constraints ?? []).map(([t, c]) => memberKey(t, c))),
     seesKinds: true,
+    // Matches snapshotFromRows: constraints reported at all is what says
+    // the installed inventory function is new enough to report them.
+    seesConstraints: (kinds.constraints ?? []).length > 0,
   };
 }
 
@@ -236,7 +246,10 @@ describe("an old schema_inventory() that can only see tables", () => {
     const out = checkSchema(oldShape);
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
-      "loves.sql", "refund-settlement.sql", "rate-limits.sql", "pii-retention.sql",
+      "loves.sql", "refund-settlement.sql", "rate-limits.sql",
+      // Checked by a constraint alone, which the old function cannot report.
+      "admin-subsections.sql",
+      "pii-retention.sql",
       "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",
       "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
@@ -304,11 +317,71 @@ describe("the feature list matches the folder", () => {
     }
   });
 
+  /* THE KIND ADDED LAST, AND WHY IT NEEDED ADDING.
+   *
+   * admin-subsections.sql creates no table, no column and no function. Its
+   * whole effect is to widen one check constraint, which made it the fourth
+   * file this panel could not see -- the exact failure schema-health.sql was
+   * written to stop, one kind later. */
+  describe("a file checked by a check constraint alone", () => {
+    const entry = SCHEMA_FEATURES.find((f) => f.file === "admin-subsections.sql")!;
+
+    it("is checked by the name the file adds, not the one it drops", () => {
+      // Both live on admin_users. Probing for the dropped name would report
+      // the file applied on every shop that had NOT run it, which is the
+      // panel lying in the most convincing direction.
+      expect(entry.constraints).toEqual([
+        ["public.admin_users", "admin_users_section_keys_check"],
+      ]);
+    });
+
+    it("reads as applied when the wide constraint is there", () => {
+      const out = checkSchema(EVERYTHING);
+      const f = out.find((x) => x.file === "admin-subsections.sql")!;
+      expect([f.applied, f.unknown]).toEqual([true, false]);
+    });
+
+    it("reads as outstanding when only the narrow one is", () => {
+      // A shop on the previous release: admin-roles.sql run, this one not.
+      const out = checkSchema(snap([...EVERYTHING.tables, ...EVERYTHING.columns], {
+        ...KINDS,
+        constraints: [["public.admin_users", "admin_users_sections_check"]],
+      }));
+      const f = out.find((x) => x.file === "admin-subsections.sql")!;
+      expect([f.applied, f.unknown]).toEqual([false, false]);
+      expect(f.missing).toEqual(["admin_users_section_keys_check"]);
+      expect(outstandingFiles(out)).toContain("admin-subsections.sql");
+    });
+
+    it("says NOT CHECKED when the inventory cannot report constraints", () => {
+      // Kind-aware, but installed before constraints were added to it. The
+      // table is there, so the file may well have been run -- and "run this
+      // again" would be a claim this module did not check.
+      const out = checkSchema(snap([...EVERYTHING.tables, ...EVERYTHING.columns], {
+        ...KINDS, constraints: [],
+      }));
+      const f = out.find((x) => x.file === "admin-subsections.sql")!;
+      expect([f.applied, f.unknown]).toEqual([false, true]);
+      expect(uncheckedFiles(out)).toContain("admin-subsections.sql");
+    });
+
+    it("still says NOT RUN when admin_users does not exist", () => {
+      // The one case where no constraints is an honest answer rather than a
+      // question never asked. A database without the table has not run the
+      // file, and no inventory version is needed to know that.
+      const out = checkSchema(snap([], { ...KINDS, constraints: [] }));
+      const f = out.find((x) => x.file === "admin-subsections.sql")!;
+      expect([f.applied, f.unknown]).toEqual([false, false]);
+      expect(f.missing).toEqual(["admin_users"]);
+    });
+  });
+
   it("checks something for every entry", () => {
     for (const f of SCHEMA_FEATURES) {
       const n = (f.tables?.length ?? 0) + (f.columns?.length ?? 0)
         + (f.views?.length ?? 0) + (f.routines?.length ?? 0)
-        + (f.indexes?.length ?? 0) + (f.droppedPolicies?.length ?? 0);
+        + (f.indexes?.length ?? 0) + (f.droppedPolicies?.length ?? 0)
+        + (f.constraints?.length ?? 0);
       expect([f.file, n > 0]).toEqual([f.file, true]);
     }
   });

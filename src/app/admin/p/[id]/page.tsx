@@ -5,7 +5,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function ProductFormPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireSection("catalog");
+  await requireSection("catalog.products");
   const { id } = await params;
   const [lang, cats, settings, sellers] = await Promise.all([
     getLang(), adminCategories(), adminSettings(), adminSellers(),

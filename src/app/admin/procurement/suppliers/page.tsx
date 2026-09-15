@@ -6,7 +6,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function SuppliersPage() {
-  await requireSection("procurement");
+  await requireSection("procurement.suppliers");
   const [lang, data] = await Promise.all([getLang(), adminProcurementData()]);
   if (!data.ready) notFound();
   // Performance is computed here, on the server, so the page ships numbers

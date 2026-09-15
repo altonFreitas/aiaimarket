@@ -6,7 +6,7 @@ import { t } from "@/lib/i18n";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function ProcurementPage() {
-  await requireSection("procurement");
+  await requireSection("procurement.orders");
   const [lang, data] = await Promise.all([getLang(), adminProcurementData()]);
 
   // A dashboard with no tables behind it should say so plainly rather than

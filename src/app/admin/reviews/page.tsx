@@ -12,7 +12,7 @@ import { canSee } from "@/lib/adminSections";
  * thing, so this is not the lock, it is not drawing a list nobody on this
  * account can act on. */
 export default async function AdminReviewsPage() {
-  const actor = await requireSection("catalog");
+  const actor = await requireSection("catalog.reviews");
   const [lang, reviews, ratings, products, sellers] = await Promise.all([
     getLang(), adminProductReviews(), adminSellerRatings(), adminProducts(), adminSellers(),
   ]);

@@ -17,7 +17,7 @@ import { requireSection } from "@/lib/actions/guard";
  *
  * It is the same refusal every other section gives now. */
 export default async function AdminUsersPage() {
-  const actor = await requireSection("settings");
+  const actor = await requireSection("settings.users");
   if (actor.kind !== "owner") redirect("/admin/no-access");
 
   const [lang, users] = await Promise.all([getLang(), adminUsers()]);

@@ -4,7 +4,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function CatsPage() {
-  await requireSection("catalog");
+  await requireSection("catalog.categories");
   const [lang, cats, products] = await Promise.all([
     getLang(), adminCategories(), adminProducts(),
   ]);

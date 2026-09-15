@@ -3,7 +3,7 @@ import { currentActor, type AdminActor } from "@/lib/session";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
-import { canSee, canWrite, type SectionKey } from "@/lib/adminSections";
+import { canSee, canWrite, type SectionKey, canOpenSubsection } from "@/lib/adminSections";
 import {
   normalizeFeatures, sellerCanUse, type SellerFeatureKey,
 } from "@/lib/sellerFeatures";
@@ -72,9 +72,22 @@ export async function requireAdminRead(): Promise<AdminActor> {
  * A missing call here is caught by tests/adminSections.test.ts, which
  * reads every page.tsx under src/app/admin and fails if one does not
  * guard itself. */
-export async function requireSection(section: SectionKey): Promise<AdminActor> {
+export async function requireSection(key: SectionKey | string): Promise<AdminActor> {
   const actor = await requireAdminRead();
-  if (!canSee(actor, section)) redirect("/admin/no-access");
+  /* AREA KEY OR TAB KEY, and a tab key is the stricter of the two.
+   *
+   * A page naming its TAB ("settings.users") is refused unless this account
+   * holds that tab or the whole area. A page naming only its AREA is
+   * refused unless the account holds the area or some tab in it -- which is
+   * the old behaviour, kept so a page that has not been narrowed yet still
+   * locks itself.
+   *
+   * This is the lock. The navigation hiding a tab is a courtesy; somebody
+   * who types the URL arrives here, and this is what turns them away. */
+  const ok = key.includes(".")
+    ? canOpenSubsection(actor, key)
+    : canSee(actor, key as SectionKey);
+  if (!ok) redirect("/admin/no-access");
   return actor;
 }
 

@@ -6,7 +6,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function AdminSellersPage() {
-  await requireSection("sellers");
+  await requireSection("sellers.list");
   const [lang, sellers, invites, orders, products, settings] = await Promise.all([
     getLang(), adminSellers(), adminSellerInvites(), adminOrders(), adminProducts(), adminSettings(),
   ]);

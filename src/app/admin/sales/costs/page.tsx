@@ -5,7 +5,7 @@ import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 
 export default async function CostsPage() {
-  await requireSection("catalog");
+  await requireSection("catalog.costs");
   const [lang, products, categories, costs, ready] = await Promise.all([
     getLang(), adminProducts(), adminCategories(), adminProductCosts(), salesReady(),
   ]);
