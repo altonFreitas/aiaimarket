@@ -1793,6 +1793,21 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      would leave the labels in a column two words wide. */
   .access-subs{margin-left:0;grid-template-columns:1fr 1fr}
 }
+/* FIVE AREAS, THEN IT SCROLLS. Seven areas holding twenty-three tabs is a
+   column tall enough to push Save off the bottom of the screen, so the last
+   thing anybody does on this form is hunt for the button.
+
+   The height here is APPROXIMATE and is what applies before the measurement
+   runs, and if it never does -- lib/useRowCap.ts then replaces it with the
+   real distance across five cards, which is not a fixed number: an area
+   whose tabs wrap onto a second line is taller, and where that happens
+   moves with the width and the language.
+
+   padding-right keeps the scrollbar off the cards' rounded corners, and
+   overscroll-behavior stops a flick at the bottom scrolling the page
+   behind it. */
+.access-areas{overflow-y:auto;overscroll-behavior:contain;max-height:520px;
+  padding-right:4px}
 .access-quick{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:9px}
 .access-quick .hint{margin:0;font-size:12px}
 
