@@ -300,6 +300,7 @@ export const STR: Record<string, [string,string,string]> = {
   sellerAccessNone:["La iha ekstra","Sem extras","Nothing extra"],
   sellerAccessAll:["Hotu-hotu","Tudo","Everything"],
   sellerAccessIncluded:["Painel, produtu, enkomenda no konfigurasaun mak inklui ba loja hotu-hotu.","Painel, produtos, encomendas e definicoes estao incluidos em todas as lojas.","Dashboard, products, orders and store settings are included for every store."],
+  sellerAccessIncludedShort:["Inklui ona","Incluído","Included"],
   sellerNoAccessTitle:["Ne'e la inklui","Isto nao esta incluido","This is not included"],
   sellerNoAccessBody:["Parte ne'e la inklui iha ita-nia loja. Kontaktu marketplace atu hatene liu tan.","Esta area nao esta incluida na sua loja. Fale com o marketplace para saber mais.","This area is not included with your store. Talk to the marketplace to add it."],
   featSellerDashboardBlurb:["Vizaun jerál no folin ne'ebé sei selu","Visao geral e valores a receber","Overview and what they are owed"],
@@ -1187,6 +1188,7 @@ export const STR: Record<string, [string,string,string]> = {
   featAdminRoles:["Nivel asesu admin","Níveis de acesso","Admin roles and areas"],
   featAdminSubsections:["Asesu ba tab ida-idak","Acesso ao nível do separador","Access down to the tab"],
   featSellerFeatures:["Asesu ba loja sira","Acesso das lojas","What each store may open"],
+  featSellerAreas:["Asesu vendedor ba tab ida-idak","Acesso do vendedor ao nível do separador","Seller access down to the tab"],
   /* per-seller fulfilment (order_items.fulfilment_status) */
   fulPending:["Seidauk hahu","Por iniciar","Not started"],
   fulPreparing:["Prepara hela","A preparar","Preparing"],

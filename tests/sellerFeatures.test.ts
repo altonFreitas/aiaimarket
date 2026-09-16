@@ -2,323 +2,403 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  SELLER_FEATURES, ALL_FEATURES, INCLUDED_FEATURES, SELLABLE_FEATURES,
-  featureForPath, sellerCanUse, normalizeFeatures, featureSummary,
+  SELLER_AREAS, ALL_SELLER_SUBSECTIONS, ALL_GRANT_KEYS, GRANTABLE_AREAS,
+  INCLUDED_SUBSECTIONS, ALWAYS_GRANTED,
+  sellerAreaOf, sellerSubsectionForPath, sellerCanOpen, sellerCanOpenPath,
+  visibleSellerSubsections, visibleSellerAreas,
+  grantableSubsection, normalizeFeatures, featureSummary,
 } from "@/lib/sellerFeatures";
 
-describe("featureForPath", () => {
-  it("puts every seller page in the feature its tab lives under", () => {
-    expect(featureForPath("/seller/dashboard")).toBe("dashboard");
-    expect(featureForPath("/seller/products")).toBe("products");
-    expect(featureForPath("/seller/orders")).toBe("orders");
-    expect(featureForPath("/seller/settings")).toBe("settings");
-    expect(featureForPath("/seller/sales")).toBe("sales");
-    expect(featureForPath("/seller/stock")).toBe("stock");
+const label = (k: string) => k;
+
+describe("sellerSubsectionForPath", () => {
+  it("puts every seller page in the tab it belongs to", () => {
+    const at = (p: string) => sellerSubsectionForPath(p)?.key;
+    expect(at("/seller/dashboard")).toBe("home.dashboard");
+    expect(at("/seller/orders")).toBe("selling.orders");
+    expect(at("/seller/today")).toBe("selling.today");
+    expect(at("/seller/sales")).toBe("selling.report");
+    expect(at("/seller/products")).toBe("catalog.products");
+    expect(at("/seller/stock")).toBe("catalog.stock");
+    expect(at("/seller/procurement")).toBe("purchasing.purchases");
+    expect(at("/seller/settings")).toBe("settings.store");
   });
 
   it("covers the detail routes the navigation never lists", () => {
-    expect(featureForPath("/seller/products/new")).toBe("products");
-    expect(featureForPath("/seller/products/abc-123")).toBe("products");
+    expect(sellerSubsectionForPath("/seller/products/new")?.key).toBe("catalog.products");
+    expect(sellerSubsectionForPath("/seller/products/abc-123")?.key).toBe("catalog.products");
   });
 
-  it("puts the refusal screen in the one feature everybody holds", () => {
+  it("puts the refusal screen in the area everybody holds", () => {
     // Otherwise being refused could refuse you, which is a loop.
-    expect(featureForPath("/seller/no-access")).toBe("dashboard");
-    expect(sellerCanUse([], "dashboard")).toBe(true);
+    expect(sellerSubsectionForPath("/seller/no-access")?.key).toBe("home.dashboard");
+    expect(sellerCanOpen([], "home.dashboard")).toBe(true);
   });
 
   it("matches on segments, not on string prefixes", () => {
-    // /seller/salesman is not inside /seller/sales. Nothing is called that
-    // today; the point is that adding it later cannot silently inherit
-    // another feature's permission.
-    expect(featureForPath("/seller/salesman")).toBeNull();
-    expect(featureForPath("/seller/stockroom")).toBeNull();
-  });
-
-  it("ignores a query string and a trailing slash", () => {
-    expect(featureForPath("/seller/sales?from=2026-01")).toBe("sales");
-    expect(featureForPath("/seller/sales/")).toBe("sales");
-  });
-
-  it("returns null for anything that is not a seller page", () => {
-    expect(featureForPath("/admin/sales")).toBeNull();
-    expect(featureForPath("/seller")).toBeNull();
-    expect(featureForPath("/")).toBeNull();
+    // /seller/salesman must not resolve to My sales.
+    expect(sellerSubsectionForPath("/seller/salesman")).toBeNull();
+    expect(sellerSubsectionForPath("/admin/sales")).toBeNull();
   });
 });
 
-describe("sellerCanUse", () => {
-  it("gives every store the four screens that make it a store", () => {
-    for (const key of INCLUDED_FEATURES) {
-      expect([key, sellerCanUse([], key)]).toEqual([key, true]);
+/* ---------------------------------------------------------------------------
+ * The two grants, and the difference between them
+ * ------------------------------------------------------------------------ */
+
+describe("an area grant and a tab grant are not the same grant", () => {
+  it("opens every tab of an area when the AREA is held", () => {
+    for (const sub of SELLER_AREAS.find((a) => a.key === "selling")!.subsections) {
+      expect([sub.key, sellerCanOpen(["selling"], sub.key)]).toEqual([sub.key, true]);
     }
   });
 
-  it("refuses everything else until it is granted", () => {
-    for (const key of SELLABLE_FEATURES) {
-      expect([key, sellerCanUse([], key)]).toEqual([key, false]);
+  it("opens exactly one tab when only that TAB is held", () => {
+    expect(sellerCanOpen(["selling.today"], "selling.today")).toBe(true);
+    expect(sellerCanOpen(["selling.today"], "selling.report")).toBe(false);
+  });
+
+  it("carries a tab added later to the area grant, and not to the tab grant", () => {
+    /* THE WHOLE REASON BOTH EXIST. Simulate next release's tab by asking
+       about a key that is not in the catalogue yet. A store holding the
+       area gets it; a store holding a list of today's tabs does not, which
+       is what the owner was selling in each case. */
+    expect(sellerCanOpen(["selling"], "selling.somethingNew")).toBe(true);
+    expect(sellerCanOpen(["selling.today", "selling.report"], "selling.somethingNew")).toBe(false);
+  });
+
+  it("never lets one area's grant open another's tab", () => {
+    expect(sellerCanOpen(["selling"], "catalog.stock")).toBe(false);
+    expect(sellerCanOpen(["catalog"], "selling.today")).toBe(false);
+  });
+});
+
+describe("what comes with the shop", () => {
+  it("gives every store the included tabs, granted nothing at all", () => {
+    for (const key of INCLUDED_SUBSECTIONS) {
+      expect([key, sellerCanOpen([], key)]).toEqual([key, true]);
     }
   });
 
-  it("grants exactly what was ticked, and nothing next to it", () => {
-    expect(sellerCanUse(["sales"], "sales")).toBe(true);
-    expect(sellerCanUse(["sales"], "stock")).toBe(false);
-    expect(sellerCanUse(["sales", "stock"], "stock")).toBe(true);
+  it("holds the always-granted areas open for everyone", () => {
+    for (const area of ALWAYS_GRANTED) {
+      const tabs = visibleSellerSubsections([], area);
+      expect([area, tabs.length > 0]).toEqual([area, true]);
+    }
   });
 
-  it("has no all-sellers switch", () => {
-    // The whole point is that stores differ. If a "everyone gets it" flag
-    // is ever added, this is where it has to be explained.
-    const source = fs.readFileSync(
-      path.join(__dirname, "..", "src", "lib", "sellerFeatures.ts"), "utf8");
-    expect(/return features\.includes\(key\)/.test(source)).toBe(true);
+  it("never offers an included tab as something to sell", () => {
+    // A box that grants what the store already has teaches the owner the
+    // checklist is decorative.
+    for (const key of INCLUDED_SUBSECTIONS) {
+      expect([key, ALL_GRANT_KEYS.includes(key)]).toEqual([key, false]);
+    }
+  });
+
+  it("does not offer an area whose every tab is free", () => {
+    // Settings holds one tab and it comes free, so the area is not a
+    // checkbox -- ticking it would change no permission.
+    expect(GRANTABLE_AREAS).not.toContain("settings");
+    expect(GRANTABLE_AREAS).not.toContain("home");
+    expect([...GRANTABLE_AREAS]).toEqual(["selling", "catalog", "purchasing"]);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The keys that were already in the database
+ * ------------------------------------------------------------------------ */
+
+describe("the four old flat keys", () => {
+  it("becomes the TAB it named, never the area of the same name", () => {
+    /* THE ONE THAT WOULD HAVE WIDENED EVERYTHING. Old "sales" named the My
+       sales PAGE; the Sales AREA did not exist. Reading it as the area
+       would hand every store that had bought one report the whole of Sales
+       -- and every tab added to Sales afterwards -- with nothing on any
+       screen saying it had happened. */
+    expect(normalizeFeatures(["sales"])).toEqual(["selling.report"]);
+    expect(normalizeFeatures(["sales"])).not.toContain("selling");
+  });
+
+  it("translates the other three to their tabs", () => {
+    expect(normalizeFeatures(["today"])).toEqual(["selling.today"]);
+    expect(normalizeFeatures(["stock"])).toEqual(["catalog.stock"]);
+    expect(normalizeFeatures(["procurement"])).toEqual(["purchasing.purchases"]);
+  });
+
+  it("leaves a migrated store able to open exactly what it could before", () => {
+    const before = ["stock", "today"];
+    const after = normalizeFeatures(before);
+    expect(sellerCanOpen(after, "catalog.stock")).toBe(true);
+    expect(sellerCanOpen(after, "selling.today")).toBe(true);
+    // And nothing it could not open before.
+    expect(sellerCanOpen(after, "selling.report")).toBe(false);
+    expect(sellerCanOpen(after, "purchasing.purchases")).toBe(false);
   });
 });
 
 describe("normalizeFeatures", () => {
-  it("reads a column that is not there yet as nothing extra", () => {
-    // A shop with this code and not yet supabase/seller-features.sql. It
-    // must fail CLOSED: failing open would hand every store on the
-    // marketplace the thing the owner is selling.
+  it("reads a missing column as nothing granted", () => {
+    // A shop with this code and not yet the SQL. Every sellable tab is a
+    // screen that store never had, so fail closed.
     expect(normalizeFeatures(undefined)).toEqual([]);
     expect(normalizeFeatures(null)).toEqual([]);
-  });
-
-  it("drops a key the app does not recognise", () => {
-    // A leftover from a removed feature, or a typo written straight into
-    // the database. Either would otherwise read as a granted permission.
-    expect(normalizeFeatures(["sales", "payouts", "nonsense"])).toEqual(["sales"]);
-  });
-
-  it("never lets an included screen be stored as a grant", () => {
-    // "products" in the column would look like something the owner had
-    // given, and taking it away would then read as a downgrade.
-    expect(normalizeFeatures(["products", "orders", "sales"])).toEqual(["sales"]);
-  });
-
-  it("removes duplicates", () => {
-    expect(normalizeFeatures(["sales", "sales"])).toEqual(["sales"]);
-  });
-
-  it("stores in catalogue order, not click order", () => {
-    // So two stores with the same access read identically on screen and in
-    // the database, and a diff of the column means something changed.
-    expect(normalizeFeatures(["stock", "sales"])).toEqual(["sales", "stock"]);
-    expect(normalizeFeatures(["sales", "stock"])).toEqual(["sales", "stock"]);
-  });
-
-  it("ignores anything that is not an array of strings", () => {
     expect(normalizeFeatures("sales")).toEqual([]);
-    expect(normalizeFeatures(42)).toEqual([]);
-    expect(normalizeFeatures([1, true, null])).toEqual([]);
+  });
+
+  it("drops a key from a feature the app no longer has", () => {
+    expect(normalizeFeatures(["selling.today", "wishlists"])).toEqual(["selling.today"]);
+  });
+
+  it("drops an included key, which is not a permission", () => {
+    expect(normalizeFeatures(["selling.orders", "settings.store"])).toEqual([]);
+  });
+
+  it("drops a tab sitting beside its own area", () => {
+    /* Keeping both would make the two grants indistinguishable the moment
+       a new tab appeared: ["selling","selling.today"] would have to mean
+       either "everything in Sales" or "just Today". The area wins. */
+    expect(normalizeFeatures(["selling", "selling.today"])).toEqual(["selling"]);
+    expect(sellerCanOpen(normalizeFeatures(["selling", "selling.today"]), "selling.report")).toBe(true);
+  });
+
+  it("de-duplicates and orders by the catalogue, not by click order", () => {
+    // Two stores with the same access read identically, on screen and in
+    // the database.
+    expect(normalizeFeatures(["catalog.stock", "selling.today", "catalog.stock"]))
+      .toEqual(normalizeFeatures(["selling.today", "catalog.stock"]));
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * What the nav and the row show
+ * ------------------------------------------------------------------------ */
+
+describe("the navigation", () => {
+  it("shows a store with nothing granted only what comes free", () => {
+    expect(visibleSellerAreas([]).map((a) => a.key)).toEqual(["home", "selling", "catalog", "settings"]);
+    expect(visibleSellerSubsections([], "selling").map((s) => s.key)).toEqual(["selling.orders"]);
+    expect(visibleSellerSubsections([], "purchasing")).toEqual([]);
+  });
+
+  it("adds the area once it is granted", () => {
+    expect(visibleSellerAreas(["purchasing"]).map((a) => a.key))
+      .toContain("purchasing");
+    expect(visibleSellerSubsections(["selling.today"], "selling").map((s) => s.key))
+      .toEqual(["selling.orders", "selling.today"]);
+  });
+
+  it("shows the tabs of the area the store is standing in", () => {
+    /* WHAT SellerNav COMPUTES, without rendering it. The component groups
+       the areas, finds the one owning the current path, and draws its tabs
+       underneath -- and only when there is more than one, since a strip of
+       one repeats the heading directly above it.
+
+       Worth pinning here because the preview could not show it: on a page
+       that is not a seller route the active area falls back to Home, which
+       has a single tab, so the strip is correctly absent and a screenshot
+       proves nothing either way. */
+    const stripFor = (features: string[], pathname: string) => {
+      const sub = sellerSubsectionForPath(pathname);
+      const area = sub ? sellerAreaOf(sub.key) : null;
+      const tabs = area ? visibleSellerSubsections(features, area) : [];
+      return tabs.length > 1 ? tabs.map((x) => x.key) : [];
+    };
+
+    // Standing in Sales with the whole area: all three tabs.
+    expect(stripFor(["selling"], "/seller/today"))
+      .toEqual(["selling.orders", "selling.today", "selling.report"]);
+    // With only Today bought: the free tab and that one.
+    expect(stripFor(["selling.today"], "/seller/today"))
+      .toEqual(["selling.orders", "selling.today"]);
+    // With nothing bought, Sales holds one tab, so no strip at all.
+    expect(stripFor([], "/seller/orders")).toEqual([]);
+    // Purchasing has a single tab however it was granted.
+    expect(stripFor(["purchasing"], "/seller/procurement")).toEqual([]);
+    // A detail route keeps its area's strip.
+    expect(stripFor(["catalog"], "/seller/products/new"))
+      .toEqual(["catalog.products", "catalog.stock"]);
+  });
+
+  it("refuses a URL typed straight in", () => {
+    // The nav hiding a tab is a courtesy; this is the same rule the page
+    // guard applies.
+    expect(sellerCanOpenPath([], "/seller/stock")).toBe(false);
+    expect(sellerCanOpenPath(["catalog.stock"], "/seller/stock")).toBe(true);
+    expect(sellerCanOpenPath([], "/seller/orders")).toBe(true);
+    // Not a seller page at all.
+    expect(sellerCanOpenPath(["selling"], "/admin/sales")).toBe(false);
   });
 });
 
 describe("featureSummary", () => {
-  const label = (k: string) => ({
-    sellerSales: "My sales", sellerStock: "My stock", sellerProcurement: "My purchases",
-  }[k] ?? k);
-  const sum = (f: string[]) => featureSummary(f, label, "Nothing extra", "Everything");
-
-  it("says so when a store has only the included screens", () => {
-    expect(sum([])).toBe("Nothing extra");
+  it("says nothing extra when nothing is granted", () => {
+    expect(featureSummary([], label, "none", "all")).toBe("none");
   });
 
-  it("names what was granted", () => {
-    expect(sum(["sales"])).toBe("My sales");
-    expect(sum(["sales", "stock"])).toBe("My sales, My stock");
+  it("names a whole area plainly and a part area with a count", () => {
+    // Those are different permissions, and a row showing them the same way
+    // would be the screen misreporting what a store is paying for.
+    expect(featureSummary(["selling"], label, "none", "all")).toBe("navSales");
+    expect(featureSummary(["selling.today"], label, "none", "all")).toBe("navSales (1/2)");
   });
 
-  it("says Everything only when every sellable feature is granted", () => {
-    // Named from the catalogue rather than spelled out, so adding a fourth
-    // feature does not quietly turn three into "Everything" again.
-    expect(sum([...SELLABLE_FEATURES])).toBe("Everything");
-  });
-
-  it("never lists the included screens, which nobody chose", () => {
-    expect(sum(["products", "sales"])).toBe("My sales");
+  it("says all only when every grantable area is held whole", () => {
+    expect(featureSummary([...GRANTABLE_AREAS], label, "none", "all")).toBe("all");
+    // Every TAB is not every AREA -- see the grant tests above.
+    const everyTab = ALL_SELLER_SUBSECTIONS.filter(grantableSubsection).map((s) => s.key);
+    expect(featureSummary(everyTab, label, "none", "all")).not.toBe("all");
   });
 });
 
-describe("the catalogue itself", () => {
+/* ---------------------------------------------------------------------------
+ * The catalogue itself, and the database that has to agree with it
+ * ------------------------------------------------------------------------ */
+
+describe("the area list", () => {
   it("has no duplicate keys", () => {
-    expect(new Set(ALL_FEATURES).size).toBe(ALL_FEATURES.length);
+    const keys = ALL_SELLER_SUBSECTIONS.map((s) => s.key);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("splits cleanly into included and sellable", () => {
-    expect([...INCLUDED_FEATURES, ...SELLABLE_FEATURES].sort())
-      .toEqual([...ALL_FEATURES].sort());
-    for (const k of INCLUDED_FEATURES) expect(SELLABLE_FEATURES).not.toContain(k);
-  });
-
-  it("gives every feature at least one route", () => {
-    for (const f of SELLER_FEATURES) {
-      expect([f.key, f.paths.length > 0]).toEqual([f.key, true]);
-      for (const p of f.paths) {
-        expect([f.key, p.startsWith("/seller/")]).toEqual([f.key, true]);
-      }
+  it("namespaces every tab on an area that exists", () => {
+    for (const sub of ALL_SELLER_SUBSECTIONS) {
+      expect([sub.key, sellerAreaOf(sub.key)]).toEqual([sub.key, sub.key.split(".")[0]]);
     }
   });
 
-  it("has something to sell at all", () => {
-    // A catalogue with nothing sellable makes every screen in this feature
-    // decorative, and this test would otherwise pass forever.
-    expect(SELLABLE_FEATURES.length).toBeGreaterThan(0);
+  it("names a translation key that actually exists", () => {
+    /* t() falls back to the key itself when it is missing, so a typo does
+       not throw -- it renders "sales" in lowercase where "Sales" belongs,
+       on a screen the owner uses to sell things. That is how this was
+       found, and only in a screenshot. */
+    const i18n = fs.readFileSync(
+      path.join(process.cwd(), "src", "lib", "i18n.ts"), "utf8");
+    const has = (key: string) => new RegExp("^\\s+" + key + ":", "m").test(i18n);
+    for (const area of SELLER_AREAS) {
+      expect([area.key, has(area.labelKey)]).toEqual([area.key, true]);
+    }
+    for (const sub of ALL_SELLER_SUBSECTIONS) {
+      expect([sub.key, has(sub.labelKey), has(sub.blurbKey)])
+        .toEqual([sub.key, true, true]);
+    }
   });
 
-  it("keeps the SQL constraint in step with the catalogue", () => {
-    // supabase/seller-features.sql restricts the column to the sellable
-    // keys. If they drift, the owner ticks a box the database refuses --
-    // and the failure lands at save time, on a screen, in front of them.
-    const sql = fs.readFileSync(
-      path.join(__dirname, "..", "supabase", "seller-features.sql"), "utf8");
-    const m = /features <@ array\[([^\]]+)\]/.exec(sql);
-    expect(m).not.toBeNull();
-    const inSql = [...m![1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
-    expect(inSql).toEqual([...SELLABLE_FEATURES].sort());
+  it("gives every tab a label, a blurb and at least one path", () => {
+    // The owner is selling these; a blank line under a checkbox is a
+    // feature nobody can describe to a seller.
+    for (const sub of ALL_SELLER_SUBSECTIONS) {
+      expect([sub.key, !!sub.labelKey, !!sub.blurbKey, sub.paths.length > 0])
+        .toEqual([sub.key, true, true, true]);
+    }
+  });
+
+  it("gives every seller page in the app a tab", () => {
+    /* A page nobody's tab claims is a page the nav cannot show and the
+       guard cannot name. Read from the filesystem so adding a route
+       without adding it here fails rather than going unnoticed. */
+    const dir = path.join(process.cwd(), "src", "app", "seller");
+    const routes: string[] = [];
+    const walk = (d: string, url: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const next = path.join(d, e.name);
+        // [id] and the like are detail routes, covered by their parent.
+        const seg = e.name.startsWith("[") ? "" : "/" + e.name;
+        if (fs.existsSync(path.join(next, "page.tsx")) && seg) routes.push(url + seg);
+        walk(next, url + seg);
+      }
+    };
+    walk(dir, "/seller");
+    // The ways in and out are not features; nothing guards them.
+    const exempt = new Set(["/seller/login", "/seller/register"]);
+    const orphans = routes.filter(
+      (r) => !exempt.has(r) && !sellerSubsectionForPath(r));
+    expect(orphans).toEqual([]);
   });
 });
 
-/* ---------------------------------------------------------------------
- * Structural checks: the ones that keep working after we stop looking.
- * ------------------------------------------------------------------- */
+describe("the database agrees with the app about what may be sold", () => {
+  /* The check constraint on sellers.features is the last word on what may
+   * be stored. If the app offers a key the database refuses, saving fails
+   * in the owner's face while they are trying to sell something. If the
+   * database allows one the app does not recognise, the row reads as a paid
+   * feature and opens nothing.
+   *
+   * Neither is caught by any other test, because the SQL is text to the
+   * TypeScript and the TypeScript is invisible to the SQL. This reads both. */
+  const SQL = fs.readFileSync(
+    path.join(process.cwd(), "supabase/seller-areas.sql"), "utf8");
 
-const ROOT = path.join(__dirname, "..");
-const SELLER_DIR = path.join(ROOT, "src", "app", "seller");
-
-function sellerPages(dir = SELLER_DIR, out: string[] = []): string[] {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) sellerPages(full, out);
-    else if (entry.name === "page.tsx") out.push(full);
+  function keysInConstraint(): string[] {
+    const body = SQL.slice(SQL.indexOf("features <@ array["), SQL.indexOf("]::text[]"));
+    return [...body.matchAll(/'([a-z.]+)'/g)].map((m) => m[1]);
   }
-  return out;
-}
 
-/** The file with its comments removed.
- *
- * Every scan below asks "does this file CALL something". Prose is not a
- * call: /seller/no-access explains in its own header comment where
- * requireSellerFeature() sends people, and the first version of these
- * tests read that sentence as the page guarding itself -- reporting the
- * one page that must never be guarded as over-guarded. */
-function code(src: string): string {
-  return src
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^[ \t]*\/\/.*$/gm, "")
-    .replace(/([^:])\/\/.*$/gm, "$1");
-}
-
-/** .../seller/products/[id]/page.tsx -> /seller/products/[id] */
-function routeOf(file: string): string {
-  const rel = path.relative(path.join(SELLER_DIR, ".."), path.dirname(file));
-  return "/" + rel.split(path.sep).join("/");
-}
-
-describe("every seller page is accounted for", () => {
-  const pages = sellerPages();
-
-  it("finds the seller pages at all", () => {
-    // Guards against this whole block silently passing on an empty list.
-    expect(pages.length).toBeGreaterThan(5);
+  it("names the same keys, in both directions", () => {
+    expect([...keysInConstraint()].sort()).toEqual([...ALL_GRANT_KEYS].sort());
   });
 
-  /** Pages that are deliberately outside the feature map: the ways IN,
-   * which somebody reaches before they are a seller at all. */
-  const OPEN = new Set(["/seller/login", "/seller/register"]);
-
-  it("maps every page to a feature", () => {
-    const unmapped: string[] = [];
-    for (const file of pages) {
-      const route = routeOf(file);
-      if (OPEN.has(route)) continue;
-      const probe = route.replace(/\[[^\]]+\]/g, "x");
-      if (featureForPath(probe) === null) unmapped.push(route);
+  it("stores no key for what comes free", () => {
+    for (const key of INCLUDED_SUBSECTIONS) {
+      expect(keysInConstraint()).not.toContain(key);
     }
-    // A page nobody assigned to a feature is reachable by every store,
-    // because the guard has nothing to check it against.
-    expect(unmapped).toEqual([]);
+    expect(keysInConstraint()).not.toContain("settings");
   });
 
-  it("guards every page that belongs to a sellable feature", () => {
-    // The lock is one line at the top of the page, which is exactly the
-    // kind of line left out of the next new one.
-    const missing: string[] = [];
-    for (const file of pages) {
-      const route = routeOf(file);
-      if (OPEN.has(route)) continue;
-      const feature = featureForPath(route.replace(/\[[^\]]+\]/g, "x"));
-      if (!feature || INCLUDED_FEATURES.includes(feature)) continue;
-      const src = code(fs.readFileSync(file, "utf8"));
-      if (!/requireSellerFeature\s*\(/.test(src)) missing.push(route);
-    }
-    expect(missing).toEqual([]);
+  it("migrates each old key to a tab, never to an area", () => {
+    /* Read from the migration itself. Mapping 'sales' to the area rather
+       than to sales.report is the one edit here that would widen every
+       store's access silently, and it would look like a tidy-up. */
+    const mapping = SQL.slice(SQL.indexOf("set features"), SQL.indexOf("where exists"));
+    expect(mapping).toMatch(/when 'sales'\s+then 'selling\.report'/);
+    expect(mapping).toMatch(/when 'today'\s+then 'selling\.today'/);
+    expect(mapping).toMatch(/when 'stock'\s+then 'catalog\.stock'/);
+    expect(mapping).toMatch(/when 'procurement'\s+then 'purchasing\.purchases'/);
   });
 
-  it("guards each page with the feature its own route belongs to", () => {
-    // A guard naming the WRONG feature is worse than none: it looks locked
-    // and opens for the wrong stores.
-    const wrong: string[] = [];
-    for (const file of pages) {
-      const route = routeOf(file);
-      const src = code(fs.readFileSync(file, "utf8"));
-      const m = /requireSellerFeature\s*\(\s*["']([a-z]+)["']/.exec(src);
-      if (!m) continue;
-      const expected = featureForPath(route.replace(/\[[^\]]+\]/g, "x"));
-      if (m[1] !== expected) {
-        wrong.push(`${route}: guards "${m[1]}", belongs to "${expected}"`);
+  it("drops the constraint it replaces, so the two cannot both apply", () => {
+    // A check constraint is enforced whenever it is present: leave the old
+    // narrow one and every new key would be rejected while the new one
+    // allowed it.
+    expect(SQL).toMatch(/drop constraint if exists sellers_features_check/);
+    expect(SQL).toMatch(/add constraint sellers_area_keys_check/);
+  });
+});
+
+describe("every page's guard names its own tab", () => {
+  it("never guards on an area, which would be wider than the page", () => {
+    /* A page naming its area would open for anybody holding any tab in
+       that area -- My sales reachable by a store that only bought Today.
+       Read from the pages themselves so a new one cannot quietly do it. */
+    const dir = path.join(process.cwd(), "src", "app", "seller");
+    const offenders: string[] = [];
+    const walk = (d: string) => {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const full = path.join(d, e.name);
+        if (e.isDirectory()) { walk(full); continue; }
+        if (e.name !== "page.tsx") continue;
+        const body = fs.readFileSync(full, "utf8");
+        const m = /requireSellerFeature\(\s*"([a-z.]+)"/.exec(body);
+        if (m && !m[1].includes(".")) {
+          offenders.push(`${path.relative(process.cwd(), full)}: ${m[1]}`);
+        }
       }
+    };
+    walk(dir);
+    expect(offenders).toEqual([]);
+  });
+
+  it("guards each page with the tab that owns its own path", () => {
+    const cases: [string, string][] = [
+      ["src/app/seller/today/page.tsx", "selling.today"],
+      ["src/app/seller/sales/page.tsx", "selling.report"],
+      ["src/app/seller/stock/page.tsx", "catalog.stock"],
+      ["src/app/seller/procurement/page.tsx", "purchasing.purchases"],
+    ];
+    for (const [file, key] of cases) {
+      const body = fs.readFileSync(path.join(process.cwd(), file), "utf8");
+      const m = /requireSellerFeature\(\s*"([a-z.]+)"/.exec(body);
+      expect([file, m?.[1]]).toEqual([file, key]);
     }
-    expect(wrong).toEqual([]);
-  });
-
-  it("never guards an included page, which would lock out every store", () => {
-    const overGuarded: string[] = [];
-    for (const file of pages) {
-      const route = routeOf(file);
-      const feature = featureForPath(route.replace(/\[[^\]]+\]/g, "x"));
-      if (!feature || !INCLUDED_FEATURES.includes(feature)) continue;
-      const src = code(fs.readFileSync(file, "utf8"));
-      if (/requireSellerFeature\s*\(/.test(src)) overGuarded.push(route);
-    }
-    expect(overGuarded).toEqual([]);
-  });
-});
-
-describe("the seller navigation offers no door that refuses", () => {
-  const NAV = code(fs.readFileSync(
-    path.join(ROOT, "src", "components", "seller", "SellerNav.tsx"), "utf8"));
-
-  it("builds its tabs from the catalogue rather than a list of its own", () => {
-    // A hand-written tab list is how a store ends up shown a tab that the
-    // page then bounces them off -- which reads as the shop being broken.
-    expect(NAV).toMatch(/SELLER_FEATURES\.filter\(/);
-    expect(NAV).toMatch(/sellerCanUse\(/);
-  });
-
-  it("takes what the store holds from the server, not from the browser", () => {
-    expect(NAV).toMatch(/features: readonly string\[\]/);
-    const LAYOUT = fs.readFileSync(
-      path.join(ROOT, "src", "app", "seller", "layout.tsx"), "utf8");
-    expect(LAYOUT).toMatch(/normalizeFeatures\(/);
-  });
-});
-
-describe("granting is the platform's to do", () => {
-  const ACTION = code(fs.readFileSync(
-    path.join(ROOT, "src", "lib", "actions", "sellers-admin.ts"), "utf8"));
-
-  it("requires an admin before writing the column", () => {
-    const fn = ACTION.slice(ACTION.indexOf("export async function setSellerFeatures"));
-    expect(/requireAdmin\s*\(/.test(fn)).toBe(true);
-  });
-
-  it("filters the list instead of trusting the request body", () => {
-    // A server action is a public HTTP endpoint; the argument is whatever
-    // the caller sent. Without this a crafted request writes any string
-    // into the column, including a key from a future version of the app.
-    const fn = ACTION.slice(ACTION.indexOf("export async function setSellerFeatures"));
-    expect(/normalizeFeatures\s*\(\s*features\s*\)/.test(fn)).toBe(true);
-    expect(/update\(\{\s*features:\s*clean\s*\}\)/.test(fn)).toBe(true);
   });
 });

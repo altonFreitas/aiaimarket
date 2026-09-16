@@ -186,7 +186,8 @@ describe("the seller's screen never asks for cost either", () => {
     expect(PAGE).not.toMatch(/costMap/);
   });
 
-  it("guards itself with the sales feature", () => {
-    expect(PAGE).toMatch(/requireSellerFeature\(\s*["']sales["']\s*\)/);
+  it("guards itself with the My sales TAB, not the whole area", () => {
+    // "selling" would open this page for a store that only bought Today.
+    expect(PAGE).toMatch(/requireSellerFeature\(\s*["']selling\.report["']\s*\)/);
   });
 });

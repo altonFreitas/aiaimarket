@@ -206,6 +206,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["sellers", "features"]],
   },
   {
+    // No table, no column: this file rewrites the keys in sellers.features
+    // and replaces the constraint that bounds them. Checked by the new
+    // constraint's NAME, because the panel saying "all run" while this one
+    // has not is a Sellers screen offering tabs the database refuses.
+    file: "seller-areas.sql", labelKey: "featSellerAreas",
+    constraints: [["public.sellers", "sellers_area_keys_check"]],
+  },
+  {
     file: "audience-restock.sql", labelKey: "featAudienceRestock",
     columns: [
       ["products", "audience"],
@@ -438,6 +446,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   // Sellers: what they may be given, then what one of those grants needs.
   "seller-invites.sql",
   "seller-features.sql",
+  "seller-areas.sql",       // after seller-features.sql: rewrites the keys
+                            // in the column that file adds, and replaces
+                            // its check constraint
   "seller-procurement.sql",
 
   // LAST, both of them. These two REMOVE things -- open policies, and
