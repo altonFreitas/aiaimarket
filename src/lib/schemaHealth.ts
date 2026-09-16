@@ -446,10 +446,14 @@ export const SCHEMA_ORDER: readonly string[] = [
   // Sellers: what they may be given, then what one of those grants needs.
   "seller-invites.sql",
   "seller-features.sql",
-  "seller-areas.sql",       // after seller-features.sql: rewrites the keys
-                            // in the column that file adds, and replaces
-                            // its check constraint
   "seller-procurement.sql",
+  // LAST of the three, so it is genuinely the last word on the constraint
+  // it replaces. seller-features.sql and seller-procurement.sql both add the
+  // narrow sellers_features_check; this file drops it, rewrites every row to
+  // the two-level keys and adds the wider sellers_area_keys_check. Running it
+  // between the other two left a file that re-narrows the column downstream
+  // of it, which worked only because that file asks first.
+  "seller-areas.sql",
 
   // LAST, both of them. These two REMOVE things -- open policies, and
   // grants on the audit log -- so anything that creates one has to have run

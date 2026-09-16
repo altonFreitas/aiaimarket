@@ -48,11 +48,32 @@ alter table sellers
 -- offers a checkbox, the owner ticks it, and the save fails against a
 -- constraint written before the feature existed.
 -- ---------------------------------------------------------------------------
-alter table sellers drop constraint if exists sellers_features_check;
-alter table sellers
-  add constraint sellers_features_check check (
-    features <@ array['sales','stock','procurement','today']::text[]
-  );
+--
+-- AND IT MUST NOT COME BACK ONCE seller-areas.sql HAS WIDENED IT.
+--
+-- That file replaces this constraint with sellers_area_keys_check, allowing
+-- the two-level keys, and rewrites every row to match. Re-adding the narrow
+-- list here afterwards fails outright -- "check constraint
+-- sellers_features_check is violated by some row" -- because the rows now
+-- hold 'selling.today' and this list has never heard of it.
+--
+-- That is not hypothetical: it is what running run-all.sql a second time
+-- did, and the first run left no sign of it because a fresh database has no
+-- sellers for the narrow constraint to trip over. So the guard checks for
+-- EITHER name, and running the two files in either order, or twice, lands
+-- in the same place.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname in ('sellers_features_check', 'sellers_area_keys_check')
+  ) then
+    alter table sellers
+      add constraint sellers_features_check check (
+        features <@ array['sales','stock','procurement','today']::text[]
+      );
+  end if;
+end $$;
 
 comment on column sellers.features is
   'Which of the owner''s tools this store may open, beyond the four screens every seller has. Keys from src/lib/sellerFeatures.ts. Enforced in requireSellerFeature(), src/lib/actions/guard.ts.';
