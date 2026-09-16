@@ -1,5 +1,5 @@
 -- ============================================================
--- Loja AIAI — schema for "Marketplace Platform for Timor-Leste v1.0"
+-- AIAI STORE TIMOR-LESTE — schema for "Marketplace Platform for Timor-Leste v1.0"
 -- Run this once in Supabase → SQL Editor → New query → Run.
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE throughout.
 -- ============================================================
@@ -10,7 +10,7 @@ create extension if not exists "pgcrypto";
 create table if not exists settings (
   id            int primary key default 1,
   seller_id     uuid not null default gen_random_uuid(),   -- Decision 2: present from day one
-  store_name    text not null default 'Loja AIAI',
+  store_name    text not null default 'AIAI STORE TIMOR-LESTE',
   tagline_tet   text default '',
   tagline_pt    text default '',
   tagline_en    text default '',
