@@ -84,16 +84,6 @@ export default function AdminUsers({ lang, users, ownerEmail }: {
         </button>
       </div>
 
-      {/* Where staff actually sign in. The person icon on the shop is the
-          CUSTOMER account and will never accept one of these -- which is
-          exactly the wrong door somebody walks into first. */}
-      <p className="note info">
-        {t("staffSignInHere", lang).split("{url}")[0]}
-        <a href="/admin/login" className="mono">/admin/login</a>
-        {t("staffSignInHere", lang).split("{url}")[1]}
-      </p>
-      <p className="note info">{t("ownerLoginNote", lang)}</p>
-
       {shadow.length > 0 && (
         <p className="note warn">
           {t("ownerEmailClash", lang).replace("{email}", ownerEmail || "")}
