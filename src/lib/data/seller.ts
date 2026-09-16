@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
 import { readCapped, type Capped } from "./capped";
-import type { Order, OrderItem, Product, Seller, SellerPayout } from "@/lib/types";
+import type { Order, OrderItem, PayMethod, PayStatus, Product, Seller, SellerPayout } from "@/lib/types";
 
 const MAX_SELLER_ORDER_SCAN = 5000;
 
@@ -87,6 +87,22 @@ export interface SellerOrderView {
    * rate each line captured when it was placed (OrderItem.commission_rate)
    * and falling back to the rate in force now for lines that predate it. */
   myCommission: number;
+
+  /* WHAT THE ORDER BOOK FILTERS ON, and nothing beyond it.
+   *
+   * Carried straight off the order because the filters and the flag chips
+   * cannot ask a question the row cannot answer: without expected_delivery
+   * there is no "late", without pay_status there is no "unpaid".
+   *
+   * `total` is deliberately NOT here. It is the whole basket -- other
+   * sellers' lines and the delivery fee included -- and a seller reading it
+   * as theirs would be reading somebody else's money. mySubtotal is the
+   * only figure on this row that belongs to them. */
+  pay_status: PayStatus;
+  pay_method: PayMethod;
+  expected_delivery?: string | null;
+  cancel_requested_at: string | null;
+  is_preorder?: boolean;
 }
 
 /** This seller's order ids, newest first, straight off the index.
@@ -200,6 +216,10 @@ export async function getSellerOrdersCapped(
       mode: o.mode, address_line: o.address_line, municipality: o.municipality,
       post: o.post, suku: o.suku, aldeia: o.aldeia, landmark: o.landmark,
       status: o.status, created_at: o.created_at,
+      pay_status: o.pay_status, pay_method: o.pay_method,
+      expected_delivery: o.expected_delivery,
+      cancel_requested_at: o.cancel_requested_at,
+      is_preorder: o.is_preorder,
       myItems: myItems.map(stripCost),
       mySubtotal: myItems.reduce((a, i) => a + i.price * i.qty, 0),
       myCommission: myItems.reduce((a, i) => a + lineCommission(i, fallbackRatePercent), 0),

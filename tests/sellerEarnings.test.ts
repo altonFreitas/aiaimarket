@@ -23,6 +23,7 @@ const order = (
   landmark: null, status, created_at: "2026-01-01T00:00:00Z",
   myItems: [], mySubtotal, myCommission: mySubtotal * (ratePercent / 100),
   allItemsMine: true,
+  pay_status: "paid", pay_method: "cod", cancel_requested_at: null,
 });
 
 describe("computeSellerEarnings", () => {
