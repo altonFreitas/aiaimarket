@@ -1,5 +1,6 @@
 "use client";
 import { useId } from "react";
+import { useRowCap } from "@/lib/useRowCap";
 import {
   ADMIN_SECTIONS, GRANTABLE_SECTIONS, grantableSubsection, type AdminRole,
 } from "@/lib/adminSections";
@@ -29,6 +30,21 @@ export default function AccessPicker({
 }) {
   const group = useId();
 
+  /* FIVE AREAS, THEN IT SCROLLS -- measured, not guessed.
+   *
+   * Seven areas holding twenty-three tabs is a column tall enough to push
+   * Save off the bottom of the screen, so the last thing somebody does on
+   * this form is hunt for the button. The admin's lists already solve this
+   * the same way: useRowCap measures the cards themselves, so an area whose
+   * tabs have wrapped onto a second line still counts as one area.
+   *
+   * It turns the cap OFF when there are five or fewer, which is the case
+   * that matters for the seller version of this screen -- a scrollbar around
+   * three cards is furniture around nothing. */
+  const areas = ADMIN_SECTIONS.filter((sec) => GRANTABLE_SECTIONS.includes(sec.key));
+  const { ref: areasRef, style: areasStyle } =
+    useRowCap<HTMLDivElement>(5, areas.length);
+
   return (
     <div className="access">
       <fieldset className="access-role" disabled={disabled}>
@@ -53,9 +69,8 @@ export default function AccessPicker({
             later version. The tab boxes mean exactly those. See
             canOpenSubsection -- which of the two was ticked is what decides
             whether a new tab appears for this person by itself. */}
-        {ADMIN_SECTIONS
-          .filter((sec) => GRANTABLE_SECTIONS.includes(sec.key))
-          .map((sec) => {
+        <div className="access-areas" ref={areasRef} style={areasStyle}>
+        {areas.map((sec) => {
             const tabs = sec.subsections.filter(grantableSubsection);
             const whole = sections.includes(sec.key);
             const picked = tabs.filter((sub) => whole || sections.includes(sub.key));
@@ -129,7 +144,8 @@ export default function AccessPicker({
                 </div>
               </div>
             );
-          })}
+        })}
+        </div>
 
         <div className="access-quick">
           <button type="button" className="linkish"

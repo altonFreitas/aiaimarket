@@ -2,6 +2,7 @@
 import {
   SELLER_AREAS, GRANTABLE_AREAS, grantableArea, grantableSubsection,
 } from "@/lib/sellerFeatures";
+import { useRowCap } from "@/lib/useRowCap";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -28,6 +29,14 @@ export default function SellerFeaturePicker({
   onChange: (f: string[]) => void;
   disabled?: boolean;
 }) {
+  /* The same five-then-scroll cap the staff checklist has. Three areas
+   * today, so useRowCap turns it off outright and there is no scrollbar --
+   * the point is that the two screens behave identically when a fourth and
+   * fifth area arrive, rather than one of them growing a wall later. */
+  const areas = SELLER_AREAS.filter(grantableArea);
+  const { ref: areasRef, style: areasStyle } =
+    useRowCap<HTMLDivElement>(5, areas.length);
+
   return (
     <div className="access">
       <fieldset className="access-sections" disabled={disabled}>
@@ -39,7 +48,8 @@ export default function SellerFeaturePicker({
             sellerCanOpen -- which of the two was ticked is what decides
             whether a new tab appears for this store by itself, and that is
             the difference between a plan and a list. */}
-        {SELLER_AREAS.filter(grantableArea).map((area) => {
+        <div className="access-areas" ref={areasRef} style={areasStyle}>
+        {areas.map((area) => {
           const tabs = area.subsections.filter(grantableSubsection);
           /* The ones that come with the shop, shown ticked and locked
              rather than left out. The first question anyone asks of this
@@ -128,6 +138,7 @@ export default function SellerFeaturePicker({
             </div>
           );
         })}
+        </div>
 
         <div className="access-quick">
           <button type="button" className="linkish"
