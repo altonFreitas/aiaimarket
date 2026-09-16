@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
+import { sessionMinutes } from "@/lib/session";
 
 /** Supabase Auth's own session is created the moment a password check
  * succeeds — there's no built-in way to pause it mid-login for a second
@@ -10,11 +11,22 @@ import { cookies } from "next/headers";
  * cookie also says the TOTP code was verified, requireSeller() (see
  * lib/actions/guard.ts) treats the account as not fully authenticated. */
 const COOKIE = "loja_seller_totp_ok";
-// 10 minutes -- matches the admin session length. After this, the next
-// visit to a seller page or action needs the TOTP code re-entered, even
-// though the underlying Supabase password session may still be valid
-// longer than that.
-const MAX_AGE = 60 * 10;
+
+/* THE SAME LENGTH AS THE ADMIN'S SESSION, because it is the same decision:
+ * how long the shop trusts a second factor before asking again.
+ *
+ * It used to say that in a comment while being hard-coded to ten minutes,
+ * so the two matched only at the default. Setting ADMIN_SESSION_MINUTES=100
+ * gave the owner a hundred minutes and left every seller re-entering a code
+ * every ten, which is not a policy anybody chose -- it is the comment and
+ * the constant having drifted apart.
+ *
+ * The variable is named for the admin and now governs both. One session
+ * policy for the shop is easier to reason about than two, and it is already
+ * clamped at both ends in sessionMinutes(). After this the next visit to a
+ * seller page or action needs the code again, even though the underlying
+ * Supabase password session may still be valid for longer. */
+const MAX_AGE = sessionMinutes() * 60;
 
 function secret() {
   const s = process.env.SESSION_SECRET;

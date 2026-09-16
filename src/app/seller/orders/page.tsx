@@ -3,6 +3,7 @@ import SellerStatusGate from "@/components/seller/SellerStatusGate";
 import { getCurrentSellerOrRedirect, getSellerOrders } from "@/lib/data/seller";
 import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
+import { storeToday } from "@/lib/tz";
 
 /** adminSettings() (service role, full row), not the public getSettings()
  * — commission_rate isn't in the public anon column grant, and this page
@@ -21,7 +22,11 @@ export default async function SellerOrdersPage() {
 
   return (
     <SellerStatusGate seller={seller} lang={lang}>
-      <SellerOrdersList lang={lang} orders={orders} commissionRatePercent={commissionRatePercent} />
+      {/* today from the SHOP's clock, not the seller's device: the date
+          filters and the "late" count are answered against the same day
+          the rest of the shop uses. */}
+      <SellerOrdersList lang={lang} orders={orders} today={storeToday()}
+        commissionRatePercent={commissionRatePercent} />
     </SellerStatusGate>
   );
 }

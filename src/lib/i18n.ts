@@ -438,6 +438,8 @@ export const STR: Record<string, [string,string,string]> = {
   /* the order book */
   ordersSub:["Enkomenda hotu, tuir tempu no situasaun.","Todas as encomendas, por período e estado.","Every order, by period and state."],
   searchOrders:["Buka referénsia, naran, telefone, fatin","Procurar referência, nome, telefone, morada","Search reference, name, phone, address"],
+  searchSellerOrders:["Buka referénsia, naran, telefone, ka produtu","Procurar referência, nome, telefone ou produto","Search reference, name, phone or product"],
+  noResultsHere:["La hetan pedidu ida ho filtru sira ne'e.","Nenhum pedido corresponde a estes filtros.","No orders match these filters."],
   orderList:["Enkomenda sira","Encomendas","Orders"],
   allPayStatuses:["Pagamentu hotu","Todos os pagamentos","All payment states"],
   allPayMethods:["Forma pagamentu hotu","Todas as formas de pagamento","All payment methods"],
