@@ -1,5 +1,5 @@
 -- =========================================================================
--- AIAI STORE TIMOR-LESTE -- every migration, in order. GENERATED, do not edit.
+-- Loja AIAI -- every migration, in order. GENERATED, do not edit.
 --
 --   node scripts/build-run-all.js
 --
@@ -546,7 +546,7 @@ end $$;
 -- ==== schema-health.sql =================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- letting the admin see which SQL files have been run
+-- Loja AIAI -- letting the admin see which SQL files have been run
 --
 -- One read-only function listing the NAMES of what is in the database. The
 -- Settings screen compares that against what each file in this folder
@@ -1020,7 +1020,7 @@ grant execute on function suggest_products(text, int) to anon, authenticated;
 -- ==== order-items.sql ===================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- order lines become rows
+-- Loja AIAI -- order lines become rows
 --
 -- Run AFTER supabase/schema.sql and supabase/marketplace-v2.sql.
 --
@@ -2045,7 +2045,7 @@ $$ language plpgsql;
 -- ==== stock-ledger.sql ==================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- complete the stock ledger
+-- Loja AIAI -- complete the stock ledger
 --
 -- stock_movements already calls itself "the history behind products.qty".
 -- It was not. Only purchase receipts were ever written to it: a sale changed
@@ -2303,7 +2303,7 @@ revoke all on stock_reconciliation from anon, authenticated;
 -- ==== stock-reservation.sql =============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- stock held from the moment it is ordered
+-- Loja AIAI -- stock held from the moment it is ordered
 --
 -- Run AFTER supabase/stock-ledger.sql.
 --
@@ -2715,7 +2715,7 @@ end $$;
 -- ==== returns.sql =======================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- returns and refunds
+-- Loja AIAI -- returns and refunds
 --
 -- The system could take an order and cancel one. It could not accept goods
 -- back. orders.pay_status has listed 'refunded' since the first schema and
@@ -2851,7 +2851,7 @@ revoke all on order_return_items from anon, authenticated;
 -- ==== return-requests.sql ===============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- a buyer can start a return
+-- Loja AIAI -- a buyer can start a return
 --
 -- Run AFTER supabase/returns.sql.
 --
@@ -2973,7 +2973,7 @@ revoke all on return_request_items from anon, authenticated;
 -- ==== supplier-returns.sql ==============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- sending goods back to the supplier
+-- Loja AIAI -- sending goods back to the supplier
 --
 -- Run AFTER supabase/procurement.sql and supabase/stock-reservation.sql.
 -- Safe to re-run.
@@ -3188,7 +3188,7 @@ revoke all on supplier_return_items from public, anon, authenticated;
 -- ==== size-stock.sql ====================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- stock, per size
+-- Loja AIAI -- stock, per size
 --
 -- Run AFTER supabase/stock-reservation.sql and supabase/procurement.sql.
 -- Safe to re-run.
@@ -3564,7 +3564,7 @@ comment on column purchase_order_items.audience is
 -- ==== zone-cleanup.sql ==================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- delivery zones the shop has a name for
+-- Loja AIAI -- delivery zones the shop has a name for
 --
 -- Run AFTER supabase/schema.sql. Safe to re-run.
 --
@@ -3656,7 +3656,7 @@ end $$;
 -- ==== operating-costs.sql ===============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- what it costs to run the shop
+-- Loja AIAI -- what it costs to run the shop
 --
 -- Run AFTER supabase/schema.sql. Safe to re-run.
 --
@@ -3859,7 +3859,7 @@ revoke all on function is_expense_account(text) from public, anon, authenticated
 -- ==== refund-settlement.sql =============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- the database stops claiming a refund that has not happened
+-- Loja AIAI -- the database stops claiming a refund that has not happened
 --
 -- WHAT WAS WRONG. recordReturn() wrote a refund_total, restocked the goods
 -- and let a trigger set orders.pay_status = 'refunded'. For cash, a bank
@@ -4135,7 +4135,7 @@ create policy promotions_public_read on promotions for select using (active = tr
 -- ==== hero-video.sql ====================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- a hero slide that can be a VIDEO, not only a photo
+-- Loja AIAI -- a hero slide that can be a VIDEO, not only a photo
 --
 -- One column. A slide with a non-empty video_url plays as a muted, looping
 -- background video; every other slide stays exactly what it was, a photo.
@@ -4405,7 +4405,7 @@ comment on function sync_order_items is
 -- ==== loves.sql =========================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- "I like this", from someone who is not buying it today
+-- Loja AIAI -- "I like this", from someone who is not buying it today
 --
 -- A shop learns two things from its catalog today: what sold, and what was
 -- looked at. Both are late. A product people keep opening and never buying
@@ -4480,7 +4480,7 @@ grant execute on function decrement_loves(uuid) to anon, authenticated;
 -- ==== reorder-policy.sql ================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- the reorder policy belongs to the shop
+-- Loja AIAI -- the reorder policy belongs to the shop
 --
 -- The reorder plan works from four numbers: how far back to measure demand,
 -- how long a delivery takes when the supplier has not said, how much buffer
@@ -4535,7 +4535,7 @@ comment on column settings.reorder_default_lead_days is
 -- ==== audience-restock.sql ==============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- who a product is for, and a warning before a shelf empties
+-- Loja AIAI -- who a product is for, and a warning before a shelf empties
 --
 -- Two unrelated features in one file because they are one afternoon's
 -- migration and splitting them would mean asking you to run two.
@@ -5007,7 +5007,7 @@ comment on function redact_old_order_pii(int) is
 -- ==== order-idempotency.sql =============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- one submission, one order
+-- Loja AIAI -- one submission, one order
 --
 -- THE PROBLEM. placeOrder()'s only protection against a double submission
 -- was setBusy(true) in the browser. On a slow or flaky mobile connection --
@@ -5056,7 +5056,7 @@ create unique index if not exists orders_idempotency_key_uq
 -- ==== rate-limits.sql ===================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- throttles that actually bind
+-- Loja AIAI -- throttles that actually bind
 --
 -- THE PROBLEM. lib/rateLimit.ts counted attempts in a Map inside one
 -- serverless instance, and said so in its own header: "a determined
@@ -5164,7 +5164,7 @@ revoke all on function hit_rate_limit(text, int, int) from public, anon, authent
 -- ==== admin-users.sql ===================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- named admin accounts, and a record of who did what
+-- Loja AIAI -- named admin accounts, and a record of who did what
 --
 -- Until now the admin was one shared login: ADMIN_EMAIL and ADMIN_PASSWORD
 -- in the environment, with a TOTP secret on the settings row. That is a
@@ -5262,7 +5262,7 @@ revoke all on audit_log   from anon, authenticated;
 -- ==== admin-roles.sql ===================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- what each staff account may do, and where it may go
+-- Loja AIAI -- what each staff account may do, and where it may go
 --
 -- Two columns on admin_users. They answer two different questions, and
 -- keeping them separate is the point:
@@ -5537,7 +5537,7 @@ comment on column settings.totp_last_counter is
 -- ==== seller-invites.sql ================================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- becoming a seller is by invitation
+-- Loja AIAI -- becoming a seller is by invitation
 --
 -- HOW IT USED TO WORK. One checkbox in Settings opened /seller/register to
 -- the whole internet, and closing it shut the door on everybody. Neither
@@ -5627,7 +5627,7 @@ comment on table seller_invites is
 -- ==== seller-features.sql ===============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- what each seller has been given access to
+-- Loja AIAI -- what each seller has been given access to
 --
 -- One column on sellers. It answers one question:
 --
@@ -5729,7 +5729,7 @@ revoke update on sellers from anon, authenticated;
 -- ==== seller-procurement.sql ============================================
 
 -- ===========================================================================
--- AIAI STORE TIMOR-LESTE -- a seller's own buying
+-- Loja AIAI -- a seller's own buying
 --
 -- The marketplace's purchasing screens (supabase/procurement.sql) are the
 -- OWNER'S buying operation: their suppliers, their orders, their landed
