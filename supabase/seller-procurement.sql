@@ -59,11 +59,23 @@ create index if not exists idx_purchase_orders_seller
 -- re-running actually applies the new list. This is that edit. Running
 -- either file after the other leaves the same three keys.
 -- ---------------------------------------------------------------------------
-alter table sellers drop constraint if exists sellers_features_check;
-alter table sellers
-  add constraint sellers_features_check check (
-    features <@ array['sales','stock','procurement','today']::text[]
-  );
+--
+-- GUARDED, LIKE THE ONE IN seller-features.sql, because seller-areas.sql
+-- later replaces this constraint with sellers_area_keys_check and rewrites
+-- every row to the two-level keys. Re-adding the narrow list over those rows
+-- fails outright, which is what running run-all.sql a second time did.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conname in ('sellers_features_check', 'sellers_area_keys_check')
+  ) then
+    alter table sellers
+      add constraint sellers_features_check check (
+        features <@ array['sales','stock','procurement','today']::text[]
+      );
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Row-level security is unchanged, and that is the point.

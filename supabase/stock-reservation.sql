@@ -43,13 +43,45 @@
 -- Dropped by name and rebuilt so re-running this is a no-op rather than a
 -- second constraint saying something subtly different.
 
-alter table stock_movements
-  drop constraint if exists stock_movements_reason_check;
-
-alter table stock_movements
-  add constraint stock_movements_reason_check
-  check (reason in ('purchase_receipt','sale','adjustment','return',
-                    'correction','reservation'));
+-- ADDED ONLY WHEN THERE IS NONE, because this list is not the longest one.
+--
+-- supabase/supplier-returns.sql runs after this file and widens the same
+-- constraint with 'supplier_return'. Re-adding the shorter list here
+-- unconditionally is fine on a fresh database and fails on a real one the
+-- moment a shop has actually sent goods back to a supplier: the rows hold a
+-- reason this list has never heard of, and run-all.sql stops with "check
+-- constraint stock_movements_reason_check is violated by some row".
+--
+-- Which is a re-run breaking on data the shop was right to have.
+--
+-- AND THERE IS NO `drop constraint` ABOVE THIS, deliberately. Dropping
+-- first and then asking whether one exists always answers no -- the drop
+-- just removed it -- so the guard would add the short list every time and
+-- the guard would be decoration. Leave whatever is there; supplier-returns.sql
+-- runs later and drops and re-adds the full list unconditionally, so the end
+-- state of a whole run is the longest list either way.
+--
+-- AND ONLY WHEN EVERY EXISTING ROW ALREADY FITS IT. A run that failed here
+-- once has already committed the old unconditional DROP, so the table can
+-- be sitting with NO constraint and with rows holding 'supplier_return' --
+-- and "there is no constraint" is then not the same question as "this list
+-- is safe to apply". Asking both is what makes this recoverable rather than
+-- a state an owner has to repair by hand.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'stock_movements_reason_check'
+  ) and not exists (
+    select 1 from stock_movements
+     where reason not in ('purchase_receipt','sale','adjustment','return',
+                          'correction','reservation')
+  ) then
+    alter table stock_movements
+      add constraint stock_movements_reason_check
+      check (reason in ('purchase_receipt','sale','adjustment','return',
+                        'correction','reservation'));
+  end if;
+end $$;
 
 comment on column stock_movements.reason is
   'purchase_receipt, sale, return, adjustment, correction, or reservation -- units held for an order that has been placed and not yet confirmed. A reservation moves the balance exactly like a sale; see supabase/stock-reservation.sql.';

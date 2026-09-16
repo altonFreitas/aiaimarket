@@ -180,8 +180,22 @@ describe("release_stale_reservations", () => {
 });
 
 describe("the ledger vocabulary", () => {
-  it("replaces the reason constraint rather than adding a second one", () => {
-    expect(SQL).toMatch(/drop constraint if exists stock_movements_reason_check/);
+  it("adds the reason constraint only when there is not one already", () => {
+    /* IT USED TO DROP AND RE-ADD, and that is the bug this now pins shut.
+       supabase/supplier-returns.sql runs after this file and widens the same
+       constraint with 'supplier_return'. Dropping it here and putting the
+       shorter list back broke run-all.sql on any shop that had actually sent
+       goods back to a supplier -- the rows held a reason this list has never
+       heard of. A clean database never showed it, because empty tables
+       violate nothing.
+
+       So: no drop, and the add asks twice -- is there a constraint, and do
+       the rows already fit. The second question matters because a run that
+       failed here once has already committed the old drop, leaving no
+       constraint at all beside rows this list would reject. */
+    expect(SQL).not.toMatch(/drop constraint if exists stock_movements_reason_check/);
+    expect(SQL).toMatch(/if not exists \([\s\S]{0,200}pg_constraint/);
+    expect(SQL).toMatch(/reason not in \(/);
     expect(SQL).toMatch(/check \(reason in[\s\S]*'reservation'\)\)/);
   });
 

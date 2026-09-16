@@ -104,3 +104,138 @@ describe("supabase/run-all.sql", () => {
     }
   });
 });
+
+/* ---------------------------------------------------------------------------
+ * Two files, one constraint name
+ * ------------------------------------------------------------------------ */
+
+describe("a constraint two files both add", () => {
+  /* THE BUG THIS EXISTS FOR, found by an owner and not by any test here.
+   *
+   * seller-features.sql and seller-procurement.sql both did:
+   *
+   *     alter table sellers drop constraint if exists sellers_features_check;
+   *     alter table sellers add constraint sellers_features_check check (...);
+   *
+   * and seller-areas.sql later widened the same column's rules and rewrote
+   * every row to match. Re-running run-all.sql then stopped dead with
+   * "check constraint sellers_features_check is violated by some row",
+   * because the earlier files put the SHORT list back over the new rows.
+   *
+   * Applying to a clean database twice -- which is what CI does, and what I
+   * checked -- never sees it: the tables are empty, so the short list has
+   * nothing to trip over. It only breaks on a shop with data, which is
+   * every real one.
+   *
+   * The same shape was sitting in stock_movements_reason_check, where
+   * stock-reservation.sql's six reasons ran before supplier-returns.sql's
+   * seven. Any shop that had sent goods back to a supplier would have hit
+   * it on the next re-run.
+   *
+   * So: when more than one file adds the same constraint, every file but
+   * the last one in run order has to ask before adding. */
+  const files = fs.readdirSync(DIR)
+    .filter((f) => f.endsWith(".sql") && f !== "run-all.sql");
+
+  /** A file's SQL with its comments removed.
+   *
+   * COMMENTS ARE STRIPPED BEFORE ANY OF THIS LOOKS AT THE TEXT, and that is
+   * not a detail: the prose above each of these guards explains the guard,
+   * so a check reading the raw file passes on the strength of the
+   * explanation while the code below it says something else. That is
+   * exactly what the first version of this test did -- it went green with
+   * the guard replaced by `if true then`. */
+  const sqlOf = (file: string) =>
+    fs.readFileSync(path.join(DIR, file), "utf8")
+      .split("\n").filter((l) => !l.trim().startsWith("--")).join("\n");
+
+  /** Is the add at `at` wrapped in a do-block that asks pg_constraint first?
+   *
+   * EXACT, not "is there an `if not exists` nearby". These files are full of
+   * `add column if not exists` and `create table if not exists`, so a window
+   * of preceding text says yes for every add in the folder -- which is what
+   * the first version of this did, and it reported supplier-returns.sql as
+   * guarded when that file adds unconditionally. A check that cannot come
+   * back false is not a check. */
+  const guarded = (body: string, at: number): boolean => {
+    const opened = body.lastIndexOf("do $$", at);
+    if (opened < 0) return false;
+    const closed = body.indexOf("end $$", opened);
+    if (closed >= 0 && closed < at) return false;      // block ended first
+    const head = body.slice(opened, at);
+    return /if\s+not\s+exists/i.test(head) && /pg_constraint/i.test(head);
+  };
+
+  /** Where each constraint name is added, and at what offset. */
+  const adds = new Map<string, { file: string; at: number }[]>();
+  for (const file of files) {
+    const body = sqlOf(file);
+    for (const m of body.matchAll(/add\s+constraint\s+([a-z0-9_]+)/gi)) {
+      const list = adds.get(m[1]) ?? [];
+      list.push({ file, at: m.index ?? 0 });
+      adds.set(m[1], list);
+    }
+  }
+
+  /** Files that DROP each constraint name. A drop is a claim on the
+   * constraint just as much as an add: seller-areas.sql drops
+   * sellers_features_check and puts a wider rule under a different name, so
+   * no file that adds the old name gets to be the last word. */
+  const drops = new Map<string, string[]>();
+  for (const file of files) {
+    const body = sqlOf(file);
+    for (const m of body.matchAll(/drop\s+constraint\s+if\s+exists\s+([a-z0-9_]+)/gi)) {
+      drops.set(m[1], [...(drops.get(m[1]) ?? []), file]);
+    }
+  }
+
+  /** The last file in RUN order to touch a constraint at all, by adding or
+   * dropping it. Only that one may add without asking first. */
+  const lastToucher = (name: string): string => {
+    const touchers = [
+      ...(adds.get(name) ?? []).map((a) => a.file),
+      ...(drops.get(name) ?? []),
+    ];
+    return touchers.sort(
+      (a, b) => SCHEMA_ORDER.indexOf(a) - SCHEMA_ORDER.indexOf(b)).pop()!;
+  };
+
+  const shared = [...adds.entries()].filter(([name, where]) =>
+    new Set(where.map((w) => w.file)).size > 1
+    || (drops.get(name) ?? []).some((d) => !where.some((w) => w.file === d)));
+
+  it("finds the ones worth checking at all", () => {
+    // If this ever hits zero the test below is passing vacuously.
+    expect(shared.length).toBeGreaterThan(0);
+  });
+
+  it("makes every add but the last one conditional", () => {
+    const unguarded: string[] = [];
+    for (const [name, where] of shared) {
+      const owner = lastToucher(name);
+      for (const w of where) {
+        if (w.file === owner) continue;
+        if (!guarded(sqlOf(w.file), w.at)) unguarded.push(`${w.file}: ${name}`);
+      }
+    }
+    expect(unguarded).toEqual([]);
+  });
+
+  it("never drops a shared constraint outside its guard", () => {
+    /* A `drop constraint if exists` above the guard defeats it: the drop
+       removes the constraint, the guard then finds none and adds the short
+       list anyway. That is the first fix I wrote for this, and it did not
+       work. */
+    const offenders: string[] = [];
+    for (const [name, where] of shared) {
+      const owner = lastToucher(name);
+      for (const w of where) {
+        if (w.file === owner) continue;
+        const body = sqlOf(w.file);
+        const dropRe = new RegExp("drop\\s+constraint\\s+if\\s+exists\\s+" + name, "i");
+        if (dropRe.test(body)) offenders.push(`${w.file}: drops ${name}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
