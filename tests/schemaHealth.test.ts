@@ -31,6 +31,7 @@ const KINDS = {
    * constraint sits beside it for the same reason as the policy above. */
   constraints: [
     ["public.admin_users", "admin_users_section_keys_check"],
+    ["public.sellers", "sellers_area_keys_check"],
     ["public.orders", "orders_status_check"],
   ] as [string, string][],
 };
@@ -249,6 +250,7 @@ describe("an old schema_inventory() that can only see tables", () => {
       "loves.sql", "refund-settlement.sql", "rate-limits.sql",
       // Checked by a constraint alone, which the old function cannot report.
       "admin-subsections.sql",
+      "seller-areas.sql",
       "pii-retention.sql",
       "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",

@@ -12,7 +12,7 @@ import { t } from "@/lib/i18n";
  * stock. requireSellerFeature refuses anyone who is not signed in, whose
  * store is not approved, or who has not been given it. */
 export default async function SellerProcurementPage() {
-  const seller = await requireSellerFeature("procurement");
+  const seller = await requireSellerFeature("purchasing.purchases");
   const [lang, ready] = await Promise.all([getLang(), sellerProcurementReady()]);
 
   // The column is not there yet. Said rather than swallowed: an empty list

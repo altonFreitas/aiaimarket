@@ -13,7 +13,7 @@ import { getLang } from "@/lib/lang";
  * Nothing below re-checks that, because there is nothing to re-check: what
  * arrives here has no cost in it. */
 export default async function SellerSalesPage() {
-  const seller = await requireSellerFeature("sales");
+  const seller = await requireSellerFeature("selling.report");
   const [lang, data, settings] = await Promise.all([
     getLang(), sellerSalesData(seller), adminSettings(),
   ]);

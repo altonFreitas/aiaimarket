@@ -5,7 +5,7 @@ import { useToast } from "@/components/Toast";
 import { approveSeller, rejectSeller, suspendSeller, reactivateSeller, resetSellerTotpAction, setSellerFeatures } from "@/lib/actions/sellers-admin";
 import SellerFeaturePicker from "./SellerFeaturePicker";
 import {
-  normalizeFeatures, featureSummary, type SellerFeatureKey,
+  normalizeFeatures, featureSummary,
 } from "@/lib/sellerFeatures";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -45,7 +45,10 @@ export default function SellersAdmin({
      somebody is paying for, and a screen full of half-edited checklists is
      how the wrong store gets granted the wrong thing. */
   const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<SellerFeatureKey[]>([]);
+  /* AREA KEYS AND TAB KEYS TOGETHER, in one list -- see
+     lib/sellerFeatures.ts. Not two pieces of state, because they answer
+     the same question and splitting them would let a draft say both. */
+  const [draft, setDraft] = useState<string[]>([]);
 
   const list = filter ? sellers.filter((s) => s.status === filter) : sellers;
   const pendingCount = sellers.filter((s) => s.status === "pending").length;

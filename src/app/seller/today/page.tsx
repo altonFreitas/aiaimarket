@@ -24,7 +24,7 @@ const WINDOW_DAYS = 30;
  * own feature, and it is where the breakdowns live. This is four numbers
  * and a to-do list, which is what a home page is for. */
 export default async function SellerTodayPage() {
-  const seller = await requireSellerFeature("today");
+  const seller = await requireSellerFeature("selling.today");
   const [lang, data, orders, settings] = await Promise.all([
     getLang(), sellerSalesData(seller), getSellerOrders(seller.id), adminSettings(),
   ]);

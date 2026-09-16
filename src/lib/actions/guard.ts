@@ -4,9 +4,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hasSellerTotpSession } from "@/lib/sellerTotpSession";
 import { canSee, canWrite, type SectionKey, canOpenSubsection } from "@/lib/adminSections";
-import {
-  normalizeFeatures, sellerCanUse, type SellerFeatureKey,
-} from "@/lib/sellerFeatures";
+import { normalizeFeatures, sellerCanOpen } from "@/lib/sellerFeatures";
 import { getCurrentSellerOrRedirect } from "@/lib/data/seller";
 import { redirect } from "next/navigation";
 import { PermissionError } from "@/lib/permissionError";
@@ -147,13 +145,18 @@ export async function requireApprovedSeller(): Promise<Seller> {
  * A missing call here is caught by tests/sellerFeatures.test.ts, which
  * reads every page.tsx under src/app/seller and fails if one that belongs
  * to a sellable feature does not guard itself. */
-export async function requireSellerFeature(feature: SellerFeatureKey): Promise<Seller> {
+/** Every seller PAGE calls this, naming the tab it is.
+ *
+ * "sales.today", not "today": a store given only My sales must not reach
+ * Today because both once lived under one flat key. The navigation hiding
+ * a tab is a courtesy; this is the lock. */
+export async function requireSellerFeature(feature: string): Promise<Seller> {
   const seller = await getCurrentSellerOrRedirect();
   // Suspended or still pending: not a features question. Those screens are
   // gated by SellerStatusGate, which explains the status; falling through
   // to "not included in your plan" would be the wrong sentence entirely.
   if (seller.status !== "approved") redirect("/seller/dashboard");
-  if (!sellerCanUse(normalizeFeatures(seller.features), feature)) {
+  if (!sellerCanOpen(normalizeFeatures(seller.features), feature)) {
     redirect("/seller/no-access");
   }
   return seller;

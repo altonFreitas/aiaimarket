@@ -11,7 +11,7 @@ import { getLang } from "@/lib/lang";
  * the marketplace are looking at the same definition of "running low"
  * rather than each having their own. */
 export default async function SellerStockPage() {
-  const seller = await requireSellerFeature("stock");
+  const seller = await requireSellerFeature("catalog.stock");
   const [lang, products, settings] = await Promise.all([
     getLang(), getSellerProducts(seller.id), adminSettings(),
   ]);
