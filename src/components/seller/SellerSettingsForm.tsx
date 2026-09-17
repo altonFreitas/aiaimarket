@@ -18,6 +18,10 @@ export default function SellerSettingsForm({ lang, seller }: { lang: Lang; selle
     city: seller.city,
     country: seller.country,
   });
+  /* Defaults to FALSE for a seller whose row predates the column, which is
+     the same answer the database records for them: nobody who was never
+     asked has agreed. */
+  const [addressPublic, setAddressPublic] = useState(seller.address_public === true);
   const [deliveryAvailable, setDeliveryAvailable] = useState(seller.delivery_available);
   const [pickupAvailable, setPickupAvailable] = useState(seller.pickup_available);
   const [deliveryFee, setDeliveryFee] = useState(seller.delivery_fee != null ? String(seller.delivery_fee) : "");
@@ -31,6 +35,7 @@ export default function SellerSettingsForm({ lang, seller }: { lang: Lang; selle
     try {
       await updateSellerProfile({
         ...f,
+        addressPublic,
         deliveryAvailable, pickupAvailable,
         deliveryFee: deliveryFee.trim() ? Number(deliveryFee) : null,
         deliveryArea,
@@ -62,6 +67,21 @@ export default function SellerSettingsForm({ lang, seller }: { lang: Lang; selle
         <div className="field">
           <label htmlFor="address">{t("sellerAddress", lang)}</label>
           <input id="address" value={f.address} onChange={set("address")} />
+        </div>
+        {/* THE SELLER'S OWN CHOICE, next to the field it governs rather than
+            in a privacy screen nobody opens. Off unless they turn it on:
+            this address was given to the marketplace when they registered,
+            and the store page shows only their city and country until they
+            say otherwise. */}
+        <div className="field">
+          <label className="check" data-on={addressPublic}>
+            <input type="checkbox" checked={addressPublic}
+              onChange={(e) => setAddressPublic(e.target.checked)} />
+            <span>{t("sellerAddressPublic", lang)}</span>
+          </label>
+          <p className="hint" style={{ margin: "4px 0 0" }}>
+            {t("sellerAddressPublicHint", lang)}
+          </p>
         </div>
         <div className="two">
           <div className="field">

@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
-import { getSellerBySlug, getLiveProducts, getSellerRatings } from "@/lib/data/public";
+import {
+  getSellerBySlug, getLiveProducts, getSellerRatings, getSellerPublicAddress,
+} from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
 import { nowIso } from "@/lib/utils";
@@ -34,7 +36,9 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
   const [lang, seller] = await Promise.all([getLang(), getSellerBySlug(slug)]);
   if (!seller) notFound();
 
-  const [allProducts, ratings] = await Promise.all([getLiveProducts(), getSellerRatings(seller.id)]);
+  const [allProducts, ratings, publicAddress] = await Promise.all([
+    getLiveProducts(), getSellerRatings(seller.id), getSellerPublicAddress(seller.id),
+  ]);
   const products = allProducts.filter((p) => p.seller_id === seller.id);
 
   return (
@@ -47,17 +51,15 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
             customer deciding whether to collect had to copy it into a map
             by hand.
 
-            CITY AND COUNTRY, NOT THE STREET ADDRESS, and that is a
-            deliberate limit rather than an oversight. sellers.address is
-            not granted to anon at all -- see the column grant in
-            supabase/schema.sql, which hands the public id, store_name,
-            slug, description, city, country, seller_type and created_at
-            and nothing else. A seller trading from home gave that address
-            to the marketplace, not to the catalogue, and publishing it
-            because a map link would be more precise is not a decision this
-            page gets to make on their behalf. If sellers should be able to
-            publish it, that is a switch on their own settings screen and a
-            widened grant, in that order.
+            THE STREET ADDRESS ONLY IF THE SELLER PUBLISHED IT. sellers.address
+            is not granted to anon at all, and getSellerPublicAddress() hands
+            it over only for an approved store that ticked the box in its own
+            settings. Every other store pins its city, which is as precise as
+            the marketplace was ever told it could be.
+
+            The LABEL stays the city and country either way: a street address
+            is too long for a line that also carries the product count, and
+            the pin is what the address is for.
 
             Nothing renders when even the city is blank: a map link with no
             place searches for the empty string and lands in the ocean,
@@ -65,10 +67,12 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
             wrong. */}
         <p className="sub">
           <MapLink
-            parts={[seller.city, seller.country]}
-            title={t("storeLocationHint", lang)}
+            parts={[publicAddress, seller.city, seller.country]}
+            title={publicAddress
+              ? [publicAddress, seller.city].filter(Boolean).join(", ")
+              : t("storeLocationHint", lang)}
             label={[seller.city, seller.country].filter(Boolean).join(", ")} />
-          {hasPlace([seller.city, seller.country]) && products.length ? " · " : ""}
+          {hasPlace([publicAddress, seller.city, seller.country]) && products.length ? " · " : ""}
           {products.length > 0 && `${products.length} ${t("storeProductCount", lang)}`}
         </p>
         {ratings.count > 0 && (

@@ -8,6 +8,8 @@ export interface SellerProfileInput {
   description: string;
   phone: string;
   address: string;
+  /** The seller's own choice to publish it. Never defaulted true. */
+  addressPublic: boolean;
   city: string;
   country: string;
   deliveryAvailable: boolean;
@@ -37,6 +39,7 @@ export async function updateSellerProfile(input: SellerProfileInput) {
     description: input.description.trim(),
     phone: input.phone.trim(),
     address: input.address.trim(),
+    address_public: !!input.addressPublic,
     city: input.city.trim(),
     country: input.country.trim(),
     delivery_available: input.deliveryAvailable,

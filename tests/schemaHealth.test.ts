@@ -84,6 +84,7 @@ const EVERYTHING = snap([
   "settings.reorder_window_days",
   "admin_users", "audit_log", "admin_users.role", "admin_users.sections",
   "sellers.features",
+  "sellers.address_public",
   "products.audience", "products.restock_level", "settings.restock_alert_pct",
   "products.updated_at",
   "settings.totp_last_counter",

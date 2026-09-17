@@ -206,6 +206,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["sellers", "features"]],
   },
   {
+    file: "seller-address-public.sql", labelKey: "featSellerAddressPublic",
+    columns: [["sellers", "address_public"]],
+  },
+  {
     // No table, no column: this file rewrites the keys in sellers.features
     // and replaces the constraint that bounds them. Checked by the new
     // constraint's NAME, because the panel saying "all run" while this one
@@ -454,6 +458,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   // between the other two left a file that re-narrows the column downstream
   // of it, which worked only because that file asks first.
   "seller-areas.sql",
+  "seller-address-public.sql",  // a column on sellers; anywhere after schema.sql
 
   // LAST, both of them. These two REMOVE things -- open policies, and
   // grants on the audit log -- so anything that creates one has to have run

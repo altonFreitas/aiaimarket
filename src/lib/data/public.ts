@@ -363,6 +363,43 @@ export async function getSellerBySlug(slug: string): Promise<PublicSeller | null
   }
 }
 
+/** A seller's street address, but only if they said so.
+ *
+ * WHY THIS IS SEPARATE FROM getSellerBySlug(). That function reads with the
+ * ANON key, so row-level security does the "approved stores only" filtering
+ * for it. This one cannot: sellers.address is not granted to anon at all
+ * (see the column grant in schema.sql), so it has to use the service role
+ * -- and the service role bypasses RLS. The approved check is therefore
+ * written out here by hand. Folding this into the other function would have
+ * silently dropped that filter from the read that the whole storefront
+ * depends on.
+ *
+ * TWO ANSWERS HAVE TO AGREE before an address leaves the server: the seller
+ * ticked the box, and the store is approved. A third is enforced below the
+ * code entirely -- anon cannot select the column whatever this returns, so
+ * a future caller that forgets the rule still cannot publish an address by
+ * asking the public API for it.
+ *
+ * Null on anything unexpected, including a database that has not run
+ * supabase/seller-address-public.sql yet: "we do not know whether they
+ * agreed" is not consent. */
+export async function getSellerPublicAddress(sellerId: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin()
+      .from("sellers")
+      .select("address, address_public, status")
+      .eq("id", sellerId)
+      .maybeSingle();
+    if (!data) return null;
+    if (data.status !== "approved") return null;
+    if (data.address_public !== true) return null;
+    const address = typeof data.address === "string" ? data.address.trim() : "";
+    return address || null;
+  } catch {
+    return null;
+  }
+}
+
 export interface SellerReview {
   id: string;
   rating: number;
