@@ -65,7 +65,7 @@ export default function ActivityLog({ lang, rows }: { lang: Lang; rows: AuditRow
             <span className="hint">{shown.length} / {rows.length}</span>
           </div>
 
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>

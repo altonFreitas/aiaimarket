@@ -123,7 +123,7 @@ export default function ReorderPlan({ lang, rows, policy }: {
 
 function ReorderTable({ lang, rows }: { lang: Lang; rows: ReplenishmentRow[] }) {
   return (
-    <div className="scroll-x">
+    <div className="scroll-x" tabIndex={0}>
       <table className="tbl tbl-compact">
         <thead>
           <tr>

@@ -328,7 +328,7 @@ export default function SalesDashboard({
         {/* Growth per month against the same month last year -- the
             comparison the spec asks for, and the only one that survives a
             seasonal business. */}
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl tbl-compact">
             <thead>
               <tr>
@@ -443,7 +443,7 @@ export default function SalesDashboard({
         <div className="panel">
           <h3>{t("sellerPerformance", lang)}</h3>
           <p className="hint">{t("sellerPerformanceNote", lang)} {t("clickSellerRow", lang)}</p>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact tbl-rows">
               <thead>
                 <tr>
@@ -524,7 +524,7 @@ export default function SalesDashboard({
               )}
             </div>
           </div>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -565,7 +565,7 @@ export default function SalesDashboard({
         <div className="panel">
           <h3>{t("pendingOrders", lang)}</h3>
           <p className="hint">{money(kpis.pendingValue)} {t("inBacklog", lang)}</p>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -591,7 +591,7 @@ export default function SalesDashboard({
 
         <div className="panel">
           <h3>{t("delayedDeliveries", lang)}</h3>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -619,7 +619,7 @@ export default function SalesDashboard({
       {/* ---- 7. customer analysis ---- */}
       <div className="panel">
         <h3>{t("customerAnalysis", lang)}</h3>
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl tbl-compact">
             <thead>
               <tr>
@@ -665,7 +665,7 @@ export default function SalesDashboard({
       {weak.length > 0 && (
         <div className="panel">
           <h3>{t("lowPerformers", lang)}</h3>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -718,7 +718,7 @@ export default function SalesDashboard({
       {yearly.length > 1 && (
         <div className="panel">
           <h3>{t("yearOnYear", lang)}</h3>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
