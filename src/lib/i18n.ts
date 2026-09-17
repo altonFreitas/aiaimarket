@@ -14,6 +14,10 @@ export const STR: Record<string, [string,string,string]> = {
   singleOrder:["Buka ho referénsia","Procurar por referência","Find by reference"],
   backToSingle:["Buka enkomenda seluk","Procurar outra encomenda","Look up a different order"],
   home:["Uma","Início","Home"],
+  /* The one word a screen reader says while a page is on its way. The
+     skeleton boxes carry the message visually; this carries it for
+     somebody who cannot see them. */
+  loading:["Karega hela...","A carregar...","Loading..."],
   /* buyer questions — the four repeated questions (§2.2) */
   qPrice:["Folin","Preço","Price"],
   discountPrice:["Folin diskontu (USD)","Preço com desconto (USD)","Discount price (USD)"],
