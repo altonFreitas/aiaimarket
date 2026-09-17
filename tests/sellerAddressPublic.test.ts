@@ -117,14 +117,40 @@ describe("the seller is the one who decides", () => {
 });
 
 describe("the store page", () => {
-  it("pins the published address when there is one", () => {
+  it("asks for the published address at all", () => {
     expect(STORE).toMatch(/getSellerPublicAddress\(seller\.id\)/);
-    expect(STORE).toMatch(/parts=\{\[publicAddress, seller\.city, seller\.country\]\}/);
   });
 
-  it("still shows only the city and country as words", () => {
-    // The street is what the pin searches, not what the page prints: a full
-    // address does not fit a line that also carries the product count.
-    expect(STORE).toMatch(/label=\{\[seller\.city, seller\.country\]/);
+  it("prints the street only when the seller published it", () => {
+    /* THE ONE THAT CAUGHT THE REAL BUG. The first version of this page put
+       publicAddress in the map query and left the visible words at city and
+       country, so a seller who ticked the box saw the page change in no way
+       at all -- same pin, same words, same link on screen -- and asked what
+       the switch was for. It is a fair question: a consent switch whose
+       effect is invisible to the person consenting is not one, and the
+       switch's own hint promises "customers see only your city and country"
+       when it is off.
+
+       So the address must reach the LABEL, under the flag. */
+    expect(STORE).toMatch(
+      /const place = publicAddress\s*\?\s*\[publicAddress, seller\.city, seller\.country\]\s*:\s*\[seller\.city, seller\.country\]/);
+    expect(STORE).toMatch(/label=\{place\.filter\(Boolean\)\.join/);
+  });
+
+  it("prints exactly what it pins", () => {
+    // One list for the words and for the map query. Two lists is how the
+    // first version came to show one place and search another.
+    expect(STORE).toMatch(/parts=\{place\}/);
+    expect(STORE).not.toMatch(/parts=\{\[publicAddress/);
+  });
+
+  it("never reaches for the address outside that flag", () => {
+    /* Three mentions and no more: the one that fetches it, and the two
+       arms of the flag that decides. A fourth is the address reaching the
+       page by some other route -- a tooltip, a heading, JSON-LD -- with
+       nothing checking whether the seller agreed. Update this number only
+       after looking at what the new mention does with it. */
+    const uses = STORE.match(/publicAddress/g) ?? [];
+    expect(uses.length).toBe(3);
   });
 });
