@@ -1793,21 +1793,17 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      would leave the labels in a column two words wide. */
   .access-subs{margin-left:0;grid-template-columns:1fr 1fr}
 }
-/* FIVE AREAS, THEN IT SCROLLS. Seven areas holding twenty-three tabs is a
-   column tall enough to push Save off the bottom of the screen, so the last
-   thing anybody does on this form is hunt for the button.
-
-   The height here is APPROXIMATE and is what applies before the measurement
-   runs, and if it never does -- lib/useRowCap.ts then replaces it with the
-   real distance across five cards, which is not a fixed number: an area
-   whose tabs wrap onto a second line is taller, and where that happens
-   moves with the width and the language.
-
-   padding-right keeps the scrollbar off the cards' rounded corners, and
-   overscroll-behavior stops a flick at the bottom scrolling the page
-   behind it. */
-.access-areas{overflow-y:auto;overscroll-behavior:contain;max-height:520px;
-  padding-right:4px}
+/* EACH AREA FOLDS, so the list is as long as the reader wants it.
+   This replaced a scrolling box capped at five areas: a scroller hides the
+   same amount of list behind a bar nobody is sure they can move, where a
+   fold is a control somebody chose to open. */
+.access-fold{margin-left:auto;background:none;border:0;padding:2px;
+  color:var(--muted);cursor:pointer;line-height:0;border-radius:50%;
+  flex:none;align-self:center}
+.access-fold:hover{color:var(--ink)}
+.access-fold:focus-visible{outline:2px solid var(--amber-ink);outline-offset:2px}
+/* An open area's head sits above its tabs rather than beside nothing. */
+.access-area.is-open .access-area-head{margin-bottom:2px}
 .access-quick{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:9px}
 .access-quick .hint{margin:0;font-size:12px}
 

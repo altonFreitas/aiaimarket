@@ -1,6 +1,5 @@
 "use client";
-import { useId } from "react";
-import { useRowCap } from "@/lib/useRowCap";
+import { useId, useState } from "react";
 import {
   ADMIN_SECTIONS, GRANTABLE_SECTIONS, grantableSubsection, type AdminRole,
 } from "@/lib/adminSections";
@@ -17,6 +16,22 @@ import type { Lang } from "@/lib/types";
  * The section list is read from ADMIN_SECTIONS rather than typed out here.
  * Add a section to the admin and it appears in this checklist by itself;
  * type it out twice and one of the two eventually goes stale. */
+/** A chevron in a circle, pointing down when the area is closed and up
+ * when it is open -- the direction it will move, which is the convention
+ * every disclosure control on a phone already uses. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true"
+      style={{ transform: open ? "rotate(180deg)" : undefined,
+               transition: "transform .18s ease" }}>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="8.5 10.5 12 14 15.5 10.5" />
+    </svg>
+  );
+}
+
 export default function AccessPicker({
   lang, role, sections, onRole, onSections, disabled,
 }: {
@@ -30,20 +45,32 @@ export default function AccessPicker({
 }) {
   const group = useId();
 
-  /* FIVE AREAS, THEN IT SCROLLS -- measured, not guessed.
+  const areas = ADMIN_SECTIONS.filter((sec) => GRANTABLE_SECTIONS.includes(sec.key));
+
+  /* EACH AREA FOLDS AWAY, and starts folded.
    *
    * Seven areas holding twenty-three tabs is a column tall enough to push
-   * Save off the bottom of the screen, so the last thing somebody does on
-   * this form is hunt for the button. The admin's lists already solve this
-   * the same way: useRowCap measures the cards themselves, so an area whose
-   * tabs have wrapped onto a second line still counts as one area.
+   * Save off the bottom of the screen. Folded, the same list is seven lines.
    *
-   * It turns the cap OFF when there are five or fewer, which is the case
-   * that matters for the seller version of this screen -- a scrollbar around
-   * three cards is furniture around nothing. */
-  const areas = ADMIN_SECTIONS.filter((sec) => GRANTABLE_SECTIONS.includes(sec.key));
-  const { ref: areasRef, style: areasStyle } =
-    useRowCap<HTMLDivElement>(5, areas.length);
+   * WHY IT IS SAFE TO START CLOSED: the line under each area name already
+   * says what that area holds -- "The whole area", "2 selected", "Nothing
+   * selected" -- so the closed state is a summary rather than a blank. The
+   * one case it cannot summarise is a PART-granted area, where "2 selected"
+   * does not say which two, so those open by themselves. Everything else is
+   * all-or-nothing and reads correctly closed.
+   *
+   * Held as the set of areas that are OPEN rather than closed, so an area
+   * added to the app later starts folded like the rest instead of having to
+   * be listed here. */
+  const [open, setOpen] = useState<string[]>(() =>
+    areas.filter((sec) => {
+      const tabs = sec.subsections.filter((sub) => !sub.ownerOnly);
+      const picked = tabs.filter((sub) => sections.includes(sub.key));
+      return picked.length > 0 && !sections.includes(sec.key);
+    }).map((sec) => sec.key));
+
+  const toggleOpen = (key: string) =>
+    setOpen((o) => o.includes(key) ? o.filter((k) => k !== key) : [...o, key]);
 
   return (
     <div className="access">
@@ -69,7 +96,6 @@ export default function AccessPicker({
             later version. The tab boxes mean exactly those. See
             canOpenSubsection -- which of the two was ticked is what decides
             whether a new tab appears for this person by itself. */}
-        <div className="access-areas" ref={areasRef} style={areasStyle}>
         {areas.map((sec) => {
             const tabs = sec.subsections.filter(grantableSubsection);
             const whole = sections.includes(sec.key);
@@ -84,9 +110,12 @@ export default function AccessPicker({
                when a new tab appears and this person cannot see it. */
             const allNow = some && picked.length === tabs.length;
 
+            const isOpen = open.includes(sec.key);
+
             return (
               <div key={sec.key}
-                className={"access-area" + (whole ? " on" : some ? " part" : "")}>
+                className={"access-area" + (whole ? " on" : some ? " part" : "")
+                  + (isOpen ? " is-open" : "")}>
                 <label className="access-area-head">
                   <input type="checkbox" checked={whole}
                     // A box that is neither on nor off, because some of the
@@ -115,9 +144,21 @@ export default function AccessPicker({
                           ? t("accessSomeTabs", lang).replace("{n}", String(picked.length))
                           : t("accessNoTabs", lang)}</em>
                   </span>
+                  {/* OUTSIDE the label's text but inside it in the markup, so
+                      the whole row is still one click target for the
+                      checkbox -- except this, which stops the click before it
+                      gets there. Folding an area is not granting it. */}
+                  <button type="button" className="access-fold"
+                    aria-expanded={isOpen}
+                    aria-label={t(isOpen ? "collapse" : "expand", lang)
+                      + ": " + t(sec.labelKey, lang)}
+                    title={t(isOpen ? "collapse" : "expand", lang)}
+                    onClick={(e) => { e.preventDefault(); toggleOpen(sec.key); }}>
+                    <Chevron open={isOpen} />
+                  </button>
                 </label>
 
-                <div className="access-subs">
+                {isOpen && <div className="access-subs">
                   {tabs.map((sub) => (
                     <label key={sub.key}
                       className={"access-box" + (whole || sections.includes(sub.key) ? " on" : "")}>
@@ -141,11 +182,10 @@ export default function AccessPicker({
                       <span>{t(sub.labelKey, lang)}</span>
                     </label>
                   ))}
-                </div>
+                </div>}
               </div>
             );
         })}
-        </div>
 
         <div className="access-quick">
           <button type="button" className="linkish"

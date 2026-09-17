@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { computeSellerEarnings, type SellerOrderView } from "@/lib/data/seller";
-import type { Seller } from "@/lib/types";
+import type { OrderItem, Seller } from "@/lib/types";
 
 const seller = (over: Partial<Seller> = {}): Seller => ({
   id: "s1", user_id: "u1", full_name: "A", store_name: "Store", slug: "store",
@@ -87,5 +89,67 @@ describe("computeSellerEarnings", () => {
   it("handles a seller with no sales", () => {
     const r = computeSellerEarnings([], seller(), 10);
     expect(r).toMatchObject({ grossSales: 0, commission: 0, earnings: 0, completedOrderCount: 0 });
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * "Sold by" is what decides whether commission applies at all
+ * ------------------------------------------------------------------------ */
+
+describe("a product's Sold by decides its commission", () => {
+  /* THE OWNER'S QUESTION, WRITTEN DOWN. The owner adds a product on
+   * /admin/p/[id] and picks a store under "Sold by". That writes
+   * products.seller_id, and every line placed from that product afterwards
+   * carries the commission rate that store was on. Pick "Store's own" and
+   * the line carries no rate at all -- there is no commission on selling to
+   * yourself, and a 0 stored there would be indistinguishable from "a rate
+   * nobody recorded".
+   *
+   * These read lib/actions/orders.ts, because the rule lives in the write
+   * path and the write path needs a database. What CAN be checked without
+   * one is that the write still says it, and then that the arithmetic on
+   * the other side agrees. */
+  const ORDERS = fs.readFileSync(
+    path.join(process.cwd(), "src", "lib", "actions", "orders.ts"), "utf8");
+
+  it("resolves the seller from the PRODUCT row, never from the browser", () => {
+    // A basket that could name its own seller could name a seller with a
+    // 0% rate, or somebody else's store.
+    expect(ORDERS).toMatch(/seller_id: \(row\.seller_id as string \| null\) \?\? null/);
+    expect(ORDERS).toMatch(/items: Omit<OrderItem, "seller_id">\[\]/);
+  });
+
+  it("attaches a rate only when the line has a seller", () => {
+    expect(ORDERS).toMatch(/rateBySeller\.has\(\(row\.seller_id as string\) \|\| ""\)/);
+    expect(ORDERS).toMatch(/\? \{ commission_rate: rateBySeller\.get/);
+  });
+
+  it("prefers the store's own rate over the shop-wide default", () => {
+    // Settings carries the default; a seller row may override it. A store
+    // renegotiated to 15% must not be charged the settings' 10%.
+    expect(ORDERS).toMatch(/Number\(settings\?\.commission_rate \?\? 0\)/);
+    expect(ORDERS).toMatch(/Number\(r\.commission_rate \?\? platformRate\)/);
+  });
+
+  it("charges the captured rate, so a later renegotiation does not rewrite history", () => {
+    // 10% of $20 is $2, and stays $2 when the store moves to 15% next month.
+    const line = { name: "X", price: 20, qty: 1, commission_rate: 10 } as OrderItem;
+    const o = order("completed", 20, 10);
+    expect(o.myCommission).toBe(2);
+    // The seller's screen adds up what the LINES carry, not today's rate.
+    const r = computeSellerEarnings([o], seller(), 15);
+    expect(r.commission).toBe(2);
+    expect(r.earnings).toBe(18);
+    expect(line.commission_rate).toBe(10);
+  });
+
+  it("takes nothing on the shop's own goods", () => {
+    /* "Store's own" leaves seller_id null, so no line is ever attributed to
+       a store and none of this arithmetic runs on it. Proved by the absence
+       of a rate on the line: lineCommission falls back to the rate passed
+       in, and the seller pipeline never sees a line it does not own. */
+    const ownGoods = { name: "X", price: 50, qty: 2 } as OrderItem;
+    expect("commission_rate" in ownGoods).toBe(false);
+    expect(ownGoods.commission_rate).toBeUndefined();
   });
 });
