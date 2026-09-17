@@ -206,6 +206,8 @@ export const STR: Record<string, [string,string,string]> = {
   fullName:["Naran kompletu","Nome completo","Full name"],
   email:["Email","Email","Email"],
   sellerAddress:["Enderesu","Morada","Address"],
+  sellerAddressPublic:["Hatudu ha'u-nia enderesu iha ha'u-nia pájina loja","Mostrar a minha morada na página da minha loja","Show my address on my store page"],
+  sellerAddressPublicHint:["Se la hili, kliente sira haree de'it sidade ho nasaun.","Se não, os clientes veem apenas a cidade e o país.","Leave this off and customers see only your city and country."],
   city:["Sidade","Cidade","City"],
   sellerTypeLabel:["Tipu vendedor","Tipo de vendedor","Seller type"],
   sellerTypeIndividual:["Individuál","Individual","Individual"],
@@ -1187,6 +1189,7 @@ export const STR: Record<string, [string,string,string]> = {
   featAdminRoles:["Nivel asesu admin","Níveis de acesso","Admin roles and areas"],
   featAdminSubsections:["Asesu ba tab ida-idak","Acesso ao nível do separador","Access down to the tab"],
   featSellerFeatures:["Asesu ba loja sira","Acesso das lojas","What each store may open"],
+  featSellerAddressPublic:["Vendedor bele hatudu nia enderesu","O vendedor pode mostrar a morada","A seller can publish their address"],
   featSellerAreas:["Asesu vendedor ba tab ida-idak","Acesso do vendedor ao nível do separador","Seller access down to the tab"],
   /* per-seller fulfilment (order_items.fulfilment_status) */
   fulPending:["Seidauk hahu","Por iniciar","Not started"],

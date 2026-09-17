@@ -32,6 +32,9 @@ export interface Seller {
   phone: string;
   description: string;
   address: string;
+  /** The seller ticked "show my address publicly". Never assume true:
+   * everybody who registered before the switch existed is false. */
+  address_public?: boolean;
   city: string;
   country: string;
   seller_type: SellerType;
