@@ -41,6 +41,13 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
   ]);
   const products = allProducts.filter((p) => p.seller_id === seller.id);
 
+  /* The street first when the seller published it, city and country
+     otherwise -- one list, used both for the words and for the map query,
+     so the two can never disagree again. */
+  const place = publicAddress
+    ? [publicAddress, seller.city, seller.country]
+    : [seller.city, seller.country];
+
   return (
     <div className="wrap">
       <div className="panel">
@@ -54,12 +61,17 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
             THE STREET ADDRESS ONLY IF THE SELLER PUBLISHED IT. sellers.address
             is not granted to anon at all, and getSellerPublicAddress() hands
             it over only for an approved store that ticked the box in its own
-            settings. Every other store pins its city, which is as precise as
+            settings. Every other store shows its city, which is as precise as
             the marketplace was ever told it could be.
 
-            The LABEL stays the city and country either way: a street address
-            is too long for a line that also carries the product count, and
-            the pin is what the address is for.
+            WHAT IS PRINTED IS WHAT IS PINNED, and that is the point. An
+            earlier version put the street in the map query and kept the
+            visible words at city and country, so ticking the box changed
+            only a hidden URL: the seller saw no difference and could not
+            tell what they had agreed to. A consent switch whose effect is
+            invisible to the person giving consent is not one. The switch's
+            own hint says "leave this off and customers see only your city
+            and country" -- this line is what makes that true.
 
             Nothing renders when even the city is blank: a map link with no
             place searches for the empty string and lands in the ocean,
@@ -67,12 +79,10 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
             wrong. */}
         <p className="sub">
           <MapLink
-            parts={[publicAddress, seller.city, seller.country]}
-            title={publicAddress
-              ? [publicAddress, seller.city].filter(Boolean).join(", ")
-              : t("storeLocationHint", lang)}
-            label={[seller.city, seller.country].filter(Boolean).join(", ")} />
-          {hasPlace([publicAddress, seller.city, seller.country]) && products.length ? " · " : ""}
+            parts={place}
+            title={t("storeLocationHint", lang)}
+            label={place.filter(Boolean).join(", ")} />
+          {hasPlace(place) && products.length ? " · " : ""}
           {products.length > 0 && `${products.length} ${t("storeProductCount", lang)}`}
         </p>
         {ratings.count > 0 && (
