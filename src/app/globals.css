@@ -62,6 +62,103 @@
      competing with the product photography, which is the thing people
      actually came to look at. */
   --tais-opacity:.12;
+
+  /* =====================================================================
+     THE SCALES
+     =====================================================================
+     This stylesheet grew one feature at a time -- fifty sections, each
+     appended when a screen was built -- and it shows in the numbers. Before
+     this block there were 28 distinct font sizes (9, 9.5, 10, 10.5, 11,
+     11.5, 12, 12.5, 13, 13.5, 14, 14.5, 15, 15.5, 16, 17, 18, 19 ...), 31
+     distinct spacing values including 3, 5, 7, 9, 11, 13, 22 and 26, and
+     ten one-off border radii beside the two tokens.
+
+     None of that is visible as a bug on any single screen. It is visible
+     across screens: two cards a page apart sit on 13px and 13.5px type,
+     and the eye reads the difference as sloppiness without being able to
+     name it. A scale is what stops that.
+
+     ADDITIVE ON PURPOSE. Defining these changes nothing by itself -- no
+     existing rule reads them yet. Surfaces move onto the scale one at a
+     time, each verified in a browser before the next, because a stylesheet
+     this dense cannot be re-based in one pass without breaking a table
+     somebody runs their shop from. Sections already migrated are marked
+     "on the scale" in their header comment.
+     ===================================================================== */
+
+  /* ---- type ----------------------------------------------------------
+     Ten steps, no half pixels. A half-pixel size renders differently by
+     browser and by zoom level, so 12.5px was never reliably between 12 and
+     13 anyway -- it was 12 or 13 depending on the machine.
+
+     The floor is 11px and it is a floor: this shop's small print carries
+     seller names, timestamps and prices, and the contrast tokens above
+     were measured for text at that size and no smaller. */
+  --fs-caption:11px;   /* timestamps, chart labels, the "(12)" on a rating */
+  --fs-sm:12px;        /* badges, table meta, helper text */
+  --fs-body-sm:13px;   /* dense UI: table cells, admin rows */
+  --fs-body:14px;      /* default reading size */
+  --fs-body-lg:16px;   /* forms -- see the note below, this one is a rule */
+  --fs-h4:18px;
+  --fs-h3:20px;
+  --fs-h2:24px;
+  --fs-h1:30px;
+  /* The hero, and only the hero. Fluid so it does not need a breakpoint:
+     28px on a 320px phone, 36px from roughly 900px up. */
+  --fs-display:clamp(28px, 2.2vw + 20px, 36px);
+
+  /* Line heights as ratios, tight for headings and open for reading. */
+  --lh-tight:1.2; --lh-snug:1.35; --lh-body:1.55;
+
+  /* ---- spacing -------------------------------------------------------
+     A 4px base. Everything is a multiple, so things line up across
+     components without anybody measuring. */
+  --sp-1:4px;   --sp-2:8px;   --sp-3:12px;  --sp-4:16px;
+  --sp-5:20px;  --sp-6:24px;  --sp-8:32px;  --sp-10:40px;
+  --sp-12:48px; --sp-16:64px; --sp-20:80px; --sp-24:96px;
+
+  /* ---- radius --------------------------------------------------------
+     --r and --r-s already existed and carry 79 usages between them; they
+     keep their values and their names, and the scale is built around them
+     rather than renaming 79 lines to prove a point. */
+  --r-s:6px;        /* small: inputs, badges, chips */
+  --r:10px;         /* medium: buttons, cards, panels */
+  --r-l:14px;       /* large: sheets, modals, feature cards */
+  --r-xl:20px;      /* extra large: the hero and full-bleed blocks */
+  --r-pill:999px;   /* pills and round icon buttons */
+
+  /* ---- elevation -----------------------------------------------------
+     Four levels, and most of the app should use the first two. Premium
+     interfaces are mostly flat with a hairline border; shadow is for
+     things that genuinely float above the page, and a shop where
+     everything is raised has nothing raised. --sh keeps its existing
+     value as the medium step. */
+  --sh-0:none;
+  --sh-1:0 1px 2px rgba(11,20,36,.08);
+  --sh-2:0 1px 2px rgba(11,20,36,.08),0 8px 24px -16px rgba(11,20,36,.25);
+  --sh-3:0 4px 12px rgba(11,20,36,.10),0 24px 48px -24px rgba(11,20,36,.35);
+
+  /* ---- motion --------------------------------------------------------
+     Two durations. Anything slower than 240ms on a control reads as lag
+     rather than as polish, and the whole app already respects
+     prefers-reduced-motion further down. */
+  --t-fast:120ms; --t-base:200ms;
+  --ease:cubic-bezier(.2,0,0,1);
+
+  /* ---- breakpoints ---------------------------------------------------
+     Custom properties cannot be used inside a media query, so these are
+     documentation rather than tokens -- but the stylesheet had thirteen
+     different widths (439, 520, 560, 600, 640, 700, 760, 768, 820, 900,
+     1000, 1100) mixing min- and max-width conventions, which is how a
+     layout ends up correct at 768 and broken at 760.
+
+       sm   560px   phone landscape / small tablet
+       md   768px   tablet portrait
+       lg   1024px  tablet landscape / small laptop
+       xl   1280px  desktop
+       2xl  1600px  wide desktop
+
+     New rules use min-width and one of these five. */
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -455,19 +552,45 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .qty button{width:40px;height:100%;border:0;background:none;font-size:19px;cursor:pointer;color:var(--ink)}
 .qty span{min-width:30px;text-align:center;font-family:var(--mono);font-weight:700}
 
-/* ---------- panels, forms ---------- */
-.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin:0 0 12px}
-.panel h3{margin:0 0 8px;font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.field{margin:0 0 10px}
-.field label{display:block;font-size:12.5px;font-weight:600;margin:0 0 4px}
-.field .hint{font-size:11.5px;color:var(--muted);margin:3px 0 0}
-.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:var(--r-s);background:#fff;padding:9px 10px;font-size:15px}
-.field textarea{min-height:78px;resize:vertical}
-.field input[type=checkbox]{width:auto}
+/* ---------- panels, forms -- ON THE SCALE ---------- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3);margin:0 0 var(--sp-3)}
+.panel h3{margin:0 0 var(--sp-2);font-size:var(--fs-body-sm);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field{margin:0 0 var(--sp-3)}
+.field label{display:block;font-size:var(--fs-sm);font-weight:600;margin:0 0 var(--sp-1)}
+.field .hint{font-size:var(--fs-caption);color:var(--muted);margin:var(--sp-1) 0 0}
+
+/* SIXTEEN PIXELS, AND IT IS NOT A STYLE CHOICE.
+   These boxes were 15px. Mobile Safari zooms the whole page in when a
+   field smaller than 16px takes focus, and it does not zoom back out when
+   the field is left -- so on an iPhone, tapping the first box of the
+   checkout enlarged the page and the shopper finished the order scrolling
+   sideways through a form they could no longer see the edges of. Nobody
+   reports that as a bug; they abandon the basket.
+
+   16px is the threshold, so this is the smallest size that stops it. It
+   is also simply the right size for something a person types into.
+
+   MIN-HEIGHT 44px is the other half: the WCAG target size, and roughly
+   the pad of an adult thumb. At 9px of padding these were 39px tall. */
+.field input,.field select,.field textarea{
+  width:100%;border:1px solid var(--line);border-radius:var(--r-s);background:#fff;
+  padding:var(--sp-2) var(--sp-3);font-size:var(--fs-body-lg);min-height:44px;
+  transition:border-color var(--t-fast) var(--ease),box-shadow var(--t-fast) var(--ease)}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--ink-3);box-shadow:0 0 0 3px rgba(21,35,65,.10)}
+.field textarea{min-height:80px;resize:vertical;line-height:var(--lh-body)}
+.field input[type=checkbox]{width:auto;min-height:0}
 .field.err input,.field.err select,.field.err .pw-wrap input{border-color:var(--red);background:var(--red-soft)}
-.field .msg{color:var(--red);font-size:12px;margin-top:3px;display:none}
-.field.err .msg{display:block}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* NOT COLOUR ALONE. The red border says "this one" to somebody who can
+   see red; the mark and the sentence say it to everybody else, and the
+   sentence is the only one of the three that says WHAT is wrong. */
+.field .msg{color:var(--red);font-size:var(--fs-sm);margin-top:var(--sp-1);display:none;
+  line-height:var(--lh-snug)}
+.field.err .msg{display:flex;gap:var(--sp-1);align-items:flex-start}
+.field.err .msg::before{content:"!";flex:0 0 auto;display:inline-grid;place-items:center;
+  width:14px;height:14px;margin-top:1px;border-radius:var(--r-pill);
+  background:var(--red);color:#fff;font-size:10px;font-weight:700;line-height:1}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
 /* The two name boxes show what will actually be stored: capitals, because
    one shopper typing their name three ways is one customer and the sales
    screens have to be able to say so (lib/personName.ts). Done with
@@ -2545,3 +2668,50 @@ tr.is-ended{opacity:.55}
 .po-size input{width:64px;height:28px;padding:3px 7px;border:1px solid var(--line);
   border-radius:var(--r-s);font:inherit;font-size:13px;text-align:right;
   font-family:var(--mono)}
+
+/* =====================================================================
+   WAITING -- ON THE SCALE
+   =====================================================================
+   There were no loading states anywhere in this app. Fifty-five routes,
+   not one loading.tsx and not one skeleton: every navigation that had to
+   reach the database held the OLD page on screen, motionless, until the
+   new one was ready. On the shop's own fibre that is a blink. On a phone
+   in Dili it is several seconds of a page that looks like it ignored the
+   tap, so the shopper taps again.
+
+   A skeleton is not decoration. It says three things a spinner cannot:
+   something is coming, it is THIS shape, and the tap registered.
+
+   THE SHAPE IS THE POINT. These boxes are the same sizes as the real
+   product card -- 1:1 photo, two lines of title, one of price -- so the
+   content does not jump when it arrives. A skeleton of the wrong shape is
+   a layout shift with extra steps.
+   ===================================================================== */
+.sk{background:var(--line-2);border-radius:var(--r-s);position:relative;overflow:hidden}
+/* The sweep. One keyframe, GPU-cheap, and gone entirely for anybody who
+   asked their system for less movement -- for whom a permanently moving
+   page is not polish but a symptom. They still get the grey blocks, which
+   carry the whole message; the movement was only ever the flourish. */
+@media (prefers-reduced-motion: no-preference){
+  .sk::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);
+    animation:sk-sweep 1.4s infinite}
+}
+@keyframes sk-sweep{100%{transform:translateX(100%)}}
+.sk-text{height:12px;margin:0 0 var(--sp-2)}
+.sk-text.w-80{width:80%} .sk-text.w-60{width:60%} .sk-text.w-40{width:40%}
+.sk-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+/* The photo block. Square by default wherever it is used -- it was scoped
+   to .sk-card, so the product page's standalone one had no height at all
+   and the left half of that skeleton was simply missing. */
+.sk-ph{aspect-ratio:1/1;border-radius:var(--r)}
+.sk-card .sk-ph{border-radius:0}
+.sk-card .sk-body{padding:var(--sp-2) var(--sp-3) var(--sp-3)}
+.sk-title{height:14px;margin:0 0 var(--sp-2)}
+.sk-price{height:18px;width:52%}
+.sk-row{height:44px;margin:0 0 var(--sp-2)}
+/* Announced once, not per box: forty "loading" nodes is forty
+   interruptions. The region is polite -- a page on its way is not an
+   emergency -- and it carries words rather than leaving a screen reader to
+   describe empty divs. */
+.sk-wrap{min-height:40vh}
