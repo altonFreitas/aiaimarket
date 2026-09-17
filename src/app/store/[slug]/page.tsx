@@ -5,6 +5,7 @@ import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
 import { nowIso } from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import MapLink, { hasPlace } from "@/components/MapLink";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const [{ slug }, lang] = await Promise.all([params, getLang()]);
@@ -41,9 +42,33 @@ export default async function SellerStorePage({ params }: { params: Promise<{ sl
       <div className="panel">
         <h1>{seller.store_name}</h1>
         {seller.description && <p className="sub">{seller.description}</p>}
+        {/* WHERE THE STORE IS, as something you can tap.
+            The place was already printed here and was only ever text, so a
+            customer deciding whether to collect had to copy it into a map
+            by hand.
+
+            CITY AND COUNTRY, NOT THE STREET ADDRESS, and that is a
+            deliberate limit rather than an oversight. sellers.address is
+            not granted to anon at all -- see the column grant in
+            supabase/schema.sql, which hands the public id, store_name,
+            slug, description, city, country, seller_type and created_at
+            and nothing else. A seller trading from home gave that address
+            to the marketplace, not to the catalogue, and publishing it
+            because a map link would be more precise is not a decision this
+            page gets to make on their behalf. If sellers should be able to
+            publish it, that is a switch on their own settings screen and a
+            widened grant, in that order.
+
+            Nothing renders when even the city is blank: a map link with no
+            place searches for the empty string and lands in the ocean,
+            which reads as the shop answering the question and getting it
+            wrong. */}
         <p className="sub">
-          {[seller.city, seller.country].filter(Boolean).join(", ")}
-          {(seller.city || seller.country) && products.length ? " · " : ""}
+          <MapLink
+            parts={[seller.city, seller.country]}
+            title={t("storeLocationHint", lang)}
+            label={[seller.city, seller.country].filter(Boolean).join(", ")} />
+          {hasPlace([seller.city, seller.country]) && products.length ? " · " : ""}
           {products.length > 0 && `${products.length} ${t("storeProductCount", lang)}`}
         </p>
         {ratings.count > 0 && (

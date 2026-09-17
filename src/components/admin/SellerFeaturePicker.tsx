@@ -2,7 +2,7 @@
 import {
   SELLER_AREAS, GRANTABLE_AREAS, grantableArea, grantableSubsection,
 } from "@/lib/sellerFeatures";
-import { useRowCap } from "@/lib/useRowCap";
+import { useState } from "react";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
@@ -20,6 +20,20 @@ import type { Lang } from "@/lib/types";
  * Each box carries a line saying what the store actually gets. The owner is
  * selling these; they should not have to sign in as a seller to remember
  * what "My stock" means. */
+/** Same disclosure control as the staff checklist. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true"
+      style={{ transform: open ? "rotate(180deg)" : undefined,
+               transition: "transform .18s ease" }}>
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="8.5 10.5 12 14 15.5 10.5" />
+    </svg>
+  );
+}
+
 export default function SellerFeaturePicker({
   lang, features, onChange, disabled,
 }: {
@@ -29,13 +43,20 @@ export default function SellerFeaturePicker({
   onChange: (f: string[]) => void;
   disabled?: boolean;
 }) {
-  /* The same five-then-scroll cap the staff checklist has. Three areas
-   * today, so useRowCap turns it off outright and there is no scrollbar --
-   * the point is that the two screens behave identically when a fourth and
-   * fifth area arrive, rather than one of them growing a wall later. */
+  /* Folds away per area, exactly as the staff checklist does -- see
+   * AccessPicker for why a part-granted area starts open and the rest start
+   * closed. Three areas today, so there is less to fold; the point is that
+   * the two screens behave the same way when a fourth arrives. */
   const areas = SELLER_AREAS.filter(grantableArea);
-  const { ref: areasRef, style: areasStyle } =
-    useRowCap<HTMLDivElement>(5, areas.length);
+  const [open, setOpen] = useState<string[]>(() =>
+    areas.filter((area) => {
+      const tabs = area.subsections.filter(grantableSubsection);
+      const picked = tabs.filter((s) => features.includes(s.key));
+      return picked.length > 0 && !features.includes(area.key);
+    }).map((area) => area.key));
+
+  const toggleOpen = (key: string) =>
+    setOpen((o) => o.includes(key) ? o.filter((k) => k !== key) : [...o, key]);
 
   return (
     <div className="access">
@@ -48,7 +69,6 @@ export default function SellerFeaturePicker({
             sellerCanOpen -- which of the two was ticked is what decides
             whether a new tab appears for this store by itself, and that is
             the difference between a plan and a list. */}
-        <div className="access-areas" ref={areasRef} style={areasStyle}>
         {areas.map((area) => {
           const tabs = area.subsections.filter(grantableSubsection);
           /* The ones that come with the shop, shown ticked and locked
@@ -61,9 +81,12 @@ export default function SellerFeaturePicker({
           const some = picked.length > 0 && !whole;
           const allNow = some && picked.length === tabs.length;
 
+          const isOpen = open.includes(area.key);
+
           return (
             <div key={area.key}
-              className={"access-area" + (whole ? " on" : some ? " part" : "")}>
+              className={"access-area" + (whole ? " on" : some ? " part" : "")
+                + (isOpen ? " is-open" : "")}>
               <label className="access-area-head">
                 <input type="checkbox" checked={whole}
                   // Neither on nor off, because some of the tabs under it
@@ -91,9 +114,17 @@ export default function SellerFeaturePicker({
                         ? t("accessSomeTabs", lang).replace("{n}", String(picked.length))
                         : t("accessNoTabs", lang)}</em>
                 </span>
+                <button type="button" className="access-fold"
+                  aria-expanded={isOpen}
+                  aria-label={t(isOpen ? "collapse" : "expand", lang)
+                    + ": " + t(area.labelKey, lang)}
+                  title={t(isOpen ? "collapse" : "expand", lang)}
+                  onClick={(e) => { e.preventDefault(); toggleOpen(area.key); }}>
+                  <Chevron open={isOpen} />
+                </button>
               </label>
 
-              <div className="access-subs">
+              {isOpen && <div className="access-subs">
                 {free.map((sub) => (
                   /* Ticked, disabled, and still listed. It is part of being
                      a seller, so there is nothing to decide -- but leaving
@@ -134,11 +165,10 @@ export default function SellerFeaturePicker({
                     </span>
                   </label>
                 ))}
-              </div>
+              </div>}
             </div>
           );
         })}
-        </div>
 
         <div className="access-quick">
           <button type="button" className="linkish"
