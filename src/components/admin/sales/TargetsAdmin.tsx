@@ -88,7 +88,7 @@ export default function TargetsAdmin({
       </div>
       </WriteOnly>
 
-      <div className="scroll-x">
+      <div className="scroll-x" tabIndex={0}>
         <table className="tbl tbl-compact">
           <thead>
             <tr>

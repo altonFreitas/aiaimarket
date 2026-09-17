@@ -143,7 +143,7 @@ export default function SuppliersAdmin({
         </form>
       )}
 
-      <div className="scroll-x">
+      <div className="scroll-x" tabIndex={0}>
         <table className="tbl">
           <thead><tr>
             <th>{t("supplier", lang)}</th>

@@ -104,7 +104,7 @@ export default function OrderReturns({ lang, order, returns }: {
       </div>
 
       {returns.length > 0 && (
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl tbl-compact">
             <thead>
               <tr>
@@ -167,7 +167,7 @@ export default function OrderReturns({ lang, order, returns }: {
             </div>
           </div>
 
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>

@@ -124,7 +124,7 @@ export default function CostsAdmin({
         </WriteOnly>
       </div>
 
-      <div className="scroll-x">
+      <div className="scroll-x" tabIndex={0}>
         <table className="tbl tbl-compact">
           <thead>
             <tr>

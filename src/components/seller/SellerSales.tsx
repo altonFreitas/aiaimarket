@@ -268,7 +268,7 @@ export default function SellerSales({
         </div>
         <BarSeries points={monthly.map((m) => ({ label: m.label, value: m.revenue }))}
           emptyLabel={t("noDataYet", lang)} />
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl tbl-compact">
             <thead>
               <tr>
@@ -390,7 +390,7 @@ export default function SellerSales({
               )}
             </div>
           </div>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -430,7 +430,7 @@ export default function SellerSales({
         <div className="panel">
           <h3>{t("pendingOrders", lang)}</h3>
           <p className="hint">{money(kpis.pendingValue)} {t("inBacklog", lang)}</p>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -456,7 +456,7 @@ export default function SellerSales({
 
         <div className="panel">
           <h3>{t("delayedDeliveries", lang)}</h3>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>
@@ -488,7 +488,7 @@ export default function SellerSales({
       {/* ---- who buys, and whether they come back ---- */}
       <div className="panel">
         <h3>{t("customerAnalysis", lang)}</h3>
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl tbl-compact">
             <thead>
               <tr>
@@ -531,7 +531,7 @@ export default function SellerSales({
       {yearly.length > 1 && (
         <div className="panel">
           <h3>{t("yearOnYear", lang)}</h3>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>

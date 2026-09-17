@@ -212,7 +212,7 @@ export default function BusinessOverview({
           {/* The table view the contrast check obliges, and the thing a
               chart cannot do: exact figures, and the difference between
               them stated rather than measured off two lines by eye. */}
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>

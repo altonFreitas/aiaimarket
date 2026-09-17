@@ -132,7 +132,7 @@ export default function SalesTable({
         </div>
       </div>
 
-      <div className="scroll-x">
+      <div className="scroll-x" tabIndex={0}>
         <table className="tbl tbl-compact">
           <thead>
             <tr>

@@ -127,17 +127,45 @@ error/field wiring.
   it blind risks breaking tables somebody runs their shop from. The scale
   exists; surfaces move onto it one at a time, verified.
 
+## Second pass — the admin and seller screens
+
+Verified against a replica of those screens built from their real class
+names, since rendering them needs a database this environment does not
+have. Measured at 390, 768 and 1440px.
+
+- **A table that scrolled with nothing saying so.** On a 390px phone,
+  **281px of the admin-users table sat outside its box** — the last column
+  shown was "Access", so the 2FA state, last login, status and the Edit
+  button were not clipped-and-inviting-a-swipe, they were absent. Now a
+  shadow appears at whichever edge has content behind it, painted in pure
+  CSS with `background-attachment: local` so it slides away as you reach
+  the end. No scroll listener.
+- **Those tables could not be scrolled from a keyboard at all** — a
+  scrolling div with no focusable child is unreachable. All **32**
+  `.scroll-x` boxes are now focusable, with a visible ring.
+- **Admin nav links were 35px tall**, now 44. The small buttons inside
+  tables stay at 47×32: that clears WCAG 2.5.8 (24px), and 44 each would
+  add most of a row's height to every line of every table — fewer orders
+  per screen, on screens whose job is showing many rows.
+- **138 font sizes and 332 spacing values** across those sections moved
+  onto the scale. Chart tick labels and the nav counter bump are exempt and
+  named in the test: they are not prose, and enlarging them reflows a
+  chart.
+- **Loading states** for every `/admin/*` and `/seller/*` route, from one
+  file per segment.
+
+Eight more tests, three mutation-checked.
+
 ## Still outstanding
 
 Honest list, in the order I would take it.
 
 1. Migrate the remaining stylesheet sections onto the scales (catalog,
-   product, homepage, admin, seller) — needs a database to verify.
+   product, homepage) — the admin and seller sections are done.
 2. Heading hierarchy: h1 → h2 → h3 per page.
 3. Extend `aria-invalid` / `aria-describedby` from checkout to every form.
 4. Replace the 15 raw `<img>` with `next/image`; add the two missing alts.
-5. Loading states for the admin and seller routes.
-6. Skeletons for the homepage rails.
+5. Skeletons for the homepage rails.
 7. Search: no autocomplete, no recent or popular searches.
 8. Filters: no active-filter chips and no "clear all" on mobile.
 9. Consolidate the 13 breakpoints onto the documented five.

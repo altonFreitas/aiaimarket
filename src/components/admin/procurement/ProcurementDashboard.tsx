@@ -295,7 +295,7 @@ export default function ProcurementDashboard({
             </select>
           </div>
           {!upcoming.length ? <p className="hint">{t("nothingArriving", lang)}</p> : (
-            <div className="scroll-x"><table className="tbl tbl-compact"><tbody>
+            <div className="scroll-x" tabIndex={0}><table className="tbl tbl-compact"><tbody>
               {upcoming.map((p) => {
                 const left = poDaysRemaining(p, today) ?? 0;
                 return (
@@ -317,7 +317,7 @@ export default function ProcurementDashboard({
               {money(delayed.reduce((a, p) => a + poTotal(p), 0))}</span>}
           </h3>
           {!delayed.length ? <p className="hint">{t("nothingDelayed", lang)}</p> : (
-            <div className="scroll-x"><table className="tbl tbl-compact"><tbody>
+            <div className="scroll-x" tabIndex={0}><table className="tbl tbl-compact"><tbody>
               {delayed.map((p) => (
                 <tr key={p.id}>
                   <td><Link className="mono" href={`/admin/procurement/po/${p.id}`}>{p.po_number}</Link></td>
@@ -336,7 +336,7 @@ export default function ProcurementDashboard({
       <div className="two-col">
         <div className="panel">
           <h3>{t("supplierPerformance", lang)}</h3>
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl">
               <thead><tr>
                 <th>{t("supplier", lang)}</th>
@@ -394,7 +394,7 @@ export default function ProcurementDashboard({
       {/* ---- products ---- */}
       <div className="panel">
         <h3>{t("productAnalysis", lang)}</h3>
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl">
             <thead><tr>
               <th>{t("product", lang)}</th>
@@ -435,7 +435,7 @@ export default function ProcurementDashboard({
             + {t("newPurchaseOrder", lang)}
           </Link>
         </div>
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl">
             <thead><tr>
               <th>{t("poNumber", lang)}</th>

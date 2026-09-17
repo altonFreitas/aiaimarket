@@ -133,7 +133,7 @@ export default function AdminUsers({ lang, users, ownerEmail }: {
         {!users.length ? (
           <p className="hint" style={{ margin: 0 }}>{t("noAdminUsers", lang)}</p>
         ) : (
-          <div className="scroll-x">
+          <div className="scroll-x" tabIndex={0}>
             <table className="tbl tbl-compact">
               <thead>
                 <tr>

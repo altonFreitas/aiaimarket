@@ -650,29 +650,43 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .tl li.cancelled .pin{background:var(--red);border-color:var(--red)}
 
 /* ---------- admin ---------- */
-.adm-nav{display:flex;gap:4px;overflow-x:auto;background:var(--ink-2);padding:6px;border-radius:var(--r);margin:0 0 12px;scrollbar-width:none}
+.adm-nav{display:flex;gap:var(--sp-1);overflow-x:auto;background:var(--ink-2);padding:var(--sp-2);border-radius:var(--r);margin:0 0 var(--sp-3);scrollbar-width:none}
 .adm-nav::-webkit-scrollbar{display:none}
-.adm-nav a{flex:0 0 auto;color:rgba(255,255,255,.68);text-decoration:none;padding:7px 11px;border-radius:var(--r-s);font-size:13px;white-space:nowrap}
+/* A REAL TAP TARGET, ONCE, WHERE IT COUNTS.
+   These were 35px tall. WCAG 2.5.5 asks for 44 and 2.5.8 for 24, and the
+   difference between those two numbers is where most of the argument
+   about touch targets lives.
+
+   This bar gets 44: it is the primary navigation of the whole admin, it
+   is used one-handed on a phone while standing in a shop, and the cost is
+   nine pixels ONCE. The small buttons inside the tables do not: they are
+   47x32, which clears 2.5.8 with room, and giving each of them 44 would
+   add most of a row's height to every line of every table -- fewer orders
+   visible per screen, on the screens whose whole job is showing many rows
+   at once. That is a real trade, made deliberately, not an oversight. */
+.adm-nav a{flex:0 0 auto;color:rgba(255,255,255,.68);text-decoration:none;
+  padding:var(--sp-2) var(--sp-3);border-radius:var(--r-s);font-size:var(--fs-body-sm);
+  white-space:nowrap;min-height:44px;display:inline-flex;align-items:center}
 .adm-nav a[aria-current=true]{background:var(--amber);color:#3a2b00;font-weight:700}
 /* Sign out, as an icon. Square and 34px so it stays a real tap target on a
    phone even though the label is gone, and flex:0 0 auto so the horizontally
    scrolling nav never squashes it. */
 .adm-nav-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
-  width:34px;height:34px;padding:0;background:none;border:0;border-radius:var(--r-s);
+  width:44px;height:44px;padding:0;background:none;border:0;border-radius:var(--r-s);
   color:rgba(255,255,255,.68);cursor:pointer}
 .adm-nav-icon:hover{background:rgba(255,255,255,.1);color:#fff}
 .list{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
-.item{display:flex;gap:10px;padding:9px 10px;border-bottom:1px solid var(--line-2);align-items:center}
+.item{display:flex;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line-2);align-items:center}
 .item:last-child{border-bottom:0}
 .item .th{width:44px;height:44px;border-radius:var(--r-s);object-fit:cover;background:var(--line-2);flex:0 0 auto}
 .item .g{flex:1 1 auto;min-width:0}
-.item .g b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .g b{display:block;font-size:var(--fs-body);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* One line, always. Without nowrap this wrapped on every space and then, once
    .acts had squeezed the column to a few pixels, on every CHARACTER -- a
    product reference rendered as a vertical column of letters. */
 /* `> span`, not a descendant selector: the meta line holds nested spans, and
    turning THOSE into blocks would put each on its own line. */
-.item .g > span{display:block;font-size:11.5px;color:var(--muted);font-family:var(--mono);
+.item .g > span{display:block;font-size:var(--fs-sm);color:var(--muted);font-family:var(--mono);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* The desktop meta line already ends in the view count, inline after the
    category, so the phone-only copy stays out of the way here. */
@@ -680,7 +694,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* flex:0 0 auto is the fix for the row above: the action buttons have a wide
    intrinsic minimum, and while they were allowed to consume free space they
    starved the name/reference column instead of the other way round. */
-.item .acts{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
+.item .acts{display:flex;gap:var(--sp-1);flex-wrap:wrap;justify-content:flex-end;flex:0 0 auto}
 
 /* List rows on a phone. This block has to sit AFTER the .item rules above,
    not up with the other mobile tweaks near the top of the file: the
@@ -692,7 +706,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      width there is no "rest", so they stop competing for one line and take
      turns: thumbnail and text first, actions on their own row underneath.
      That is what turns a nine-line row back into a three-line one. */
-  .item{flex-wrap:wrap;row-gap:6px}
+  .item{flex-wrap:wrap;row-gap:var(--sp-2)}
   /* Full width, flush left, no indent. Indenting the buttons to line up
      under the product name looked tidier and cost 54px, which was the exact
      difference between the four buttons fitting on one line and wrapping
@@ -701,8 +715,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   .item .acts{flex:1 0 100%;justify-content:flex-start}
   /* Trimmed padding buys the margin that keeps all four on one line down at
      320px, the narrowest phone still in real use. */
-  .item .acts .btn-sm{padding:0 8px}
-  .item .acts .stock-btn{padding:0 8px}
+  .item .acts .btn-sm{padding:0 var(--sp-2)}
+  .item .acts .stock-btn{padding:0 var(--sp-2)}
 
   /* Price and category are dropped, not shrunk: each was one more fragment
      the browser could break a line on, and both are one tap away on the
@@ -713,14 +727,14 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
      without either needing a width. flex also replaces the container's
      ellipsis, so the truncation moves onto .meta-ref, which is the part
      allowed to shrink. */
-  .item .g > span{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .item .g > span{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-3)}
   .item .g .meta-ref{min-width:0;overflow:hidden;text-overflow:ellipsis}
   /* Never shrinks: a half-rendered number is worse than no number, and the
      count is short enough that it costs the reference almost nothing. */
   .item .g .meta-views{display:inline;flex:0 0 auto;color:var(--muted-2)}
 }
-.stock-btn{border:1px solid var(--line);background:#fff;border-radius:20px;font-family:var(--mono);font-size:10px;letter-spacing:.05em;
-  text-transform:uppercase;padding:4px 8px;cursor:pointer;font-weight:700}
+.stock-btn{border:1px solid var(--line);background:#fff;border-radius:20px;font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.05em;
+  text-transform:uppercase;padding:var(--sp-1) var(--sp-2);cursor:pointer;font-weight:700}
 .stock-btn.s-in{background:var(--green-soft);color:var(--green);border-color:#b7e0cb}
 .stock-btn.s-low{background:var(--amber-soft);color:var(--amber-ink);border-color:#ecd48c}
 .stock-btn.s-out{background:var(--red-soft);color:var(--red);border-color:#f0c2ba}
@@ -728,18 +742,18 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    should stop inviting the click. .btn[disabled] does not reach here --
    this is not a .btn. */
 .stock-btn:disabled{cursor:default}
-.pill{font-family:var(--mono);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:20px;
+.pill{font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.05em;text-transform:uppercase;padding:var(--sp-1) var(--sp-2);border-radius:20px;
   background:var(--line-2);color:var(--muted);font-weight:700;white-space:nowrap}
 .pill.ok{background:var(--green-soft);color:var(--green)}
 .pill.warn{background:var(--amber-soft);color:var(--amber-ink)}
 .pill.bad{background:var(--red-soft);color:var(--red)}
-.stat{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 12px}
-.stat div{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:9px 10px}
-.stat b{display:block;font-family:var(--mono);font-size:21px;letter-spacing:-.02em}
-.stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
-.log{list-style:none;margin:0;padding:0;font-size:13px}
-.log li{border-left:2px solid var(--line);padding:0 0 8px 10px;margin:0 0 2px}
-.log time{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)}
+.stat{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-2);margin:0 0 var(--sp-3)}
+.stat div{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-2) var(--sp-3)}
+.stat b{display:block;font-family:var(--mono);font-size:var(--fs-h3);letter-spacing:-.02em}
+.stat span{font-size:var(--fs-caption);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono)}
+.log{list-style:none;margin:0;padding:0;font-size:var(--fs-body-sm)}
+.log li{border-left:2px solid var(--line);padding:0 0 var(--sp-2) var(--sp-3);margin:0 0 2px}
+.log time{display:block;font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 .log-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;padding:0;
   border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:4px}
 .log-edit-btn:hover{color:var(--ink);background:var(--line-2)}
@@ -1007,7 +1021,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* Two panels side by side above 1000px, stacked below. The breakpoint is
    where a chart plus its labels stops being readable at half width, not a
    device size. */
-.two-col{display:grid;grid-template-columns:1fr;gap:12px}
+.two-col{display:grid;grid-template-columns:1fr;gap:var(--sp-3)}
 /* min-width:0 is load-bearing, not tidying. A grid item defaults to
    min-width:auto, so the 720px-min table inside a .scroll-x forces its whole
    column that wide and the PAGE scrolls sideways -- exactly what .scroll-x
@@ -1015,29 +1029,29 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    overflow back to the box built to handle it. */
 .two-col>*{min-width:0}
 @media(min-width:1000px){.two-col{grid-template-columns:1fr 1fr}}
-.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 8px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;margin:0 0 var(--sp-2)}
 .panel-head h3{margin:0}
 .panel-head select{height:30px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);padding:0 8px;font-size:12.5px}
+  background:var(--card);padding:0 var(--sp-2);font-size:var(--fs-sm)}
 
 /* Alerts: the only thing on the page allowed to interrupt, so they sit above
    the filters and use colour rather than position to rank themselves. */
-.alerts{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
-.alert{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:9px 11px;
-  border-radius:var(--r-s);font-size:13.5px;border-left:3px solid transparent}
+.alerts{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-3)}
+.alert{display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap;padding:var(--sp-2) var(--sp-3);
+  border-radius:var(--r-s);font-size:var(--fs-body-sm);border-left:3px solid transparent}
 .alert-high{background:var(--red-soft);border-left-color:var(--red);color:var(--red)}
 .alert-medium{background:var(--amber-soft);border-left-color:var(--amber);color:var(--amber-ink)}
-.alert b{font-size:13px}
-.alert span{font-family:var(--mono);font-size:12px;opacity:.9}
+.alert b{font-size:var(--fs-body-sm)}
+.alert span{font-family:var(--mono);font-size:var(--fs-sm);opacity:.9}
 
 /* Filters wrap into as many columns as fit rather than a fixed grid: there
    are eleven of them, and a fixed count is wrong at most widths. */
-.filters .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.filters label{display:flex;flex-direction:column;gap:3px;font-size:12px}
-.filters label>span{font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+.filters .filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-2)}
+.filters label{display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--fs-sm)}
+.filters label>span{font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.06em;
   text-transform:uppercase;color:var(--muted)}
 .filters input,.filters select{height:32px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);padding:0 8px;font-size:13px}
+  background:var(--card);padding:0 var(--sp-2);font-size:var(--fs-body-sm)}
 /* Full width only inside the LABELLED GRID, which is what that layout is for.
    Applied to every control under .filters it also hit the .bar rows on the
    two sales dashboards -- and a 100%-wide child of a wrapping flex row takes
@@ -1048,7 +1062,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 
 /* KPI cards carry an optional comparison line; it is muted so the figure
    above it stays the thing being read. */
-.kpi-delta{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;margin-top:3px}
+.kpi-delta{display:block;font-style:normal;font-family:var(--mono);font-size:var(--fs-caption);margin-top:var(--sp-1)}
 .kpi-delta.up{color:var(--green)}
 .kpi-delta.down{color:var(--red)}
 
@@ -1074,17 +1088,17 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .fold-body > .crumb:first-child{display:none}
 
 /* ---------- review moderation (/admin/reviews) ---------- */
-.mod-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mod-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
 .mod-row{border:1px solid var(--line);border-left:3px solid var(--line);
-  border-radius:var(--r-s);padding:10px 12px;background:var(--card)}
+  border-radius:var(--r-s);padding:var(--sp-3) var(--sp-3);background:var(--card)}
 /* A one-star review is usually why somebody opened this screen. Marked,
    not filtered: the list stays in the order things arrived. */
 .mod-row.is-low{border-left-color:var(--red)}
-.mod-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;font-size:13px}
+.mod-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-2);font-size:var(--fs-body-sm)}
 .mod-stars{color:var(--amber-ink);letter-spacing:1px}
-.mod-when{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
-.mod-text{margin:6px 0 0;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
-.mod-act{margin-top:8px;display:flex;gap:6px}
+.mod-when{margin-left:auto;font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
+.mod-text{margin:var(--sp-2) 0 0;font-size:var(--fs-body);line-height:1.5;overflow-wrap:anywhere}
+.mod-act{margin-top:var(--sp-2);display:flex;gap:var(--sp-2)}
 
 /* ---------- skip to content ---------- */
 /* Off-screen until it has focus, then pinned to the top-left over
@@ -1105,14 +1119,14 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
 /* ---------- Home: the business overview ---------- */
-.ov-head{margin:22px 0 10px;align-items:flex-start}
-.ov-head h2{margin:0;font-size:19px}
+.ov-head{margin:var(--sp-6) 0 var(--sp-3);align-items:flex-start}
+.ov-head h2{margin:0;font-size:var(--fs-h3)}
 .ov-head .sub{margin:2px 0 0}
 /* Two deltas stack under each figure; .kpi-delta already colours them. */
 .stat > div > .kpi-delta + .kpi-delta{margin-top:1px}
 
-.ov-insights{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
-.ov-insight{position:relative;padding-left:15px;font-size:13.5px;line-height:1.45}
+.ov-insights{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
+.ov-insight{position:relative;padding-left:var(--sp-4);font-size:var(--fs-body-sm);line-height:1.45}
 /* A dot, not a coloured sentence: the text stays in the ink token so the
    line is readable with colour removed, and the mark beside it carries the
    verdict. */
@@ -1120,7 +1134,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   border-radius:50%;background:var(--muted-2)}
 .ov-good::before{background:var(--green)}
 .ov-bad::before{background:var(--red)}
-.ov-insights + .attn-links{margin-top:12px}
+.ov-insights + .attn-links{margin-top:var(--sp-3)}
 
 /* ---------- two-series line chart (Home: sales against purchases) ----------
    Green for money coming in, red for money going out -- the convention
@@ -1163,24 +1177,24 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .lc-hit{fill:transparent}
 .lc-hit:hover{fill:var(--line-2);fill-opacity:.5}
 
-.lc-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:0 0 8px}
-.lc-key{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.lc-legend{display:flex;gap:var(--sp-4);flex-wrap:wrap;align-items:center;margin:0 0 var(--sp-2)}
+.lc-key{display:inline-flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--muted)}
 /* The resolution caveat, beside the legend rather than under the chart:
    it explains why a series is absent, so it has to be read before the
    chart, not after. */
-.lc-note{font-size:11.5px;color:var(--muted-2);flex:1 1 220px;min-width:0}
+.lc-note{font-size:var(--fs-sm);color:var(--muted-2);flex:1 1 220px;min-width:0}
 /* The "nothing happened in this period" note, sitting in the middle of a
    drawn plot rather than replacing it. */
-.lc-flat{font-size:11.5px;fill:var(--muted-2)}
+.lc-flat{font-size:var(--fs-sm);fill:var(--muted-2)}
 .lc-swatch{width:11px;height:11px;border-radius:3px;flex:none}
 
 .lc-tip{position:absolute;pointer-events:none;z-index:3;background:var(--card);
   border:1px solid var(--line);border-radius:var(--r-s);box-shadow:var(--sh);
-  padding:7px 9px;font-size:12px;min-width:132px}
-.lc-tip b{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted);
-  font-weight:600;margin-bottom:4px}
-.lc-tip-row{display:flex;align-items:center;gap:6px;justify-content:space-between}
-.lc-tip-row span{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+  padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm);min-width:132px}
+.lc-tip b{display:block;font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted);
+  font-weight:600;margin-bottom:var(--sp-1)}
+.lc-tip-row{display:flex;align-items:center;gap:var(--sp-2);justify-content:space-between}
+.lc-tip-row span{display:inline-flex;align-items:center;gap:var(--sp-2);color:var(--muted)}
 .lc-tip-row em{font-style:normal;font-weight:600;font-family:var(--mono);color:var(--ink)}
 /* No hover, no hover layer. On a touch screen the chart is about 110px
    tall and the tooltip is 132px wide, so a stray tap covered the thing it
@@ -1195,40 +1209,40 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .ov-period{white-space:nowrap}
 
 /* Vertical bar series */
-.chart-bars{display:flex;align-items:flex-end;gap:4px}
+.chart-bars{display:flex;align-items:flex-end;gap:var(--sp-1)}
 .chart-bar-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;
   align-items:center;height:100%;min-width:0}
 .chart-bar{width:100%;max-width:44px;background:var(--ink);border-radius:3px 3px 0 0}
 .chart-bar-col:hover .chart-bar{background:var(--amber)}
-.chart-bar-val{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:3px;
+.chart-bar-val{font-family:var(--mono);font-size:9px;color:var(--muted);margin-bottom:var(--sp-1);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.chart-bar-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px}
+.chart-bar-lbl{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted);margin-top:var(--sp-1)}
 
 /* Horizontal ranked bars: label, bar, value on one line each, so long
    supplier and country names stay readable where a pie chart's labels would
    collide. */
-.ranked{display:flex;flex-direction:column;gap:7px}
-.ranked-row{display:grid;grid-template-columns:minmax(90px,1.4fr) 2fr auto;gap:9px;
-  align-items:center;width:100%;background:none;border:0;padding:3px 0;text-align:left;
+.ranked{display:flex;flex-direction:column;gap:var(--sp-2)}
+.ranked-row{display:grid;grid-template-columns:minmax(90px,1.4fr) 2fr auto;gap:var(--sp-2);
+  align-items:center;width:100%;background:none;border:0;padding:var(--sp-1) 0;text-align:left;
   font:inherit;color:inherit}
 .ranked-row.is-clickable{cursor:pointer;border-radius:var(--r-s)}
 .ranked-row.is-clickable:hover{background:var(--line-2)}
-.ranked-label{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ranked-label{font-size:var(--fs-body-sm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ranked-track{height:9px;background:var(--line-2);border-radius:5px;overflow:hidden}
 .ranked-fill{display:block;height:100%;background:var(--ink);border-radius:5px}
 .ranked-row.is-clickable:hover .ranked-fill{background:var(--amber)}
-.ranked-value{font-family:var(--mono);font-size:12.5px;text-align:right;white-space:nowrap}
-.ranked-share{display:block;font-size:10px;color:var(--muted-2)}
-.ranked-meta{grid-column:1/-1;font-size:10.5px;color:var(--muted-2);font-family:var(--mono);
-  margin-top:-4px}
+.ranked-value{font-family:var(--mono);font-size:var(--fs-sm);text-align:right;white-space:nowrap}
+.ranked-share{display:block;font-size:var(--fs-caption);color:var(--muted-2)}
+.ranked-meta{grid-column:1/-1;font-size:var(--fs-caption);color:var(--muted-2);font-family:var(--mono);
+  margin-top:-var(--sp-1)}
 /* Five rows, then it scrolls -- the same window the product list and the
    admin tables use, so no panel on a dashboard grows without limit.
    Measured in the browser, not derived from the padding: a bare row lands
-   at 38.6px and one carrying a meta line at 58.8px, with a 7px gap between
+   at 38.6px and one carrying a meta line at 58.8px, with a var(--sp-2) gap between
    rows but none after the last. Both rounded UP, so the fifth row is never
    clipped by a fraction of a pixel and the sixth peeks by a pixel or two --
    which is the cue that the box scrolls at all. */
-:root{--rank-row-h:39px; --rank-row-meta-h:59px; --rank-gap:7px; --rank-max-rows:5}
+:root{--rank-row-h:39px; --rank-row-meta-h:59px; --rank-gap:var(--sp-2); --rank-max-rows:5}
 .ranked{
   max-height:calc((var(--rank-row-h) + var(--rank-gap)) * var(--rank-max-rows)
     - var(--rank-gap));
@@ -1240,7 +1254,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 }
 
 /* A rate reads very differently beside a target than as a bare number. */
-.rate{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.rate{display:inline-flex;align-items:center;gap:var(--sp-2);justify-content:flex-end}
 .rate-track{width:44px;height:6px;background:var(--line-2);border-radius:4px;overflow:hidden}
 .rate-fill{display:block;height:100%;border-radius:4px}
 .rate-fill.is-ok{background:var(--green)}
@@ -1252,14 +1266,14 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 
 /* Status tiles double as filters, so they look pressable and show which one
    is currently narrowing the page. */
-.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:var(--sp-2)}
 .status-cell{background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
-  padding:9px 10px;text-align:left;cursor:pointer;font:inherit;color:inherit}
+  padding:var(--sp-2) var(--sp-3);text-align:left;cursor:pointer;font:inherit;color:inherit}
 .status-cell:hover{background:var(--line-2)}
 .status-cell.is-on{background:var(--ink);color:#fff;border-color:var(--ink)}
-.status-cell b{display:block;font-family:var(--mono);font-size:18px;letter-spacing:-.02em}
-.status-cell span{display:block;font-size:11px;color:var(--muted)}
-.status-cell em{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--muted-2)}
+.status-cell b{display:block;font-family:var(--mono);font-size:var(--fs-h4);letter-spacing:-.02em}
+.status-cell span{display:block;font-size:var(--fs-caption);color:var(--muted)}
+.status-cell em{display:block;font-style:normal;font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 .status-cell.is-on span,.status-cell.is-on em{color:rgba(255,255,255,.75)}
 
 .pill.info{background:#e6f0fb;color:#22436f}
@@ -1268,7 +1282,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    the full table's 720px floor -- and inside a half-width panel that floor is
    what would make them scroll when they comfortably fit. */
 .tbl.tbl-compact{min-width:420px}
-.tbl-compact td{padding:6px 8px;font-size:12.5px}
+.tbl-compact td{padding:var(--sp-2) var(--sp-2);font-size:var(--fs-sm)}
 .row-muted td{opacity:.55}
 /* A button that behaves like a link inside a table cell. */
 .linkish{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;
@@ -1280,13 +1294,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    fields (shop category, selling price) than a line for office supplies, so
    the column count is not knowable in advance. A fixed template put those
    extra fields under the wrong headings. */
-.po-line{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;
-  padding:10px 0;border-top:1px solid var(--line-2)}
+.po-line{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:flex-end;
+  padding:var(--sp-3) 0;border-top:1px solid var(--line-2)}
 .po-line:first-of-type{border-top:0}
 /* Full width on a phone: two half-width inputs side by side leaves neither
    readable once the label wraps. */
 .po-line .field{flex:1 1 100%;min-width:0;margin:0}
-.po-line-total{display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+.po-line-total{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-2);
   flex:1 1 100%}
 @media(min-width:820px){
   /* The product name earns the most room -- it is the only free-text field,
@@ -1306,15 +1320,58 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* The table scrolls inside this box, never the page: on a phone the columns
    cannot all fit, and a horizontally scrolling BODY breaks every other
    screen in the admin. */
-.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r)}
-.tbl{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
+
+/* THAT THERE IS MORE TABLE TO THE RIGHT.
+   Measured on a 390px phone: 281px of the admin-users table sat outside
+   this box with nothing whatever saying so. The last column a phone showed
+   was "Access", so the 2FA state, the last login, the status and the Edit
+   button were simply invisible -- not clipped in a way that invites a
+   swipe, just absent. Somebody checking whether a staff account still has
+   two-factor on would conclude the column does not exist.
+
+   A fade at the right edge, painted only while there is something behind
+   it. Pure CSS: the gradient is attached to the SCROLLING content with
+   background-attachment:local, so it slides away as the last column
+   arrives and comes back when it leaves. No scroll listener, no state, no
+   re-render on every frame of a swipe. */
+.scroll-x{
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--line);border-radius:var(--r);
+  /* Four layers, and the order matters. The two COVER layers are painted
+     in the card's own colour and attached `local`, so they travel with the
+     content: at rest they sit over the shadows and hide them. The two
+     SHADOW layers are attached `scroll`, so they stay pinned to the box.
+     Scroll right and the left cover slides away, revealing the left
+     shadow; reach the end and the right cover arrives over the right one.
+
+     An earlier attempt made the cover 100% wide, which covered both
+     shadows permanently -- the affordance was in the stylesheet and
+     invisible on screen, which is worse than not having written it. */
+  background-image:
+    linear-gradient(to right, var(--card) 40%, rgba(255,255,255,0)),
+    linear-gradient(to left,  var(--card) 40%, rgba(255,255,255,0)),
+    linear-gradient(to right, rgba(11,20,36,.18), rgba(11,20,36,0)),
+    linear-gradient(to left,  rgba(11,20,36,.18), rgba(11,20,36,0));
+  background-position:0 0, 100% 0, 0 0, 100% 0;
+  background-size:36px 100%, 36px 100%, 16px 100%, 16px 100%;
+  background-repeat:no-repeat;
+  background-attachment:local, local, scroll, scroll;
+  background-color:var(--card)}
+/* AND THAT SOMEBODY WITHOUT A MOUSE CAN REACH IT.
+   A div that scrolls but holds no focusable element cannot be scrolled
+   from a keyboard at all -- the content behind the fade was unreachable
+   for anyone tabbing. tabindex=0 makes the box itself focusable so the
+   arrow keys work; the ring says which box has the keys. This pairs with
+   role="region" and a name in the markup (see ScrollX). */
+.scroll-x:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+.tbl{border-collapse:collapse;width:100%;min-width:720px;font-size:var(--fs-body-sm)}
 .tbl th{text-align:left;padding:0;border-bottom:1px solid var(--line);background:var(--line-2);
   position:sticky;top:0;z-index:1;white-space:nowrap}
 /* The whole header cell is the sort control, so the tap target is the cell
    rather than the few pixels of the word inside it. */
-.tbl th button{width:100%;display:flex;align-items:center;gap:4px;background:none;border:0;
-  padding:9px 10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;
+.tbl th button{width:100%;display:flex;align-items:center;gap:var(--sp-1);background:none;border:0;
+  padding:var(--sp-2) var(--sp-3);font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);font-weight:600;cursor:pointer}
 .tbl th button:hover{color:var(--ink);background:var(--line)}
 /* A numeric column is right-aligned in both halves or it is not aligned at
@@ -1332,7 +1389,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    scrolled off is a row you cannot read. */
 .tbl th:first-child,.tbl td:first-child{position:sticky;left:0;z-index:2;background:var(--card)}
 .tbl th:first-child{background:var(--line-2);z-index:3}
-.tbl td{padding:8px 10px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.tbl td{padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line-2);vertical-align:middle}
 .tbl tr:last-child td{border-bottom:0}
 .tbl td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 
@@ -1341,8 +1398,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    answers "where is this order" as well as asking "where next". It wraps
    on a phone rather than scrolling sideways: nine short words, and a
    horizontal scroller would hide the last of them behind an edge. */
-.po-status{margin:10px 0 16px}
-.po-status-row{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}
+.po-status{margin:var(--sp-3) 0 var(--sp-4)}
+.po-status-row{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin:var(--sp-1) 0 var(--sp-2)}
 .po-status .hint{margin:0}
 
 /* ---------- a seller's purchase-order lines ---------- */
@@ -1361,13 +1418,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    Two layouts, two names. The seller's form has four bare inputs and wants
    a grid; the owner's has a dozen labelled fields and wants the flex row
    above, which wraps and bottom-aligns them. */
-.po-line-4{display:grid;grid-template-columns:1fr;gap:6px;margin-bottom:8px}
+.po-line-4{display:grid;grid-template-columns:1fr;gap:var(--sp-2);margin-bottom:var(--sp-2)}
 .po-line-4 input{width:100%;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);padding:8px 9px;font-size:14px}
+  background:var(--card);padding:var(--sp-2) var(--sp-2);font-size:var(--fs-body)}
 @media(min-width:560px){
   .po-line-4{grid-template-columns:2fr 0.7fr 1fr 1fr}
 }
-.po-line-foot{display:flex;align-items:center;gap:10px;margin:10px 0 14px}
+.po-line-foot{display:flex;align-items:center;gap:var(--sp-3);margin:var(--sp-3) 0 var(--sp-4)}
 
 /* ---------- a long list, capped ---------- */
 /* Applied only past a threshold the component decides (SCROLL_AFTER), so a
@@ -1386,25 +1443,25 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* ---------- seller invitations ---------- */
 /* The form is one line where there is room for one and two where there is
    not: the note is the field that matters and the button is four words. */
-.invite-new{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:8px}
+.invite-new{display:flex;gap:var(--sp-2);align-items:flex-end;flex-wrap:wrap;margin-top:var(--sp-2)}
 .invite-new .field{margin:0}
 
 /* The one moment a token is on screen. Bordered in amber because it is the
    only chance to copy it -- the list below never shows it again. */
-.invite-made{margin-top:10px;padding:10px;border:1px solid var(--amber);
+.invite-made{margin-top:var(--sp-3);padding:var(--sp-3);border:1px solid var(--amber);
   border-radius:var(--r-s);background:var(--amber-soft);
-  display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap}
 .invite-made .crumb{width:100%;margin:0}
-.invite-url{flex:1;min-width:200px;font-family:var(--mono);font-size:12px;
+.invite-url{flex:1;min-width:200px;font-family:var(--mono);font-size:var(--fs-sm);
   word-break:break-all;user-select:all;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r-s);padding:6px 8px}
+  border:1px solid var(--line);border-radius:var(--r-s);padding:var(--sp-2) var(--sp-2)}
 
-.invite-list{list-style:none;margin:12px 0 0;padding:0}
-.invite-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:8px 0;border-top:1px solid var(--line-2)}
+.invite-list{list-style:none;margin:var(--sp-3) 0 0;padding:0}
+.invite-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) 0;border-top:1px solid var(--line-2)}
 .invite-row:first-child{border-top:0}
-.invite-row b{display:block;font-size:13.5px}
-.invite-row .hint{display:block;font-size:11.5px}
+.invite-row b{display:block;font-size:var(--fs-body-sm)}
+.invite-row .hint{display:block;font-size:var(--fs-sm)}
 /* A spent or withdrawn link is history, not an option. Dimmed rather than
    hidden: "I sent Alton a link last week" is a question this list answers. */
 .invite-row:not(.is-open){opacity:.55}
@@ -1432,16 +1489,16 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* Inside the panel that holds the table, not a panel of its own: it is a
    part of that table's answer, and a second card would read as a second
    subject. The rule and the inset say "this belongs to the row above". */
-.seller-detail{margin-top:12px;padding-top:12px;border-top:2px solid var(--amber)}
-.seller-detail h4{margin:0;font-size:15px}
-.seller-detail .panel-head{align-items:flex-start;margin-bottom:10px}
-.seller-detail-acts{display:flex;gap:6px;flex-wrap:wrap}
+.seller-detail{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:2px solid var(--amber)}
+.seller-detail h4{margin:0;font-size:var(--fs-body-lg)}
+.seller-detail .panel-head{align-items:flex-start;margin-bottom:var(--sp-3)}
+.seller-detail-acts{display:flex;gap:var(--sp-2);flex-wrap:wrap}
 /* A date is not money and should not be sized like it -- at 21px a
    YYYY-MM-DD wraps in a stat cell. */
-.seller-detail-date{font-size:14px !important}
-.seller-detail .crumb{margin:14px 0 6px}
-.seller-detail .two-col{gap:14px}
-.tbl td.num b{font-size:14px}
+.seller-detail-date{font-size:var(--fs-body) !important}
+.seller-detail .crumb{margin:var(--sp-4) 0 var(--sp-2)}
+.seller-detail .two-col{gap:var(--sp-4)}
+.tbl td.num b{font-size:var(--fs-body)}
 /* Severity as a left stripe rather than a filled row: a fully tinted row
    fights the text sitting on it, an edge does not. */
 .tbl .row-bad td:first-child{box-shadow:inset 3px 0 0 var(--red)}
@@ -1452,16 +1509,16 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    left as-is the last row sits half empty. auto-fit lets however many tiles
    this page has spread evenly at whatever width it gets. */
 .stat-fit{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
-.stat-fit b{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat-fit b{font-size:var(--fs-h4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-.stock-name{display:flex;align-items:center;gap:9px;text-decoration:none;min-width:0}
+.stock-name{display:flex;align-items:center;gap:var(--sp-2);text-decoration:none;min-width:0}
 .stock-name .th{width:34px;height:34px;border-radius:var(--r-s);object-fit:cover;
   background:var(--line-2);flex:0 0 auto}
-.stock-name b{display:block;font-size:13.5px;font-weight:600;white-space:nowrap;
+.stock-name b{display:block;font-size:var(--fs-body-sm);font-weight:600;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;max-width:34ch}
-.stock-sub{display:block;font-size:10.5px;color:var(--muted-2);font-family:var(--mono);
+.stock-sub{display:block;font-size:var(--fs-caption);color:var(--muted-2);font-family:var(--mono);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38ch}
-.stock-qty{margin-left:7px}
+.stock-qty{margin-left:var(--sp-2)}
 /* Filter chips reuse .chip from the catalog rail; this only adds the button
    reset and the selected state, so the two stay visually identical. */
 .stock-chip{cursor:pointer;font-family:inherit}
@@ -1475,24 +1532,24 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 }
 
 /* ---------- order notifications (admin) ---------- */
-.notif{border:1px solid var(--line);border-radius:var(--r-s);padding:10px;background:var(--card)}
-.notif-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
-.notif-head b{font-size:13.5px}
-.notif-head .hint{font-size:11.5px;color:var(--muted);margin:0}
+.notif{border:1px solid var(--line);border-radius:var(--r-s);padding:var(--sp-3);background:var(--card)}
+.notif-head{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-2)}
+.notif-head b{font-size:var(--fs-body-sm)}
+.notif-head .hint{font-size:var(--fs-sm);color:var(--muted);margin:0}
 /* The message exactly as the buyer will read it, wrapped rather than
    scrolled: an admin about to send this by hand has to be able to see all
    of it without dragging sideways. */
-.notif-body{margin:0;padding:8px 10px;background:var(--line-2);border-radius:var(--r-s);
-  font-family:var(--sans);font-size:13px;line-height:1.45;white-space:pre-wrap;
+.notif-body{margin:0;padding:var(--sp-2) var(--sp-3);background:var(--line-2);border-radius:var(--r-s);
+  font-family:var(--sans);font-size:var(--fs-body-sm);line-height:1.45;white-space:pre-wrap;
   word-break:break-word;overflow-wrap:anywhere}
 /* Segment count: quiet at one, amber past it. Two segments is a real cost,
    not an error -- so it is noticeable, not alarming. */
-.sms-cost{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;
-  letter-spacing:.04em;padding:2px 7px;border-radius:20px;background:var(--line-2);color:var(--muted)}
+.sms-cost{display:inline-flex;align-items:center;gap:var(--sp-1);font-family:var(--mono);font-size:var(--fs-caption);
+  letter-spacing:.04em;padding:2px var(--sp-2);border-radius:20px;background:var(--line-2);color:var(--muted)}
 .sms-cost.is-multi{background:var(--amber-soft);color:var(--amber-ink);font-weight:700}
-.sms-cost-enc{opacity:.7;font-size:9.5px}
-.notif-error{margin:7px 0 0;padding:7px 9px;background:var(--red-soft);color:var(--red);
-  border-radius:var(--r-s);font-size:12px;font-family:var(--mono);white-space:pre-wrap;
+.sms-cost-enc{opacity:.7;font-size:var(--fs-caption)}
+.notif-error{margin:var(--sp-2) 0 0;padding:var(--sp-2) var(--sp-2);background:var(--red-soft);color:var(--red);
+  border-radius:var(--r-s);font-size:var(--fs-sm);font-family:var(--mono);white-space:pre-wrap;
   word-break:break-word;overflow-wrap:anywhere}
 
 @media(min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
@@ -1749,22 +1806,22 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    so the rate is read where the drop happens rather than in a legend the
    eye has to travel to. Wraps to a column on a phone, where three stages
    side by side would each be too narrow to read. */
-.funnel{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.funnel{display:flex;align-items:stretch;gap:var(--sp-2);flex-wrap:wrap}
 .funnel-stage{flex:1 1 120px;min-width:0;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
-.funnel-stage b{display:block;font-size:22px;line-height:1.1;
+  border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3) var(--sp-3)}
+.funnel-stage b{display:block;font-size:var(--fs-h2);line-height:1.1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.funnel-stage span{display:block;font-family:var(--mono);font-size:10px;
+.funnel-stage span{display:block;font-family:var(--mono);font-size:var(--fs-caption);
   letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .funnel-arrow{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:1px;color:var(--muted-2);padding:0 2px}
-.funnel-arrow em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
-.funnel-arrow span{font-size:15px;line-height:1}
+.funnel-arrow em{font-style:normal;font-family:var(--mono);font-size:var(--fs-caption);color:var(--ink-3)}
+.funnel-arrow span{font-size:var(--fs-body-lg);line-height:1}
 @media(max-width:520px){
   /* Stack: the arrow turns to point down so the funnel still reads as a
      sequence rather than three unrelated cards. */
   .funnel{flex-direction:column}
-  .funnel-arrow{flex-direction:row;gap:6px}
+  .funnel-arrow{flex-direction:row;gap:var(--sp-2)}
   .funnel-arrow span{transform:rotate(90deg)}
 }
 
@@ -1787,27 +1844,27 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 
 /* Pre-order notice on the product page: what it is, and when to expect it,
    above the button that asks for the commitment. */
-.preorder-note{display:flex;flex-direction:column;gap:2px;margin:0 0 8px}
-.preorder-note b{font-size:13.5px}
-.preorder-note span{font-size:12.5px;opacity:.9}
+.preorder-note{display:flex;flex-direction:column;gap:2px;margin:0 0 var(--sp-2)}
+.preorder-note b{font-size:var(--fs-body-sm)}
+.preorder-note span{font-size:var(--fs-sm);opacity:.9}
 
 /* The description on a purchase order line spans the row: a two-line
    textarea squeezed into a 130px column is unusable, and this is the field
    that becomes the product's own description. */
 .po-line-desc{flex:1 1 100% !important}
 .po-line-desc textarea{width:100%;resize:vertical;font:inherit;
-  border:1px solid var(--line);border-radius:var(--r-s);padding:6px 8px;background:var(--paper)}
+  border:1px solid var(--line);border-radius:var(--r-s);padding:var(--sp-2) var(--sp-2);background:var(--paper)}
 
 /* Stock status on the product form is shown, not chosen: the quantity above
    decides it, and the database derives the same value on save. */
-.stock-derived{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
+.stock-derived{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:0}
 
 /* Stock history, opened from a row on the stock screen. Sits inside the
    table it belongs to, so the balance a reader is questioning stays on
    screen above the movements that explain it. */
-.movements{padding:4px 2px 10px}
+.movements{padding:var(--sp-1) 2px var(--sp-3)}
 .movements-head{display:flex;align-items:baseline;justify-content:space-between;
-  gap:10px;flex-wrap:wrap;margin:0 0 8px}
+  gap:var(--sp-3);flex-wrap:wrap;margin:0 0 var(--sp-2)}
 .movements-tbl{min-width:520px}
 .movements-tbl th{background:transparent}
 .pill.mv-purchase_receipt{background:var(--green-soft);color:var(--green)}
@@ -1819,23 +1876,23 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    the work. Sized by content rather than a fixed column count, so a quiet
    day shows three wide cards instead of three narrow ones in a row of six. */
 .attn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));
-  gap:10px;margin:0 0 12px}
+  gap:var(--sp-3);margin:0 0 var(--sp-3)}
 .attn-card{display:block;background:var(--card);border:1px solid var(--line);
-  border-left-width:3px;border-radius:var(--r);padding:12px 13px;text-decoration:none;
+  border-left-width:3px;border-radius:var(--r);padding:var(--sp-3) var(--sp-3);text-decoration:none;
   color:inherit}
 .attn-card:hover{border-color:var(--ink);background:var(--line-2)}
-.attn-n{display:block;font-family:var(--mono);font-size:26px;line-height:1.1;
+.attn-n{display:block;font-family:var(--mono);font-size:var(--fs-h2);line-height:1.1;
   letter-spacing:-.02em}
-.attn-label{display:block;font-weight:600;font-size:13.5px;margin:3px 0 2px}
-.attn-hint{display:block;font-size:11.5px;color:var(--muted);line-height:1.45}
+.attn-label{display:block;font-weight:600;font-size:var(--fs-body-sm);margin:var(--sp-1) 0 2px}
+.attn-hint{display:block;font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
 /* Severity on the left edge only. Colouring the whole card would make six
    waiting orders shout as loudly as a stock count that does not add up. */
 .attn-urgent{border-left-color:var(--red)}
 .attn-urgent .attn-n{color:var(--red)}
 .attn-warn{border-left-color:var(--amber)}
 .attn-info{border-left-color:var(--line)}
-.attn-foot{margin:0 0 14px}
-.attn-links{display:flex;flex-wrap:wrap;gap:8px}
+.attn-foot{margin:0 0 var(--sp-4)}
+.attn-links{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 
 /* The quantity box on a return line. Narrow on purpose: it takes a number
    of shoes, not a price, and a full-width input invites a typo. */
@@ -1844,17 +1901,17 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* The "these figures are incomplete" banner. Sits above the numbers it
    qualifies, with room under it, so it is read before them rather than
    noticed after. */
-.coverage-note{margin:0 0 12px}
+.coverage-note{margin:0 0 var(--sp-3)}
 
 /* The period chips sit above the rest of the filters with a hairline under
    them: they answer a different question from the boxes below -- when, not
    what -- and running them together reads as one long row of controls. */
-.preset-bar{padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid var(--line-2)}
+.preset-bar{padding-bottom:var(--sp-2);margin-bottom:var(--sp-2);border-bottom:1px solid var(--line-2)}
 
 /* Password box with the show/hide eye sitting inside its right edge. The
    input reserves room for it so a long password never runs underneath. */
 .pw-wrap{position:relative}
-.pw-wrap input{width:100%;padding-right:40px}
+.pw-wrap input{width:100%;padding-right:var(--sp-10)}
 .pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);
   width:32px;height:32px;border:0;background:none;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
@@ -1864,32 +1921,32 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 /* The inline reset-password row inside a table cell. Right-aligned to sit
    under the buttons that opened it, and the box is bounded so it does not
    stretch the column it lives in. */
-.reset-bar{margin-top:8px;justify-content:flex-end}
+.reset-bar{margin-top:var(--sp-2);justify-content:flex-end}
 .reset-input{max-width:210px;flex:1 1 160px}
 
 /* ===========================================================================
    Who can do what -- the role picker and section checklist on Admin users,
    and the read-only badge in the admin navigation.
    ======================================================================== */
-.access{display:grid;gap:14px;margin:14px 0 4px}
-.access fieldset{border:1px solid var(--line);border-radius:10px;padding:10px 12px 12px;margin:0}
-.access legend{padding:0 6px;font-size:12px;font-weight:600;color:var(--muted)}
+.access{display:grid;gap:var(--sp-4);margin:var(--sp-4) 0 var(--sp-1)}
+.access fieldset{border:1px solid var(--line);border-radius:10px;padding:var(--sp-3) var(--sp-3) var(--sp-3);margin:0}
+.access legend{padding:0 var(--sp-2);font-size:var(--fs-sm);font-weight:600;color:var(--muted)}
 .access fieldset:disabled{opacity:.55}
 
 .access-role{display:block}
-.access-role-opt{display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border-radius:8px;cursor:pointer}
+.access-role-opt{display:flex;gap:var(--sp-2);align-items:flex-start;padding:var(--sp-2) var(--sp-2);border-radius:8px;cursor:pointer}
 .access-role-opt + .access-role-opt{margin-top:2px}
 .access-role-opt:hover{background:var(--line-2)}
 /* The chosen one is filled, not just dotted: at a glance across the table
    the difference between an admin and a reader has to be obvious. */
 .access-role-opt.on{background:var(--amber-soft);box-shadow:inset 0 0 0 1px var(--amber-ink)}
-.access-role-opt input{margin-top:3px;flex:none}
+.access-role-opt input{margin-top:var(--sp-1);flex:none}
 .access-role-opt span{display:flex;flex-direction:column;gap:1px;line-height:1.3}
-.access-role-opt em{font-style:normal;font-size:12px;color:var(--muted)}
+.access-role-opt em{font-style:normal;font-size:var(--fs-sm);color:var(--muted)}
 
-.access-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
-.access-box{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);
-  border-radius:8px;cursor:pointer;font-size:13px}
+.access-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--sp-2)}
+.access-box{display:flex;gap:var(--sp-2);align-items:center;padding:var(--sp-2) var(--sp-3);border:1px solid var(--line);
+  border-radius:8px;cursor:pointer;font-size:var(--fs-body-sm)}
 .access-box:hover{background:var(--line-2)}
 .access-box.on{background:var(--amber-soft);border-color:var(--amber-ink)}
 .access-box input{flex:none}
@@ -1898,19 +1955,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    explanation: a flat list of thirty boxes would say nothing about which
    ones live inside which, and "Finance" on its own means nothing without
    "Settings" above it. */
-.access-area{border:1px solid var(--line);border-radius:10px;padding:10px 12px;
-  margin-bottom:8px;background:var(--card)}
+.access-area{border:1px solid var(--line);border-radius:10px;padding:var(--sp-3) var(--sp-3);
+  margin-bottom:var(--sp-2);background:var(--card)}
 .access-area.on{border-color:var(--amber-ink);background:var(--amber-soft)}
 /* Partly granted is a THIRD state and has to look like one. A part-granted
    area drawn the same as an ungranted one is the screen misreporting who can
    see the books. */
 .access-area.part{border-color:var(--amber-ink);border-style:dashed}
-.access-area-head{display:flex;gap:9px;align-items:flex-start;cursor:pointer}
-.access-area-head input{flex:none;margin-top:3px}
-.access-area-head b{font-size:13.5px;display:block}
-.access-area-head em{font-style:normal;font-size:11.5px;color:var(--muted);display:block}
+.access-area-head{display:flex;gap:var(--sp-2);align-items:flex-start;cursor:pointer}
+.access-area-head input{flex:none;margin-top:var(--sp-1)}
+.access-area-head b{font-size:var(--fs-body-sm);display:block}
+.access-area-head em{font-style:normal;font-size:var(--fs-sm);color:var(--muted);display:block}
 .access-subs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-  gap:6px;margin:9px 0 0 25px}
+  gap:var(--sp-2);margin:var(--sp-2) 0 0 var(--sp-6)}
 @media(max-width:520px){
   /* The indent costs more than it explains on a narrow screen, where it
      would leave the labels in a column two words wide. */
@@ -1927,16 +1984,16 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .access-fold:focus-visible{outline:2px solid var(--amber-ink);outline-offset:2px}
 /* An open area's head sits above its tabs rather than beside nothing. */
 .access-area.is-open .access-area-head{margin-bottom:2px}
-.access-quick{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:9px}
-.access-quick .hint{margin:0;font-size:12px}
+.access-quick{display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap;margin-top:var(--sp-2)}
+.access-quick .hint{margin:0;font-size:var(--fs-sm)}
 
-.access-cell{font-size:12px;color:var(--muted);max-width:230px}
+.access-cell{font-size:var(--fs-sm);color:var(--muted);max-width:230px}
 /* Opens as a full-width row beneath the account (.detail-row), not inside
    the actions cell -- a table column is as wide as its widest cell, so a
    checklist in there squeezed every other column until a three-word name
    wrapped to three lines. */
-.access-edit{padding:4px 14px 14px;text-align:left}
-.access-edit .access{margin-top:10px}
+.access-edit{padding:var(--sp-1) var(--sp-4) var(--sp-4);text-align:left}
+.access-edit .access{margin-top:var(--sp-3)}
 
 /* The seller access editor opens as a full-width block BENEATH the store,
    not beside it. .item is a flex row with align-items:center, so an
@@ -1944,28 +2001,28 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    action buttons into slivers -- the same mistake the admin-users editor
    made inside a table cell, in a different layout. */
 .item-open{flex-wrap:wrap}
-.item-open > .access-edit{flex:1 0 100%;padding:0 0 6px}
+.item-open > .access-edit{flex:1 0 100%;padding:0 0 var(--sp-2)}
 /* Each feature carries a line saying what it is, so the box is two rows
    rather than one and the checkbox aligns to the first. */
 .feat-box{align-items:flex-start}
-.feat-box input{margin-top:3px}
+.feat-box input{margin-top:var(--sp-1)}
 .feat-box span{display:flex;flex-direction:column;gap:1px;line-height:1.3}
-.feat-box em{font-style:normal;font-size:11.5px;color:var(--muted)}
+.feat-box em{font-style:normal;font-size:var(--fs-sm);color:var(--muted)}
 .feat-box.on em{color:var(--amber-ink)}
 
 /* The signed-in name, then the read-only badge if there is one, then the
    link out. Whichever of the first two comes first claims the gap. */
 .adm-who{margin-left:auto;display:inline-flex;align-items:center;
-  font-size:12px;color:var(--muted-2);white-space:nowrap;max-width:190px;
+  font-size:var(--fs-sm);color:var(--muted-2);white-space:nowrap;max-width:190px;
   overflow:hidden;text-overflow:ellipsis}
-.adm-who + .adm-readonly{margin-left:8px}
-.adm-who + a{margin-left:10px!important}
-.adm-readonly{margin-left:auto;display:inline-flex;align-items:center;gap:5px;
-  padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;
+.adm-who + .adm-readonly{margin-left:var(--sp-2)}
+.adm-who + a{margin-left:var(--sp-3)!important}
+.adm-readonly{margin-left:auto;display:inline-flex;align-items:center;gap:var(--sp-1);
+  padding:var(--sp-1) var(--sp-2);border-radius:999px;font-size:var(--fs-sm);font-weight:600;
   background:var(--amber-soft);color:var(--amber-ink);white-space:nowrap}
 /* The catalog link already claims margin-left:auto; with two of them the
    badge sits immediately before it rather than fighting for the same gap. */
-.adm-readonly + a{margin-left:10px!important}
+.adm-readonly + a{margin-left:var(--sp-3)!important}
 
 /* A read-only viewer gets the stock badge without the click. It keeps the
    colour, which is the information; it must not keep the pointer cursor,
@@ -1974,18 +2031,18 @@ span.stock-btn{cursor:default}
 span.stock-btn:hover{filter:none}
 
 /* Which ways of paying are switched on (Settings). */
-.pay-ready{display:grid;gap:6px;margin-top:10px}
-.pay-row{display:grid;grid-template-columns:120px auto 1fr;gap:10px;align-items:center;
-  padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px}
+.pay-ready{display:grid;gap:var(--sp-2);margin-top:var(--sp-3)}
+.pay-row{display:grid;grid-template-columns:120px auto 1fr;gap:var(--sp-3);align-items:center;
+  padding:var(--sp-2) var(--sp-3);border:1px solid var(--line);border-radius:8px;font-size:var(--fs-body-sm)}
 .pay-row.on{background:#f2f9f5;border-color:#bfe3cd}
 .pay-name{font-weight:600}
-.pay-todo{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
-.pay-vars{font-family:var(--mono);font-size:11px;background:var(--line-2);
-  padding:2px 6px;border-radius:4px;color:var(--ink)}
+.pay-todo{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;font-size:var(--fs-sm);color:var(--muted)}
+.pay-vars{font-family:var(--mono);font-size:var(--fs-caption);background:var(--line-2);
+  padding:2px var(--sp-2);border-radius:4px;color:var(--ink)}
 .pay-blocked{color:var(--amber-ink)}
 .pay-manual{color:var(--muted-2)}
 @media (max-width:600px){
-  .pay-row{grid-template-columns:1fr auto;row-gap:6px}
+  .pay-row{grid-template-columns:1fr auto;row-gap:var(--sp-2)}
   .pay-todo{grid-column:1 / -1}
 }
 
@@ -1993,17 +2050,17 @@ span.stock-btn:hover{filter:none}
    measure than the catalog grid: past about 70 characters a line the eye
    loses its place returning to the next one. */
 .legal{max-width:44rem}
-.legal h2{font-size:15px;margin:20px 0 6px}
-.legal p{line-height:1.65;margin:0 0 10px;color:var(--ink)}
-.legal .sub{margin-bottom:14px}
-.foot-legal{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:8px}
-.foot-legal a{color:inherit;text-decoration:underline;text-underline-offset:2px;font-size:12px}
+.legal h2{font-size:var(--fs-body-lg);margin:var(--sp-5) 0 var(--sp-2)}
+.legal p{line-height:1.65;margin:0 0 var(--sp-3);color:var(--ink)}
+.legal .sub{margin-bottom:var(--sp-4)}
+.foot-legal{display:flex;flex-wrap:wrap;gap:var(--sp-4);justify-content:center;margin-top:var(--sp-2)}
+.foot-legal a{color:inherit;text-decoration:underline;text-underline-offset:2px;font-size:var(--fs-sm)}
 
 /* Actions on an empty/error screen: a centred row of natural-width
    buttons. Not .btn-row, which is a full-width column stack meant for the
    bottom of a form -- two buttons the width of the page read as a mistake
    rather than as a choice. */
-.empty-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.empty-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center;margin-top:var(--sp-4)}
 
 /* ============================================================
    MAIN NAVIGATION — the bar under the logo, and its mega panel
@@ -2026,12 +2083,12 @@ span.stock-btn:hover{filter:none}
 .mainnav{display:none;position:relative;z-index:39;background:var(--ink);color:#fff;
   border-top:1px solid rgba(255,255,255,.09)}
 .mainnav-in{position:relative;z-index:1;background:var(--ink);
-  max-width:var(--content-w);margin:0 auto;padding:0 12px}
+  max-width:var(--content-w);margin:0 auto;padding:0 var(--sp-3)}
 .mainnav-row{min-width:0;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .mainnav-row::-webkit-scrollbar{display:none}
-.mainnav-item{flex:0 0 auto;display:inline-flex;align-items:center;height:44px;padding:0 13px;
+.mainnav-item{flex:0 0 auto;display:inline-flex;align-items:center;height:44px;padding:0 var(--sp-3);
   background:transparent;border:0;border-bottom:2px solid transparent;color:rgba(255,255,255,.82);
-  font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  font-size:var(--fs-sm);font-weight:700;letter-spacing:.09em;text-transform:uppercase;
   text-decoration:none;white-space:nowrap;cursor:pointer}
 .mainnav-item:hover{color:#fff}
 .mainnav-item.is-on{color:#fff;border-bottom-color:var(--amber)}
@@ -2052,39 +2109,39 @@ span.stock-btn:hover{filter:none}
   background:var(--card);color:var(--ink);border-top:1px solid var(--line);
   box-shadow:var(--sh);max-height:min(70vh,560px);overflow-y:auto;
   animation:megaDown .14s ease-out}
-.mega-in{max-width:var(--content-w);margin:0 auto;padding:14px 12px 18px;
-  display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.mega-in{max-width:var(--content-w);margin:0 auto;padding:var(--sp-4) var(--sp-3) var(--sp-5);
+  display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4)}
 
-.mega-all{display:block;font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink);text-decoration:none;padding:4px 8px 10px;
-  border-bottom:1px solid var(--line-2);margin-bottom:6px}
+.mega-all{display:block;font-size:var(--fs-sm);font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink);text-decoration:none;padding:var(--sp-1) var(--sp-2) var(--sp-3);
+  border-bottom:1px solid var(--line-2);margin-bottom:var(--sp-2)}
 .mega-all:hover{color:var(--ink-3);text-decoration:underline}
 .mega-groups{list-style:none;margin:0;padding:0}
 .mega-groups li{display:flex;flex-wrap:wrap;align-items:center}
-.mega-group{flex:1;min-width:0;display:flex;justify-content:space-between;gap:8px;align-items:center;
-  padding:9px 8px;border-radius:var(--r-s);text-decoration:none;font-size:14px;font-weight:600}
+.mega-group{flex:1;min-width:0;display:flex;justify-content:space-between;gap:var(--sp-2);align-items:center;
+  padding:var(--sp-2) var(--sp-2);border-radius:var(--r-s);text-decoration:none;font-size:var(--fs-body);font-weight:600}
 .mega-groups li.is-on .mega-group,.mega-group:hover{background:var(--line-2)}
-.mega-groups .n{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400}
+.mega-groups .n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted);font-weight:400}
 /* Touch has no hover, so this chevron is what opens a category on a phone.
    On a desktop it is the same control, and pointing at the row does it
    anyway -- so it reads as the affordance it is either way. */
 .mega-exp{flex:0 0 auto;width:32px;height:32px;padding:0;border:0;background:transparent;
-  color:var(--muted);font-size:17px;line-height:1;cursor:pointer;border-radius:var(--r-s)}
+  color:var(--muted);font-size:var(--fs-h4);line-height:1;cursor:pointer;border-radius:var(--r-s)}
 .mega-exp:hover{background:var(--line-2);color:var(--ink)}
 .mega-exp[aria-expanded=true]{color:var(--ink);transform:rotate(90deg)}
-.mega-empty{padding:8px;font-size:13px;color:var(--muted)}
+.mega-empty{padding:var(--sp-2);font-size:var(--fs-body-sm);color:var(--muted)}
 
 /* The subcategories. Twice in the markup, once visible: inline under their
    category on a phone, in the column beside it on a desktop. One list to
    maintain, no second menu to drift out of step. */
-.mega-kids-inline{list-style:none;margin:0 0 6px;padding:0 0 4px 16px;flex-basis:100%}
+.mega-kids-inline{list-style:none;margin:0 0 var(--sp-2);padding:0 0 var(--sp-1) var(--sp-4);flex-basis:100%}
 .mega-col-kids{display:none}
-.mega-kids-hd{margin:0 0 8px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mega-kids-hd{margin:0 0 var(--sp-2);font-size:var(--fs-caption);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .mega-kids{list-style:none;margin:0;padding:0}
-.mega-kids-inline a,.mega-kids a{display:flex;justify-content:space-between;gap:8px;
-  padding:6px 6px;text-decoration:none;font-size:13.5px;color:var(--ink-3);border-radius:var(--r-s)}
+.mega-kids-inline a,.mega-kids a{display:flex;justify-content:space-between;gap:var(--sp-2);
+  padding:var(--sp-2) var(--sp-2);text-decoration:none;font-size:var(--fs-body-sm);color:var(--ink-3);border-radius:var(--r-s)}
 .mega-kids-inline a:hover,.mega-kids a:hover{color:var(--ink);background:var(--line-2)}
-.mega-kids-inline .n,.mega-kids .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+.mega-kids-inline .n,.mega-kids .n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 
 /* Real stock from behind the entry. It carries the panel on a catalogue
    with no subcategories yet, and stays worth its space once there are
@@ -2094,21 +2151,21 @@ span.stock-btn:hover{filter:none}
    thing the menu exists to show. The same products are one tap away in the
    rows on the page behind it. */
 .mega-col-feature{display:none}
-.mega-card{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+.mega-card{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:var(--sp-1)}
 .mega-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
   border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
-.mega-card-nm{font-size:12.5px;font-weight:600;line-height:1.25;
+.mega-card-nm{font-size:var(--fs-sm);font-weight:600;line-height:1.25;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.mega-card-pr{font-size:12.5px;color:var(--ink-3)}
+.mega-card-pr{font-size:var(--fs-sm);color:var(--ink-3)}
 .mega-card-pr b{color:var(--red)}
 
 @media(min-width:768px){
   .mainnav{display:block;position:sticky;top:var(--hd)}
   .mega-in{grid-template-columns:minmax(210px,250px) minmax(170px,230px) minmax(0,1fr);
-    gap:26px;padding:18px 12px 22px}
+    gap:var(--sp-6);padding:var(--sp-5) var(--sp-3) var(--sp-6)}
   .mega-col-kids{display:block}
   .mega-kids-inline{display:none}
-  .mega-col-feature{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .mega-col-feature{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3)}
 }
 
 /* ---------- homepage rails, audience tiles ---------- */
@@ -2165,7 +2222,7 @@ span.stock-btn:hover{filter:none}
 }
 
 /* ---------- hero slides admin ---------- */
-.hero-slide-kind{margin:0;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+.hero-slide-kind{margin:0;font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.08em;
   text-transform:uppercase;color:var(--muted)}
 
 /* ============================================================
@@ -2182,30 +2239,30 @@ span.stock-btn:hover{filter:none}
   animation:msheetIn .16s ease-out}
 @keyframes msheetIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 
-.msheet-top{flex:0 0 auto;display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border-bottom:1px solid var(--line-2)}
+.msheet-top{flex:0 0 auto;display:flex;align-items:center;gap:var(--sp-3);
+  padding:var(--sp-3) var(--sp-3);border-bottom:1px solid var(--line-2)}
 .msheet-x{width:40px;height:40px;flex:0 0 auto;padding:0;display:flex;align-items:center;
   justify-content:center;background:transparent;border:0;color:var(--ink);cursor:pointer;
   border-radius:var(--r-s)}
 .msheet-x:hover{background:var(--line-2)}
-.msheet-top-search{gap:6px}
+.msheet-top-search{gap:var(--sp-2)}
 .msheet-field{flex:1;min-width:0}
 
 /* The aisles across the top, one tab each -- the same entries as the
    desktop bar, from the same nav model. Scrolls sideways only when there
    are more than fit, and unlike the row this replaced nothing is hidden by
    that: everything a tab holds is on the screen below it. */
-.msheet-tabs{flex:0 0 auto;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;
-  padding:0 8px;border-bottom:1px solid var(--line-2)}
+.msheet-tabs{flex:0 0 auto;display:flex;gap:var(--sp-1);overflow-x:auto;scrollbar-width:none;
+  padding:0 var(--sp-2);border-bottom:1px solid var(--line-2)}
 .msheet-tabs::-webkit-scrollbar{display:none}
 .msheet-tab{flex:0 0 auto;background:transparent;border:0;border-bottom:2px solid transparent;
-  padding:12px 10px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+  padding:var(--sp-3) var(--sp-3);font-size:var(--fs-body);font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 .msheet-tab.is-on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
 
 .msheet-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:6px 0 calc(90px + env(safe-area-inset-bottom))}
-.msheet-hd{margin:14px 16px 4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.msheet-all{display:block;padding:14px 16px;font-size:12.5px;font-weight:800;letter-spacing:.08em;
+  padding:var(--sp-2) 0 calc(90px + env(safe-area-inset-bottom))}
+.msheet-hd{margin:var(--sp-4) var(--sp-4) var(--sp-1);font-size:var(--fs-caption);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.msheet-all{display:block;padding:var(--sp-4) var(--sp-4);font-size:var(--fs-sm);font-weight:800;letter-spacing:.08em;
   text-transform:uppercase;color:var(--ink);text-decoration:none}
 .msheet-all-shop{border-top:1px solid var(--line-2);color:var(--amber-ink)}
 
@@ -2214,9 +2271,9 @@ span.stock-btn:hover{filter:none}
    hit without aiming. */
 .msheet-row{display:flex;align-items:center;border-bottom:1px solid var(--line-2)}
 .msheet-row>a{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;
-  gap:10px;padding:15px 16px;text-decoration:none;font-size:15px;color:var(--ink)}
+  gap:var(--sp-3);padding:var(--sp-4) var(--sp-4);text-decoration:none;font-size:var(--fs-body-lg);color:var(--ink)}
 .msheet-row>a:active{background:var(--line-2)}
-.msheet-row .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+.msheet-row .n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 .msheet-exp{flex:0 0 auto;width:52px;align-self:stretch;padding:0;background:transparent;border:0;
   border-left:1px solid var(--line-2);color:var(--muted);cursor:pointer;
   display:flex;align-items:center;justify-content:center}
@@ -2226,18 +2283,18 @@ span.stock-btn:hover{filter:none}
 .msheet-exp:active{background:var(--line-2)}
 
 .msheet-kids{list-style:none;margin:0;padding:0;background:var(--paper)}
-.msheet-kids a{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:13px 16px 13px 30px;text-decoration:none;font-size:14px;color:var(--ink-3);
+.msheet-kids a{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-8);text-decoration:none;font-size:var(--fs-body);color:var(--ink-3);
   border-bottom:1px solid var(--line-2)}
 .msheet-kids a:active{background:var(--line)}
-.msheet-kids .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+.msheet-kids .n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 
 /* The homepage banners, as a row you swipe. Cards rather than a single
    full-width image so the second one peeks in at the edge and says there is
    more -- the same reason the product rails on the homepage are sized the
    way they are. */
-.msheet-slides{display:grid;grid-auto-flow:column;grid-auto-columns:72%;gap:10px;
-  overflow-x:auto;scroll-snap-type:x proximity;padding:14px 16px 4px;
+.msheet-slides{display:grid;grid-auto-flow:column;grid-auto-columns:72%;gap:var(--sp-3);
+  overflow-x:auto;scroll-snap-type:x proximity;padding:var(--sp-4) var(--sp-4) var(--sp-1);
   /* Snap positions are measured from the SCROLLPORT edge, which is the
      padding box -- so without this the browser scrolled the strip 16px to
      sit the first card flush against the window and the gutter vanished. */
@@ -2247,17 +2304,17 @@ span.stock-btn:hover{filter:none}
 .msheet-slide{position:relative;display:block;scroll-snap-align:start;overflow:hidden;
   border-radius:var(--r);background:var(--ink);text-decoration:none}
 .msheet-slide img{width:100%;height:100%;aspect-ratio:16/10;object-fit:cover}
-.msheet-slide-t{position:absolute;left:0;right:0;bottom:0;padding:22px 12px 10px;color:#fff;
-  font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;
+.msheet-slide-t{position:absolute;left:0;right:0;bottom:0;padding:var(--sp-6) var(--sp-3) var(--sp-3);color:#fff;
+  font-size:var(--fs-body-sm);font-weight:800;letter-spacing:.04em;text-transform:uppercase;line-height:1.2;
   background:linear-gradient(0deg,rgba(11,20,36,.88),transparent)}
 
-.msheet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:4px 16px 16px}
-.msheet-card{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:var(--ink)}
+.msheet-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3);padding:var(--sp-1) var(--sp-4) var(--sp-4)}
+.msheet-card{display:flex;flex-direction:column;gap:var(--sp-1);text-decoration:none;color:var(--ink)}
 .msheet-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
   border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
-.msheet-card-nm{font-size:12.5px;font-weight:600;line-height:1.25;
+.msheet-card-nm{font-size:var(--fs-sm);font-weight:600;line-height:1.25;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.msheet-card-pr{font-size:12.5px;color:var(--ink-3)}
+.msheet-card-pr{font-size:var(--fs-sm);color:var(--ink-3)}
 .msheet-card-pr b{color:var(--red)}
 
 /* ---------- checkout: the order beside the form ---------- */
@@ -2313,55 +2370,55 @@ span.stock-btn:hover{filter:none}
    competes with, and the supporting figures sit beside it rather than
    above. */
 .fin-headline{display:grid;grid-template-columns:minmax(200px,1fr) minmax(220px,1.1fr);
-  gap:18px;align-items:start}
+  gap:var(--sp-5);align-items:start}
 @media (max-width:700px){.fin-headline{grid-template-columns:1fr}}
-.fin-net{padding:16px 18px;border-radius:var(--r);background:var(--green-soft);
+.fin-net{padding:var(--sp-4) var(--sp-5);border-radius:var(--r);background:var(--green-soft);
   border:1px solid var(--green)}
 .fin-net.is-loss{background:var(--red-soft);border-color:var(--red)}
-.fin-net .k{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  font-weight:700;color:var(--muted);margin-bottom:6px}
-.fin-net b{display:block;font-size:34px;line-height:1;letter-spacing:-.02em;
+.fin-net .k{display:block;font-size:var(--fs-caption);letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin-bottom:var(--sp-2)}
+.fin-net b{display:block;font-size:var(--fs-h1);line-height:1;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--green)}
 .fin-net.is-loss b{color:var(--red)}
-.fin-net .n{display:block;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.fin-net .n{display:block;margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--muted)}
 .fin-side{display:flex;flex-direction:column;gap:2px}
-.fin-side .kv b small{font-weight:400;color:var(--muted-2);font-size:11px}
+.fin-side .kv b small{font-weight:400;color:var(--muted-2);font-size:var(--fs-caption)}
 
 /* The statement. Indentation carries the arithmetic: a sub-row is a
    deduction from the line above it, a sum closes a group, and the net line
    is the one the eye should land on last. */
 .fin-pl{display:flex;flex-direction:column;gap:1px}
-.fin-pl-group{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
-  font-weight:700;color:var(--muted);margin:12px 0 4px}
+.fin-pl-group{font-size:var(--fs-caption);letter-spacing:.12em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin:var(--sp-3) 0 var(--sp-1)}
 .fin-pl-group:first-child{margin-top:0}
-.fin-pl .kv.sub-row{padding-left:16px}
+.fin-pl .kv.sub-row{padding-left:var(--sp-4)}
 .fin-pl .kv.sub-row span{color:var(--muted)}
-.fin-pl .kv.is-sum{border-top:1px solid var(--line-2);padding-top:5px}
-.fin-pl .kv.is-total{border-top:1px solid var(--line);padding-top:6px;font-weight:600}
-.fin-pl .kv.is-net{border-top:2px solid var(--ink);padding-top:8px;margin-top:4px;
-  font-size:15px;font-weight:700}
+.fin-pl .kv.is-sum{border-top:1px solid var(--line-2);padding-top:var(--sp-1)}
+.fin-pl .kv.is-total{border-top:1px solid var(--line);padding-top:var(--sp-2);font-weight:600}
+.fin-pl .kv.is-net{border-top:2px solid var(--ink);padding-top:var(--sp-2);margin-top:var(--sp-1);
+  font-size:var(--fs-body-lg);font-weight:700}
 .fin-pl .kv.is-net b{color:var(--green)}
 .fin-pl .kv.is-net.is-loss b{color:var(--red)}
 
 /* What is owed. Overdue rows carry a red edge rather than red text: the
    amount stays readable and the row still reads as a to-do. */
-.fin-due{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
-.fin-due li{display:flex;align-items:center;gap:12px;padding:9px 11px;
+.fin-due{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
+.fin-due li{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) var(--sp-3);
   border:1px solid var(--line);border-left:3px solid var(--amber);
   border-radius:var(--r-s);background:var(--card)}
 .fin-due li.is-overdue{border-left-color:var(--red)}
 .fin-due-who{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.fin-due-who small{color:var(--muted);font-size:11.5px}
-.fin-due-amt{font-family:var(--mono);font-size:13px;white-space:nowrap}
-.fin-form{display:flex;flex-direction:column;gap:2px;margin-top:12px}
+.fin-due-who small{color:var(--muted);font-size:var(--fs-sm)}
+.fin-due-amt{font-family:var(--mono);font-size:var(--fs-body-sm);white-space:nowrap}
+.fin-form{display:flex;flex-direction:column;gap:2px;margin-top:var(--sp-3)}
 tr.is-ended{opacity:.55}
 
 /* Profit by month, with losses below the line. A chart that silently
    omitted a loss-making month would be worse than no chart. */
-.pchart{margin-top:4px}
-.pchart-plot{display:flex;align-items:stretch;gap:4px;height:150px}
+.pchart{margin-top:var(--sp-1)}
+.pchart-plot{display:flex;align-items:stretch;gap:var(--sp-1);height:150px}
 .pchart-col{flex:1;min-width:0;display:flex;flex-direction:column;
-  position:relative;padding-bottom:16px}
+  position:relative;padding-bottom:var(--sp-4)}
 /* COLUMN, not row: each half stacks its figure and its bar vertically so
    the number sits on the OUTSIDE edge -- above a profit, below a loss --
    and never overlaps the block it describes. As a row they would sit side
@@ -2375,14 +2432,14 @@ tr.is-ended{opacity:.55}
 .pchart-bar{display:block;width:100%;flex:0 0 auto;border-radius:3px 3px 0 0}
 /* The figure itself. Allowed to overflow its column so a wide amount is
    readable on a narrow month rather than being clipped to "$1…". */
-.pchart-val{flex:0 0 auto;font-family:var(--mono);font-size:9.5px;
+.pchart-val{flex:0 0 auto;font-family:var(--mono);font-size:var(--fs-caption);
   line-height:1.5;text-align:center;white-space:nowrap;overflow:visible}
 .pchart-val.is-profit{color:var(--green)}
 .pchart-val.is-loss{color:var(--red)}
 .pchart-bar.is-profit{background:var(--green)}
 .pchart-bar.is-loss{background:var(--red);border-radius:0 0 3px 3px}
 .pchart-label{position:absolute;bottom:0;left:0;right:0;text-align:center;
-  font-family:var(--mono);font-size:9.5px;color:var(--muted-2)}
+  font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 
 /* ---------- returns: what came back, both ways (/admin/returns) ---------- */
 /* Deliberately the finance screen's shape: one number that answers the
@@ -2390,33 +2447,33 @@ tr.is-ended{opacity:.55}
    a return rate is not good news at any value, and the shop should read
    the figure rather than the colour. */
 .ret-headline{display:grid;grid-template-columns:minmax(200px,1fr) minmax(220px,1.1fr);
-  gap:18px;align-items:start;margin-top:4px}
+  gap:var(--sp-5);align-items:start;margin-top:var(--sp-1)}
 @media (max-width:700px){.ret-headline{grid-template-columns:1fr}}
-.ret-rate{padding:16px 18px;border-radius:var(--r);background:var(--paper);
+.ret-rate{padding:var(--sp-4) var(--sp-5);border-radius:var(--r);background:var(--paper);
   border:1px solid var(--line)}
 /* Money the shop is owed and has not chased gets the amber edge the rest
    of the admin uses for "somebody has to do something". */
 .ret-rate.is-owed{background:var(--amber-soft);border-color:var(--amber)}
-.ret-rate .k{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-  font-weight:700;color:var(--muted);margin-bottom:6px}
-.ret-rate b{display:block;font-size:34px;line-height:1;letter-spacing:-.02em;
+.ret-rate .k{display:block;font-size:var(--fs-caption);letter-spacing:.1em;text-transform:uppercase;
+  font-weight:700;color:var(--muted);margin-bottom:var(--sp-2)}
+.ret-rate b{display:block;font-size:var(--fs-h1);line-height:1;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--ink)}
 .ret-rate.is-owed b{color:var(--amber-ink)}
-.ret-rate .n{display:block;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.ret-rate .n{display:block;margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--muted)}
 .fin-side .kv.is-bad b{color:var(--red)}
 
 /* Recording a credit in place on the chase list, rather than on a second
    screen -- the amount is already on the row being answered. */
-.ret-credit{display:inline-flex;gap:6px;align-items:center}
-.ret-credit input{width:92px;padding:5px 7px;font-size:13px;
+.ret-credit{display:inline-flex;gap:var(--sp-2);align-items:center}
+.ret-credit input{width:92px;padding:var(--sp-1) var(--sp-2);font-size:var(--fs-body-sm);
   font-family:var(--mono)}
 
 /* The lines of a claim. Wraps rather than scrolls: on a phone each line
    becomes a stack, which is legible, where a horizontal scroll inside a
    form is not. */
-.ret-lines{display:flex;flex-direction:column;gap:8px;margin:4px 0 2px}
-.ret-line{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;
-  padding:10px;border:1px solid var(--line);border-radius:var(--r-s);
+.ret-lines{display:flex;flex-direction:column;gap:var(--sp-2);margin:var(--sp-1) 0 2px}
+.ret-line{display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:flex-end;
+  padding:var(--sp-3);border:1px solid var(--line);border-radius:var(--r-s);
   background:var(--paper)}
 .ret-line .field{flex:1;min-width:140px;margin:0}
 .ret-line .field.is-narrow{flex:0 0 92px;min-width:92px}
@@ -2424,40 +2481,40 @@ tr.is-ended{opacity:.55}
 
 /* Two counts per month, side by side. Different kinds of thing, so they
    are never stacked into one height -- see DualBars in Charts.tsx. */
-.dchart{margin-top:4px}
-.dchart-key{display:flex;gap:14px;margin-bottom:8px;font-size:11.5px;
+.dchart{margin-top:var(--sp-1)}
+.dchart-key{display:flex;gap:var(--sp-4);margin-bottom:var(--sp-2);font-size:var(--fs-sm);
   color:var(--muted)}
-.dchart-key span{display:inline-flex;align-items:center;gap:5px}
+.dchart-key span{display:inline-flex;align-items:center;gap:var(--sp-1)}
 .dchart-key i{width:9px;height:9px;border-radius:2px}
 .dchart-key i.is-a{background:var(--ink)}
 .dchart-key i.is-b{background:var(--amber)}
-.dchart-plot{display:flex;align-items:stretch;gap:4px}
+.dchart-plot{display:flex;align-items:stretch;gap:var(--sp-1)}
 .dchart-col{flex:1;min-width:0;display:flex;flex-direction:column;
-  padding-bottom:16px;position:relative}
+  padding-bottom:var(--sp-4);position:relative}
 .dchart-pair{flex:1;display:flex;align-items:flex-end;gap:2px;min-height:0;
   border-bottom:1px solid var(--line)}
 .dchart-bar{flex:1;display:block;border-radius:2px 2px 0 0}
 .dchart-bar.is-a{background:var(--ink)}
 .dchart-bar.is-b{background:var(--amber)}
 .dchart-lbl{position:absolute;bottom:0;left:0;right:0;text-align:center;
-  font-family:var(--mono);font-size:9.5px;color:var(--muted-2)}
+  font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
 
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
    1 January. Sits under the chips it explains, and has to be sized here:
    .hint carries no size of its own, only context-specific overrides, so a
    bare one renders at body size and shouts. */
-.period-note{margin:0 0 9px;font-size:12px;color:var(--muted)}
+.period-note{margin:0 0 var(--sp-2);font-size:var(--fs-sm);color:var(--muted)}
 /* The count beside the page title, likewise. */
-.page-head > .hint{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.page-head > .hint{font-size:var(--fs-sm);color:var(--muted);white-space:nowrap}
 
 /* What needs somebody to do something, cutting across every status. The
    count rides inside the chip rather than beside it, so the row reads as
    "Late 3" and not as two separate things to line up. */
-.flag-bar{padding-top:9px;margin-top:9px;border-top:1px solid var(--line-2)}
-.chip-count{display:inline-flex;align-items:center;gap:7px}
-.chip-count b{font-family:var(--mono);font-size:11.5px;min-width:1.2em;
-  text-align:center;padding:1px 5px;border-radius:10px;
+.flag-bar{padding-top:var(--sp-2);margin-top:var(--sp-2);border-top:1px solid var(--line-2)}
+.chip-count{display:inline-flex;align-items:center;gap:var(--sp-2)}
+.chip-count b{font-family:var(--mono);font-size:var(--fs-sm);min-width:1.2em;
+  text-align:center;padding:1px var(--sp-1);border-radius:10px;
   background:var(--line-2);color:var(--ink)}
 .chip-count.is-on b{background:rgba(255,255,255,.22);color:#fff}
 /* A zero still gets a chip -- it is the answer "nothing is late", which is
@@ -2477,7 +2534,7 @@ tr.is-ended{opacity:.55}
    at $0.00 would cry wolf every day the shop is square. */
 .ord-stat div.is-warn b{color:var(--amber-ink)}
 .ord-stat div.is-bad b{color:var(--red)}
-.ord-stat div em{display:block;font-size:10.5px;color:var(--muted-2);
+.ord-stat div em{display:block;font-size:var(--fs-caption);color:var(--muted-2);
   font-family:var(--mono);font-style:normal;margin-top:2px}
 
 /* Five rows, then it scrolls -- the same window every other admin list
@@ -2496,16 +2553,16 @@ tr.is-ended{opacity:.55}
    filters to that buyer. Nesting a button inside an anchor is invalid and
    swallows the click, so the anchor covers only the left-hand block. */
 .ord-main{flex:1 1 auto;min-width:0;text-decoration:none;color:inherit;display:block}
-.ord-main b{display:block;font-size:14px;font-weight:600;white-space:nowrap;
+.ord-main b{display:block;font-size:var(--fs-body);font-weight:600;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-.ord-main > span{display:block;font-size:11.5px;color:var(--muted);
+.ord-main > span{display:block;font-size:var(--fs-sm);color:var(--muted);
   font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ord-item:hover{background:var(--line-2)}
 /* A red left edge rather than red text: the amount stays readable and the
    row still reads as a thing to deal with. */
 .ord-item.is-late{border-left:3px solid var(--red)}
-.ord-phone{background:none;border:0;padding:2px 4px;border-radius:var(--r-s);
-  font-family:var(--mono);font-size:11.5px;color:var(--muted);cursor:pointer}
+.ord-phone{background:none;border:0;padding:2px var(--sp-1);border-radius:var(--r-s);
+  font-family:var(--mono);font-size:var(--fs-sm);color:var(--muted);cursor:pointer}
 .ord-phone:hover{background:var(--line);color:var(--ink)}
 
 @media (max-width:640px){
@@ -2525,8 +2582,8 @@ tr.is-ended{opacity:.55}
 /* A cost line you can open to see who was actually paid. The control is
    the whole label rather than the arrow alone: a 11px arrow is a hard
    target on a phone and the name beside it is what people aim at. */
-.fin-disclose{display:inline-flex;align-items:center;gap:6px;background:none;
-  border:0;padding:2px 4px;margin-left:-4px;border-radius:var(--r-s);
+.fin-disclose{display:inline-flex;align-items:center;gap:var(--sp-2);background:none;
+  border:0;padding:2px var(--sp-1);margin-left:-var(--sp-1);border-radius:var(--r-s);
   font:inherit;color:inherit;cursor:pointer;text-align:left}
 .fin-disclose:hover{background:var(--line-2)}
 .fin-disclose:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
@@ -2535,15 +2592,15 @@ tr.is-ended{opacity:.55}
 /* The vendor count, and on a single-vendor account the vendor's name --
    both are the same "what is behind this figure" answer at different
    lengths, so they read as one thing. */
-.fin-disclose em,.fin-flat em{font-style:normal;font-size:10.5px;
+.fin-disclose em,.fin-flat em{font-style:normal;font-size:var(--fs-caption);
   color:var(--muted-2);font-family:var(--mono)}
-.fin-flat{display:inline-flex;align-items:center;gap:6px;padding:2px 0}
+.fin-flat{display:inline-flex;align-items:center;gap:var(--sp-2);padding:2px 0}
 .fin-pl .kv.is-cost-row.is-open{background:var(--line-2);border-radius:var(--r-s)}
 /* A breakdown row is subordinate to the line above it and has to look it,
    or the statement reads as though it has twice as many cost accounts. */
-.fin-pl .kv.is-vendor{padding-left:24px;border-bottom-style:dotted}
-.fin-pl .kv.is-vendor span{font-size:12.5px;color:var(--muted)}
-.fin-pl .kv.is-vendor b{font-size:12.5px;font-weight:500}
+.fin-pl .kv.is-vendor{padding-left:var(--sp-6);border-bottom-style:dotted}
+.fin-pl .kv.is-vendor span{font-size:var(--fs-sm);color:var(--muted)}
+.fin-pl .kv.is-vendor b{font-size:var(--fs-sm);font-weight:500}
 
 /* The statement scrolls once it is long. overscroll-behavior so reaching
    the bottom does not then carry the whole page with it. */
@@ -2569,8 +2626,8 @@ tr.is-ended{opacity:.55}
 /* Vendor and its description as one block rather than a <br>, so the two
    lines share a baseline grid with the row's other cells. */
 .fin-who{display:flex;flex-direction:column;gap:1px;min-width:0}
-.fin-who b{font-size:13.5px}
-.fin-who small{font-size:10.5px;line-height:1.35}
+.fin-who b{font-size:var(--fs-body-sm)}
+.fin-who small{font-size:var(--fs-caption);line-height:1.35}
 
 /* .tw -- THE TABLE WRAPPER THAT CARRIED NO STYLING.
    Every other table in this admin is a .tbl and is styled. Four are not:
@@ -2580,11 +2637,11 @@ tr.is-ended{opacity:.55}
    Given .tbl's manners here rather than being converted to .tbl, because
    these four are auto-width tables that should fill their panel, and .tbl
    carries a 720px min-width for the wide data grids it was built for. */
-.tw table{border-collapse:collapse;width:100%;font-size:13px}
-.tw th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);
-  font-family:var(--mono);font-size:10px;letter-spacing:.07em;
+.tw table{border-collapse:collapse;width:100%;font-size:var(--fs-body-sm)}
+.tw th{text-align:left;padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
-.tw td{padding:8px 10px;border-bottom:1px solid var(--line-2);
+.tw td{padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--line-2);
   vertical-align:middle}
 .tw tbody tr:last-child td{border-bottom:0}
 .tw tbody tr:hover td{background:var(--line-2)}
@@ -2594,7 +2651,7 @@ tr.is-ended{opacity:.55}
 .tw td.mono,.tw .mono{font-family:var(--mono)}
 /* The account pill is a label, not a button: no border, no hover, just a
    quiet ground so the column reads as one kind of thing down the page. */
-.tw .pill{font-size:9.5px;padding:2px 6px}
+.tw .pill{font-size:var(--fs-caption);padding:2px var(--sp-2)}
 .tw .sub{color:var(--muted)}
 
 /* A quiet icon button inside a table row. Not .icon-btn -- that one is
@@ -2607,7 +2664,7 @@ tr.is-ended{opacity:.55}
 .row-icon:disabled{opacity:.4;cursor:default}
 /* The actions cell holds two controls of different heights; this keeps them
    on one baseline and hard against the right edge with the figures above. */
-.fin-row-acts{display:inline-flex;align-items:center;gap:6px;
+.fin-row-acts{display:inline-flex;align-items:center;gap:var(--sp-2);
   justify-content:flex-end}
 
 /* A row open for correction. Amber edge rather than a modal: the row keeps
@@ -2615,9 +2672,9 @@ tr.is-ended{opacity:.55}
 .tw tr.is-editing td{background:var(--amber-soft)}
 .tw tr.is-editing td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
 .tw tr.is-editing input,.tw tr.is-editing select{width:100%;height:28px;
-  padding:3px 7px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);font:inherit;font-size:13px}
-.tw tr.is-editing input.is-sub{height:24px;font-size:11px;color:var(--muted)}
+  padding:var(--sp-1) var(--sp-2);border:1px solid var(--line);border-radius:var(--r-s);
+  background:var(--card);font:inherit;font-size:var(--fs-body-sm)}
+.tw tr.is-editing input.is-sub{height:24px;font-size:var(--fs-caption);color:var(--muted)}
 .tw tr.is-editing input.is-num{text-align:right;font-family:var(--mono);
   max-width:96px;margin-left:auto}
 
@@ -2628,23 +2685,23 @@ tr.is-ended{opacity:.55}
    removed: "they do not stock my size" and "they are out of my size" are
    different answers, and only one of them means come back next week. */
 .sizes.has-counts button{display:inline-flex;flex-direction:column;
-  align-items:center;gap:1px;line-height:1.15;padding-top:5px;padding-bottom:4px}
-.sizes.has-counts button em{font-style:normal;font-size:9.5px;
+  align-items:center;gap:1px;line-height:1.15;padding-top:var(--sp-1);padding-bottom:var(--sp-1)}
+.sizes.has-counts button em{font-style:normal;font-size:var(--fs-caption);
   font-family:var(--mono);color:var(--muted-2)}
 .sizes button.is-gone{opacity:.45;cursor:not-allowed;text-decoration:line-through}
 .sizes button.is-gone em{color:var(--red);text-decoration:none}
 .sizes.has-counts button[aria-pressed="true"] em{color:rgba(255,255,255,.75)}
 
 /* The breakdown under a row on the stock screen. */
-.size-break{margin:2px 0 12px}
-.size-break h4{font-family:var(--mono);font-size:10px;letter-spacing:.07em;
-  text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 6px}
-.size-chips{display:flex;flex-wrap:wrap;gap:6px}
-.size-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;
+.size-break{margin:2px 0 var(--sp-3)}
+.size-break h4{font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 var(--sp-2)}
+.size-chips{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.size-chip{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2);
   border:1px solid var(--line);border-radius:20px;background:var(--card);
-  font-size:12px}
+  font-size:var(--fs-sm)}
 .size-chip b{font-weight:600}
-.size-chip em{font-style:normal;font-family:var(--mono);font-size:11.5px;
+.size-chip em{font-style:normal;font-family:var(--mono);font-size:var(--fs-sm);
   color:var(--muted)}
 .size-chip.is-low{border-color:var(--amber);background:var(--amber-soft)}
 .size-chip.is-low em{color:var(--amber-ink)}
@@ -2660,13 +2717,13 @@ tr.is-ended{opacity:.55}
    to be at least as specific to beat it -- grid-column, which is what was
    here, meant nothing at all once the row went back to being a flex row. */
 .po-line .field.po-sizes{flex:1 1 100%}
-.po-sizes .hint{margin-top:6px}
-.po-size-grid{display:flex;flex-wrap:wrap;gap:8px}
-.po-size{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;
+.po-sizes .hint{margin-top:var(--sp-2)}
+.po-size-grid{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.po-size{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-1) var(--sp-2);
   border:1px solid var(--line);border-radius:var(--r-s);background:var(--card)}
-.po-size span{font-size:12px;font-weight:600;min-width:1.6em}
-.po-size input{width:64px;height:28px;padding:3px 7px;border:1px solid var(--line);
-  border-radius:var(--r-s);font:inherit;font-size:13px;text-align:right;
+.po-size span{font-size:var(--fs-sm);font-weight:600;min-width:1.6em}
+.po-size input{width:64px;height:28px;padding:var(--sp-1) var(--sp-2);border:1px solid var(--line);
+  border-radius:var(--r-s);font:inherit;font-size:var(--fs-body-sm);text-align:right;
   font-family:var(--mono)}
 
 /* =====================================================================

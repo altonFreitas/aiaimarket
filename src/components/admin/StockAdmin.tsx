@@ -170,7 +170,7 @@ export default function StockAdmin({ lang, report }: {
         /* The table scrolls inside its own box rather than the page: on a
            phone the columns simply cannot all fit, and a horizontally
            scrolling PAGE breaks every other screen in the admin. */
-        <div className="scroll-x">
+        <div className="scroll-x" tabIndex={0}>
           <table className="tbl">
             <thead>
               <tr>
