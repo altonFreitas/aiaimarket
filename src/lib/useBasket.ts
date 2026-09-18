@@ -19,6 +19,21 @@ export interface BasketLine {
    * inline placeholder and a plain name. */
   image?: string;
   slug?: string;
+  /** WHICH CATEGORY IT SITS IN, so the checkout can show the right tax.
+   *
+   * The category id, not the tax RATE. A basket can sit in a browser for a
+   * week; a rate copied into it would be the rate on the day it was added,
+   * and the shopper would be quoted last week's tax. The id is a fact about
+   * the product that does not go stale, and the rate is looked up fresh
+   * each time the checkout renders.
+   *
+   * Optional: a basket saved before this existed has none, and those lines
+   * fall back to the shop-wide rate on screen. The server recomputes every
+   * line from the product row when the order is placed, so an old basket
+   * cannot under- or over-charge -- at worst the quote is briefly less
+   * precise than the charge, which is why the checkout also refuses to
+   * place an order whose total it could not verify (see orders.ts). */
+  categoryId?: string | null;
 }
 
 const KEY = "loja:basket:v1";

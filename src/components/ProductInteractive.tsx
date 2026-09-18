@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import { bumpWaClickAction } from "@/lib/actions/track";
-import { money, waLink, waProductMsg, discountPercent } from "@/lib/utils";
+import {waLink, waProductMsg, discountPercent} from "@/lib/utils";
+import { useCurrency, useMoney } from "@/components/Currency";
 import { t } from "@/lib/i18n";
 import { availableInSize, type SizedStock } from "@/lib/sizeStock";
 import type { Lang, Product, Settings } from "@/lib/types";
@@ -31,6 +32,8 @@ export default function ProductInteractive({
    * by size -- in both cases the picker behaves exactly as it always did. */
   stock?: SizedStock | null;
 }) {
+  const m = useMoney();
+  const code = useCurrency();
   const [size, setSize] = useState<string | null>(p.sizes?.length === 1 ? p.sizes[0] : null);
   /* Counts are shown only once the shop has actually counted a size. Until
      then every size would read 0 and the page would say the shelf is empty
@@ -57,6 +60,32 @@ export default function ProductInteractive({
   const isOut = p.stock_status === "out";
   const canPreorder = isOut && p.preorder_enabled !== false;
 
+  /* WHAT THE SHELF ACTUALLY HOLDS, for the size being bought.
+   *
+   * The + button counted up for ever. A shopper could ask for 11 of a size
+   * with 3 on the shelf, reach the checkout, and only find out when the
+   * order was refused -- the database has always refused it
+   * (reserve_order_stock), which is why this was never an oversell, but it
+   * was a wasted trip through a form.
+   *
+   * A PRE-ORDER HAS NO CEILING. Ordering ahead is precisely ordering what
+   * is not on the shelf, so the cap is lifted rather than set to zero.
+   *
+   * Infinity when nothing is countable -- a shop that has not counted this
+   * product by size, or a database without supabase/size-stock.sql -- which
+   * leaves the button behaving exactly as it did before. */
+  const sizeLeft = tracked && size ? availableInSize(stock!, size) : null;
+  const productLeft = Number.isFinite(Number(p.qty)) && Number(p.qty) > 0
+    ? Number(p.qty) : null;
+  const maxQty = canPreorder ? Infinity
+    : sizeLeft != null ? sizeLeft
+      : productLeft != null ? productLeft : Infinity;
+  const atCap = Number.isFinite(maxQty) && qty >= maxQty;
+  /** Shown in red under the buttons once somebody has pressed + at the
+   * ceiling. Cleared as soon as the quantity or the size changes: a warning
+   * about a number nobody is asking for any more is noise. */
+  const [capHit, setCapHit] = useState(false);
+
   const payList: Array<[boolean, string]> = [
     [p.pay_cod, "pm_cod"], [p.pay_cop, "pm_cop"], [p.pay_bank, "pm_bank"],
     [p.pay_wallet, "pm_wallet"],
@@ -77,6 +106,7 @@ export default function ProductInteractive({
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
       seller_id: p.seller_id, sellerName: seller?.store_name || null,
+      categoryId: p.category_id,
       image: p.images?.[0] || "", slug: p.slug });
     toast(`${p.name} → ${t("list", lang)}`);
   }
@@ -97,13 +127,14 @@ export default function ProductInteractive({
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
       seller_id: p.seller_id, sellerName: seller?.store_name || null,
+      categoryId: p.category_id,
       image: p.images?.[0] || "", slug: p.slug });
     router.push("/checkout");
   }
 
   async function share() {
     const caption =
-      `${p.name} — ${money(p.price)}\n` +
+      `${p.name} — ${m(p.price)}\n` +
       `${t("qStock", lang)} ${t(STOCK_KEY[p.stock_status], lang)}\n` +
       `${t("qHow", lang)} WhatsApp ${settings.wa_number}\n` +
       siteUrl(`/p/${p.slug}`);
@@ -133,14 +164,18 @@ export default function ProductInteractive({
           <div className="aab-a">
             {pct != null ? (
               <>
-                <span className="aab-price aab-price-discount">{money(p.discount_price!)}</span>
-                <span className="aab-price-original">{money(p.price)}</span>
+                <span className="aab-price aab-price-discount">{m(p.discount_price!)}</span>
+                <span className="aab-price-original">{m(p.price)}</span>
                 <span className="aab-price-pct">-{pct}%</span>
               </>
             ) : (
-              <span className="aab-price">{money(p.price)}</span>
+              <span className="aab-price">{m(p.price)}</span>
             )}
-            <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>USD</em>
+            {/* The CODE beside the figure, because a bare "$" is ambiguous
+                across a dozen dollars and a bare "€" says nothing about
+                which shop quoted it. It was hard-coded to USD, so a shop
+                that switched to euros advertised "33.00 € USD". */}
+            <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>{code}</em>
           </div>
         </div>
 
@@ -166,7 +201,19 @@ export default function ProductInteractive({
                       aria-label={left == null ? s
                         : gone ? `${s} — ${t("sizeSoldOut", lang)}`
                         : `${s} — ${left} ${t("unitsLeft", lang)}`}
-                      onClick={() => setSize(s)}>
+                      onClick={() => {
+                        setSize(s);
+                        setCapHit(false);
+                        /* A QUANTITY THAT NO LONGER FITS IS NOT KEPT.
+                           Choosing 5 of a size with 8 on the shelf and then
+                           switching to one with 3 left the 5 standing, so
+                           the page offered an order it knew would be
+                           refused. */
+                        const left = tracked ? availableInSize(stock!, s) : null;
+                        if (!canPreorder && left != null && left > 0) {
+                          setQty((q) => Math.min(q, left));
+                        }
+                      }}>
                       {s}
                       {left != null && <em>{gone ? "0" : left}</em>}
                     </button>
@@ -255,14 +302,48 @@ export default function ProductInteractive({
 
       <div className="btn-row" style={{ flexDirection: "row", gap: 8 }}>
         <div className="qty" role="group" aria-label={t("qty", lang)}>
-          <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} aria-label="-">−</button>
+          <button type="button" aria-label="-"
+            onClick={() => { setCapHit(false); setQty((q) => Math.max(1, q - 1)); }}>−</button>
           <span>{qty}</span>
-          <button type="button" onClick={() => setQty((q) => q + 1)} aria-label="+">+</button>
+          {/* STILL CLICKABLE AT THE CEILING, ON PURPOSE.
+              The first version of this disabled the button -- which meant
+              the click handler never ran, so the red line explaining WHY
+              was unreachable and the button just stopped responding. A
+              control that goes dead without a word is the thing being fixed
+              here, not the fix.
+
+              So it stays live, refuses to count past what is on the shelf,
+              and says what is there and what was asked for. aria-disabled
+              tells a screen reader it will not act, without taking the
+              click -- and the answer -- away. */}
+          <button type="button" aria-label="+" aria-disabled={atCap}
+            className={atCap ? "is-capped" : undefined}
+            onClick={() => {
+              if (atCap) { setCapHit(true); return; }
+              setCapHit(false);
+              setQty((q) => Math.min(maxQty, q + 1));
+            }}>+</button>
         </div>
         <button className="btn btn-ghost" type="button" onClick={share} style={{ flex: 1 }}>
           {t("share", lang)}
         </button>
       </div>
+
+      {/* WHAT IS THERE, AND WHAT WAS ASKED FOR, both named.
+          "Not enough stock" leaves the shopper to guess how many to take,
+          and guessing means pressing + again. role="alert" because it
+          appears in response to something they just did and is the answer
+          to it -- a screen reader that waits for a gap would announce it
+          after they had already pressed + twice more. */}
+      {capHit && Number.isFinite(maxQty) && (
+        <div className="note bad" role="alert" style={{ marginTop: 8 }}>
+          {(size
+            ? t("stockCapSize", lang).replace("{s}", size)
+            : t("stockCapNoSize", lang))
+            .replace("{n}", String(maxQty))
+            .replace("{q}", String(qty + 1))}
+        </div>
+      )}
 
       <div className="panel">
         <h3>{t("payAccepted", lang)}</h3>

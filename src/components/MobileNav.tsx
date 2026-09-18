@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import SearchBar from "./SearchBar";
 import { placeholder } from "@/lib/placeholder";
-import { money, discountPercent } from "@/lib/utils";
+import {discountPercent} from "@/lib/utils";
+import { useMoney } from "@/components/Currency";
 import { t } from "@/lib/i18n";
 import { isNavFree, type NavProduct, type NavRoot } from "@/lib/nav";
 import type { HeroSlide, Lang } from "@/lib/types";
@@ -41,6 +42,7 @@ function SlideStrip({ slides, onPick }: { slides: HeroSlide[]; onPick: () => voi
 
 /** Real stock, from the same nav model the categories come from. */
 function Showcase({ items, onPick }: { items: NavProduct[]; onPick: () => void }) {
+  const m = useMoney();
   if (!items.length) return null;
   return (
     <div className="msheet-grid">
@@ -53,7 +55,7 @@ function Showcase({ items, onPick }: { items: NavProduct[]; onPick: () => void }
               unoptimized={img.startsWith("data:")} />
             <span className="msheet-card-nm">{p.name}</span>
             <span className="msheet-card-pr">
-              {money(p.discount ?? p.price)}
+              {m(p.discount ?? p.price)}
               {pct != null && <b> -{pct}%</b>}
             </span>
           </Link>

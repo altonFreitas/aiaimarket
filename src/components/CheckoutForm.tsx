@@ -10,6 +10,8 @@ import { placeOrder } from "@/lib/actions/orders";
 import { COUNTRIES } from "@/lib/countries";
 import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
+import { taxOnLines } from "@/lib/tax";
+import { normalizeCurrencyCode, taxRateAsPercent } from "@/lib/money";
 import { personName } from "@/lib/personName";
 import { t } from "@/lib/i18n";
 import { normalizeZones } from "@/lib/zones";
@@ -30,8 +32,13 @@ function newAttemptKey(): string {
 }
 
 export default function CheckoutForm({
-  lang, settings, cardAvailable = false,
-}: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
+  lang, settings, cardAvailable = false, taxRates = {},
+}: {
+  lang: Lang; settings: Settings; cardAvailable?: boolean;
+  /** Category id -> its tax rate as a FRACTION. A category missing from
+   * this map has not been given one and is taxed at the shop's rate. */
+  taxRates?: Record<string, number>;
+}) {
   const { lines, ready, subtotal, setQty, remove, clear } = useBasket();
   const { toast } = useToast();
   const router = useRouter();
@@ -81,7 +88,36 @@ export default function CheckoutForm({
 
   const zone = useMemo(() => zones.find((z) => z.id === zoneId), [zoneId, zones]);
   const fee = mode === "delivery" && zone && !zone.quote ? Number(zone.fee) : 0;
-  const total = subtotal + fee;
+
+  /* TAX, SHOWN BEFORE IT IS CHARGED.
+   *
+   * It was already being charged. placeOrder() has computed tax on every
+   * order since the tax columns existed -- but this summary added up only
+   * goods and delivery, so a shop charging 10% quoted $13.00 here and wrote
+   * $14.30 to the order. The shopper agreed to one number and was billed
+   * another, which is the kind of surprise consumer law is least forgiving
+   * about and the kind of thing a customer only finds on the invoice.
+   *
+   * The rate is per CATEGORY, because different goods are taxed
+   * differently; taxRates maps a category id to its rate and an absent
+   * entry means the shop's own rate. See lib/tax.ts. */
+  const taxed = taxOnLines(
+    lines.map((l) => ({
+      value: l.price * l.qty,
+      categoryRate: l.categoryId ? taxRates[l.categoryId] : undefined,
+    })),
+    fee,
+    Number(settings.tax_rate) || 0,
+    !!settings.tax_included);
+
+  const total = taxed.total;
+  /* What the row shows: added on, or the "of which" figure when prices
+     already include it. Both are the same row because they answer the same
+     question -- how much of this is tax -- and two rows that never appear
+     together is two things to keep consistent. */
+  const taxLine = settings.tax_included ? taxed.includedTax : taxed.tax;
+  const taxName = (settings.tax_label || "").trim() || t("taxDefaultName", lang);
+  const currency = normalizeCurrencyCode(settings.display_currency);
   const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
   const needsFullAddress = mode === "delivery" && !isDiliCenter;
 
@@ -300,12 +336,33 @@ export default function CheckoutForm({
               })}
             </ul>
 
-            <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(subtotal)}</b></div>
+            <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(subtotal, currency)}</b></div>
             <div className="kv">
               <span>{t("deliveryFee", lang)}</span>
-              <b>{mode === "delivery" && zone?.quote ? t("quoteOnRequest", lang) : money(fee)}</b>
+              <b>{mode === "delivery" && zone?.quote
+                ? t("quoteOnRequest", lang) : money(fee, currency)}</b>
             </div>
-            <div className="kv total"><span>{t("total", lang)}</span><b>{money(total)}</b></div>
+            {/* NAMED BY THE SHOP, because "Tax" is not what it is called
+                everywhere -- VAT, IVA, GST, sales tax. The shop types the
+                word in Settings and it appears here; the fallback is the
+                neutral one rather than a guess at a jurisdiction.
+
+                MIXED RATES DO NOT GET A PERCENTAGE. One "Tax (10%)" row
+                over a basket of food at 0% and electronics at 10% would be
+                a false statement about both lines, so the row says only
+                what was charged and the percentage is dropped. */}
+            {taxLine > 0 && (
+              <div className="kv">
+                <span>
+                  {taxName}
+                  {taxed.uniformRate != null && taxed.uniformRate > 0
+                    ? ` (${taxRateAsPercent(taxed.uniformRate)}%)` : ""}
+                  {settings.tax_included ? ` — ${t("taxIncludedShort", lang)}` : ""}
+                </span>
+                <b>{money(taxLine, currency)}</b>
+              </div>
+            )}
+            <div className="kv total"><span>{t("total", lang)}</span><b>{money(total, currency)}</b></div>
           </div>
         </aside>
 

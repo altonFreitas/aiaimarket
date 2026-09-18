@@ -7,21 +7,9 @@ import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { normalizeRestockPct } from "@/lib/restock";
 import { DISPLAY_CURRENCIES, normalizeCurrencyCode, taxRateAsPercent } from "@/lib/money";
+import { parseNum as num, normalizeNumText } from "@/lib/numberInput";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 import { ZONE_IDS, normalizeZones, zoneLabelKey } from "@/lib/zones";
-
-/** What a half-typed number box means once the form is submitted.
- *
- * "" is the case that matters: an empty Tax box means "this shop charges
- * none", not NaN, and NaN reaching the server would be stored as null or
- * rejected depending on which layer noticed first. "1." and "-" are the
- * same shape of answer mid-typing, so they take the fallback too rather
- * than becoming 1 or 0 by accident of parsing. */
-function num(v: string | number, fallback: number): number {
-  if (typeof v === "number") return Number.isFinite(v) ? v : fallback;
-  const n = Number(v.trim());
-  return v.trim() === "" || !Number.isFinite(n) ? fallback : n;
-}
 
 export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: Settings }) {
   const router = useRouter();
@@ -123,7 +111,8 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
         <div className="field">
           <label htmlFor="commission_rate">{t("commissionRate", lang)}</label>
           <input id="commission_rate" type="number" min={0} max={100} step={0.5}
-            value={f.commission_rate} onChange={(e) => set("commission_rate", e.target.value)} />
+            value={f.commission_rate} onChange={(e) => set("commission_rate", e.target.value)}
+            onBlur={(e) => set("commission_rate", normalizeNumText(e.target.value, 10))} />
           <p className="hint">{t("commissionRateHint", lang)}</p>
         </div>
         {/* The "accept new sellers" switch was here. Registering a store
@@ -139,7 +128,8 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           <label htmlFor="restock-pct">{t("restockAlertPct", lang)}</label>
           <input id="restock-pct" type="number" min={1} max={99} step={1}
             value={f.restock_alert_pct} disabled={busy || !canWrite}
-            onChange={(e) => set("restock_alert_pct", e.target.value)} />
+            onChange={(e) => set("restock_alert_pct", e.target.value)}
+            onBlur={(e) => set("restock_alert_pct", normalizeNumText(e.target.value, 0))} />
           <p className="hint">{t("restockAlertPctHint", lang)}</p>
         </div>
         {/* ---- the shop's own legal facts ---- */}
@@ -195,7 +185,15 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             <label htmlFor="taxr">{t("taxRate", lang)}</label>
             <input id="taxr" type="number" min={0} max={100} step={0.01}
               value={f.tax_rate} disabled={busy || !canWrite}
-              onChange={(e) => set("tax_rate", e.target.value)} />
+              onChange={(e) => set("tax_rate", e.target.value)}
+              /* SETTLED INTO THE FORM IT WILL BE SAVED IN.
+                 A number input steps using the BROWSER's locale, so in
+                 Portuguese the spinner turns 0 into "0,01" -- which the
+                 hint under this box calls 0.01 and which Number() reads as
+                 NaN. parseNum accepts either separator so nothing is lost
+                 either way; this makes the box agree with the hint the
+                 moment it is left. */
+              onBlur={(e) => set("tax_rate", normalizeNumText(e.target.value, 0))} />
             <p className="hint">{t("taxRateHint", lang)}</p>
           </div>
         </div>

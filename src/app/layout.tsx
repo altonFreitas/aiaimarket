@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import CookieNotice from "@/components/CookieNotice";
 import { ToastProvider } from "@/components/Toast";
+import { CurrencyProvider } from "@/components/Currency";
 import { getSettings } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
@@ -59,6 +60,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         )}
         <ToastProvider>
+        {/* One value for the whole storefront: every price a client
+            component prints asks this for the symbol. */}
+        <CurrencyProvider code={settings.display_currency}>
           {needsSetup && (
             <div style={{
               background: "#c43d2c", color: "#fff", padding: "8px 12px",
@@ -89,6 +93,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           {/* Last in the tree so it sits above everything, and outside the
               page content so it does not move when a page renders. */}
           <CookieNotice lang={lang} />
+        </CurrencyProvider>
         </ToastProvider>
       </body>
     </html>
