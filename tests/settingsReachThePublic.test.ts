@@ -113,13 +113,15 @@ describe("prices print in the currency the shop chose", () => {
     expect(layout).toMatch(/code=\{settings\.display_currency\}/);
   });
 
-  it("shows an old order in the currency it was placed in", () => {
+  it("shows an old order in the currency AND at the rate it was placed at", () => {
     /* A shop that switches from dollars to euros has not re-priced what it
        already sold, and relabelling a past receipt misstates what the
-       customer paid. The code is frozen on the order for this reason. */
+       customer paid. Both the code and the rate are frozen on the order, so
+       a receipt reopened next year shows the same figures. */
     const track = code("src/components/TrackForm.tsx");
-    expect(track).toMatch(/money\(o\.total, o\.currency/);
-    expect(track).toMatch(/money\(o\.subtotal, o\.currency/);
+    expect(track).toMatch(/orderMoney\(o, o\.total\)/);
+    expect(track).toMatch(/orderMoney\(o, o\.subtotal\)/);
+    expect(track).toMatch(/Number\(o\.fx_rate\) > 0 \? Number\(o\.fx_rate\) : 1/);
   });
 });
 

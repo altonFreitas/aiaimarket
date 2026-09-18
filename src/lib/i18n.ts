@@ -24,6 +24,11 @@ export const STR: Record<string, [string,string,string]> = {
      The shop types its own word in Settings. */
   taxDefaultName:["Taxa","Imposto","Tax"],
   taxIncludedShort:["inklui ona","já incluído","already included"],
+  /* Said at checkout when prices are being SHOWN in a currency the shop
+     does not bank in. The conversion is a courtesy for reading; the money
+     that changes hands is dollars, and a shopper about to count out cash
+     has to be told which. */
+  chargedInUsd:["Selu iha USD: {total} (1 USD = {rate} {code}).","Pagamento em USD: {total} (1 USD = {rate} {code}).","Charged in USD: {total} (1 USD = {rate} {code})."],
   /* Said when somebody tries to add more than the shelf holds. Both name
      the two numbers that matter -- what is there and what was asked for --
      because "not enough stock" leaves the shopper to guess how many to

@@ -2,6 +2,7 @@ import type { jsPDF } from "jspdf";
 import { money, nowIso } from "@/lib/utils";
 import { taxWasIncluded } from "@/lib/tax";
 import { taxRateAsPercent } from "@/lib/money";
+import { convert } from "@/lib/fx";
 import type { Order, Settings } from "@/lib/types";
 
 /* ONE SHAPE FOR EVERY PIECE OF PAPER THIS SHOP ISSUES.
@@ -138,8 +139,15 @@ export function fiscalBody(
   x: number, right: number, startY: number
 ): number {
   const sum = taxSummary(o);
+  /* THE RATE THIS ORDER WAS QUOTED AT, not today's.
+     The figures stored on the order are dollars; fx_rate is what one of
+     them was worth in the display currency at the moment it was placed. An
+     invoice reprinted next year has to show the euros the customer agreed
+     to, not the euros a dollar buys that afternoon. */
   const code = o.currency || settings?.display_currency || undefined;
-  const cash = (n: number | string) => money(n, code ?? undefined);
+  const rate = Number(o.fx_rate) > 0 ? Number(o.fx_rate) : 1;
+  const cash = (n: number | string) =>
+    money(convert(Number(n) || 0, rate), code ?? undefined);
   const taxLabel = (settings?.tax_label || "").trim() || "Tax";
   const pct = taxRateAsPercent(sum.rate);
 
