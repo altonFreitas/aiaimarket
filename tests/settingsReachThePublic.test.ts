@@ -22,7 +22,7 @@ const code = (p: string) => read(p)
   .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
 
 const PUBLIC = code("src/lib/data/public.ts");
-const GRANT = read("supabase/public-settings-grant.sql");
+const GRANT = read("supabase/legal-currency-tax.sql");
 
 describe("the storefront asks for the facts it prints", () => {
   const NINE = [
@@ -78,13 +78,14 @@ describe("the database hands them over, and nothing else", () => {
     expect(GRANT).not.toMatch(/grant select[^;]*totp_secret/);
   });
 
-  it("adds the per-category rate as nullable, with no default", () => {
-    /* NULL means "use the shop's rate" and 0 means "these goods are not
-       taxed". A default of 0 would have made every existing category
-       permanently tax-exempt the moment this file ran. */
-    expect(GRANT).toMatch(/add column if not exists tax_rate numeric\(6,4\)\s*;/);
-    expect(GRANT).not.toMatch(/tax_rate numeric\(6,4\)[^;]*default/);
-    expect(GRANT).toMatch(/tax_rate is null or \(tax_rate >= 0 and tax_rate <= 1\)/);
+  it("takes the per-category rate back out", () => {
+    /* It was built and then removed at the shop's request: it asked every
+       category to answer a question this shop does not have. Dropped rather
+       than left standing, so the column cannot sit half-populated with
+       figures nothing reads -- which is how a number ends up on an invoice
+       two years later with no code behind it. */
+    expect(GRANT).toMatch(/alter table categories drop column if exists tax_rate/);
+    expect(GRANT).toMatch(/drop constraint if exists categories_tax_rate_check/);
   });
 });
 

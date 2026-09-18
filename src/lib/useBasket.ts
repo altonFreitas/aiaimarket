@@ -19,21 +19,17 @@ export interface BasketLine {
    * inline placeholder and a plain name. */
   image?: string;
   slug?: string;
-  /** WHICH CATEGORY IT SITS IN, so the checkout can show the right tax.
+  /** The price before the discount, when this line was bought on one.
    *
-   * The category id, not the tax RATE. A basket can sit in a browser for a
-   * week; a rate copied into it would be the rate on the day it was added,
-   * and the shopper would be quoted last week's tax. The id is a fact about
-   * the product that does not go stale, and the rate is looked up fresh
-   * each time the checkout renders.
+   * `price` above is what is being CHARGED -- the discounted figure -- and
+   * that has always been the case, so the subtotal and the total need no
+   * adjusting. This is only so the summary can show the saving on its own
+   * line, the way a receipt does.
    *
-   * Optional: a basket saved before this existed has none, and those lines
-   * fall back to the shop-wide rate on screen. The server recomputes every
-   * line from the product row when the order is placed, so an old basket
-   * cannot under- or over-charge -- at worst the quote is briefly less
-   * precise than the charge, which is why the checkout also refuses to
-   * place an order whose total it could not verify (see orders.ts). */
-  categoryId?: string | null;
+   * Absent when there was no discount, and absent on a basket saved before
+   * this existed: in both cases no discount line is shown, which is right,
+   * because a discount of zero is not a discount. */
+  listPrice?: number;
 }
 
 const KEY = "loja:basket:v1";

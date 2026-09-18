@@ -32,13 +32,8 @@ function newAttemptKey(): string {
 }
 
 export default function CheckoutForm({
-  lang, settings, cardAvailable = false, taxRates = {},
-}: {
-  lang: Lang; settings: Settings; cardAvailable?: boolean;
-  /** Category id -> its tax rate as a FRACTION. A category missing from
-   * this map has not been given one and is taxed at the shop's rate. */
-  taxRates?: Record<string, number>;
-}) {
+  lang, settings, cardAvailable = false,
+}: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
   const { lines, ready, subtotal, setQty, remove, clear } = useBasket();
   const { toast } = useToast();
   const router = useRouter();
@@ -102,21 +97,30 @@ export default function CheckoutForm({
    * differently; taxRates maps a category id to its rate and an absent
    * entry means the shop's own rate. See lib/tax.ts. */
   const taxed = taxOnLines(
-    lines.map((l) => ({
-      value: l.price * l.qty,
-      categoryRate: l.categoryId ? taxRates[l.categoryId] : undefined,
-    })),
+    lines.map((l) => l.price * l.qty),
     fee,
     Number(settings.tax_rate) || 0,
     !!settings.tax_included);
 
   const total = taxed.total;
+
+  /* WHAT THE SHOPPER SAVED, when they saved anything.
+   *
+   * The line prices are ALREADY the discounted ones -- that is what is
+   * being charged, and the subtotal has always been built from them -- so
+   * this is the saving shown for its own sake, the way a receipt shows it.
+   * Zero means there was no discount, and a "Discount $0.00" row is worse
+   * than no row: it invites the reader to look for something that is not
+   * there. */
+  const discount = Math.round(lines.reduce(
+    (a, l) => a + (l.listPrice ? (l.listPrice - l.price) * l.qty : 0), 0) * 100) / 100;
   /* What the row shows: added on, or the "of which" figure when prices
      already include it. Both are the same row because they answer the same
      question -- how much of this is tax -- and two rows that never appear
      together is two things to keep consistent. */
   const taxLine = settings.tax_included ? taxed.includedTax : taxed.tax;
   const taxName = (settings.tax_label || "").trim() || t("taxDefaultName", lang);
+  const shopTaxPct = taxRateAsPercent(settings.tax_rate);
   const currency = normalizeCurrencyCode(settings.display_currency);
   const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
   const needsFullAddress = mode === "delivery" && !isDiliCenter;
@@ -336,27 +340,31 @@ export default function CheckoutForm({
               })}
             </ul>
 
+            {/* SUBTOTAL — DISCOUNT — DELIVERY — TAX — TOTAL, in that order,
+                which is the order a receipt is read in: what the goods cost,
+                what came off, what was added, and what is owed. */}
             <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(subtotal, currency)}</b></div>
+            {discount > 0 && (
+              <div className="kv">
+                <span>{t("discount", lang)}</span>
+                {/* Shown as a negative, because it comes OFF. A bare
+                    "$5.00" on a line called Discount reads, for a moment,
+                    like something being added. */}
+                <b>−{money(discount, currency)}</b>
+              </div>
+            )}
             <div className="kv">
               <span>{t("deliveryFee", lang)}</span>
               <b>{mode === "delivery" && zone?.quote
                 ? t("quoteOnRequest", lang) : money(fee, currency)}</b>
             </div>
-            {/* NAMED BY THE SHOP, because "Tax" is not what it is called
-                everywhere -- VAT, IVA, GST, sales tax. The shop types the
-                word in Settings and it appears here; the fallback is the
-                neutral one rather than a guess at a jurisdiction.
-
-                MIXED RATES DO NOT GET A PERCENTAGE. One "Tax (10%)" row
-                over a basket of food at 0% and electronics at 10% would be
-                a false statement about both lines, so the row says only
-                what was charged and the percentage is dropped. */}
+            {/* NAMED BY THE SHOP -- VAT, IVA, GST, sales tax -- and carrying
+                the rate, because "Tax $3.15" does not let anybody check the
+                arithmetic and "Tax (10%)" does. */}
             {taxLine > 0 && (
               <div className="kv">
                 <span>
-                  {taxName}
-                  {taxed.uniformRate != null && taxed.uniformRate > 0
-                    ? ` (${taxRateAsPercent(taxed.uniformRate)}%)` : ""}
+                  {taxName}{shopTaxPct ? ` (${shopTaxPct}%)` : ""}
                   {settings.tax_included ? ` — ${t("taxIncludedShort", lang)}` : ""}
                 </span>
                 <b>{money(taxLine, currency)}</b>

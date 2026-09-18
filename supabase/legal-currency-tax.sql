@@ -213,3 +213,71 @@ end $$;
 
 comment on function sync_order_items is
   'Builds order_items rows from the order''s items jsonb, including each line''s share of the tax. The ONLY writer of order_items at placement.';
+
+-- ---------------------------------------------------------------------------
+-- AND THE PUBLIC MAY READ THE NINE COLUMNS ABOVE
+-- ---------------------------------------------------------------------------
+-- Added later, after a live shop reported all three of these at once:
+--
+--   "I fill in the trading address and registration, and Terms still says
+--    {REGISTRATION — FILL IN}"
+--   "I change USD to EUR and every price is still in dollars"
+--   "I set Tax to 10% and nothing about tax appears at checkout"
+--
+-- None of it was the app failing to read the settings. schema.sql revokes
+-- select on settings from anon and grants back a NAMED LIST of columns --
+-- which is right, and is what stops the public key in the browser reading
+-- totp_secret. This file added nine columns to that table and never added
+-- them to the list, so for the anon key they did not exist. The storefront
+-- asked for what it was allowed to ask for, got no legal or money facts
+-- back, and printed the unfilled markers exactly as designed.
+--
+-- Every column here is something the shop tells the public on purpose: the
+-- policy pages print the legal facts, the symbol beside every price comes
+-- from display_currency, and a tax added at the last step without having
+-- been shown is the thing consumer law is most insistent about.
+--
+-- What stays out stays out. commission_rate is between the shop and its
+-- sellers; totp_secret is a credential. Both are read with the service-role
+-- client, which bypasses these grants entirely.
+--
+-- Column-by-column and guarded, so a partially-migrated database grants
+-- what it has rather than failing the file and leaving the rest ungranted.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_name = 'settings' and column_name = 'legal_address') then
+    execute 'grant select (legal_address, legal_registration, legal_retention_years,
+                           legal_return_days, legal_refund_days)
+             on settings to anon, authenticated';
+  end if;
+
+  if exists (select 1 from information_schema.columns
+             where table_name = 'settings' and column_name = 'display_currency') then
+    execute 'grant select (display_currency) on settings to anon, authenticated';
+  end if;
+
+  if exists (select 1 from information_schema.columns
+             where table_name = 'settings' and column_name = 'tax_rate') then
+    execute 'grant select (tax_rate, tax_label, tax_included)
+             on settings to anon, authenticated';
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- ONE RATE FOR THE SHOP, AND ONLY ONE
+-- ---------------------------------------------------------------------------
+-- A per-category rate was built and then removed at the shop's request: it
+-- asked every category for an answer to a question this shop does not have,
+-- and a setting nobody can answer is a setting that gets answered wrongly.
+-- The rate lives in Settings, where it was always meant to.
+--
+-- Dropped rather than left in place, so the column cannot be half-populated
+-- with rates nothing reads -- which is how a figure ends up on an invoice
+-- two years from now with no code behind it. The constraint goes with it;
+-- dropping the column drops the check, and the explicit drop is for a
+-- database that somehow has the constraint without the column.
+-- ---------------------------------------------------------------------------
+alter table categories drop constraint if exists categories_tax_rate_check;
+alter table categories drop column if exists tax_rate;
