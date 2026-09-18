@@ -2790,3 +2790,14 @@ tr.is-ended{opacity:.55}
   transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
 .ord-dl:hover{background:var(--ink);border-color:var(--ink);color:#fff}
 .ord-dl:disabled{opacity:.5;cursor:progress}
+
+/* Who is signed in, in the space the person icon used to take.
+   Two letters, so it has to stay legible at 17px against the header's ink
+   -- amber on ink is the same pairing the active nav link uses, and it was
+   measured for contrast with the rest (see the note at the top of this
+   file). */
+.avatar{display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:var(--r-pill);
+  background:var(--amber);color:#3a2b00;
+  font-family:var(--mono);font-size:var(--fs-caption);font-weight:700;
+  letter-spacing:.02em;line-height:1}

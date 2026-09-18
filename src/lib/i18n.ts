@@ -24,6 +24,10 @@ export const STR: Record<string, [string,string,string]> = {
      The shop types its own word in Settings. */
   taxDefaultName:["Taxa","Imposto","Tax"],
   taxIncludedShort:["inklui ona","já incluído","already included"],
+  browseCatalog:["Haree katálogu","Ver catálogo","Browse catalog"],
+  pendingAlerts:["Avizu ba kliente ne'ebé seidauk haruka","Avisos por enviar","Announcements still to send"],
+  alertNew:["Sasan foun","Novidade","New in"],
+  alertDiscount:["Folin tun","Desconto","Price drop"],
   /* Said when somebody tries to add more than the shelf holds. Both name
      the two numbers that matter -- what is there and what was asked for --
      because "not enough stock" leaves the shopper to guess how many to
@@ -1422,6 +1426,7 @@ export const STR: Record<string, [string,string,string]> = {
   cookieOk:["Komprende ona","Entendi","Got it"],
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
   featOrderDiscount:["Diskontu iha enkomenda","Desconto na encomenda","The discount on an order"],
+  featCustomerAlerts:["Avizu ba kliente","Avisos para clientes","Alerts for customers"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */
   whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],

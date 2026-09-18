@@ -575,3 +575,28 @@ export interface Promotion {
   active: boolean;
   created_at: string;
 }
+
+/** One queued message telling a customer about a new product or a price
+ * cut. Written by queueProductAlerts(); see supabase/customer-alerts.sql.
+ *
+ * The same shape as OrderNotification where the two overlap, because the
+ * admin sends both the same way and dispatchNotification() writes to
+ * either. */
+export interface CustomerAlert {
+  id: string;
+  customer_id: string;
+  product_id: string;
+  kind: "new_product" | "discount";
+  to_phone: string;
+  lang: Lang;
+  body: string;
+  channel: string;
+  provider: string;
+  status: "queued" | "sent" | "failed" | "skipped";
+  error: string;
+  created_at: string;
+  sent_at: string | null;
+  /** Joined in for the admin queue, so a row reads as a product rather
+   * than as a uuid. */
+  products?: { name: string; slug: string } | null;
+}

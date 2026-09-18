@@ -179,3 +179,52 @@ describe("the discount reaches the invoice, not just the checkout", () => {
     expect(code("src/lib/pdfFiscal.ts")).toMatch(/if \(discount > 0\) row\("Discount"/);
   });
 });
+
+describe("the admin's own copy of the order", () => {
+  const admin = code("src/components/admin/OrderAdmin.tsx");
+
+  it("shows the same rows the customer's does", () => {
+    /* It listed the lines, the delivery fee and the total -- no subtotal,
+       no discount, no tax -- so an admin answering "why is this $14.30 when
+       the goods were $12" had to work it out, while the customer's own copy
+       already said. Four documents describing one sale should not disagree
+       about which figures exist. */
+    expect(admin).toMatch(/t\("subtotal", lang\)/);
+    expect(admin).toMatch(/Number\(o\.discount\) > 0/);
+    expect(admin).toMatch(/Number\(o\.tax\) > 0/);
+    expect(admin).toMatch(/t\("total", lang\)/);
+  });
+
+  it("says when the tax was already inside the price", () => {
+    expect(admin).toMatch(/taxWasIncluded\(o\)/);
+  });
+
+  it("does not quote a delivery fee that is still to be quoted", () => {
+    expect(admin).toMatch(/o\.quote_requested \? t\("quoteOnRequest", lang\)/);
+  });
+});
+
+describe("who is signed in, in the header", () => {
+  const header = code("src/components/Header.tsx");
+
+  it("shows initials once somebody has an account", () => {
+    /* The person outline was the same drawing signed in or out, so the one
+       question it is asked -- am I signed in, and as whom? -- it could not
+       answer. */
+    expect(header).toMatch(/emailInitials\(customerEmail\)/);
+    expect(header).toMatch(/className="avatar"/);
+  });
+
+  it("keeps the icon for a visitor, and for an unusable address", () => {
+    // `initials ? badge : icon`, not the other way round: an empty circle
+    // is worse than the drawing it replaced.
+    expect(header).toMatch(/\{initials \? \(/);
+    expect(header).toMatch(/<circle cx="12" cy="8" r="4" \/>/);
+  });
+
+  it("never lets the header fail on the auth service", () => {
+    // A header that cannot render because auth is slow is a shop nobody
+    // can browse.
+    expect(header).toMatch(/catch \{ customerEmail = null; \}/);
+  });
+});

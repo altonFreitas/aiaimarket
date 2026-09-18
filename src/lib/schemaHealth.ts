@@ -245,6 +245,15 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     constraints: [["public.orders", "orders_discount_check"]],
   },
   {
+    /* Telling customers about a new product or a new discount.
+       customers.notify_new_products had existed since the account page did,
+       and nothing read it: a customer ticking the box was told nothing,
+       ever. */
+    file: "customer-alerts.sql", labelKey: "featCustomerAlerts",
+    tables: ["customer_alerts"],
+    indexes: [["public.customer_alerts", "customer_alerts_once"]],
+  },
+  {
     // The retention sweep. Nothing in the application calls it -- it is a
     // tool an operator runs deliberately -- so the panel is the only place
     // that can say whether the shop has it at all.
@@ -400,6 +409,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "marketplace-v2.sql",
   "order-items.sql",         // after marketplace-v2.sql
   "notifications.sql",
+  "customer-alerts.sql",     // after notifications.sql, whose shape it follows
   "payments.sql",
 
   // Buying, then the ledger that receiving writes into, then returns --

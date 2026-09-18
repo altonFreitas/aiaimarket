@@ -92,3 +92,41 @@ export async function clearOrderNotifications(orderId: string) {
   revalidatePath("/admin/o", "layout");
   revalidatePath("/admin/notifications");
 }
+
+/* The same two actions for the product announcements.
+ *
+ * Separate functions rather than a table parameter on the order ones: those
+ * take an id from a screen an admin is already looking at, and letting a
+ * caller name the table would mean every call site could aim them at the
+ * wrong queue. Two small functions cost less than that class of mistake. */
+
+/** Marks an announcement as sent by hand, which is what manual mode is. */
+export async function markAlertSent(id: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+  const { error } = await sb
+    .from("customer_alerts")
+    .update({
+      status: "sent", channel: "manual", provider: "manual",
+      sent_at: new Date().toISOString(), error: "",
+    })
+    .eq("id", id);
+  if (error) throw error;
+  revalidatePath("/admin/notifications");
+}
+
+/** Takes one off the queue without sending it.
+ *
+ * A shop changes its mind about announcing something, or the customer has
+ * since been told another way. Skipped rather than deleted: the row is the
+ * record that this person was NOT told, and the unique index means the
+ * announcement cannot come back by accident later.
+ */
+export async function skipAlert(id: string) {
+  await requireAdmin();
+  const sb = supabaseAdmin();
+  const { error } = await sb
+    .from("customer_alerts").update({ status: "skipped" }).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/admin/notifications");
+}

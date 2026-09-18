@@ -110,15 +110,23 @@ export async function notifyOrderEvent(
 }
 
 /** Attempts one queued row and records the outcome. Exported so the admin's
- * retry button and any future cron can reuse the exact same path. */
+ * retry button and any future cron can reuse the exact same path.
+ *
+ * `table` is the queue the row is in. It defaults to the order queue, which
+ * is every existing caller; the product announcements in announce.ts keep
+ * their rows in customer_alerts and pass that, so a retry, a failure and a
+ * cost estimate behave identically for both rather than being written twice
+ * and drifting. The two tables share the columns this function touches --
+ * that is why the second was given the first's shape. */
 export async function dispatchNotification(
-  notificationId: string, toPhone: string, body: string
+  notificationId: string, toPhone: string, body: string,
+  table: "notifications" | "customer_alerts" = "notifications"
 ): Promise<boolean> {
   const provider = activeProvider();
   const sb = supabaseAdmin();
 
   if (!provider) {
-    await sb.from("notifications")
+    await sb.from(table)
       .update({ status: "queued", channel: "manual", error: "No messaging provider configured" })
       .eq("id", notificationId);
     return false;
@@ -126,7 +134,7 @@ export async function dispatchNotification(
 
   const result = await provider.send(toPhone, body);
 
-  await sb.from("notifications").update({
+  await sb.from(table).update({
     status: result.ok ? "sent" : "failed",
     provider: provider.id,
     provider_ref: result.providerRef ?? null,
@@ -135,7 +143,9 @@ export async function dispatchNotification(
     // Read-modify-write on a counter is a race, but the only cost of losing
     // a count is a slightly wrong "attempts" number in the admin UI. Not
     // worth an RPC.
-    attempts: 1,
+    // customer_alerts has no attempts column: an announcement is sent once
+    // or not at all, where an order message is retried by hand.
+    ...(table === "notifications" ? { attempts: 1 } : {}),
   }).eq("id", notificationId);
 
   return result.ok;

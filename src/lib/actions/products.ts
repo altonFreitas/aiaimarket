@@ -1,5 +1,6 @@
 "use server";
 import { requireAdmin } from "./guard";
+import { queueProductAlerts } from "@/lib/notify/announce";
 import { normalizeAudience } from "@/lib/audience";
 import { writeTolerating } from "@/lib/missingColumn";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -113,6 +114,18 @@ async function resolveSellerId(
   return data.id as string;
 }
 
+/** The shop's own name, for a message that has to say who is texting.
+ *
+ * Falls back to nothing rather than to a placeholder: "Loja" in a text from
+ * a shop called something else is worse than a message that just names the
+ * product. */
+async function storeName(sb: ReturnType<typeof supabaseAdmin>): Promise<string> {
+  try {
+    const { data } = await sb.from("settings").select("store_name").eq("id", 1).maybeSingle();
+    return String(data?.store_name || "").trim();
+  } catch { return ""; }
+}
+
 export async function saveProduct(input: ProductFormInput) {
   const actor = await requireAdmin();
 
@@ -178,6 +191,20 @@ export async function saveProduct(input: ProductFormInput) {
     );
     if (error) throw error;
 
+    /* A PRICE THAT HAS JUST BEEN CUT, announced once.
+     *
+     * Only when there was no discount before and there is one now: an
+     * existing sale price being adjusted is not news, and a shop that
+     * tweaks a sale three times must not tell everybody three times. The
+     * unique index in customer-alerts.sql makes the second attempt a no-op
+     * anyway; this is what stops it even being tried. */
+    const hadDiscount = was?.discount_price != null && Number(was.discount_price) > 0;
+    if (!hadDiscount && discount != null) {
+      await queueProductAlerts(
+        { id: input.id, name: input.name, slug, price, discount_price: discount },
+        "discount", await storeName(sb));
+    }
+
     if (was && (Number(was.price) !== Number(input.price)
         || Number(was.discount_price ?? 0) !== Number(input.discount_price ?? 0))) {
       await audit(actor, {
@@ -227,6 +254,21 @@ export async function saveProduct(input: ProductFormInput) {
     if (input.qty) {
       await setStock(made.id, input.qty, "opening balance", "correction");
     }
+
+    /* A NEW PRODUCT, ANNOUNCED ONCE, to the customers who asked to hear.
+     *
+     * After the stock, so the link in the message leads to something that
+     * can be bought rather than to "out of stock" -- a shop announcing its
+     * own empty shelf is worse than saying nothing.
+     *
+     * Queued, not necessarily sent: with no messaging gateway configured
+     * the rows wait for the admin, exactly as order notifications do, so
+     * this cannot start spending money on its own. queueProductAlerts
+     * never throws -- a broken message queue must not stop a shop adding a
+     * product. */
+    await queueProductAlerts(
+      { id: made.id, name: input.name, slug, price, discount_price: discount },
+      "new_product", await storeName(sb));
   }
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.products);

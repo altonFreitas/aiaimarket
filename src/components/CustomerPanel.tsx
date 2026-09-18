@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { customerLogout } from "@/lib/actions/customer-auth";
@@ -43,7 +44,13 @@ export default function CustomerPanel({ lang, customer }: { lang: Lang; customer
 
       <p className="hint" style={{ marginTop: 10 }}>{t("accountOptionalHint", lang)}</p>
 
+      {/* SOMEWHERE TO GO FROM HERE.
+          This panel said who you were and offered one button: log out. The
+          only reason anybody opens it is to check they are signed in, and
+          the next thing they want is the shop -- which was three taps away
+          through the back button. */}
       <div className="btn-row" style={{ marginTop: 12 }}>
+        <Link className="btn btn-amber" href="/shop">{t("browseCatalog", lang)}</Link>
         <button className="btn btn-ghost" type="button" onClick={logout}>{t("logOut", lang)}</button>
       </div>
     </div>
