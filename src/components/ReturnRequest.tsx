@@ -5,7 +5,8 @@ import {
   requestReturn, returnableForBuyer, returnRequestsAvailable,
 } from "@/lib/actions/return-requests";
 import { t } from "@/lib/i18n";
-import type { Lang, Order, OrderItem, ReturnReason } from "@/lib/types";
+import type { Lang, Order, OrderItem, ReturnReason, Settings } from "@/lib/types";
+import { returnWindow } from "@/lib/returnWindow";
 
 /* SENDING SOMETHING BACK, WITHOUT PHONING ANYBODY.
  *
@@ -32,12 +33,15 @@ const REASON_KEY: Record<ReturnReason, string> = {
 };
 
 export default function ReturnRequest({
-  order, phone, lang, onDone,
+  order, phone, lang, onDone, settings,
 }: {
   order: Order;
   phone: string;
   lang: Lang;
   onDone: () => void;
+  /** For the shop's own return window. Absent on a page that has not
+   * loaded settings, where the default of a week applies. */
+  settings?: Settings;
 }) {
   const { toast } = useToast();
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -83,12 +87,21 @@ export default function ReturnRequest({
     return () => { alive = false; };
   }, [order.ref, phone]);
 
-  // Nothing to offer: the shop has not run the migration, the order has
-  // not arrived, or every line has already been sent back.
-  const arrived = ["arrived", "completed"].includes(order.status);
+  /* Nothing to offer: the shop has not run the migration, the order has
+     not arrived, every line has already been sent back -- or the window has
+     closed.
+     
+     THE WINDOW IS THE POINT OF THIS BLOCK. "Ask to return something" used
+     to sit on an order that had been paid, collected and finished a month
+     earlier, because the only condition was that it had arrived, and an
+     order that has arrived stays arrived for ever. The shop's Returns page
+     has always promised a deadline; nothing enforced it. Now the same
+     number does both. requestReturn() checks it again on the server, which
+     is where the rule actually lives. */
+  const win = returnWindow(order, settings);
   const sendable = (order.items || []).filter(
     (i: OrderItem) => (max[i.product_id] ?? 0) > 0);
-  if (available === false || !arrived || (available && !sendable.length)) return null;
+  if (available === false || !win.open || (available && !sendable.length)) return null;
   if (available === null) return null;
 
   const chosen = sendable.filter((i) => qtyOf(i.product_id, capOf(i)) > 0);

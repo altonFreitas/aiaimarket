@@ -354,7 +354,8 @@ function Dashboard({
       {/* Sending something back, once it has arrived. The other half of
           self-service: cancelling covers the window before it ships, and
           until this existed there was nothing at all for afterwards. */}
-      <ReturnRequest order={o} phone={phone} lang={lang} onDone={onRefresh} />
+      <ReturnRequest order={o} phone={phone} lang={lang} onDone={onRefresh}
+        settings={settings} />
 
       {/* I2 summary */}
       <div className="panel">

@@ -13,7 +13,8 @@ import {
 import { type PeriodPreset } from "@/lib/sales";
 import { useRowCap } from "@/lib/useRowCap";
 import { t } from "@/lib/i18n";
-import type { Lang, Order, OrderStatus, PayMethod, PayStatus } from "@/lib/types";
+import type { Lang, Order, OrderStatus, PayMethod, PayStatus, Settings } from "@/lib/types";
+import { useToast } from "@/components/Toast";
 
 /* THE ORDER BOOK.
  *
@@ -46,17 +47,36 @@ function pct(n: number | null): string {
   return n == null ? "—" : `${Math.round(n * 100)}%`;
 }
 
+/** The download arrow, in the shop's ink. Drawn rather than imported: one
+ * more icon dependency for one glyph is not a trade worth making. */
+function DownloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
+
 export default function OrdersAdmin({
-  lang, orders, ordersToday, today,
+  lang, orders, ordersToday, today, settings,
 }: {
   lang: Lang;
   orders: Order[];
+  /** The shop's own details, for the delivery note a row can print. */
+  settings?: Settings;
   ordersToday: number;
   /** Today, from the server. Never the viewer's clock: an admin with a
    * skewed device would otherwise see a different "today" than the data,
    * which is the bug the old ordersToday count was written to avoid. */
   today: string;
 }) {
+  const { toast } = useToast();
+  /** The order whose delivery note is being built, so its button can say so
+   * and cannot be pressed twice while jsPDF loads. */
+  const [slipFor, setSlipFor] = useState<string | null>(null);
   const [f, setF] = useState<OrderFilter>({});
   const [preset, setPreset] = useState<PeriodPreset | null>(null);
   const [sort, setSort] = useState<OrderSort>("newest");
@@ -317,6 +337,31 @@ export default function OrdersAdmin({
                     <span className={"pill " + (STATUS_PILL[o.status] ?? "warn")}>
                       {t("st_" + o.status, lang)}
                     </span>
+                    {/* THE DELIVERY NOTE, FROM HERE.
+                        Printing one meant opening the order, finding the
+                        button, printing, and going back -- four steps per
+                        parcel on the morning somebody is packing twenty.
+                        The document is the same one the order page prints;
+                        this is only a shorter way to ask for it.
+
+                        jsPDF is imported ON THE CLICK, so a list of forty
+                        orders does not carry a PDF library nobody on that
+                        screen has asked for. */}
+                    <button type="button" className="ord-dl" disabled={slipFor === o.id}
+                      title={t("deliveryNote", lang)}
+                      aria-label={`${t("deliveryNote", lang)} — ${o.ref}`}
+                      onClick={async () => {
+                        setSlipFor(o.id);
+                        try {
+                          const mod = await import("@/lib/pdfPackingSlip");
+                          await mod.downloadPackingSlip(o, settings);
+                        } catch (e) {
+                          toast(String((e as Error).message), true);
+                        }
+                        setSlipFor(null);
+                      }}>
+                      <DownloadIcon />
+                    </button>
                   </div>
                 </div>
               );

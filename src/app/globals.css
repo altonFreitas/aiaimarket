@@ -2779,3 +2779,14 @@ tr.is-ended{opacity:.55}
    looks live and does not. */
 .qty button.is-capped{opacity:.45;cursor:not-allowed}
 
+
+/* Print the delivery note straight from a row of the order book.
+   The shop's ink rather than the amber of a primary action: this is one of
+   several things a row offers, not the thing the screen is for. */
+.ord-dl{display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;padding:0;border:1px solid var(--line);
+  border-radius:var(--r-s);background:var(--card);color:var(--ink);
+  cursor:pointer;flex:0 0 auto;
+  transition:background var(--t-fast) var(--ease),border-color var(--t-fast) var(--ease)}
+.ord-dl:hover{background:var(--ink);border-color:var(--ink);color:#fff}
+.ord-dl:disabled{opacity:.5;cursor:progress}
