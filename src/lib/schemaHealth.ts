@@ -237,24 +237,6 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     ],
   },
   {
-    /* THE GRANT THAT MAKES THE SETTINGS PUBLIC, and the per-category tax
-       rate that arrived with it.
-
-       A grant cannot be probed the way a column can -- information_schema
-       will happily report a column the anon key may not select, which is
-       exactly how this bug survived: the panel said legal-currency-tax.sql
-       had run, and it had, while every one of its columns was still
-       invisible to the storefront.
-
-       categories.tax_rate is created ONLY by this file, so it is the honest
-       marker for it. The constraint is probed too, because an `add column
-       if not exists` that ran before the constraint block was written would
-       otherwise report the file as complete. */
-    file: "public-settings-grant.sql", labelKey: "featPublicSettingsGrant",
-    columns: [["categories", "tax_rate"]],
-    constraints: [["public.categories", "categories_tax_rate_check"]],
-  },
-  {
     // The retention sweep. Nothing in the application calls it -- it is a
     // tool an operator runs deliberately -- so the panel is the only place
     // that can say whether the shop has it at all.
@@ -446,11 +428,6 @@ export const SCHEMA_ORDER: readonly string[] = [
   "promotions.sql",
   "hero-video.sql",
   "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql
-  // AFTER legal-currency-tax.sql, whose nine new columns it grants to the
-  // anon key. Without it the storefront is refused them by the database and
-  // the policy pages print their unfilled markers however the owner fills
-  // the form in. It also adds categories.tax_rate.
-  "public-settings-grant.sql",
   "loves.sql",
   "reorder-policy.sql",
   "audience-restock.sql",

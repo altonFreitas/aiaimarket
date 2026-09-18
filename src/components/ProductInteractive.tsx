@@ -106,7 +106,8 @@ export default function ProductInteractive({
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
       seller_id: p.seller_id, sellerName: seller?.store_name || null,
-      categoryId: p.category_id,
+      // Only when there IS one: see BasketLine.listPrice.
+      listPrice: p.discount_price != null ? Number(p.price) : undefined,
       image: p.images?.[0] || "", slug: p.slug });
     toast(`${p.name} → ${t("list", lang)}`);
   }
@@ -127,7 +128,8 @@ export default function ProductInteractive({
     }
     add({ id: p.id, name: p.name, size: size || p.sizes?.[0] || "", price: Number(effectivePrice), qty,
       seller_id: p.seller_id, sellerName: seller?.store_name || null,
-      categoryId: p.category_id,
+      // Only when there IS one: see BasketLine.listPrice.
+      listPrice: p.discount_price != null ? Number(p.price) : undefined,
       image: p.images?.[0] || "", slug: p.slug });
     router.push("/checkout");
   }

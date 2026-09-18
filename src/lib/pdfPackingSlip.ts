@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
-import { money, nowIso } from "@/lib/utils";
+import { money } from "@/lib/utils";
+import { fiscalHeader, fiscalBody } from "@/lib/pdfFiscal";
 import type { Order, Settings } from "@/lib/types";
 
 /* The paper that travels with the parcel.
@@ -63,37 +64,28 @@ export async function downloadPackingSlip(o: Order, settings?: Settings) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 44;
-  const colQty = pageW - 120;
   const colRight = pageW - marginX;
-  let y = 54;
-
   const collect = amountToCollect(o);
+  const docId = Math.random().toString(36).slice(2, 10).toUpperCase();
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text(settings?.store_name || "Loja AIAI", marginX, y);
-  doc.setFontSize(11);
-  doc.text("DELIVERY NOTE", colRight, y, { align: "right" });
+  /* THE SAME LAYOUT AS THE INVOICE, at the shop's request.
+   *
+   * This document used to hide prices on purpose -- a packing slip passes
+   * through several hands before it reaches the buyer, and none of them
+   * need to know what everything cost. The shop asked for the delivery note
+   * and the invoice to carry the same figures, which is how a delivery note
+   * is used here: it is handed over WITH the goods and serves as the
+   * customer's copy. That is the shop's call to make, and it is recorded
+   * here so the earlier reasoning is not mistaken for an oversight.
+   *
+   * What this document keeps that the invoice does not: the address in
+   * large type, the amount to collect in a box, and a line to sign. */
+  let y = fiscalHeader(doc, o, settings, marginX, colRight, 54,
+    { title: "DELIVERY NOTE", docId });
 
-  y += 15;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(MUTED);
-  doc.text(nowIso(o.created_at), colRight, y, { align: "right" });
-  doc.setTextColor(0);
-
-  y += 12;
-  doc.setDrawColor(200);
-  doc.line(marginX, y, colRight, y);
-
-  // ---- The order reference, big enough to read at arm's length ----
-  y += 26;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(o.ref, marginX, y);
-
-  // ---- Where it goes. The largest block on the page. ----
-  y += 26;
+  // ---- Where it goes. Still the largest block on the page: the person
+  // holding this is standing in a street trying to find a house. ----
+  y += 22;
   doc.setFontSize(9);
   doc.setTextColor(MUTED);
   doc.text(o.mode === "pickup" ? "COLLECTION" : "DELIVER TO", marginX, y);
@@ -116,44 +108,13 @@ export async function downloadPackingSlip(o: Order, settings?: Settings) {
     doc.text(line, marginX, y, { maxWidth: colRight - marginX });
   }
 
-  // ---- What should be in the parcel ----
-  y += 30;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("ITEMS", marginX, y);
-  doc.text("QTY", colQty, y, { align: "right" });
-  if (collect != null) doc.text("AMOUNT", colRight, y, { align: "right" });
-  y += 7;
-  doc.setDrawColor(200);
-  doc.line(marginX, y, colRight, y);
+  // ---- What is in the parcel, and what it came to ----
+  y = fiscalBody(doc, o, settings, marginX, colRight, y + 8);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  let units = 0;
-  for (const item of o.items || []) {
-    y += 20;
-    if (y > 720) { doc.addPage(); y = 54; }
-    units += Number(item.qty) || 0;
-    const label = item.name + (item.size ? ` (${item.size})` : "");
-    doc.text(label, marginX, y, { maxWidth: colQty - marginX - 12 });
-    doc.text(String(item.qty), colQty, y, { align: "right" });
-    // Only where money is being collected. See the header note.
-    if (collect != null) {
-      doc.text(money(item.price * item.qty), colRight, y, { align: "right" });
-    }
-  }
-
-  y += 12;
-  doc.line(marginX, y, colRight, y);
-  y += 18;
-  doc.setFont("helvetica", "bold");
-  // A total piece count, so the parcel can be checked without reading the
-  // list twice.
-  doc.text(`${o.items?.length ?? 0} lines / ${units} items`, marginX, y);
-
-  // ---- Money, only when there is money to take ----
+  // ---- What the driver has to come back with ----
   y += 30;
   if (collect != null) {
+    if (y > 700) { doc.addPage(); y = 120; }
     doc.setFillColor(250, 235, 232);
     doc.setDrawColor(...INK);
     doc.rect(marginX, y - 16, colRight - marginX, 40, "FD");
@@ -162,7 +123,7 @@ export async function downloadPackingSlip(o: Order, settings?: Settings) {
     doc.text("COLLECT ON DELIVERY", marginX + 12, y + 2);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(17);
-    doc.text(money(collect), colRight - 12, y + 4, { align: "right" });
+    doc.text(money(collect, o.currency ?? undefined), colRight - 12, y + 4, { align: "right" });
     y += 44;
   } else {
     doc.setFont("helvetica", "bold");

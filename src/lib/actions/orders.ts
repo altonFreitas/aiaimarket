@@ -266,7 +266,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   const productIds = [...new Set(input.items.map((i) => i.product_id))];
   const { data: prodRows } = await sb
     .from("products")
-    .select("id, seller_id, category_id, name, price, discount_price, qty, stock_status, archived, status, preorder_enabled")
+    .select("id, seller_id, name, price, discount_price, qty, stock_status, archived, status, preorder_enabled")
     .in("id", productIds);
   const byId = new Map((prodRows || []).map((row) => [row.id as string, row]));
 
@@ -432,37 +432,11 @@ export async function placeOrder(input: PlaceOrderInput) {
    * what it charged in February. Same reason purchase orders have always
    * frozen fx_rate.
    *
-   * PER CATEGORY, because goods are not all taxed alike. The rate comes off
-   * the PRODUCT's category row read here, never from anything the browser
-   * sent -- a basket that could name its own tax rate could name zero.
-   *
-   * Tolerated, not required: a database that has not run
-   * supabase/public-settings-grant.sql has no categories.tax_rate, the
-   * select fails, the map stays empty, and every line takes the shop's rate
-   * exactly as it did before this existed. */
-  const catRate = new Map<string, number>();
-  try {
-    const catIds = [...new Set((prodRows || [])
-      .map((r) => (r as { category_id?: string | null }).category_id)
-      .filter((v): v is string => !!v))];
-    if (catIds.length) {
-      const { data: catRows } = await sb
-        .from("categories").select("id, tax_rate").in("id", catIds);
-      for (const r of catRows || []) {
-        const v = (r as { tax_rate?: number | null }).tax_rate;
-        if (v != null) catRate.set(r.id as string, Number(v));
-      }
-    }
-  } catch { /* no per-category rates; the shop's rate applies to everything */ }
-
+   * THE RATE COMES OFF THE SHOP'S SETTINGS, read on the server -- never
+   * from anything the browser sent. A basket that could name its own tax
+   * rate could name zero. */
   const taxed = taxOnLines(
-    itemsWithSeller.map((i) => {
-      const cid = (byId.get(i.product_id) as { category_id?: string | null } | undefined)?.category_id;
-      return {
-        value: i.price * i.qty,
-        categoryRate: cid ? catRate.get(cid) : undefined,
-      };
-    }),
+    itemsWithSeller.map((i) => i.price * i.qty),
     fee, money.taxRate, money.taxIncluded);
   const lineTax = taxed.perLine;
 

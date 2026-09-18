@@ -4433,58 +4433,38 @@ end $$;
 comment on function sync_order_items is
   'Builds order_items rows from the order''s items jsonb, including each line''s share of the tax. The ONLY writer of order_items at placement.';
 
-
--- ==== public-settings-grant.sql =========================================
-
 -- ---------------------------------------------------------------------------
--- The facts a shop publishes, readable by the pages that publish them
+-- AND THE PUBLIC MAY READ THE NINE COLUMNS ABOVE
 -- ---------------------------------------------------------------------------
--- Run AFTER legal-currency-tax.sql, which adds the columns this grants.
+-- Added later, after a live shop reported all three of these at once:
 --
--- THE BUG THIS FIXES. An owner filled in the trading address, the business
--- registration and the return window in Settings, saved, and the Terms,
--- Privacy and Returns pages went on printing "{REGISTRATION — FILL IN}".
--- They set the currency to EUR and every price stayed in dollars. They set
--- the tax to 10% and nothing about tax appeared at checkout.
+--   "I fill in the trading address and registration, and Terms still says
+--    {REGISTRATION — FILL IN}"
+--   "I change USD to EUR and every price is still in dollars"
+--   "I set Tax to 10% and nothing about tax appears at checkout"
 --
--- None of that was the app failing to read the settings. It was the
--- DATABASE refusing to hand them over.
+-- None of it was the app failing to read the settings. schema.sql revokes
+-- select on settings from anon and grants back a NAMED LIST of columns --
+-- which is right, and is what stops the public key in the browser reading
+-- totp_secret. This file added nine columns to that table and never added
+-- them to the list, so for the anon key they did not exist. The storefront
+-- asked for what it was allowed to ask for, got no legal or money facts
+-- back, and printed the unfilled markers exactly as designed.
 --
--- schema.sql revokes select on settings from anon and grants back an
--- explicit list of columns -- which is right, and is what stops the public
--- key in the browser reading totp_secret. legal-currency-tax.sql then added
--- nine new columns and never added them to that list, so for the anon key
--- they did not exist. The storefront asked for the columns it was allowed
--- to ask for, got no legal or money facts back, and printed the unfilled
--- markers exactly as designed.
---
--- Safe to re-run.
--- ---------------------------------------------------------------------------
-
--- ---------------------------------------------------------------------------
--- WHY THESE NINE AND NOT select(*)
--- ---------------------------------------------------------------------------
--- Every column below is something the shop tells the public on purpose:
---
---   legal_address, legal_registration      printed on the Terms page
---   legal_retention_years                  printed on the Privacy page
---   legal_return_days, legal_refund_days   printed on the Returns page
---   display_currency                       the symbol beside every price
---   tax_rate, tax_label, tax_included      the tax line at checkout
---
--- A shopper is entitled to all nine BEFORE they buy -- that is what the
--- policy pages are for, and a tax added at the last step without having
+-- Every column here is something the shop tells the public on purpose: the
+-- policy pages print the legal facts, the symbol beside every price comes
+-- from display_currency, and a tax added at the last step without having
 -- been shown is the thing consumer law is most insistent about.
 --
--- What stays out stays out: commission_rate is between the shop and its
--- sellers, and totp_secret is a credential. Those are read through the
--- service-role client, which bypasses these grants entirely.
+-- What stays out stays out. commission_rate is between the shop and its
+-- sellers; totp_secret is a credential. Both are read with the service-role
+-- client, which bypasses these grants entirely.
+--
+-- Column-by-column and guarded, so a partially-migrated database grants
+-- what it has rather than failing the file and leaving the rest ungranted.
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  -- Column-by-column, and only for columns that exist: a database that
-  -- somehow has not run legal-currency-tax.sql should skip the ones it
-  -- lacks rather than fail the whole file and leave the rest ungranted.
   if exists (select 1 from information_schema.columns
              where table_name = 'settings' and column_name = 'legal_address') then
     execute 'grant select (legal_address, legal_registration, legal_retention_years,
@@ -4505,35 +4485,21 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- A CATEGORY MAY CARRY ITS OWN TAX RATE
+-- ONE RATE FOR THE SHOP, AND ONLY ONE
 -- ---------------------------------------------------------------------------
--- Different goods are taxed differently -- that is the ordinary case in most
--- tax codes, not an exception. A shop selling both food and electronics
--- cannot describe itself with one number.
+-- A per-category rate was built and then removed at the shop's request: it
+-- asked every category for an answer to a question this shop does not have,
+-- and a setting nobody can answer is a setting that gets answered wrongly.
+-- The rate lives in Settings, where it was always meant to.
 --
--- NULL means "use the shop's rate", and that is not the same as 0. A
--- category set to zero is a deliberate statement that these goods are not
--- taxed, and it has to survive somebody later raising the shop-wide rate.
--- Defaulting the column to 0 would have silently made every existing
--- category tax-exempt the moment this ran.
+-- Dropped rather than left in place, so the column cannot be half-populated
+-- with rates nothing reads -- which is how a figure ends up on an invoice
+-- two years from now with no code behind it. The constraint goes with it;
+-- dropping the column drops the check, and the explicit drop is for a
+-- database that somehow has the constraint without the column.
 -- ---------------------------------------------------------------------------
-alter table categories
-  add column if not exists tax_rate numeric(6,4);
-
-do $$
-begin
-  if not exists (select 1 from pg_constraint where conname = 'categories_tax_rate_check') then
-    alter table categories add constraint categories_tax_rate_check
-      check (tax_rate is null or (tax_rate >= 0 and tax_rate <= 1));
-  end if;
-end $$;
-
-comment on column categories.tax_rate is
-  'A FRACTION, not a percentage: 0.025 is 2.5%. NULL means this category is taxed at the shop-wide settings.tax_rate; 0 means it is deliberately untaxed. See lib/money.ts and lib/tax.ts.';
-
--- categories is already fully readable by anon (categories_public_read, and
--- no column grant narrows it), so the storefront can price a line without a
--- second privileged round trip.
+alter table categories drop constraint if exists categories_tax_rate_check;
+alter table categories drop column if exists tax_rate;
 
 
 -- ==== loves.sql =========================================================
