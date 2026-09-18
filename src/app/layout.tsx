@@ -8,6 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import CookieNotice from "@/components/CookieNotice";
 import { ToastProvider } from "@/components/Toast";
 import { CurrencyProvider } from "@/components/Currency";
+import { displayRate } from "@/lib/fx";
 import { getSettings } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
@@ -33,6 +34,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const lang = await getLang();
   const settings = await getSettings();
   const needsSetup = settings.id === 0;
+  /* Today's rate for the shop's display currency, fetched at most once
+     every few hours for all visitors and cached across requests. Null when
+     it could not be had, which makes the storefront show dollars -- the
+     currency the stored figures are actually in. */
+  const fxRate = await displayRate(settings.display_currency);
 
   /* The shop's own identity, emitted once for the whole site rather than
      per page. Built from the settings row the admin filled in, so it says
@@ -62,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToastProvider>
         {/* One value for the whole storefront: every price a client
             component prints asks this for the symbol. */}
-        <CurrencyProvider code={settings.display_currency}>
+        <CurrencyProvider code={settings.display_currency} rate={fxRate}>
           {needsSetup && (
             <div style={{
               background: "#c43d2c", color: "#fff", padding: "8px 12px",

@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { money } from "@/lib/utils";
 import { fiscalHeader, fiscalBody } from "@/lib/pdfFiscal";
+import { convert } from "@/lib/fx";
 import type { Order, Settings } from "@/lib/types";
 
 /* The paper that travels with the parcel.
@@ -123,7 +124,12 @@ export async function downloadPackingSlip(o: Order, settings?: Settings) {
     doc.text("COLLECT ON DELIVERY", marginX + 12, y + 2);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(17);
-    doc.text(money(collect, o.currency ?? undefined), colRight - 12, y + 4, { align: "right" });
+    // At the order's own rate, like every other figure on it: the driver
+    // collects what the customer agreed to, not what today's rate says.
+    doc.text(
+      money(convert(collect, Number(o.fx_rate) > 0 ? Number(o.fx_rate) : 1),
+        o.currency ?? undefined),
+      colRight - 12, y + 4, { align: "right" });
     y += 44;
   } else {
     doc.setFont("helvetica", "bold");

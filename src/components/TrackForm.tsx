@@ -17,16 +17,31 @@ import ProductReviewForm from "@/components/ProductReviewForm";
 import PayNowButton from "@/components/PayNowButton";
 import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { taxWasIncluded } from "@/lib/tax";
+import { convert } from "@/lib/fx";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 import ReturnRequest from "@/components/ReturnRequest";
 
+/** A figure stored on an order, printed the way that order was quoted.
+ *
+ * The stored numbers are dollars; fx_rate is what one was worth in the
+ * order's display currency when it was placed. Using today's rate would
+ * restate a receipt every time it was opened. */
+function orderMoney(
+  o: { currency?: string | null; fx_rate?: number | null }, n: number
+): string {
+  const rate = Number(o.fx_rate) > 0 ? Number(o.fx_rate) : 1;
+  return money(convert(Number(n) || 0, rate), o.currency ?? undefined);
+}
+
 interface OrderSummary {
   ref: string; buyer_name: string; buyer_phone: string;
   status: string; pay_status: string; total: number; created_at: string; mode: string;
-  /** What this order was quoted in. Absent on a database that has not run
-   * supabase/legal-currency-tax.sql, where every order was in dollars. */
+  /** What this order was quoted in, and at what rate. Absent on a database
+   * that has not run supabase/legal-currency-tax.sql, where every order was
+   * in dollars at a rate of one. */
   currency?: string | null;
+  fx_rate?: number | null;
 }
 
 export default function TrackForm({
@@ -164,7 +179,7 @@ export default function TrackForm({
               <Link key={o.ref} className="item" href={`/o/${o.ref}?phone=${encodeURIComponent(phone)}`} style={{ textDecoration: "none" }}>
                 <div className="g">
                   <b>{o.ref}</b>
-                  <span>{nowIso(o.created_at)} · {money(o.total, o.currency ?? undefined)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
+                  <span>{nowIso(o.created_at)} · {orderMoney(o, o.total)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
                 </div>
                 <div className="acts">
                   <span className={"pill " + (o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : "warn")}>
@@ -354,7 +369,8 @@ function Dashboard({
       {/* Sending something back, once it has arrived. The other half of
           self-service: cancelling covers the window before it ships, and
           until this existed there was nothing at all for afterwards. */}
-      <ReturnRequest order={o} phone={phone} lang={lang} onDone={onRefresh} />
+      <ReturnRequest order={o} phone={phone} lang={lang} onDone={onRefresh}
+        settings={settings} />
 
       {/* I2 summary */}
       <div className="panel">
@@ -370,17 +386,17 @@ function Dashboard({
           {o.items.map((i, ix) => (
             <div className="kv" key={ix}>
               <span>{i.name}{i.size ? " · " + i.size : ""} × {i.qty}</span>
-              <b>{money(i.price * i.qty, o.currency ?? undefined)}</b>
+              <b>{orderMoney(o, i.price * i.qty)}</b>
             </div>
           ))}
           <div className="kv">
             <span>{t("subtotal", lang)}</span>
-            <b>{money(o.subtotal, o.currency ?? undefined)}</b>
+            <b>{orderMoney(o, o.subtotal)}</b>
           </div>
           <div className="kv">
             <span>{t("deliveryFee", lang)}</span>
             <b>{o.quote_requested
-              ? t("quoteOnRequest", lang) : money(o.fee, o.currency ?? undefined)}</b>
+              ? t("quoteOnRequest", lang) : orderMoney(o, o.fee)}</b>
           </div>
           {/* THE ROW THAT WAS MISSING. Tax has been charged on every order
               since the tax columns existed, and this summary listed goods
@@ -396,12 +412,12 @@ function Dashboard({
                 {(settings?.tax_label || "").trim() || t("taxDefaultName", lang)}
                 {taxWasIncluded(o) ? ` — ${t("taxIncludedShort", lang)}` : ""}
               </span>
-              <b>{money(Number(o.tax), o.currency ?? undefined)}</b>
+              <b>{orderMoney(o, Number(o.tax))}</b>
             </div>
           )}
           <div className="kv total">
             <span>{t("total", lang)}</span>
-            <b>{money(o.total, o.currency ?? undefined)}</b>
+            <b>{orderMoney(o, o.total)}</b>
           </div>
         </div>
         <button className="btn btn-amber btn-sm" type="button" style={{ marginTop: 10 }}

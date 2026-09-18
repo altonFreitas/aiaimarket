@@ -8,7 +8,9 @@ import { recordReturn } from "./returns";
 import { orderRef, phoneNorm, phoneOk } from "@/lib/utils";
 import { returnableQty } from "@/lib/sales";
 import { rateLimit, callerKey } from "@/lib/rateLimit";
-import type { OrderItem, ReturnReason } from "@/lib/types";
+import type { Order, OrderItem, ReturnReason } from "@/lib/types";
+import { returnWindow } from "@/lib/returnWindow";
+import { adminSettings } from "@/lib/data/admin";
 
 /* A BUYER ASKING TO SEND SOMETHING BACK.
  *
@@ -125,6 +127,20 @@ export async function requestReturn(input: {
   // from an order that never happened.
   if (!["arrived", "completed"].includes(order.status as string)) {
     throw new Error("You can ask to return items once the order has arrived.");
+  }
+
+  /* AND NOT FOR EVER AFTERWARDS.
+   *
+   * Enforced HERE as well as hidden in the form, because hiding a button
+   * is not a rule: this endpoint is unauthenticated and takes a ref and a
+   * phone number, so anything the browser can be persuaded to send, it
+   * will send. The window is the shop's own published one -- the Returns
+   * page has always promised a deadline that nothing enforced. */
+  const winSettings = await adminSettings().catch(() => null);
+  const win = returnWindow(order as unknown as Order, winSettings);
+  if (!win.open) {
+    throw new Error(
+      `Returns close ${win.days} days after an order is placed. This one is past that.`);
   }
 
   const lines = input.lines

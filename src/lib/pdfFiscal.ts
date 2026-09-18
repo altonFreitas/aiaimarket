@@ -2,6 +2,7 @@ import type { jsPDF } from "jspdf";
 import { money, nowIso } from "@/lib/utils";
 import { taxWasIncluded } from "@/lib/tax";
 import { taxRateAsPercent } from "@/lib/money";
+import { convert } from "@/lib/fx";
 import type { Order, Settings } from "@/lib/types";
 
 /* ONE SHAPE FOR EVERY PIECE OF PAPER THIS SHOP ISSUES.
@@ -138,20 +139,32 @@ export function fiscalBody(
   x: number, right: number, startY: number
 ): number {
   const sum = taxSummary(o);
+  /* THE RATE THIS ORDER WAS QUOTED AT, not today's.
+     The figures stored on the order are dollars; fx_rate is what one of
+     them was worth in the display currency at the moment it was placed. An
+     invoice reprinted next year has to show the euros the customer agreed
+     to, not the euros a dollar buys that afternoon. */
   const code = o.currency || settings?.display_currency || undefined;
-  const cash = (n: number | string) => money(n, code ?? undefined);
+  const rate = Number(o.fx_rate) > 0 ? Number(o.fx_rate) : 1;
+  const cash = (n: number | string) =>
+    money(convert(Number(n) || 0, rate), code ?? undefined);
   const taxLabel = (settings?.tax_label || "").trim() || "Tax";
   const pct = taxRateAsPercent(sum.rate);
 
-  // Four columns: what it is, how many at what price, the rate, the money.
-  const colQty = right - 250;
+  /* FIVE COLUMNS: what it is, how many, at what price, the rate, the money.
+     Qty and Price were one column reading "1 x $45.00", which is how a
+     phone receipt saves width -- on A4 it just makes both figures harder to
+     scan down, and neither column can be added up by eye. */
+  const colQty = right - 300;
+  const colPrice = right - 230;
   const colRate = right - 120;
   let y = startY + 22;
 
   doc.setFontSize(8);
   doc.setTextColor(MUTED);
   doc.text("PRODUCT", x, y);
-  doc.text("QTY x PRICE", colQty, y);
+  doc.text("QTY", colQty, y, { align: "right" });
+  doc.text("PRICE", colPrice, y, { align: "right" });
   doc.text(`% ${taxLabel.toUpperCase()}`, colRate, y, { align: "right" });
   doc.text("TOTAL", right, y, { align: "right" });
   doc.setTextColor(0);
@@ -165,8 +178,9 @@ export function fiscalBody(
     y += 18;
     if (y > 740) { doc.addPage(); y = 54; }
     const label = item.name + (item.size ? ` (${item.size})` : "");
-    doc.text(label, x, y, { maxWidth: colQty - x - 10 });
-    doc.text(`${item.qty} x ${cash(item.price)}`, colQty, y);
+    doc.text(label, x, y, { maxWidth: colQty - x - 16 });
+    doc.text(String(item.qty), colQty, y, { align: "right" });
+    doc.text(cash(item.price), colPrice, y, { align: "right" });
     // Every line carries the same rate -- the shop's -- and it is printed
     // per line anyway, because that is what makes the summary at the foot
     // checkable against the lines above it.
