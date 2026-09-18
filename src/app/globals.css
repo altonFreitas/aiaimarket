@@ -352,6 +352,37 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: no-preference){
   .card .ph img{transition:transform .45s cubic-bezier(.2,.6,.2,1)}
   .card:hover .ph img{transform:scale(1.07)}
+
+  /* THE CARD ITSELF LIFTS UNDER THE POINTER.
+     The photo leaning in said "this one" quietly; at a glance across a row
+     of twelve it was easy to lose which card the pointer was actually on.
+     The whole card now grows a little, rounds off and raises a shadow, so
+     the answer is unmistakable from the corner of the eye.
+
+     THE SCALE IS BOUNDED BY THE GAP, and that is the whole trick. The grid
+     leaves 14px between cards on a desktop and 10px on a phone, so a card
+     may grow by at most that much in total -- half into the space on each
+     side -- or it starts overlapping its neighbours and the row reads as
+     broken rather than as lively. 1.03 on a 339px card is +10px, inside a
+     14px gap, and the numbers are checked in a browser rather than
+     eyeballed: see tests and the measurement in the commit.
+
+     Raised above the row while it is up, or the neighbour drawn after it
+     would cover the edge it just grew into. */
+  .card{transition:transform .2s var(--ease), box-shadow .2s var(--ease),
+    border-color .2s var(--ease), border-radius .2s var(--ease)}
+  /* :focus-visible too, so tabbing through the grid gives the same answer
+     the pointer gets. A keyboard user has the harder version of the same
+     problem -- they cannot see where a pointer is at all. */
+  .card:hover,.card:focus-visible{transform:scale(1.03);border-radius:var(--r-l);
+    border-color:var(--ink-3);box-shadow:var(--sh-3);z-index:3}
+}
+
+/* Somebody who asked their system for less movement still gets the answer
+   to "which card am I on" -- the outline and the shadow -- without the
+   thing that moves. */
+@media (prefers-reduced-motion: reduce){
+  .card:hover,.card:focus-visible{border-color:var(--ink-3);box-shadow:var(--sh-2);z-index:3}
 }
 .card .body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px;flex:1}
 .card .nm{font-size:13.5px;line-height:1.3;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:35px}
