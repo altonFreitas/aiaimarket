@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rateFor, taxOnLines } from "@/lib/tax";
+import { rateFor, taxOnLines, taxWasIncluded } from "@/lib/tax";
 import { taxOn } from "@/lib/money";
 
 /* TAX THAT DIFFERS BY CATEGORY.
@@ -189,5 +189,33 @@ describe("the checkout charges what the server will", () => {
     // Subtotal + delivery did not add up to the total on the tracking page
     // either, by exactly the tax.
     expect(code("src/components/TrackForm.tsx")).toMatch(/Number\(o\.tax\) > 0/);
+  });
+});
+
+describe("which way round an order's tax ran", () => {
+  it("reads it back from the figures, since no column records it", () => {
+    // added on: total = subtotal + fee + tax
+    expect(taxWasIncluded({ subtotal: 12, fee: 1, tax: 1.3, total: 14.3 })).toBe(false);
+    // included: the tax is already inside subtotal + fee
+    expect(taxWasIncluded({ subtotal: 12, fee: 1, tax: 1.18, total: 13 })).toBe(true);
+  });
+
+  it("says no when there was no tax", () => {
+    expect(taxWasIncluded({ subtotal: 12, fee: 1, tax: 0, total: 13 })).toBe(false);
+    expect(taxWasIncluded({ subtotal: 12, fee: 1, total: 13 })).toBe(false);
+  });
+});
+
+describe("an order records the tax it actually charged", () => {
+  const src = fs.readFileSync(
+    path.join(process.cwd(), "src/lib/actions/orders.ts"), "utf8");
+
+  it("writes the included figure too, not just the added-on one", () => {
+    /* THE BUG: this passed taxed.tax, which is 0 when prices already
+       include tax -- so such a shop wrote "no tax" onto every order while
+       each of its LINES carried the real figure. The order disagreed with
+       its own lines, and anything totting up the shop's liability from
+       orders.tax would have read zero. */
+    expect(src).toMatch(/orderColumns\(taxed\.tax \|\| taxed\.includedTax\)/);
   });
 });

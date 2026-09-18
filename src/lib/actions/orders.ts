@@ -478,7 +478,13 @@ export async function placeOrder(input: PlaceOrderInput) {
     .from("orders")
     .insert({
       ...extra,
-      ...money.orderColumns(taxed.tax),
+      /* THE TAX THAT EXISTS, WHICHEVER DIRECTION IT RAN.
+         This passed taxed.tax, which is 0 for a shop whose prices already
+         include tax -- so such a shop recorded "no tax" on every order
+         while each of its LINES recorded the real figure. The order and its
+         own lines disagreed, and anything totting up what the shop owes off
+         orders.tax would have read zero. */
+      ...money.orderColumns(taxed.tax || taxed.includedTax),
       ref,
       lang,
       is_preorder: isPreorder,

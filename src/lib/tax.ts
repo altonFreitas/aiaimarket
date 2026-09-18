@@ -132,3 +132,27 @@ export function categoryTaxRates(
   }
   return out;
 }
+
+/** Whether an order's tax was already inside its prices.
+ *
+ * Read back from the figures rather than from a column, because there is
+ * no column: the order records what tax was charged and what the total
+ * was, and the two say which way round it ran.
+ *
+ *   added on:  total = subtotal + fee + tax
+ *   included:  total = subtotal + fee          (the tax is inside them)
+ *
+ * It matters on a receipt. "Tax $1.30" under a total that already contains
+ * it invites the reader to add it again; "of which tax $1.30" does not.
+ * A cent of tolerance, because these are rounded currency figures.
+ */
+export function taxWasIncluded(o: {
+  subtotal?: number | null; fee?: number | null;
+  tax?: number | null; total?: number | null;
+}): boolean {
+  const tax = Number(o.tax) || 0;
+  if (tax <= 0) return false;
+  const goods = (Number(o.subtotal) || 0) + (Number(o.fee) || 0);
+  const total = Number(o.total) || 0;
+  return Math.abs(total - goods) < Math.abs(total - (goods + tax));
+}

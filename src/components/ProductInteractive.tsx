@@ -47,7 +47,7 @@ export default function ProductInteractive({
 
   const siteUrl = (path: string) => `${siteOrigin}${path}`;
   const waDigits = settings.wa_number.replace(/[^\d]/g, "");
-  const msg = waProductMsg({ ...p, price: effectivePrice }, size, qty, siteUrl);
+  const msg = waProductMsg({ ...p, price: effectivePrice }, size, qty, siteUrl, code);
   const href = waLink(waDigits, msg);
 
   // `loc` (a pickup-location fallback merging product overrides onto the

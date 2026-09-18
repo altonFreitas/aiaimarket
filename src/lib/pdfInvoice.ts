@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { money, nowIso } from "@/lib/utils";
+import { taxWasIncluded } from "@/lib/tax";
 import type { Order, Settings } from "@/lib/types";
 
 // Same hex values as --red and --amber-ink in globals.css, so the PDF's
@@ -28,6 +29,18 @@ export async function downloadOrderInvoice(o: Order, settings?: Settings) {
   const colPrice = pageW - 160;
   const colRight = pageW - marginX;
   let y = 54;
+
+  /* IN THE CURRENCY THE ORDER WAS PLACED IN, not the one the shop quotes
+     today. Every figure on this invoice went through money() with no
+     argument, so a shop trading in euros issued invoices in dollars --
+     on the one document a customer files and may hand to an accountant.
+     Falls back to the shop's current code, then to USD, for orders placed
+     before the column existed. */
+  const code = o.currency || settings?.display_currency || undefined;
+  const cash = (n: number | string) => money(n, code ?? undefined);
+  /* The shop's own word for its tax. "Tax" is not what it is called
+     everywhere, and the invoice is exactly where the right word matters. */
+  const taxLabel = (settings?.tax_label || "").trim() || "Tax";
 
   // A random per-download document ID -- not stored anywhere, just a
   // reference printed on the PDF itself (distinct from the order ref).
@@ -90,8 +103,8 @@ export async function downloadOrderInvoice(o: Order, settings?: Settings) {
     const label = item.name + (item.size ? ` (${item.size})` : "");
     doc.text(label, marginX, y, { maxWidth: colQty - marginX - 10 });
     doc.text(String(item.qty), colQty, y, { align: "right" });
-    doc.text(money(item.price), colPrice, y, { align: "right" });
-    doc.text(money(item.price * item.qty), colRight, y, { align: "right" });
+    doc.text(cash(item.price), colPrice, y, { align: "right" });
+    doc.text(cash(item.price * item.qty), colRight, y, { align: "right" });
   }
 
   y += 14;
@@ -99,17 +112,35 @@ export async function downloadOrderInvoice(o: Order, settings?: Settings) {
 
   y += 20;
   doc.text("Subtotal", colPrice, y, { align: "right" });
-  doc.text(money(o.subtotal), colRight, y, { align: "right" });
+  doc.text(cash(o.subtotal), colRight, y, { align: "right" });
 
   y += 18;
   doc.text("Delivery fee", colPrice, y, { align: "right" });
-  doc.text(o.quote_requested ? "On request" : money(o.fee), colRight, y, { align: "right" });
+  doc.text(o.quote_requested ? "On request" : cash(o.fee), colRight, y, { align: "right" });
+
+  /* THE TAX LINE THIS DOCUMENT WAS MISSING.
+   *
+   * An invoice is the one place where the figures have to add up, and this
+   * one printed goods and delivery and then a total that was larger by
+   * exactly the tax, with nothing accounting for the difference. It is also
+   * the document a customer keeps, files, or hands to their own accountant.
+   *
+   * The label is the shop's own word -- VAT, IVA, GST -- because that is
+   * what makes the document usable where the shop trades. */
+  if (Number(o.tax) > 0) {
+    y += 18;
+    // "of which" when it was already inside the prices, so the reader does
+    // not add it to a total that already contains it.
+    const label = taxWasIncluded(o) ? `${taxLabel} (of which)` : taxLabel;
+    doc.text(label, colPrice, y, { align: "right" });
+    doc.text(cash(Number(o.tax)), colRight, y, { align: "right" });
+  }
 
   y += 22;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
   doc.text("Total", colPrice, y, { align: "right" });
-  doc.text(money(o.total), colRight, y, { align: "right" });
+  doc.text(cash(o.total), colRight, y, { align: "right" });
 
   y += 34;
   doc.setFont("helvetica", "normal");

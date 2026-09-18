@@ -115,10 +115,16 @@ export function waLink(digits: string, text: string): string {
 }
 
 /** E1/E2 — pre-filled WhatsApp message with the product, size and reference. */
-export function waProductMsg(p: Pick<Product, "name" | "ref" | "slug" | "price">, size: string | null, qty: number, siteUrl: (path: string) => string): string {
+/** The message a shopper sends about a product they are looking at.
+ *
+ * `currency` is the shop's current code -- this is a live catalog price, not
+ * a figure frozen on an order, so it is quoted the way the storefront is
+ * quoting it right now. Omitted, it falls back to dollars, which is what it
+ * always did. */
+export function waProductMsg(p: Pick<Product, "name" | "ref" | "slug" | "price">, size: string | null, qty: number, siteUrl: (path: string) => string, currency?: string): string {
   const lines = ["Olá! Hau hakarak sosa:", ""];
   lines.push(
-    p.name + (size ? ` — ${size}` : "") + (qty > 1 ? ` × ${qty}` : "") + ` — ${money(p.price)}`
+    p.name + (size ? ` — ${size}` : "") + (qty > 1 ? ` × ${qty}` : "") + ` — ${money(p.price, currency)}`
   );
   lines.push("Ref: " + p.ref);
   lines.push(siteUrl(`/p/${p.slug}`));
@@ -127,11 +133,15 @@ export function waProductMsg(p: Pick<Product, "name" | "ref" | "slug" | "price">
 
 export function waOrderMsg(o: Order, siteUrl: (path: string) => string): string {
   const lines = ["Olá! Hau halo enkomenda ida:", ""];
+  /* In the currency the order was placed in. Every figure here went through
+     money() with no argument, so a shop trading in euros sent its customers
+     a WhatsApp message quoting dollars. */
+  const cash = (n: number) => money(n, o.currency ?? undefined);
   o.items.forEach((i) => {
-    lines.push(`• ${i.name}${i.size ? " — " + i.size : ""} × ${i.qty} — ${money(i.price * i.qty)}`);
+    lines.push(`• ${i.name}${i.size ? " — " + i.size : ""} × ${i.qty} — ${cash(i.price * i.qty)}`);
   });
   lines.push("");
-  lines.push("Total: " + money(o.total));
+  lines.push("Total: " + cash(o.total));
   lines.push("Ref: " + o.ref);
   lines.push("Phone: " + o.buyer_phone);
   lines.push(o.mode === "pickup" ? "Pickup" : "Delivery: " + addrLine(o));

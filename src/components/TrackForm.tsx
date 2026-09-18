@@ -16,6 +16,7 @@ import SellerRatingForm from "@/components/SellerRatingForm";
 import ProductReviewForm from "@/components/ProductReviewForm";
 import PayNowButton from "@/components/PayNowButton";
 import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
+import { taxWasIncluded } from "@/lib/tax";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 import ReturnRequest from "@/components/ReturnRequest";
@@ -388,7 +389,13 @@ function Dashboard({
               on the page accounting for the difference. */}
           {Number(o.tax) > 0 && (
             <div className="kv">
-              <span>{t("taxDefaultName", lang)}</span>
+              {/* "of which" when the tax was already inside the prices.
+                  Printing a bare "Tax $1.30" under a total that already
+                  contains it invites the reader to add it a second time. */}
+              <span>
+                {(settings?.tax_label || "").trim() || t("taxDefaultName", lang)}
+                {taxWasIncluded(o) ? ` — ${t("taxIncludedShort", lang)}` : ""}
+              </span>
               <b>{money(Number(o.tax), o.currency ?? undefined)}</b>
             </div>
           )}
