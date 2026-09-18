@@ -1421,6 +1421,7 @@ export const STR: Record<string, [string,string,string]> = {
   cookieMore:["Lee tan","Saiba mais","Read more"],
   cookieOk:["Komprende ona","Entendi","Got it"],
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
+  featOrderDiscount:["Diskontu iha enkomenda","Desconto na encomenda","The discount on an order"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */
   whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],

@@ -380,6 +380,15 @@ function Dashboard({
             <span>{t("subtotal", lang)}</span>
             <b>{money(o.subtotal)}</b>
           </div>
+          {/* What was taken off, when anything was. The same line the
+              checkout showed and the invoice prints, so the three documents
+              a customer sees agree with each other. */}
+          {Number(o.discount) > 0 && (
+            <div className="kv">
+              <span>{t("discount", lang)}</span>
+              <b>−{money(Number(o.discount))}</b>
+            </div>
+          )}
           <div className="kv">
             <span>{t("deliveryFee", lang)}</span>
             <b>{o.quote_requested

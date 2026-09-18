@@ -196,7 +196,7 @@ export function fiscalBody(
   row("Subtotal", cash(o.subtotal));
   // Only when there is one. A "Discount 0.00" line invites the reader to
   // look for something that is not there.
-  const discount = Number((o as { discount?: number | null }).discount) || 0;
+  const discount = Number(o.discount) || 0;
   if (discount > 0) row("Discount", `-${cash(discount)}`);
   if (Number(o.fee) > 0 || o.quote_requested) {
     row("Delivery", o.quote_requested ? "On request" : cash(Number(o.fee)));

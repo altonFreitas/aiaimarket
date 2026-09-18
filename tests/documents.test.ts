@@ -145,3 +145,37 @@ describe("tax belongs to the shop, not to each category", () => {
     expect(sql).toMatch(/alter table categories drop column if exists tax_rate/);
   });
 });
+
+describe("the discount reaches the invoice, not just the checkout", () => {
+  it("is recorded on the order", () => {
+    /* THE GAP: the checkout showed "Discount −$11.00" and the invoice had
+       no such line, because nothing on the order said what the goods would
+       have cost at full price. A customer's two documents disagreed about
+       their own purchase. */
+    const orders = code("src/lib/actions/orders.ts");
+    expect(orders).toMatch(/const discount = Math\.round\(itemsWithSeller\.reduce/);
+    expect(orders).toMatch(/^\s*discount,$/m);
+  });
+
+  it("is computed from the product rows, never from the basket", () => {
+    // A basket that can name its own saving can name any saving.
+    const orders = code("src/lib/actions/orders.ts");
+    expect(orders).toMatch(/byId\.get\(i\.product_id\)/);
+    expect(orders).toMatch(/row\?\.discount_price != null/);
+  });
+
+  it("leaves the subtotal and the total alone", () => {
+    /* Line prices are the DISCOUNTED ones and always were, so the money
+       owed is unaffected. Subtracting it again would charge the discount
+       twice -- in the customer's favour, which is still wrong. */
+    const orders = code("src/lib/actions/orders.ts");
+    expect(orders).not.toMatch(/subtotal\s*-\s*discount/);
+    expect(orders).not.toMatch(/total\s*-\s*discount/);
+  });
+
+  it("prints on all three: checkout, tracking page and invoice", () => {
+    expect(code("src/components/CheckoutForm.tsx")).toMatch(/\{discount > 0 && \(/);
+    expect(code("src/components/TrackForm.tsx")).toMatch(/Number\(o\.discount\) > 0/);
+    expect(code("src/lib/pdfFiscal.ts")).toMatch(/if \(discount > 0\) row\("Discount"/);
+  });
+});

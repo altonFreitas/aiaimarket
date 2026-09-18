@@ -115,6 +115,26 @@ async function resolveSellerId(
 
 export async function saveProduct(input: ProductFormInput) {
   const actor = await requireAdmin();
+
+  /* THE PRICE RULES, ON THE SERVER.
+   *
+   * They existed only in the form. The column allows price >= 0, so a save
+   * that skipped the form -- a stale tab, a second window, anything calling
+   * this action directly -- could list a product at nothing, and a shop
+   * finds that out when somebody buys twenty.
+   *
+   * Refused rather than corrected: a price of 0 is either a mistake or a
+   * giveaway, and guessing which one on the shop's behalf is worse than
+   * saying no. */
+  const price = Number(input.price);
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new Error("A product needs a price above zero.");
+  }
+  const discount = input.discount_price == null ? null : Number(input.discount_price);
+  if (discount != null && (!Number.isFinite(discount) || discount <= 0 || discount >= price)) {
+    throw new Error("A discount price must be above zero and below the normal price.");
+  }
+
   const sb = supabaseAdmin();
   const baseSlug = slugify(input.name);
   // Resolved before either branch writes, so an unknown store fails the
@@ -142,8 +162,8 @@ export async function saveProduct(input: ProductFormInput) {
     const { error } = await writeTolerating(
       { audience: normalizeAudience(input.audience) },
       (extra) => sb.from("products").update({
-        name: input.name, slug, price: input.price, seller_id: sellerId,
-        discount_price: input.discount_price,
+        name: input.name, slug, price, seller_id: sellerId,
+        discount_price: discount,
         description: input.description,
         preorder_enabled: input.preorder_enabled ?? true,
         preorder_eta: input.preorder_eta || null,
@@ -185,8 +205,8 @@ export async function saveProduct(input: ProductFormInput) {
     const { data: made, error } = await writeTolerating<{ id: string }>(
       { audience: normalizeAudience(input.audience) },
       (extra) => sb.from("products").insert({
-        ref, name: input.name, slug, price: input.price, qty: 0, seller_id: sellerId,
-        discount_price: input.discount_price,
+        ref, name: input.name, slug, price, qty: 0, seller_id: sellerId,
+        discount_price: discount,
         stock_status: "out", description: input.description,
         preorder_enabled: input.preorder_enabled ?? true,
         preorder_eta: input.preorder_eta || null,

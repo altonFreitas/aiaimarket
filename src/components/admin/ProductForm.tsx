@@ -8,6 +8,7 @@ import { createCategory } from "@/lib/actions/categories";
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
+import { parseNum } from "@/lib/numberInput";
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
@@ -102,22 +103,22 @@ export default function ProductForm({
 
   function onPriceChange(v: string) {
     set("price", v);
-    const price = Number(v) || 0;
-    const dp = Number(discountPrice);
+    const price = parseNum(v, 0);
+    const dp = parseNum(discountPrice, 0);
     const pct = discountPercent(price, discountPrice.trim() && dp > 0 ? dp : null);
     setDiscountPctStr(pct != null ? String(pct) : "");
   }
   function onDiscountPriceChange(v: string) {
     setDiscountPriceStr(v);
-    const price = Number(f.price) || 0;
-    const dp = Number(v);
+    const price = parseNum(f.price, 0);
+    const dp = parseNum(v, 0);
     const pct = discountPercent(price, v.trim() && dp > 0 ? dp : null);
     setDiscountPctStr(pct != null ? String(pct) : "");
   }
   function onDiscountPctChange(v: string) {
     setDiscountPctStr(v);
-    const price = Number(f.price) || 0;
-    const pct = Number(v);
+    const price = parseNum(f.price, 0);
+    const pct = parseNum(v, 0);
     if (!v.trim() || !price || !(pct > 0) || pct >= 100) {
       setDiscountPriceStr("");
     } else {
@@ -186,8 +187,14 @@ export default function ProductForm({
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!f.name.trim()) errs.name = t("required", lang);
-    if (!(Number(f.price) > 0)) errs.price = t("required", lang);
-    if (discountPrice.trim() && !(Number(discountPrice) > 0 && Number(discountPrice) < Number(f.price))) {
+    /* parseNum, not Number: a number input steps and formats in the
+       BROWSER's locale, so a Portuguese keyboard produces "12,50" -- which
+       Number() reads as NaN and this form then reported as "required" over
+       a box that plainly had something in it. */
+    if (!(parseNum(f.price, 0) > 0)) errs.price = t("required", lang);
+    if (discountPrice.trim()
+        && !(parseNum(discountPrice, 0) > 0
+             && parseNum(discountPrice, 0) < parseNum(f.price, 0))) {
       errs.price = t("discountMustBeLower", lang);
     }
     if (!f.category_id) errs.category_id = t("required", lang);
@@ -199,9 +206,10 @@ export default function ProductForm({
       await saveProduct({
         id: product?.id,
         name: f.name.trim(),
-        price: Number(f.price),
-        discount_price: discountPrice.trim() && Number(discountPrice) > 0 ? Number(discountPrice) : null,
-        qty: Number(f.qty) || 0,
+        price: parseNum(f.price, 0),
+        discount_price: discountPrice.trim() && parseNum(discountPrice, 0) > 0
+          ? parseNum(discountPrice, 0) : null,
+        qty: Math.max(0, Math.floor(parseNum(f.qty, 0))),
         preorder_enabled: f.preorder_enabled,
         preorder_eta: f.preorder_eta || null,
         description: f.description,

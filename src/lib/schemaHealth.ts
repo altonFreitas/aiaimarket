@@ -237,6 +237,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     ],
   },
   {
+    /* What the buyer saved, so the invoice can say it. The checkout showed
+       a Discount line and the invoice could not, because nothing on the
+       order recorded one. */
+    file: "order-discount.sql", labelKey: "featOrderDiscount",
+    columns: [["orders", "discount"]],
+    constraints: [["public.orders", "orders_discount_check"]],
+  },
+  {
     // The retention sweep. Nothing in the application calls it -- it is a
     // tool an operator runs deliberately -- so the panel is the only place
     // that can say whether the shop has it at all.
@@ -428,6 +436,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "promotions.sql",
   "hero-video.sql",
   "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql
+  "order-discount.sql",      // one column on orders; anywhere after schema.sql
   "loves.sql",
   "reorder-policy.sql",
   "audience-restock.sql",

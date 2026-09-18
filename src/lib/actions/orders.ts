@@ -437,6 +437,24 @@ export async function placeOrder(input: PlaceOrderInput) {
    * THE RATE COMES OFF THE SHOP'S SETTINGS, read on the server -- never
    * from anything the browser sent. A basket that could name its own tax
    * rate could name zero. */
+  /* WHAT THE BUYER SAVED, from the product rows this function already
+     loaded -- never from the basket, which could claim any saving it liked.
+     A line is discounted when the product carries a discount_price; the
+     saving is the gap between the two, times the quantity.
+
+     Informational only: i.price is the discounted figure and always was, so
+     the subtotal, the tax and the total below are untouched by this. It
+     exists so the invoice can print the line the checkout prints. */
+  const discount = Math.round(itemsWithSeller.reduce((a, i) => {
+    const row = byId.get(i.product_id) as
+      { price?: number; discount_price?: number | null } | undefined;
+    const list = Number(row?.price);
+    const paid = Number(i.price);
+    const off = row?.discount_price != null && Number.isFinite(list) && list > paid
+      ? (list - paid) * i.qty : 0;
+    return a + off;
+  }, 0) * 100) / 100;
+
   const taxed = taxOnLines(
     itemsWithSeller.map((i) => i.price * i.qty),
     fee, money.taxRate, money.taxIncluded);
@@ -461,6 +479,9 @@ export async function placeOrder(input: PlaceOrderInput) {
          own lines disagreed, and anything totting up what the shop owes off
          orders.tax would have read zero. */
       ...money.orderColumns(taxed.tax || taxed.includedTax),
+      // Dropped by writeTolerating on a database that has not run
+      // supabase/order-discount.sql, where an order simply records no saving.
+      discount,
       ref,
       lang,
       is_preorder: isPreorder,
