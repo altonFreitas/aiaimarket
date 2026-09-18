@@ -4,7 +4,7 @@
 -- ============================================================
 
 update settings set
-  store_name = 'Loja AIAI',
+  store_name = 'AIAI STORE TIMOR-LESTE',
   tagline_tet = 'Sasán loos, folin klaru, entrega iha Dili.',
   tagline_pt  = 'Produtos reais, preços claros, entrega em Díli.',
   tagline_en  = 'Real stock, clear prices, delivered in Dili.',
@@ -13,7 +13,7 @@ update settings set
   municipality = 'Dili', post = 'Vera Cruz', suku = 'Caicoli',
   landmark = 'besik igreja Balide, uma kór mutin',
   pickup = true,
-  banks = '[{"label":"BNCTL","account":"0012 3456 7890","holder":"Loja AIAI Unipessoal"}]',
+  banks = '[{"label":"BNCTL","account":"0012 3456 7890","holder":"AIAI STORE TIMOR-LESTE Unipessoal"}]',
   wallets = '[{"label":"Telemor Mosan","number":"+670 7712 3456"}]',
   -- THE REAL ZONE IDS, and no "name" field.
   --

@@ -15,7 +15,7 @@
 -- ==== schema.sql ========================================================
 
 -- ============================================================
--- Loja AIAI — schema for "Marketplace Platform for Timor-Leste v1.0"
+-- AIAI STORE TIMOR-LESTE — schema for "Marketplace Platform for Timor-Leste v1.0"
 -- Run this once in Supabase → SQL Editor → New query → Run.
 -- Safe to re-run: uses IF NOT EXISTS / CREATE OR REPLACE throughout.
 -- ============================================================
@@ -26,7 +26,7 @@ create extension if not exists "pgcrypto";
 create table if not exists settings (
   id            int primary key default 1,
   seller_id     uuid not null default gen_random_uuid(),   -- Decision 2: present from day one
-  store_name    text not null default 'Loja AIAI',
+  store_name    text not null default 'AIAI STORE TIMOR-LESTE',
   tagline_tet   text default '',
   tagline_pt    text default '',
   tagline_en    text default '',
@@ -6423,7 +6423,7 @@ create index if not exists idx_products_live
 -- ============================================================
 
 update settings set
-  store_name = 'Loja AIAI',
+  store_name = 'AIAI STORE TIMOR-LESTE',
   tagline_tet = 'Sasán loos, folin klaru, entrega iha Dili.',
   tagline_pt  = 'Produtos reais, preços claros, entrega em Díli.',
   tagline_en  = 'Real stock, clear prices, delivered in Dili.',
@@ -6432,7 +6432,7 @@ update settings set
   municipality = 'Dili', post = 'Vera Cruz', suku = 'Caicoli',
   landmark = 'besik igreja Balide, uma kór mutin',
   pickup = true,
-  banks = '[{"label":"BNCTL","account":"0012 3456 7890","holder":"Loja AIAI Unipessoal"}]',
+  banks = '[{"label":"BNCTL","account":"0012 3456 7890","holder":"AIAI STORE TIMOR-LESTE Unipessoal"}]',
   wallets = '[{"label":"Telemor Mosan","number":"+670 7712 3456"}]',
   -- THE REAL ZONE IDS, and no "name" field.
   --

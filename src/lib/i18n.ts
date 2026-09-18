@@ -1405,7 +1405,7 @@ export const STR: Record<string, [string,string,string]> = {
   legalRefundDays:["Prazu fó fila osan (loron)","Prazo de reembolso (dias)","Refund within (days)"],
   moneySettings:["Osan","Dinheiro","Money"],
   taxRate:["Taxa (%)","Imposto (%)","Tax (%)"],
-  taxRateHint:["Zero katak loja ne'e la kobra taxa. 2.5 katak 2,5%.","Zero significa que a loja não cobra imposto. 2.5 significa 2,5%.","Zero means this shop charges none. 2.5 means 2.5%."],
+  taxRateHint:["Zero katak loja ne'e la kobra taxa. 2,5 katak 2,5%.","Zero significa que a loja não cobra imposto. 2,5 significa 2,5%.","Zero means this shop charges none. 2,5 means 2,5%."],
   taxLabel:["Naran taxa","Nome do imposto","What to call it"],
   taxDefaultLabel:["Taxa","Imposto","Tax"],
   taxIncluded:["Folin inklui taxa?","Os preços incluem imposto?","Do prices include tax?"],
