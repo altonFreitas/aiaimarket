@@ -2,13 +2,12 @@
 import Link from "next/link";
 import { useBasket } from "@/lib/useBasket";
 
-import { useMoney } from "@/components/Currency";
 import EmptyBasketArt from "./EmptyBasketArt";
+import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
 export default function BasketView({ lang, storeName }: { lang: Lang; storeName: string }) {
-  const m = useMoney();
   const { lines, ready, setQty, remove, subtotal } = useBasket();
 
   // Nothing is known about the basket until the browser's copy has been
@@ -77,7 +76,7 @@ export default function BasketView({ lang, storeName }: { lang: Lang; storeName:
               <div className="item" key={`${l.id}-${l.size}-${i}`}>
                 <div className="g">
                   <b>{l.name}</b>
-                  <span>{l.size ? l.size + " · " : ""}{m(l.price)}</span>
+                  <span>{l.size ? l.size + " · " : ""}{money(l.price)}</span>
                 </div>
                 <div className="qty" style={{ height: 34 }}>
                   <button type="button" onClick={() => setQty(i, l.qty - 1)}>−</button>
@@ -93,7 +92,7 @@ export default function BasketView({ lang, storeName }: { lang: Lang; storeName:
       <div className="panel" style={{ marginTop: 12 }}>
         <div className="kv total">
           <span>{t("subtotal", lang)}</span>
-          <b>{m(subtotal)}</b>
+          <b>{money(subtotal)}</b>
         </div>
       </div>
       <div className="btn-row">

@@ -12,7 +12,6 @@ import { placeholder } from "@/lib/placeholder";
 import { money } from "@/lib/utils";
 import { taxOnLines } from "@/lib/tax";
 import { taxRateAsPercent } from "@/lib/money";
-import { useMoney, useQuote } from "@/components/Currency";
 import { personName } from "@/lib/personName";
 import { t } from "@/lib/i18n";
 import { normalizeZones } from "@/lib/zones";
@@ -122,10 +121,7 @@ export default function CheckoutForm({
   const taxLine = settings.tax_included ? taxed.includedTax : taxed.tax;
   const taxName = (settings.tax_label || "").trim() || t("taxDefaultName", lang);
   const shopTaxPct = taxRateAsPercent(settings.tax_rate);
-  /* Converted for display, from lib/fx.ts by way of the provider in the
-     root layout. The figures below are dollars; m() multiplies. */
-  const m = useMoney();
-  const quote = useQuote();
+
   const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
   const needsFullAddress = mode === "delivery" && !isDiliCenter;
 
@@ -319,7 +315,7 @@ export default function CheckoutForm({
 
                     <div className="co-line-g">
                       <b>{l.name}</b>
-                      <span>{l.size ? l.size + " · " : ""}{m(l.price)}</span>
+                      <span>{l.size ? l.size + " · " : ""}{money(l.price)}</span>
                       <div className="qty" style={{ height: 30 }}>
                         <button type="button" onClick={() => setQty(i, l.qty - 1)}
                           aria-label={t("qty", lang)}>−</button>
@@ -330,7 +326,7 @@ export default function CheckoutForm({
                     </div>
 
                     <div className="co-line-r">
-                      <b className="mono">{m(l.price * l.qty)}</b>
+                      <b className="mono">{money(l.price * l.qty)}</b>
                       <button type="button" className="co-line-x" onClick={() => remove(i)}
                         aria-label={`${t("del", lang)} ${l.name}`}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -347,20 +343,20 @@ export default function CheckoutForm({
             {/* SUBTOTAL — DISCOUNT — DELIVERY — TAX — TOTAL, in that order,
                 which is the order a receipt is read in: what the goods cost,
                 what came off, what was added, and what is owed. */}
-            <div className="kv"><span>{t("subtotal", lang)}</span><b>{m(subtotal)}</b></div>
+            <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(subtotal)}</b></div>
             {discount > 0 && (
               <div className="kv">
                 <span>{t("discount", lang)}</span>
                 {/* Shown as a negative, because it comes OFF. A bare
                     "$5.00" on a line called Discount reads, for a moment,
                     like something being added. */}
-                <b>−{m(discount)}</b>
+                <b>−{money(discount)}</b>
               </div>
             )}
             <div className="kv">
               <span>{t("deliveryFee", lang)}</span>
               <b>{mode === "delivery" && zone?.quote
-                ? t("quoteOnRequest", lang) : m(fee)}</b>
+                ? t("quoteOnRequest", lang) : money(fee)}</b>
             </div>
             {/* NAMED BY THE SHOP -- VAT, IVA, GST, sales tax -- and carrying
                 the rate, because "Tax $3.15" does not let anybody check the
@@ -371,24 +367,10 @@ export default function CheckoutForm({
                   {taxName}{shopTaxPct ? ` (${shopTaxPct}%)` : ""}
                   {settings.tax_included ? ` — ${t("taxIncludedShort", lang)}` : ""}
                 </span>
-                <b>{m(taxLine)}</b>
+                <b>{money(taxLine)}</b>
               </div>
             )}
-            <div className="kv total"><span>{t("total", lang)}</span><b>{m(total)}</b></div>
-            {/* WHAT WILL ACTUALLY BE COLLECTED.
-                The shop banks dollars -- Timor-Leste uses them, and the
-                money that changes hands at the door is dollars. Showing a
-                euro total without saying so would misstate the transaction
-                to somebody about to count out cash. Shown only when the
-                two differ, because on a dollar shop it is noise. */}
-            {quote.code !== "USD" && (
-              <p className="hint" style={{ margin: "6px 0 0" }}>
-                {t("chargedInUsd", lang)
-                  .replace("{total}", money(total, "USD"))
-                  .replace("{rate}", String(quote.rate))
-                  .replace("{code}", quote.code)}
-              </p>
-            )}
+            <div className="kv total"><span>{t("total", lang)}</span><b>{money(total)}</b></div>
           </div>
         </aside>
 
@@ -490,7 +472,7 @@ export default function CheckoutForm({
               <select id="zone" value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
                 {zones.map((z) => (
                   <option key={z.id} value={z.id}>
-                    {t("zone_" + z.id, lang)} — {z.quote ? t("quoteOnRequest", lang) : m(z.fee)}
+                    {t("zone_" + z.id, lang)} — {z.quote ? t("quoteOnRequest", lang) : money(z.fee)}
                   </option>
                 ))}
               </select>

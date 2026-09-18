@@ -12,63 +12,27 @@ import {
  * adding up to the order. Those two are the reason this file is long.
  */
 
-describe("which currency the shop quotes in", () => {
-  it("is the dollar unless the shop says otherwise", () => {
-    // Timor-Leste uses the US dollar. Nothing changes for the shop this was
-    // written for.
-    expect(DEFAULT_CURRENCY).toBe("USD");
-    expect(normalizeCurrencyCode(undefined)).toBe("USD");
-    expect(normalizeCurrencyCode("")).toBe("USD");
-  });
-
-  it("accepts a code the shop typed in any case", () => {
-    expect(normalizeCurrencyCode("aud")).toBe("AUD");
-    expect(normalizeCurrencyCode(" eur ")).toBe("EUR");
-  });
-
-  it("falls back rather than throwing on a code it cannot print", () => {
-    /* A settings row carrying an unknown code must not take the storefront
-       down. Showing dollars is the honest behaviour for this shop; showing
-       a crash is not. */
-    expect(normalizeCurrencyCode("XYZ")).toBe("USD");
-    expect(normalizeCurrencyCode(42)).toBe("USD");
-  });
-
-  it("knows a currency with no decimal places", () => {
-    // THE BUG A HARDCODED ×100 CAUSES. Rupiah has no minor unit, so "Rp
-    // 45.000,00" is not a price anybody in Indonesia has ever seen.
-    expect(currencyInfo("IDR").digits).toBe(0);
-    expect(formatMoney(45000, "IDR")).toBe("Rp45,000");
-  });
-
-  it("puts the symbol where that currency puts it", () => {
-    expect(formatMoney(12, "USD")).toBe("$12.00");
-    expect(formatMoney(12, "EUR")).toBe("12.00 €");
+describe("the one currency this shop quotes in", () => {
+  it("prints dollars", () => {
+    expect(formatMoney(1234.5)).toBe("$1,234.50");
+    expect(formatMoney(0)).toBe("$0.00");
   });
 
   it("puts a minus outside the symbol", () => {
-    /* "$-586.30" is what concatenation gives you, and on the one figure a
-       profit-and-loss screen exists to produce it reads as a typo. */
+    /* "$-586.30" is what concatenating a symbol onto a formatted negative
+       gives you, and on the one figure a profit-and-loss screen exists to
+       produce it reads as a typo. */
     expect(formatMoney(-586.3)).toBe("-$586.30");
-    expect(formatMoney(-586.3, "EUR")).toBe("-586.30 €");
   });
 
-  it("groups thousands", () => {
-    expect(formatMoney(1234567.5)).toBe("$1,234,567.50");
-  });
-
-  it("survives whatever a column hands it", () => {
-    expect(formatMoney(null as unknown as number)).toBe("$0.00");
-    expect(formatMoney("19.99")).toBe("$19.99");
-    expect(formatMoney(NaN)).toBe("$0.00");
-  });
-
-  it("can print every currency it offers", () => {
-    // An entry added to the table without a symbol or with a bad digit count
-    // fails here rather than on a shopper's screen.
-    for (const code of Object.keys(DISPLAY_CURRENCIES)) {
-      expect([code, formatMoney(1, code).length > 1]).toEqual([code, true]);
-    }
+  it("prints a row written before the currency picker was removed", () => {
+    /* A settings row or an order may still carry EUR or IDR. The FIGURES
+       were always dollars -- nothing ever converted them -- so printing a
+       euro symbol over one would be the lie this simplification removes. */
+    expect(formatMoney(10, "EUR")).toBe("$10.00");
+    expect(formatMoney(10, "IDR")).toBe("$10.00");
+    expect(normalizeCurrencyCode("eur")).toBe("USD");
+    expect(normalizeCurrencyCode("")).toBe("USD");
   });
 });
 
