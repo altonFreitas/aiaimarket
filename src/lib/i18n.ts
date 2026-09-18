@@ -1411,7 +1411,7 @@ export const STR: Record<string, [string,string,string]> = {
   displayCurrency:["Moeda","Moeda","Currency"],
   displayCurrencyHint:["Moeda ne'ebé loja hatudu folin. Timor-Leste uza USD.","A moeda em que a loja mostra os preços. Timor-Leste usa USD.","The currency the shop quotes prices in. Timor-Leste uses USD."],
   taxRate:["Taxa (%)","Imposto (%)","Tax (%)"],
-  taxRateHint:["Zero katak loja ne'e la kobra taxa. 2.5 katak 2,5%.","Zero significa que a loja não cobra imposto. 2.5 significa 2,5%.","Zero means this shop charges none. 2.5 means 2.5%."],
+  taxRateHint:["Zero katak loja ne'e la kobra taxa. 2,5 katak 2,5%.","Zero significa que a loja não cobra imposto. 2,5 significa 2,5%.","Zero means this shop charges none. 2,5 means 2,5%."],
   taxLabel:["Naran taxa","Nome do imposto","What to call it"],
   taxDefaultLabel:["Taxa","Imposto","Tax"],
   taxIncluded:["Folin inklui taxa?","Os preços incluem imposto?","Do prices include tax?"],
