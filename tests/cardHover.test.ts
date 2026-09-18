@@ -70,12 +70,44 @@ describe("who gets it", () => {
   });
 
   it("still says which card, without moving, for anybody who asked", () => {
-    /* prefers-reduced-motion keeps the outline and the shadow and drops the
-       transform -- the answer without the movement, rather than no answer. */
+    /* prefers-reduced-motion keeps the shadow and drops the transform --
+       the answer without the movement, rather than no answer. */
     const block = /@media \(prefers-reduced-motion: reduce\)\{\s*\.card:hover,\.card:focus-visible\{([^}]*)\}/
       .exec(NO_COMMENTS);
     expect(block, "the reduced-motion rule").not.toBeNull();
-    expect(block![1]).toMatch(/border-color/);
+    expect(block![1]).toMatch(/box-shadow/);
     expect(block![1]).not.toMatch(/transform/);
+  });
+});
+
+describe("what the lift must not do", () => {
+  it("draws no dark outline round the card", () => {
+    /* A near-black border read as selected-and-disabled rather than as
+       raised, and it fought the photograph it was framing. The card keeps
+       its ordinary hairline; the lift, the corner and the shadow are the
+       whole signal. */
+    expect(NO_COMMENTS).not.toMatch(/\.card:hover\{border-color/);
+    const hover = /\.card:hover,\.card:focus-visible\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(hover, "the hover rule").not.toBeNull();
+    expect(hover![1]).not.toMatch(/border-color/);
+  });
+
+  it("is not cut off by the rail it sits in", () => {
+    /* THE BUG THIS FIXED. overflow-x:auto does not only clip sideways: a
+       box that is not `visible` on one axis computes to `auto` on the
+       other, so the homepage rails were slicing the top and bottom off any
+       card that rose under the pointer -- the badge at one edge and the
+       button at the other.
+
+       Padding gives it room; the negative margin gives the space back, so
+       the row occupies exactly what it did before. Measured after the fix:
+       8.0px clear above and below at 390px, 8.4px at 900px, 7.5px at
+       1440px. Remove either half and the card is cut again. */
+    const rail = /\.rail\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(rail, "the rail rule").not.toBeNull();
+    const pad = /padding:(\d+)px 0/.exec(rail![1]);
+    expect(pad, "vertical padding on the rail").not.toBeNull();
+    expect(Number(pad![1])).toBeGreaterThanOrEqual(12);
+    expect(rail![1]).toMatch(/margin:-\d+px 0/);
   });
 });

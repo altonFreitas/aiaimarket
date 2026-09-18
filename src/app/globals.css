@@ -340,7 +340,11 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;text-decoration:none;
   display:flex;flex-direction:column;position:relative}
-.card:hover{border-color:var(--ink-3)}
+/* NO DARK OUTLINE ON HOVER. This drew a near-black border round the card,
+   which read as selected-and-disabled rather than as raised and fought the
+   photograph it was framing. The card keeps its ordinary hairline; the
+   lift, the rounder corner and the shadow further down are what say "this
+   one". */
 .card .ph{aspect-ratio:1/1;background:var(--line-2);position:relative;overflow:hidden}
 .card .ph img{width:100%;height:100%;object-fit:cover}
 /* The photo leans in when the pointer is on the card -- the frame stays put
@@ -374,15 +378,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   /* :focus-visible too, so tabbing through the grid gives the same answer
      the pointer gets. A keyboard user has the harder version of the same
      problem -- they cannot see where a pointer is at all. */
+  /* NO DARK OUTLINE. A near-black border drawn round the card on hover
+     made it read as selected-and-disabled rather than as raised, and it
+     fought the photograph it was framing. The card keeps its ordinary
+     hairline; the lift, the rounder corner and the shadow are what say
+     "this one". */
   .card:hover,.card:focus-visible{transform:scale(1.03);border-radius:var(--r-l);
-    border-color:var(--ink-3);box-shadow:var(--sh-3);z-index:3}
+    box-shadow:var(--sh-3);z-index:3}
 }
 
 /* Somebody who asked their system for less movement still gets the answer
-   to "which card am I on" -- the outline and the shadow -- without the
-   thing that moves. */
+   to "which card am I on" -- the shadow -- without the thing that moves. */
 @media (prefers-reduced-motion: reduce){
-  .card:hover,.card:focus-visible{border-color:var(--ink-3);box-shadow:var(--sh-2);z-index:3}
+  .card:hover,.card:focus-visible{box-shadow:var(--sh-2);z-index:3}
 }
 .card .body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px;flex:1}
 .card .nm{font-size:13.5px;line-height:1.3;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:35px}
@@ -2213,8 +2221,23 @@ span.stock-btn:hover{filter:none}
    see the note in components/home/ProductSection.tsx. grid-auto-columns is
    what fixes how many cards a screen shows; scroll-snap makes the swipe
    land on a card edge instead of half of one. */
+/* ROOM FOR A CARD TO GROW IN.
+   overflow-x:auto does not only clip sideways: the CSS spec says a box
+   that is not `visible` on one axis computes to `auto` on the other, so
+   this rail was cutting the top and bottom off any card that rose under
+   the pointer -- the badge at the top edge and the button at the bottom
+   both sliced off.
+
+   The fix is padding the rail can give back, with a negative margin so
+   nothing on the page moves: the row occupies exactly the space it did,
+   and a card growing by 3% has somewhere to grow into. 14px is more than
+   the growth needs (a tall card gains about 9px at each edge) and enough
+   for most of the shadow as well. The bottom margin is -10px rather than
+   -14px because the rail always had 4px of breathing room below it, and
+   that survives the change. */
 .rail{display:grid;grid-auto-flow:column;grid-auto-columns:64%;gap:10px;
-  overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px;
+  overflow-x:auto;scroll-snap-type:x proximity;
+  padding:14px 0;margin:-14px 0 -10px;
   scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .rail::-webkit-scrollbar{display:none}
 .rail>*{scroll-snap-align:start}
