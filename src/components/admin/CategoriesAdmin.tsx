@@ -2,7 +2,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { createCategory, deleteCategory, mergeCategory, moveCategory, renameCategory } from "@/lib/actions/categories";
+import {
+  createCategory, deleteCategory, mergeCategory, moveCategory, renameCategory,
+  setCategoryTaxRate,
+} from "@/lib/actions/categories";
+import { parseNum } from "@/lib/numberInput";
+import { taxRateAsPercent } from "@/lib/money";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
 import type { Category, Lang, Product } from "@/lib/types";
@@ -10,6 +15,16 @@ import type { Category, Lang, Product } from "@/lib/types";
 export default function CategoriesAdmin({
   lang, cats, products,
 }: { lang: Lang; cats: Category[]; products: Product[] }) {
+  /* What is being TYPED into a category's tax box, by category id. A
+     category with no entry shows its saved rate. Same shape as the delivery
+     fee editor in Settings, and for the same reason: a box that saves on
+     every keystroke saves three figures nobody meant on the way to "12.5". */
+  const [taxDraft, setTaxDraft] = useState<Record<string, string>>({});
+  /** The stored fraction as the percentage a person reads, or "" when the
+   * category has not been given one. "" is what makes the placeholder --
+   * "Shop's rate" -- visible, which is the whole distinction. */
+  const pctText = (rate: number | null | undefined) =>
+    rate == null ? "" : String(taxRateAsPercent(rate));
   const router = useRouter();
   const { toast } = useToast();
   const [, startTransition] = useTransition();
@@ -55,6 +70,38 @@ export default function CategoriesAdmin({
           <b>{c.name}</b>
           <span>{n} {t("results", lang)} · /{c.slug}{n === 0 ? " · " + t("hiddenEmpty", lang) : ""}</span>
         </div>
+        {/* WHAT THESE GOODS ARE TAXED AT.
+            Different goods are taxed differently in most tax codes -- food
+            against electronics is the usual example -- so one rate for a
+            whole shop is the special case, not the general one.
+
+            EMPTY AND ZERO ARE DIFFERENT ANSWERS, which is why this is a box
+            and not a number that defaults to 0. Empty means "whatever the
+            shop charges", and follows the shop's rate when it changes. Zero
+            means "these are not taxed", and stays zero when the shop raises
+            its own rate. A picker that collapsed the two would silently tax
+            zero-rated food the next time the shop-wide figure moved. */}
+        <WriteOnly>
+          <label className="cat-tax" title={t("catTaxHint", lang)}>
+            <span>{t("catTax", lang)}</span>
+            <input type="number" min={0} max={100} step={0.01}
+              inputMode="decimal"
+              placeholder={t("catTaxShop", lang)}
+              disabled={busy}
+              value={taxDraft[c.id] ?? pctText(c.tax_rate)}
+              onChange={(e) => setTaxDraft((d) => ({ ...d, [c.id]: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+              onBlur={(e) => {
+                const raw = e.target.value;
+                setTaxDraft((d) => { const { [c.id]: _drop, ...rest } = d; return rest; });
+                const next = raw.trim() === "" ? null : parseNum(raw, Number.NaN);
+                if (next != null && !Number.isFinite(next)) return;   // gibberish: leave it alone
+                const before = c.tax_rate == null ? null : taxRateAsPercent(c.tax_rate);
+                if (next === before) return;                          // nothing changed: no write
+                run(() => setCategoryTaxRate(c.id, next), t("saved", lang));
+              }} />
+          </label>
+        </WriteOnly>
         <div className="acts"><WriteOnly>
           <button className="btn btn-sm btn-ghost" disabled={busy}
             onClick={() => run(() => moveCategory(c.id, -1))} aria-label={t("moveUp", lang)}>↑</button>

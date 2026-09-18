@@ -139,32 +139,6 @@ export function taxOn(subtotal: number, fee: number, rate: number, included: boo
   return { tax, net: round(base), total: round(base + tax), includedTax: 0 };
 }
 
-/** One line's share of the order's tax.
- *
- * Apportioned by value, and the LAST line takes the rounding difference, so
- * the line shares always add back to the order's figure exactly. Splitting
- * $1.00 of tax across three equal lines gives 33+33+34, not 33+33+33 and a
- * cent the books cannot explain -- and that cent is what a return of the
- * last line would otherwise get wrong.
- */
-export function apportionTax(
-  lineValues: readonly number[], totalTax: number
-): number[] {
-  const total = lineValues.reduce((a, v) => a + (Number(v) || 0), 0);
-  const tax = Math.round((Number(totalTax) || 0) * 100) / 100;
-  if (!total || !tax) return lineValues.map(() => 0);
-
-  const out: number[] = [];
-  let used = 0;
-  for (let i = 0; i < lineValues.length; i++) {
-    if (i === lineValues.length - 1) { out.push(Math.round((tax - used) * 100) / 100); break; }
-    const share = Math.round((Number(lineValues[i]) || 0) / total * tax * 100) / 100;
-    out.push(share);
-    used = Math.round((used + share) * 100) / 100;
-  }
-  return out;
-}
-
 /** Converts a figure quoted in `currency` into USD, at the rate captured on
  * the order. The gateway and the shop's own books are both in USD; only the
  * quote is not. */

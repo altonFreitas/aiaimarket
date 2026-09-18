@@ -59,6 +59,16 @@ export interface Category {
   slug: string;
   parent_id: string | null;
   sort_order: number;
+  /** What this category's goods are taxed at, as a FRACTION: 0.025 is 2.5%.
+   *
+   * Three states, and they are three different things:
+   *   undefined  the database has not run supabase/public-settings-grant.sql
+   *   null       nobody has answered; taxed at the shop's rate
+   *   0          answered: these goods are not taxed, and they stay untaxed
+   *              when the shop later raises its own rate
+   *
+   * See lib/tax.ts, which is the only place that decides between them. */
+  tax_rate?: number | null;
 }
 
 export interface HeroSlide {

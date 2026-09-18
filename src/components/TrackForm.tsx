@@ -16,6 +16,7 @@ import SellerRatingForm from "@/components/SellerRatingForm";
 import ProductReviewForm from "@/components/ProductReviewForm";
 import PayNowButton from "@/components/PayNowButton";
 import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
+import { taxWasIncluded } from "@/lib/tax";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 import ReturnRequest from "@/components/ReturnRequest";
@@ -23,6 +24,9 @@ import ReturnRequest from "@/components/ReturnRequest";
 interface OrderSummary {
   ref: string; buyer_name: string; buyer_phone: string;
   status: string; pay_status: string; total: number; created_at: string; mode: string;
+  /** What this order was quoted in. Absent on a database that has not run
+   * supabase/legal-currency-tax.sql, where every order was in dollars. */
+  currency?: string | null;
 }
 
 export default function TrackForm({
@@ -160,7 +164,7 @@ export default function TrackForm({
               <Link key={o.ref} className="item" href={`/o/${o.ref}?phone=${encodeURIComponent(phone)}`} style={{ textDecoration: "none" }}>
                 <div className="g">
                   <b>{o.ref}</b>
-                  <span>{nowIso(o.created_at)} · {money(o.total)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
+                  <span>{nowIso(o.created_at)} · {money(o.total, o.currency ?? undefined)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
                 </div>
                 <div className="acts">
                   <span className={"pill " + (o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : "warn")}>
@@ -356,18 +360,49 @@ function Dashboard({
       <div className="panel">
         <h3>{t("orderSummary", lang)}</h3>
         <div className="rows">
+          {/* IN THE CURRENCY THE ORDER WAS PLACED IN, not the one the shop
+              quotes today. A shop that switches from dollars to euros has
+              not re-priced what it already sold, and relabelling an old
+              receipt would misstate what the customer actually paid. The
+              code is frozen on the order for this reason; orders placed
+              before that column existed read as dollars, which is what
+              they were. */}
           {o.items.map((i, ix) => (
             <div className="kv" key={ix}>
               <span>{i.name}{i.size ? " · " + i.size : ""} × {i.qty}</span>
-              <b>{money(i.price * i.qty)}</b>
+              <b>{money(i.price * i.qty, o.currency ?? undefined)}</b>
             </div>
           ))}
-          <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(o.subtotal)}</b></div>
+          <div className="kv">
+            <span>{t("subtotal", lang)}</span>
+            <b>{money(o.subtotal, o.currency ?? undefined)}</b>
+          </div>
           <div className="kv">
             <span>{t("deliveryFee", lang)}</span>
-            <b>{o.quote_requested ? t("quoteOnRequest", lang) : money(o.fee)}</b>
+            <b>{o.quote_requested
+              ? t("quoteOnRequest", lang) : money(o.fee, o.currency ?? undefined)}</b>
           </div>
-          <div className="kv total"><span>{t("total", lang)}</span><b>{money(o.total)}</b></div>
+          {/* THE ROW THAT WAS MISSING. Tax has been charged on every order
+              since the tax columns existed, and this summary listed goods
+              and delivery only -- so a customer adding up their own receipt
+              found it short of the total by exactly the tax, with nothing
+              on the page accounting for the difference. */}
+          {Number(o.tax) > 0 && (
+            <div className="kv">
+              {/* "of which" when the tax was already inside the prices.
+                  Printing a bare "Tax $1.30" under a total that already
+                  contains it invites the reader to add it a second time. */}
+              <span>
+                {(settings?.tax_label || "").trim() || t("taxDefaultName", lang)}
+                {taxWasIncluded(o) ? ` — ${t("taxIncludedShort", lang)}` : ""}
+              </span>
+              <b>{money(Number(o.tax), o.currency ?? undefined)}</b>
+            </div>
+          )}
+          <div className="kv total">
+            <span>{t("total", lang)}</span>
+            <b>{money(o.total, o.currency ?? undefined)}</b>
+          </div>
         </div>
         <button className="btn btn-amber btn-sm" type="button" style={{ marginTop: 10 }}
           onClick={() => { void downloadInvoice(); }}>

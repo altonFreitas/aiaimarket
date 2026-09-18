@@ -32,6 +32,7 @@ const KINDS = {
   constraints: [
     ["public.admin_users", "admin_users_section_keys_check"],
     ["public.sellers", "sellers_area_keys_check"],
+    ["public.categories", "categories_tax_rate_check"],
     ["public.orders", "orders_status_check"],
   ] as [string, string][],
 };
@@ -92,6 +93,8 @@ const EVERYTHING = snap([
   // legal-currency-tax.sql
   "settings.legal_address", "settings.display_currency", "settings.tax_rate",
   "orders.tax", "orders.currency", "order_items.tax",
+  // public-settings-grant.sql
+  "categories.tax_rate",
 ]);
 
 describe("checkSchema", () => {
@@ -252,6 +255,10 @@ describe("an old schema_inventory() that can only see tables", () => {
       // Checked by a constraint alone, which the old function cannot report.
       "admin-subsections.sql",
       "seller-areas.sql",
+      // Same: a column AND a constraint, and the old function reports
+      // neither kind, so the panel must say "not checked" rather than
+      // sending the owner to re-run a file that is already in place.
+      "public-settings-grant.sql",
       "pii-retention.sql",
       "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",

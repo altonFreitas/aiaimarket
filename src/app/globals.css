@@ -2772,3 +2772,24 @@ tr.is-ended{opacity:.55}
    emergency -- and it carries words rather than leaving a screen reader to
    describe empty divs. */
 .sk-wrap{min-height:40vh}
+
+/* The + on a quantity picker, once the shelf has run out. Dimmed rather
+   than disabled: it still answers when pressed (see ProductInteractive),
+   and a control that looks dead but responds is as confusing as one that
+   looks live and does not. */
+.qty button.is-capped{opacity:.45;cursor:not-allowed}
+
+/* A category's own tax rate, in its row on /admin/cats. Narrow and
+   right-aligned: it is a number beside a name, not a field in a form, and
+   the placeholder ("Shop's rate") has to fit. */
+.cat-tax{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto}
+.cat-tax span{font-size:var(--fs-caption);color:var(--muted);white-space:nowrap}
+.cat-tax input{width:104px;text-align:right;border:1px solid var(--line);
+  border-radius:var(--r-s);padding:var(--sp-1) var(--sp-2);font-size:var(--fs-body-sm);
+  min-height:32px;background:#fff}
+.cat-tax input::placeholder{font-size:var(--fs-caption);color:var(--muted-2)}
+@media (max-width:640px){
+  /* On a phone the row already wraps its buttons onto a second line; the
+     tax box goes with them rather than squeezing the category name. */
+  .cat-tax{order:3;margin-left:auto}
+}

@@ -2,7 +2,8 @@
 import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { issueTrackToken } from "@/lib/trackToken";
-import { apportionTax, normalizeCurrencyCode, taxOn } from "@/lib/money";
+import { normalizeCurrencyCode } from "@/lib/money";
+import { taxOnLines } from "@/lib/tax";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { PROOF_URL_SECONDS, PROOF_URL_FALLBACK_SECONDS, withFreshProofUrl } from "@/lib/paymentProof";
 import { writeTolerating } from "@/lib/missingColumn";
@@ -265,7 +266,7 @@ export async function placeOrder(input: PlaceOrderInput) {
   const productIds = [...new Set(input.items.map((i) => i.product_id))];
   const { data: prodRows } = await sb
     .from("products")
-    .select("id, seller_id, name, price, discount_price, qty, stock_status, archived, status, preorder_enabled")
+    .select("id, seller_id, category_id, name, price, discount_price, qty, stock_status, archived, status, preorder_enabled")
     .in("id", productIds);
   const byId = new Map((prodRows || []).map((row) => [row.id as string, row]));
 
@@ -429,11 +430,41 @@ export async function placeOrder(input: PlaceOrderInput) {
    * The RATE is stored beside the amount, not looked up when a screen
    * renders: a shop that changes its rate in March must not silently restate
    * what it charged in February. Same reason purchase orders have always
-   * frozen fx_rate. */
-  const taxed = taxOn(subtotal, fee, money.taxRate, money.taxIncluded);
-  const lineTax = apportionTax(
-    itemsWithSeller.map((i) => i.price * i.qty),
-    taxed.tax || taxed.includedTax);
+   * frozen fx_rate.
+   *
+   * PER CATEGORY, because goods are not all taxed alike. The rate comes off
+   * the PRODUCT's category row read here, never from anything the browser
+   * sent -- a basket that could name its own tax rate could name zero.
+   *
+   * Tolerated, not required: a database that has not run
+   * supabase/public-settings-grant.sql has no categories.tax_rate, the
+   * select fails, the map stays empty, and every line takes the shop's rate
+   * exactly as it did before this existed. */
+  const catRate = new Map<string, number>();
+  try {
+    const catIds = [...new Set((prodRows || [])
+      .map((r) => (r as { category_id?: string | null }).category_id)
+      .filter((v): v is string => !!v))];
+    if (catIds.length) {
+      const { data: catRows } = await sb
+        .from("categories").select("id, tax_rate").in("id", catIds);
+      for (const r of catRows || []) {
+        const v = (r as { tax_rate?: number | null }).tax_rate;
+        if (v != null) catRate.set(r.id as string, Number(v));
+      }
+    }
+  } catch { /* no per-category rates; the shop's rate applies to everything */ }
+
+  const taxed = taxOnLines(
+    itemsWithSeller.map((i) => {
+      const cid = (byId.get(i.product_id) as { category_id?: string | null } | undefined)?.category_id;
+      return {
+        value: i.price * i.qty,
+        categoryRate: cid ? catRate.get(cid) : undefined,
+      };
+    }),
+    fee, money.taxRate, money.taxIncluded);
+  const lineTax = taxed.perLine;
 
   /* The line's share travels in the items jsonb, because order_items is
      built from it by a trigger (sync_order_items). A line's tax is what a
@@ -447,7 +478,13 @@ export async function placeOrder(input: PlaceOrderInput) {
     .from("orders")
     .insert({
       ...extra,
-      ...money.orderColumns(taxed.tax),
+      /* THE TAX THAT EXISTS, WHICHEVER DIRECTION IT RAN.
+         This passed taxed.tax, which is 0 for a shop whose prices already
+         include tax -- so such a shop recorded "no tax" on every order
+         while each of its LINES recorded the real figure. The order and its
+         own lines disagreed, and anything totting up what the shop owes off
+         orders.tax would have read zero. */
+      ...money.orderColumns(taxed.tax || taxed.includedTax),
       ref,
       lang,
       is_preorder: isPreorder,
@@ -584,10 +621,24 @@ export async function getOrdersByPhone(phone: string) {
   const normalized = phoneNorm(phone);
   const { data } = await sb
     .from("orders")
+    /* currency so the list can print each total in the currency THAT order
+       was placed in. A shop that switches from dollars to euros has not
+       re-priced what it already sold. Read through the service role, which
+       is not bound by the anon column grants, and tolerated below for a
+       database that has no such column yet. */
+    .select("ref, buyer_name, buyer_phone, status, pay_status, total, created_at, mode, currency")
+    .eq("buyer_phone", normalized)
+    .order("created_at", { ascending: false });
+  if (data) return data;
+
+  // No currency column: the shop has not run supabase/legal-currency-tax.sql,
+  // and every order it holds was placed in dollars.
+  const fallback = await sb
+    .from("orders")
     .select("ref, buyer_name, buyer_phone, status, pay_status, total, created_at, mode")
     .eq("buyer_phone", normalized)
     .order("created_at", { ascending: false });
-  return data || [];
+  return fallback.data || [];
 }
 
 /** I7 — buyer-initiated cancellation request; still gated by ref+phone. */

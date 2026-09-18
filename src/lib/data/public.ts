@@ -78,25 +78,65 @@ const DEFAULT_SETTINGS: Settings = {
   pickup: true, commission_rate: 10, seller_registration_enabled: true, banks: [], wallets: [], zones: [],
 };
 
-/** Never throws: a missing/unreachable settings row must not take the
- * whole site down. Callers check `settings.id === 0` to show the setup
- * banner (J4 — graceful degradation applies to config too).
+/** What the storefront may read about the shop.
  *
- * Explicit column list, not select("*") — the anon key only has grants
- * on these specific columns (totp_secret and friends are deliberately
- * excluded from anon, see supabase/schema.sql). A select("*") here would
- * ask for totp_secret too, get a permission error on the whole query,
- * and this function would wrongly report "not connected". */
+ * Explicit, not select("*"): the anon key holds grants on named columns
+ * only, and totp_secret is deliberately not among them (see schema.sql).
+ * A select("*") here would be refused outright and take the site down. */
+const SETTINGS_CORE =
+  "id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number, hours, " +
+  "municipality, post, suku, landmark, pickup, banks, wallets, zones, " +
+  "seller_registration_enabled";
+
+/* THE NINE THAT WERE MISSING, AND THE BUG THAT MADE.
+ *
+ * An owner filled in the trading address, the registration number and the
+ * return window, saved, and the Terms and Returns pages went on printing
+ * "{REGISTRATION — FILL IN}". They set the currency to EUR and every price
+ * stayed in dollars. They set 10% tax and checkout said nothing about tax.
+ *
+ * Three reports, one cause, and it was here: legal-currency-tax.sql added
+ * these nine columns and nobody added them to this list, so the storefront
+ * never asked for them. legalVars() then read undefined for every fact and
+ * fillLegal() did exactly what it is built to do -- left the marker
+ * standing, because an unanswered question must not print as an answer.
+ *
+ * The database half is supabase/public-settings-grant.sql: the anon key was
+ * not granted these columns either, so asking without that file gets the
+ * whole select refused. */
+const SETTINGS_PUBLIC_EXTRAS =
+  ", legal_address, legal_registration, legal_retention_years, " +
+  "legal_return_days, legal_refund_days, display_currency, tax_rate, " +
+  "tax_label, tax_included";
+
+/** Never throws: a missing or unreachable settings row must not take the
+ * whole site down. Callers check `settings.id === 0` to show the setup
+ * banner. */
 async function getSettingsUncached(): Promise<Settings> {
   try {
     const sb = supabaseAnon();
-    const { data, error } = await sb
+    const full = await sb
       .from("settings")
-      .select("id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number, hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, seller_registration_enabled")
+      .select(SETTINGS_CORE + SETTINGS_PUBLIC_EXTRAS)
       .eq("id", 1)
       .single();
-    if (error || !data) return DEFAULT_SETTINGS;
-    return data as Settings;
+    if (!full.error && full.data) return full.data as unknown as Settings;
+
+    /* A DATABASE THAT HAS NOT CAUGHT UP IS NOT A BROKEN SHOP.
+     *
+     * Asking for a column that does not exist, or one the anon key has not
+     * been granted, fails the WHOLE select -- so a shop that has not run
+     * the two migrations above would lose its name, its zones and its bank
+     * details as well as its tax rate. It falls back to the columns that
+     * have existed since schema.sql, and the legal and money facts read as
+     * "not stated yet", which is what they were before this line existed.
+     *
+     * The admin's schema health panel is what tells the owner to run the
+     * file; the storefront's job is to keep selling in the meantime. */
+    const core = await sb
+      .from("settings").select(SETTINGS_CORE).eq("id", 1).single();
+    if (core.error || !core.data) return DEFAULT_SETTINGS;
+    return core.data as unknown as Settings;
   } catch {
     return DEFAULT_SETTINGS;
   }

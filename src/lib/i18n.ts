@@ -18,6 +18,26 @@ export const STR: Record<string, [string,string,string]> = {
      skeleton boxes carry the message visually; this carries it for
      somebody who cannot see them. */
   loading:["Karega hela...","A carregar...","Loading..."],
+  /* The word for tax when the shop has not chosen one. Neutral on purpose:
+     VAT, IVA, GST and sales tax are different things in different places,
+     and guessing one would put a claim on the invoice that may be false.
+     The shop types its own word in Settings. */
+  taxDefaultName:["Taxa","Imposto","Tax"],
+  taxIncludedShort:["inklui ona","já incluído","already included"],
+  /* Said when somebody tries to add more than the shelf holds. Both name
+     the two numbers that matter -- what is there and what was asked for --
+     because "not enough stock" leaves the shopper to guess how many to
+     take, and guessing means trying again. */
+  stockCapNoSize:["Iha de'it {n}. Ita husu {q}.","Só há {n} disponíveis. Pediu {q}.","Only {n} left. You asked for {q}."],
+  stockCapSize:["Tamañu {s}: iha de'it {n}. Ita husu {q}.","Tamanho {s}: só há {n}. Pediu {q}.","Size {s}: only {n} left. You asked for {q}."],
+  /* Said when the basket holds goods taxed at different rates, so the one
+     Tax row cannot honestly carry a single percentage. */
+  taxMixedNote:["Sasan oioin taxa la hanesan.","Artigos com taxas diferentes.","Items here are taxed at different rates."],
+  /* Per-category tax, on /admin/cats. */
+  catTax:["Taxa (%)","Imposto (%)","Tax (%)"],
+  catTaxShop:["Tuir loja","Como a loja","Shop's rate"],
+  catTaxHint:["Mamuk = tuir taxa loja nian. 0 = sasan ne'e la iha taxa.","Vazio = usa a taxa da loja. 0 = estes artigos não têm imposto.","Empty = use the shop's rate. 0 = these goods are not taxed."],
+  catTaxSet:["Taxa rasik","Taxa própria","Own rate"],
   /* buyer questions — the four repeated questions (§2.2) */
   qPrice:["Folin","Preço","Price"],
   discountPrice:["Folin diskontu (USD)","Preço com desconto (USD)","Discount price (USD)"],
@@ -1411,6 +1431,7 @@ export const STR: Record<string, [string,string,string]> = {
   cookieMore:["Lee tan","Saiba mais","Read more"],
   cookieOk:["Komprende ona","Entendi","Got it"],
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
+  featPublicSettingsGrant:["Faktu públiku + taxa kategoria nian","Factos públicos + imposto por categoria","Public facts + per-category tax"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */
   whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],

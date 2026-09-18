@@ -4,7 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { placeholder } from "@/lib/placeholder";
-import { money, discountPercent } from "@/lib/utils";
+import {discountPercent} from "@/lib/utils";
+import { useMoney } from "@/components/Currency";
 import { t } from "@/lib/i18n";
 import { isNavFree, type NavRoot } from "@/lib/nav";
 import type { Lang } from "@/lib/types";
@@ -31,6 +32,7 @@ const CLOSE_DELAY_MS = 180;
  * operated by hovering is a menu that a phone, a keyboard and a search
  * engine cannot use. */
 export default function MegaNav({ roots, lang }: { roots: NavRoot[]; lang: Lang }) {
+  const m = useMoney();
   const pathname = usePathname();
   const [openId, setOpenId] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
@@ -235,7 +237,7 @@ export default function MegaNav({ roots, lang }: { roots: NavRoot[]; lang: Lang 
                           unoptimized={img.startsWith("data:")} />
                         <span className="mega-card-nm">{p.name}</span>
                         <span className="mega-card-pr">
-                          {money(p.discount ?? p.price)}
+                          {m(p.discount ?? p.price)}
                           {pct != null && <b> -{pct}%</b>}
                         </span>
                       </Link>

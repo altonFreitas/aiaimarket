@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { placeholder } from "@/lib/placeholder";
-import { money, discountPercent } from "@/lib/utils";
+import {discountPercent} from "@/lib/utils";
+import { useMoney } from "@/components/Currency";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product } from "@/lib/types";
 
@@ -25,6 +26,7 @@ function count(cats: Category[], products: Product[], id: string): number {
 export default function Sidebar({
   cats, products, activeSlug, lang,
 }: { cats: Category[]; products: Product[]; activeSlug?: string; lang: Lang }) {
+  const m = useMoney();
   const [openCat, setOpenCat] = useState<Category | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const roots = cats.filter((c) => !c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
@@ -131,7 +133,7 @@ export default function Sidebar({
                       unoptimized={img.startsWith("data:")} />
                     <span className="side-mega-card-nm">{p.name}</span>
                     <span className="side-mega-card-pr">
-                      {money(p.discount_price ?? p.price)}
+                      {m(p.discount_price ?? p.price)}
                       {pct != null && <b> -{pct}%</b>}
                     </span>
                   </Link>

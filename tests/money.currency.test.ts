@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DISPLAY_CURRENCIES, DEFAULT_CURRENCY, normalizeCurrencyCode, currencyInfo,
-  formatMoney, normalizeTaxRate, taxRateAsPercent, taxOn, apportionTax, toBase,
+  formatMoney, normalizeTaxRate, taxRateAsPercent, taxOn, toBase,
 } from "@/lib/money";
 
 /* A DISPLAY CURRENCY, AND TAX.
@@ -131,42 +131,6 @@ describe("tax on an order", () => {
     expect(t.tax).toBe(1.5);
     expect(t.total).toBe(21.49);
     expect(Number.isInteger(t.total * 100)).toBe(true);
-  });
-});
-
-describe("splitting the tax across the lines", () => {
-  it("adds back to the order's figure exactly", () => {
-    /* THE ROUNDING REMAINDER. $1.00 across three equal lines is 33+33+34,
-       not 33+33+33 and a cent the books cannot explain -- and that cent is
-       what a return of the last line would get wrong. */
-    const shares = apportionTax([10, 10, 10], 1);
-    expect(shares).toEqual([0.33, 0.33, 0.34]);
-    expect(shares.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
-  });
-
-  it("gives each line its share of the value, not an equal slice", () => {
-    const shares = apportionTax([75, 25], 10);
-    expect(shares).toEqual([7.5, 2.5]);
-  });
-
-  it("is all zeroes when there is no tax", () => {
-    expect(apportionTax([10, 20], 0)).toEqual([0, 0]);
-  });
-
-  it("does not divide by an empty basket", () => {
-    expect(apportionTax([], 5)).toEqual([]);
-    expect(apportionTax([0, 0], 5)).toEqual([0, 0]);
-  });
-
-  it("adds up however awkward the split", () => {
-    // Property rather than example: the invariant is that the shares sum to
-    // the order's tax, and it has to hold for values chosen to be awkward.
-    for (const values of [[1, 1, 1], [0.01, 99.99], [3, 3, 3, 3, 3, 3, 3]]) {
-      for (const tax of [0.01, 0.07, 1, 12.34]) {
-        const sum = apportionTax(values, tax).reduce((a, b) => a + b, 0);
-        expect([values.length, tax, Math.round(sum * 100) / 100]).toEqual([values.length, tax, tax]);
-      }
-    }
   });
 });
 
