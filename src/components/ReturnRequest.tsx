@@ -43,7 +43,22 @@ export default function ReturnRequest({
   const [available, setAvailable] = useState<boolean | null>(null);
   const [max, setMax] = useState<Record<string, number>>({});
   const [open, setOpen] = useState(false);
-  const [qty, setQty] = useState<Record<string, number>>({});
+  /* WHAT IS IN EACH BOX, AS TYPED.
+     Strings, not numbers, for the reason the settings screen had to learn:
+     Number("") is 0, so a handler that coerced every keystroke put a 0
+     straight back the moment the box was emptied and the figure could not
+     be deleted at all. A half-typed quantity is a string; it becomes a
+     number once, where it is read. */
+  const [qty, setQty] = useState<Record<string, string>>({});
+  /** The whole number a box currently means, clamped to what is left to
+   * return. An empty box means none of this line, which is the same thing
+   * it meant before and is not a reason to refuse the submit. */
+  /** How many of this line are still returnable. */
+  const capOf = (i: OrderItem): number => max[i.product_id] ?? 0;
+  const qtyOf = (productId: string, cap: number): number => {
+    const n = Math.floor(Number(qty[productId]));
+    return Number.isFinite(n) ? Math.max(0, Math.min(cap, n)) : 0;
+  };
   const [reason, setReason] = useState<ReturnReason>("damaged");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -76,7 +91,7 @@ export default function ReturnRequest({
   if (available === false || !arrived || (available && !sendable.length)) return null;
   if (available === null) return null;
 
-  const chosen = sendable.filter((i) => (qty[i.product_id] || 0) > 0);
+  const chosen = sendable.filter((i) => qtyOf(i.product_id, capOf(i)) > 0);
 
   async function send() {
     if (!chosen.length) {
@@ -93,7 +108,7 @@ export default function ReturnRequest({
         lines: chosen.map((i) => ({
           productId: i.product_id,
           productName: i.name,
-          qty: qty[i.product_id],
+          qty: qtyOf(i.product_id, capOf(i)),
         })),
       });
       toast(`${t("retSent", lang)} — ${ref}`);
@@ -124,7 +139,7 @@ export default function ReturnRequest({
 
       <ul className="ret-list">
         {sendable.map((i: OrderItem) => {
-          const cap = max[i.product_id] ?? 0;
+          const cap = capOf(i);
           const id = `ret-${i.product_id}`;
           return (
             <li key={i.product_id + i.size}>
@@ -138,11 +153,23 @@ export default function ReturnRequest({
               </label>
               <input
                 id={id} type="number" inputMode="numeric"
-                min={0} max={cap} value={qty[i.product_id] ?? 0}
-                onChange={(e) => {
-                  const v = Math.max(0, Math.min(cap, Math.floor(Number(e.target.value) || 0)));
-                  setQty((q) => ({ ...q, [i.product_id]: v }));
-                }}
+                min={0} max={cap} value={qty[i.product_id] ?? ""}
+                /* Clamped when it is READ, not on every keystroke: clamping
+                   as you type rewrites the digit under the caret, so on a
+                   cap of 3 the "1" of an intended "1" was fine but a
+                   mistyped "12" became "3" before the 2 was even seen. */
+                onChange={(e) =>
+                  setQty((q) => ({ ...q, [i.product_id]: e.target.value }))}
+                /* ...but the box settles to the figure that will actually
+                   be sent as soon as it is left. Without this, somebody who
+                   typed 12 with two left to return would see 12 in the box
+                   and get two back, and only find out from the confirmation
+                   -- the box would have quietly disagreed with the form. */
+                onBlur={() => setQty((q) => {
+                  const raw = q[i.product_id];
+                  if (raw === undefined || raw.trim() === "") return q;
+                  return { ...q, [i.product_id]: String(qtyOf(i.product_id, cap)) };
+                })}
               />
             </li>
           );

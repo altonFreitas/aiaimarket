@@ -10,6 +10,19 @@ import { DISPLAY_CURRENCIES, normalizeCurrencyCode, taxRateAsPercent } from "@/l
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 import { ZONE_IDS, normalizeZones, zoneLabelKey } from "@/lib/zones";
 
+/** What a half-typed number box means once the form is submitted.
+ *
+ * "" is the case that matters: an empty Tax box means "this shop charges
+ * none", not NaN, and NaN reaching the server would be stored as null or
+ * rejected depending on which layer noticed first. "1." and "-" are the
+ * same shape of answer mid-typing, so they take the fallback too rather
+ * than becoming 1 or 0 by accident of parsing. */
+function num(v: string | number, fallback: number): number {
+  if (typeof v === "number") return Number.isFinite(v) ? v : fallback;
+  const n = Number(v.trim());
+  return v.trim() === "" || !Number.isFinite(n) ? fallback : n;
+}
+
 export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings: Settings }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -26,9 +39,19 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     suku: settings.suku || "",
     landmark: settings.landmark || "",
     pickup: !!settings.pickup,
-    commission_rate: settings.commission_rate ?? 10,
+    /* THE NUMBER BOXES HOLD STRINGS, LIKE THE LEGAL ONES BELOW.
+       They used to hold numbers, with onChange doing Number(e.target.value)
+       -- and Number("") is 0, so deleting the last digit put a 0 straight
+       back in the box. Backspace over the "0" in Tax and you got "0"
+       again; type 1 after it and the box read "01". The only way to enter
+       a number was to select the whole field first, which nobody does.
+
+       A half-typed number is a string ("", "1.", "0.0") and none of those
+       are numbers yet. Keeping the raw text means the box shows exactly
+       what was typed, and the parsing happens once, on save. */
+    commission_rate: String(settings.commission_rate ?? 10),
     seller_registration_enabled: settings.seller_registration_enabled ?? true,
-    restock_alert_pct: normalizeRestockPct(settings.restock_alert_pct),
+    restock_alert_pct: String(normalizeRestockPct(settings.restock_alert_pct)),
     /* THE FIVE FACTS THE POLICY PAGES CANNOT KNOW. Empty strings rather
        than nulls because these are form inputs; saveSettings turns an empty
        period back into null, which is what keeps the policy page showing
@@ -41,7 +64,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     display_currency: normalizeCurrencyCode(settings.display_currency),
     // Shown as the percentage a person types; stored as the fraction the
     // arithmetic wants. See lib/money.ts.
-    tax_rate: taxRateAsPercent(settings.tax_rate),
+    tax_rate: String(taxRateAsPercent(settings.tax_rate)),
     tax_label: settings.tax_label || "",
     tax_included: !!settings.tax_included,
   });
@@ -52,6 +75,9 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   const [zones, setZones] = useState<Zone[]>(() => normalizeZones(settings.zones));
   const [nb, setNb] = useState({ label: "", account: "", holder: "" });
   const [nw, setNw] = useState({ label: "", number: "" });
+  /* What is currently being TYPED into a zone's fee box, by zone id. A
+     zone with no entry here is not being edited and shows its saved fee. */
+  const [feeDraft, setFeeDraft] = useState<Record<string, string>>({});
   const [editingBank, setEditingBank] = useState<number | null>(null);
   const [editingWallet, setEditingWallet] = useState<number | null>(null);
 
@@ -97,7 +123,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
         <div className="field">
           <label htmlFor="commission_rate">{t("commissionRate", lang)}</label>
           <input id="commission_rate" type="number" min={0} max={100} step={0.5}
-            value={f.commission_rate} onChange={(e) => set("commission_rate", Number(e.target.value))} />
+            value={f.commission_rate} onChange={(e) => set("commission_rate", e.target.value)} />
           <p className="hint">{t("commissionRateHint", lang)}</p>
         </div>
         {/* The "accept new sellers" switch was here. Registering a store
@@ -113,7 +139,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           <label htmlFor="restock-pct">{t("restockAlertPct", lang)}</label>
           <input id="restock-pct" type="number" min={1} max={99} step={1}
             value={f.restock_alert_pct} disabled={busy || !canWrite}
-            onChange={(e) => set("restock_alert_pct", Number(e.target.value))} />
+            onChange={(e) => set("restock_alert_pct", e.target.value)} />
           <p className="hint">{t("restockAlertPctHint", lang)}</p>
         </div>
         {/* ---- the shop's own legal facts ---- */}
@@ -169,7 +195,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             <label htmlFor="taxr">{t("taxRate", lang)}</label>
             <input id="taxr" type="number" min={0} max={100} step={0.01}
               value={f.tax_rate} disabled={busy || !canWrite}
-              onChange={(e) => set("tax_rate", Number(e.target.value))} />
+              onChange={(e) => set("tax_rate", e.target.value)} />
             <p className="hint">{t("taxRateHint", lang)}</p>
           </div>
         </div>
@@ -195,7 +221,16 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
           <button className="btn btn-amber btn-sm" style={{ marginTop: 10 }} disabled={busy}
             onClick={() => run(() => saveSettings({
               ...f,
-              // The boxes hold strings; the action wants numbers or null.
+              /* The boxes hold strings; the action wants numbers or null.
+
+                 num() is for the three that must end up as A number: an
+                 empty Tax box means "no tax", not NaN, and the server
+                 normalises the value again afterwards (normalizeTaxRate,
+                 normalizeRestockPct) so a silly figure typed here cannot
+                 reach the database whatever this does. */
+              commission_rate: num(f.commission_rate, 10),
+              restock_alert_pct: num(f.restock_alert_pct, 0),
+              tax_rate: num(f.tax_rate, 0),
               legal_retention_years: f.legal_retention_years === ""
                 ? null : Number(f.legal_retention_years),
               legal_return_days: f.legal_return_days === ""
@@ -345,11 +380,35 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
                 <span>{t(zoneLabelKey(zid), lang)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {!z.quote && (
+                    /* SAME DELETION BUG, PLUS A SAVE ON EVERY KEYSTROKE.
+                       `Number(e.target.value) || 0` put a 0 back the moment
+                       the box was emptied -- and because update() calls
+                       saveZones(), every digit typed was a round trip to
+                       the server. Typing "12.5" was four saves, three of
+                       them of a number nobody meant (1, 12, 12.).
+
+                       The draft holds what is being typed; the save happens
+                       when the box is left, or on Enter. */
                     <input
-                      type="number" step="0.5" min="0" value={z.fee}
+                      type="number" step="0.5" min="0"
+                      value={feeDraft[zid] ?? String(z.fee)}
                       style={{ width: 70, padding: "4px 6px" }}
                       disabled={busy}
-                      onChange={(e) => update({ fee: Number(e.target.value) || 0 })}
+                      onChange={(e) =>
+                        setFeeDraft((d) => ({ ...d, [zid]: e.target.value }))}
+                      onBlur={() => {
+                        const draft = feeDraft[zid];
+                        if (draft === undefined) return;
+                        setFeeDraft((d) => {
+                          const { [zid]: _drop, ...rest } = d; return rest;
+                        });
+                        // An emptied box means free delivery, not NaN.
+                        const fee = num(draft, 0);
+                        if (fee !== z.fee) update({ fee });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
                     />
                   )}
                   <label className="check" style={{ padding: "4px 8px" }} data-on={z.quote}>
