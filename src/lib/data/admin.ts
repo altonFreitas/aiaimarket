@@ -16,7 +16,7 @@ import { loveTotals, type LoveTotals } from "@/lib/loves";
 import { sizedStock, lowSizes } from "@/lib/sizeStock";
 import { allSizeStock } from "@/lib/data/sizeStock";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { Category, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
+import type { Category, CustomerAlert, HeroSlide, Order, OrderNotification, Product, Promotion, Seller, SellerPayout, OrderReturn } from "@/lib/types";
 import { withFreshProofUrl } from "@/lib/paymentProof";
 
 /* Same reasoning as the caps in lib/data/public.ts: the admin statistics
@@ -352,6 +352,33 @@ export async function adminOrderNotifications(orderId: string): Promise<OrderNot
 
 /** The store's outstanding messages — everything queued or failed, across
  * every order. In manual mode this is the admin's actual to-do list. */
+/** The product announcements still owed to customers.
+ *
+ * Same shape of work queue as the order messages above, and on the same
+ * screen: with no gateway configured these are people who ticked "tell me
+ * about new products" and have not been told. An announcement nobody can
+ * see queued is an announcement nobody sends.
+ *
+ * The product's name comes along so the row reads as something rather than
+ * as a uuid. */
+export async function adminPendingAlerts(): Promise<CustomerAlert[]> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("customer_alerts")
+      .select("*, products(name, slug)")
+      .in("status", ["queued", "failed"])
+      .order("created_at", { ascending: false })
+      .limit(MAX_ADMIN_NOTIFICATIONS);
+    if (error) return [];
+    return (data as CustomerAlert[]) || [];
+  } catch {
+    // The shop has not run supabase/customer-alerts.sql. Nothing to show,
+    // and the schema health panel is what says so.
+    return [];
+  }
+}
+
 export async function adminPendingNotifications(): Promise<OrderNotification[]> {
   try {
     const sb = supabaseAdmin();

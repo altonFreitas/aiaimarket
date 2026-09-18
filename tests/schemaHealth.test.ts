@@ -22,6 +22,7 @@ const KINDS = {
     ["public.products", "idx_products_live"],
     ["public.sellers", "idx_sellers_status"],
     ["public.order_returns", "order_returns_unsettled_idx"],
+    ["public.customer_alerts", "customer_alerts_once"],
   ] as [string, string][],
   /* harden-rls.sql has been run, so the three open-door policies are gone.
    * One unrelated policy is left in place to prove the check looks for the
@@ -63,7 +64,7 @@ function snap(names: string[], kinds: Partial<typeof KINDS> = KINDS): SchemaSnap
 const EVERYTHING = snap([
   "products", "orders", "settings", "categories", "sellers", "customers",
   "product_reviews", "seller_payouts", "products.search_vector", "products.rating_count",
-  "notifications", "orders.lang",
+  "notifications", "customer_alerts", "orders.lang",
   "payments", "payment_events",
   "suppliers", "purchase_orders", "purchase_order_items",
   "purchase_order_items.sizes", "purchase_order_items.description",
@@ -258,6 +259,8 @@ describe("an old schema_inventory() that can only see tables", () => {
       // A column AND a constraint, neither of which an old inventory
       // function reports.
       "order-discount.sql",
+      // A table AND an index; the old function reports neither kind.
+      "customer-alerts.sql",
       "pii-retention.sql",
       "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",

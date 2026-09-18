@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { adminPendingNotifications } from "@/lib/data/admin";
+import { adminPendingAlerts, adminPendingNotifications } from "@/lib/data/admin";
 import { notificationsAutomatic } from "@/lib/notify/registry";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import PendingNotifications from "@/components/admin/PendingNotifications";
+import PendingAlerts from "@/components/admin/PendingAlerts";
 import { requireSection } from "@/lib/actions/guard";
 
 /** Every message the store still owes a buyer, across all orders.
@@ -14,17 +15,28 @@ import { requireSection } from "@/lib/actions/guard";
  * page -- an empty queue here is the thing worth being able to check. */
 export default async function AdminNotificationsPage() {
   await requireSection("sales.notifications");
-  const [lang, pending] = await Promise.all([getLang(), adminPendingNotifications()]);
+  const [lang, pending, alerts] = await Promise.all([
+    getLang(), adminPendingNotifications(), adminPendingAlerts(),
+  ]);
+  const automatic = notificationsAutomatic();
   return (
     <>
       <h1>{t("pendingMessages", lang)}</h1>
-      {!pending.length ? (
+      {!pending.length && !alerts.length ? (
         <div className="empty">
           <p>{t("allMessagesSent", lang)}</p>
           <Link className="btn btn-ghost" href="/admin/orders">{t("orders", lang)}</Link>
         </div>
       ) : (
-        <PendingNotifications lang={lang} pending={pending} automatic={notificationsAutomatic()} />
+        <>
+          {pending.length > 0 && (
+            <PendingNotifications lang={lang} pending={pending} automatic={automatic} />
+          )}
+          {/* The announcements queue sits under the order messages on the
+              same screen: both are "somebody the shop owes a message", and
+              a second page for the second kind is a page nobody opens. */}
+          <PendingAlerts lang={lang} pending={alerts} automatic={automatic} />
+        </>
       )}
     </>
   );
