@@ -89,39 +89,35 @@ describe("the database hands them over, and nothing else", () => {
   });
 });
 
-describe("prices print in the currency the shop chose", () => {
+describe("prices print in dollars, and say so", () => {
   const STOREFRONT = [
     "src/components/ProductCard.tsx", "src/components/BasketView.tsx",
     "src/components/ProductInteractive.tsx", "src/components/MegaNav.tsx",
     "src/components/Sidebar.tsx", "src/components/MobileNav.tsx",
   ];
 
-  it("goes through the hook, not the bare formatter", () => {
-    /* Every one of these called money(n) with no currency, so formatMoney
-       fell back to its USD default and the setting changed nothing. The
-       hook cannot forget the argument. */
+  it("uses the one formatter", () => {
     for (const f of STOREFRONT) {
-      const src = code(f);
-      expect(src, `${f} uses useMoney()`).toContain("useMoney()");
-      expect(src, `${f} has no bare money( call left`).not.toMatch(/[^a-zA-Z]money\(/);
+      expect(code(f), `${f} prints money`).toMatch(/money\(/);
     }
   });
 
-  it("is provided once, from the shop's settings", () => {
-    const layout = code("src/app/layout.tsx");
-    expect(layout).toContain("<CurrencyProvider");
-    expect(layout).toMatch(/code=\{settings\.display_currency\}/);
+  it("offers no currency to choose", () => {
+    /* Timor-Leste uses the dollar. A picker with five options was a
+       question with one true answer, and the only thing it could do was be
+       set wrong -- which it was, and which printed euro symbols over dollar
+       figures until it was set back. */
+    const settings = code("src/components/admin/SettingsAdmin.tsx");
+    expect(settings).not.toMatch(/display_currency/);
+    expect(settings).not.toMatch(/DISPLAY_CURRENCIES/);
   });
 
-  it("shows an old order in the currency AND at the rate it was placed at", () => {
-    /* A shop that switches from dollars to euros has not re-priced what it
-       already sold, and relabelling a past receipt misstates what the
-       customer paid. Both the code and the rate are frozen on the order, so
-       a receipt reopened next year shows the same figures. */
-    const track = code("src/components/TrackForm.tsx");
-    expect(track).toMatch(/orderMoney\(o, o\.total\)/);
-    expect(track).toMatch(/orderMoney\(o, o\.subtotal\)/);
-    expect(track).toMatch(/Number\(o\.fx_rate\) > 0 \? Number\(o\.fx_rate\) : 1/);
+  it("keeps what an order was agreed in on the order", () => {
+    // The column stays: an order written before this says dollars rather
+    // than "unknown", and the day a shop here quotes in something else the
+    // old ones are still legible.
+    expect(code("src/lib/actions/orders.ts")).toMatch(/currency,/);
+    expect(code("src/lib/actions/orders.ts")).toMatch(/fx_rate: 1/);
   });
 });
 

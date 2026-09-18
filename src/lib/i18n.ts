@@ -24,11 +24,6 @@ export const STR: Record<string, [string,string,string]> = {
      The shop types its own word in Settings. */
   taxDefaultName:["Taxa","Imposto","Tax"],
   taxIncludedShort:["inklui ona","já incluído","already included"],
-  /* Said at checkout when prices are being SHOWN in a currency the shop
-     does not bank in. The conversion is a courtesy for reading; the money
-     that changes hands is dollars, and a shopper about to count out cash
-     has to be told which. */
-  chargedInUsd:["Selu iha USD: {total} (1 USD = {rate} {code}).","Pagamento em USD: {total} (1 USD = {rate} {code}).","Charged in USD: {total} (1 USD = {rate} {code})."],
   /* Said when somebody tries to add more than the shelf holds. Both name
      the two numbers that matter -- what is there and what was asked for --
      because "not enough stock" leaves the shopper to guess how many to
@@ -1405,8 +1400,6 @@ export const STR: Record<string, [string,string,string]> = {
   legalReturnDays:["Prazu fila sasan (loron)","Prazo de devolução (dias)","Return window (days)"],
   legalRefundDays:["Prazu fó fila osan (loron)","Prazo de reembolso (dias)","Refund within (days)"],
   moneySettings:["Osan","Dinheiro","Money"],
-  displayCurrency:["Moeda","Moeda","Currency"],
-  displayCurrencyHint:["Moeda ne'ebé loja hatudu folin. Timor-Leste uza USD.","A moeda em que a loja mostra os preços. Timor-Leste usa USD.","The currency the shop quotes prices in. Timor-Leste uses USD."],
   taxRate:["Taxa (%)","Imposto (%)","Tax (%)"],
   taxRateHint:["Zero katak loja ne'e la kobra taxa. 2,5 katak 2,5%.","Zero significa que a loja não cobra imposto. 2,5 significa 2,5%.","Zero means this shop charges none. 2,5 means 2,5%."],
   taxLabel:["Naran taxa","Nome do imposto","What to call it"],
@@ -1428,6 +1421,7 @@ export const STR: Record<string, [string,string,string]> = {
   cookieMore:["Lee tan","Saiba mais","Read more"],
   cookieOk:["Komprende ona","Entendi","Got it"],
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
+  featOrderDiscount:["Diskontu iha enkomenda","Desconto na encomenda","The discount on an order"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */
   whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],

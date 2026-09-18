@@ -27,26 +27,33 @@ export interface CurrencyInfo {
   symbolFirst: boolean;
 }
 
-/** The currencies this storefront knows how to print.
+/* THE DOLLAR, AND ONLY THE DOLLAR.
  *
- * Deliberately short. A shop cannot choose a currency the code cannot
- * format, and a list of every ISO code would be a list of promises about
- * decimal places and symbol placement that nobody has checked. */
+ * Timor-Leste uses the US dollar. This shop prices in dollars, banks
+ * dollars and is handed dollars at the door, so there is one currency here
+ * and it is not configurable.
+ *
+ * A picker offering five was tried and taken out: it was a question with
+ * one true answer, and the only thing it could do was be set wrong -- which
+ * it was, and which printed euro symbols over dollar figures until it was
+ * set back. Converting instead would have meant a live rate on every page
+ * and a currency of record that was no longer the currency in the till.
+ *
+ * The COLUMN stays on settings and orders. Every order already records what
+ * it was agreed in, and the day a shop here does quote in something else,
+ * the old orders will still say dollars rather than "unknown". */
 export const DISPLAY_CURRENCIES: Record<string, CurrencyInfo> = {
-  USD: { symbol: "$",   digits: 2, symbolFirst: true },
-  AUD: { symbol: "A$",  digits: 2, symbolFirst: true },
-  EUR: { symbol: "€",   digits: 2, symbolFirst: false },
-  IDR: { symbol: "Rp",  digits: 0, symbolFirst: true },
-  SGD: { symbol: "S$",  digits: 2, symbolFirst: true },
+  USD: { symbol: "$", digits: 2, symbolFirst: true },
 };
 
 export const DEFAULT_CURRENCY = "USD";
 
-/** A code the shop typed, turned into one this code can actually print.
+/** Anything a row may hold, as the one code this shop prints.
  *
- * Falls back to USD rather than throwing: a settings row carrying a code
- * this build does not know must not take the storefront down, and showing
- * dollars is the honest behaviour for a shop in Timor-Leste. */
+ * Still a function rather than a constant: settings rows and orders written
+ * before this simplification may carry EUR or IDR, and a receipt for one of
+ * them must print a figure rather than throw. What it cannot do is print a
+ * euro symbol over a dollar amount -- the figures were always dollars. */
 export function normalizeCurrencyCode(v: unknown): string {
   const code = String(v ?? "").trim().toUpperCase();
   return code in DISPLAY_CURRENCIES ? code : DEFAULT_CURRENCY;

@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import { bumpWaClickAction } from "@/lib/actions/track";
-import {waLink, waProductMsg, discountPercent} from "@/lib/utils";
-import { useCurrency, useMoney } from "@/components/Currency";
+import {money,waLink, waProductMsg, discountPercent} from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { availableInSize, type SizedStock } from "@/lib/sizeStock";
 import type { Lang, Product, Settings } from "@/lib/types";
@@ -32,8 +31,6 @@ export default function ProductInteractive({
    * by size -- in both cases the picker behaves exactly as it always did. */
   stock?: SizedStock | null;
 }) {
-  const m = useMoney();
-  const code = useCurrency();
   const [size, setSize] = useState<string | null>(p.sizes?.length === 1 ? p.sizes[0] : null);
   /* Counts are shown only once the shop has actually counted a size. Until
      then every size would read 0 and the page would say the shelf is empty
@@ -47,7 +44,7 @@ export default function ProductInteractive({
 
   const siteUrl = (path: string) => `${siteOrigin}${path}`;
   const waDigits = settings.wa_number.replace(/[^\d]/g, "");
-  const msg = waProductMsg({ ...p, price: effectivePrice }, size, qty, siteUrl, code);
+  const msg = waProductMsg({ ...p, price: effectivePrice }, size, qty, siteUrl);
   const href = waLink(waDigits, msg);
 
   // `loc` (a pickup-location fallback merging product overrides onto the
@@ -136,7 +133,7 @@ export default function ProductInteractive({
 
   async function share() {
     const caption =
-      `${p.name} — ${m(p.price)}\n` +
+      `${p.name} — ${money(p.price)}\n` +
       `${t("qStock", lang)} ${t(STOCK_KEY[p.stock_status], lang)}\n` +
       `${t("qHow", lang)} WhatsApp ${settings.wa_number}\n` +
       siteUrl(`/p/${p.slug}`);
@@ -166,18 +163,16 @@ export default function ProductInteractive({
           <div className="aab-a">
             {pct != null ? (
               <>
-                <span className="aab-price aab-price-discount">{m(p.discount_price!)}</span>
-                <span className="aab-price-original">{m(p.price)}</span>
+                <span className="aab-price aab-price-discount">{money(p.discount_price!)}</span>
+                <span className="aab-price-original">{money(p.price)}</span>
                 <span className="aab-price-pct">-{pct}%</span>
               </>
             ) : (
-              <span className="aab-price">{m(p.price)}</span>
+              <span className="aab-price">{money(p.price)}</span>
             )}
-            {/* The CODE beside the figure, because a bare "$" is ambiguous
-                across a dozen dollars and a bare "€" says nothing about
-                which shop quoted it. It was hard-coded to USD, so a shop
-                that switched to euros advertised "33.00 € USD". */}
-            <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>{code}</em>
+            {/* USD, and it says so. Timor-Leste uses the dollar, and a bare
+                "$" is ambiguous across a dozen of them. */}
+            <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>USD</em>
           </div>
         </div>
 

@@ -475,6 +475,11 @@ export interface Order {
    * reason: a later rate change must not restate an old order. */
   tax?: number | null;
   tax_rate?: number | null;
+  /** What the buyer saved against full price. Informational: subtotal and
+   * total are already net of it, because line prices are the discounted
+   * ones. Absent on a database that has not run
+   * supabase/order-discount.sql. */
+  discount?: number | null;
   total: number;
   // Central Dili orders use a simple street address (address_line);
   // outskirts/other-municipality orders use the full hierarchy below.

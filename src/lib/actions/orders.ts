@@ -3,7 +3,6 @@ import { requireAdmin } from "./guard";
 import { audit, change } from "@/lib/audit";
 import { issueTrackToken } from "@/lib/trackToken";
 import { normalizeCurrencyCode } from "@/lib/money";
-import { displayRate } from "@/lib/fx";
 import { taxOnLines } from "@/lib/tax";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { PROOF_URL_SECONDS, PROOF_URL_FALLBACK_SECONDS, withFreshProofUrl } from "@/lib/paymentProof";
@@ -155,30 +154,21 @@ async function moneySettings(sb: ReturnType<typeof supabaseAdmin>) {
   const currency = normalizeCurrencyCode(row?.display_currency);
   const taxRate = Number(row?.tax_rate) > 0 ? Number(row?.tax_rate) : 0;
 
-  /* THE RATE THE SHOPPER WAS QUOTED AT, CAPTURED NOW.
-   *
-   * Every figure on this order is stored in USD, which is what the shop
-   * banks and what every revenue figure adds up. fx_rate is how many units
-   * of the DISPLAY currency one of those dollars was worth at the moment
-   * the order was placed -- so the invoice printed next year shows the same
-   * euros the customer agreed to today, rather than today's euros.
-   *
-   * 1 when the shop quotes in dollars, and 1 when the rate could not be
-   * fetched, because in both cases the figures on screen were dollars. */
-  const fxRate = (await displayRate(currency).catch(() => null)) ?? 1;
-
   return {
     currency,
     taxRate,
     taxIncluded: Boolean(row?.tax_included),
-    fxRate,
     /** The columns to write onto the order, omitted entirely when the
      * database has none -- writeTolerating drops what it cannot write, and
      * an order with no tax column is simply an order from before tax. */
     orderColumns(tax: number) {
       return {
         currency,
-        fx_rate: fxRate,
+        /* One. This shop quotes, sells and banks in dollars -- Timor-Leste
+         * uses them. The column stays so that every historical total still
+         * carries what it was agreed in, and so the day a shop here does
+         * quote in something else, the orders from before say so. */
+        fx_rate: 1,
         tax,
         tax_rate: taxRate,
       };
@@ -447,6 +437,24 @@ export async function placeOrder(input: PlaceOrderInput) {
    * THE RATE COMES OFF THE SHOP'S SETTINGS, read on the server -- never
    * from anything the browser sent. A basket that could name its own tax
    * rate could name zero. */
+  /* WHAT THE BUYER SAVED, from the product rows this function already
+     loaded -- never from the basket, which could claim any saving it liked.
+     A line is discounted when the product carries a discount_price; the
+     saving is the gap between the two, times the quantity.
+
+     Informational only: i.price is the discounted figure and always was, so
+     the subtotal, the tax and the total below are untouched by this. It
+     exists so the invoice can print the line the checkout prints. */
+  const discount = Math.round(itemsWithSeller.reduce((a, i) => {
+    const row = byId.get(i.product_id) as
+      { price?: number; discount_price?: number | null } | undefined;
+    const list = Number(row?.price);
+    const paid = Number(i.price);
+    const off = row?.discount_price != null && Number.isFinite(list) && list > paid
+      ? (list - paid) * i.qty : 0;
+    return a + off;
+  }, 0) * 100) / 100;
+
   const taxed = taxOnLines(
     itemsWithSeller.map((i) => i.price * i.qty),
     fee, money.taxRate, money.taxIncluded);
@@ -471,6 +479,9 @@ export async function placeOrder(input: PlaceOrderInput) {
          own lines disagreed, and anything totting up what the shop owes off
          orders.tax would have read zero. */
       ...money.orderColumns(taxed.tax || taxed.includedTax),
+      // Dropped by writeTolerating on a database that has not run
+      // supabase/order-discount.sql, where an order simply records no saving.
+      discount,
       ref,
       lang,
       is_preorder: isPreorder,

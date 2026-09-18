@@ -6,7 +6,7 @@ import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/s
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { normalizeRestockPct } from "@/lib/restock";
-import { DISPLAY_CURRENCIES, normalizeCurrencyCode, taxRateAsPercent } from "@/lib/money";
+import { taxRateAsPercent } from "@/lib/money";
 import { parseNum as num, normalizeNumText } from "@/lib/numberInput";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
 import { ZONE_IDS, normalizeZones, zoneLabelKey } from "@/lib/zones";
@@ -49,7 +49,6 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     legal_retention_years: settings.legal_retention_years ?? "",
     legal_return_days: settings.legal_return_days ?? "",
     legal_refund_days: settings.legal_refund_days ?? "",
-    display_currency: normalizeCurrencyCode(settings.display_currency),
     // Shown as the percentage a person types; stored as the fraction the
     // arithmetic wants. See lib/money.ts.
     tax_rate: String(taxRateAsPercent(settings.tax_rate)),
@@ -170,17 +169,12 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
 
         {/* ---- money ---- */}
         <h3 style={{ marginTop: 22 }}>{t("moneySettings", lang)}</h3>
+        {/* NO CURRENCY PICKER. This shop is in Timor-Leste, which uses the
+            US dollar: it prices in dollars, banks dollars and takes dollars
+            at the door. A dropdown offering five currencies was a question
+            with one true answer, and the one thing it could do was be set
+            wrong. lib/money.ts prints dollars and says why. */}
         <div className="two">
-          <div className="field">
-            <label htmlFor="cur">{t("displayCurrency", lang)}</label>
-            <select id="cur" value={f.display_currency} disabled={busy || !canWrite}
-              onChange={(e) => set("display_currency", e.target.value)}>
-              {Object.keys(DISPLAY_CURRENCIES).map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <p className="hint">{t("displayCurrencyHint", lang)}</p>
-          </div>
           <div className="field">
             <label htmlFor="taxr">{t("taxRate", lang)}</label>
             <input id="taxr" type="number" min={0} max={100} step={0.01}

@@ -33,6 +33,7 @@ const KINDS = {
     ["public.admin_users", "admin_users_section_keys_check"],
     ["public.sellers", "sellers_area_keys_check"],
     ["public.orders", "orders_status_check"],
+    ["public.orders", "orders_discount_check"],
   ] as [string, string][],
 };
 
@@ -92,6 +93,8 @@ const EVERYTHING = snap([
   // legal-currency-tax.sql
   "settings.legal_address", "settings.display_currency", "settings.tax_rate",
   "orders.tax", "orders.currency", "order_items.tax",
+  // order-discount.sql
+  "orders.discount",
 ]);
 
 describe("checkSchema", () => {
@@ -252,6 +255,9 @@ describe("an old schema_inventory() that can only see tables", () => {
       // Checked by a constraint alone, which the old function cannot report.
       "admin-subsections.sql",
       "seller-areas.sql",
+      // A column AND a constraint, neither of which an old inventory
+      // function reports.
+      "order-discount.sql",
       "pii-retention.sql",
       "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",

@@ -17,22 +17,9 @@ import ProductReviewForm from "@/components/ProductReviewForm";
 import PayNowButton from "@/components/PayNowButton";
 import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
 import { taxWasIncluded } from "@/lib/tax";
-import { convert } from "@/lib/fx";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 import ReturnRequest from "@/components/ReturnRequest";
-
-/** A figure stored on an order, printed the way that order was quoted.
- *
- * The stored numbers are dollars; fx_rate is what one was worth in the
- * order's display currency when it was placed. Using today's rate would
- * restate a receipt every time it was opened. */
-function orderMoney(
-  o: { currency?: string | null; fx_rate?: number | null }, n: number
-): string {
-  const rate = Number(o.fx_rate) > 0 ? Number(o.fx_rate) : 1;
-  return money(convert(Number(n) || 0, rate), o.currency ?? undefined);
-}
 
 interface OrderSummary {
   ref: string; buyer_name: string; buyer_phone: string;
@@ -179,7 +166,7 @@ export default function TrackForm({
               <Link key={o.ref} className="item" href={`/o/${o.ref}?phone=${encodeURIComponent(phone)}`} style={{ textDecoration: "none" }}>
                 <div className="g">
                   <b>{o.ref}</b>
-                  <span>{nowIso(o.created_at)} · {orderMoney(o, o.total)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
+                  <span>{nowIso(o.created_at)} · {money(o.total)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
                 </div>
                 <div className="acts">
                   <span className={"pill " + (o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : "warn")}>
@@ -386,17 +373,26 @@ function Dashboard({
           {o.items.map((i, ix) => (
             <div className="kv" key={ix}>
               <span>{i.name}{i.size ? " · " + i.size : ""} × {i.qty}</span>
-              <b>{orderMoney(o, i.price * i.qty)}</b>
+              <b>{money(i.price * i.qty)}</b>
             </div>
           ))}
           <div className="kv">
             <span>{t("subtotal", lang)}</span>
-            <b>{orderMoney(o, o.subtotal)}</b>
+            <b>{money(o.subtotal)}</b>
           </div>
+          {/* What was taken off, when anything was. The same line the
+              checkout showed and the invoice prints, so the three documents
+              a customer sees agree with each other. */}
+          {Number(o.discount) > 0 && (
+            <div className="kv">
+              <span>{t("discount", lang)}</span>
+              <b>−{money(Number(o.discount))}</b>
+            </div>
+          )}
           <div className="kv">
             <span>{t("deliveryFee", lang)}</span>
             <b>{o.quote_requested
-              ? t("quoteOnRequest", lang) : orderMoney(o, o.fee)}</b>
+              ? t("quoteOnRequest", lang) : money(o.fee)}</b>
           </div>
           {/* THE ROW THAT WAS MISSING. Tax has been charged on every order
               since the tax columns existed, and this summary listed goods
@@ -412,12 +408,12 @@ function Dashboard({
                 {(settings?.tax_label || "").trim() || t("taxDefaultName", lang)}
                 {taxWasIncluded(o) ? ` — ${t("taxIncludedShort", lang)}` : ""}
               </span>
-              <b>{orderMoney(o, Number(o.tax))}</b>
+              <b>{money(Number(o.tax))}</b>
             </div>
           )}
           <div className="kv total">
             <span>{t("total", lang)}</span>
-            <b>{orderMoney(o, o.total)}</b>
+            <b>{money(o.total)}</b>
           </div>
         </div>
         <button className="btn btn-amber btn-sm" type="button" style={{ marginTop: 10 }}
