@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { addOrderNote, editOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
 import { addrLine, money, nowIso, waLink, flowFor } from "@/lib/utils";
+import { taxWasIncluded } from "@/lib/tax";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
 import type { Lang, Order, OrderStatus, PayStatus, Settings } from "@/lib/types";
@@ -141,7 +142,33 @@ export default function OrderAdmin({
               <b>{money(i.price * i.qty)}</b>
             </div>
           ))}
-          <div className="kv"><span>{t("deliveryFee", lang)}</span><b>{money(o.fee)}</b></div>
+          {/* THE SAME FIVE ROWS THE OTHER THREE SHOW.
+              This one listed the lines, the delivery fee and the total --
+              no subtotal, no discount, no tax -- so an admin answering "why
+              is this $14.30 when the goods were $12" had to work it out,
+              while the customer's own copy already said. Four documents
+              describing one sale should not disagree about which figures
+              exist. */}
+          <div className="kv"><span>{t("subtotal", lang)}</span><b>{money(o.subtotal)}</b></div>
+          {Number(o.discount) > 0 && (
+            <div className="kv">
+              <span>{t("discount", lang)}</span>
+              <b>−{money(Number(o.discount))}</b>
+            </div>
+          )}
+          <div className="kv">
+            <span>{t("deliveryFee", lang)}</span>
+            <b>{o.quote_requested ? t("quoteOnRequest", lang) : money(o.fee)}</b>
+          </div>
+          {Number(o.tax) > 0 && (
+            <div className="kv">
+              <span>
+                {(settings?.tax_label || "").trim() || t("taxDefaultName", lang)}
+                {taxWasIncluded(o) ? ` — ${t("taxIncludedShort", lang)}` : ""}
+              </span>
+              <b>{money(Number(o.tax))}</b>
+            </div>
+          )}
           <div className="kv total"><span>{t("total", lang)}</span><b>{money(o.total)}</b></div>
         </div>
         <div style={{ marginTop: 8 }} className="hint">

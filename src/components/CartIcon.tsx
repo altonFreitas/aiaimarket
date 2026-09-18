@@ -19,10 +19,15 @@ export default function CartIcon(
   return (
     <svg {...(size ? { width: size, height: size } : {})}
       viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth={strokeWidth} aria-hidden="true">
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-      <path d="M3 6h18" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
+      stroke="currentColor" strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* A TROLLEY, not a bag. The bag read as "shopping" in general; a
+          trolley reads as "the things I am buying right now", which is what
+          this icon opens. Drawn to the same 24-box and stroke as the rest of
+          the set so it sits level with the icons beside it. */}
+      <path d="M2 3h2.2l.9 4m0 0 2.1 9h11.1l2.7-9H5.1Z" />
+      <circle cx="9" cy="20" r="1.6" />
+      <circle cx="18" cy="20" r="1.6" />
     </svg>
   );
 }

@@ -9,6 +9,8 @@ import MobileNav from "./MobileNav";
 import { getCategories, getHeroSlides, getLiveProducts } from "@/lib/data/public";
 import { buildNav } from "@/lib/nav";
 import { getLang } from "@/lib/lang";
+import { supabaseServer } from "@/lib/supabase/server";
+import { emailInitials } from "@/lib/initials";
 import { t } from "@/lib/i18n";
 import type { Settings } from "@/lib/types";
 
@@ -21,6 +23,19 @@ export default async function Header({ settings }: { settings: Settings }) {
   const [cats, products, slides] = await Promise.all([
     getCategories(), getLiveProducts(), getHeroSlides(),
   ]);
+
+  /* Who is looking, if anybody. Read from the auth cookie this request
+     already carries -- the header is per-request anyway, because the
+     language comes from a cookie too. Failing quietly is right: a header
+     that cannot render because the auth service is slow is a shop nobody
+     can browse. */
+  let customerEmail: string | null = null;
+  try {
+    const sb = await supabaseServer();
+    const { data } = await sb.auth.getUser();
+    customerEmail = data.user?.email ?? null;
+  } catch { customerEmail = null; }
+  const initials = emailInitials(customerEmail);
   const navRoots = buildNav(cats, products, lang);
   return (
     <>
@@ -59,11 +74,27 @@ export default async function Header({ settings }: { settings: Settings }) {
           </Link>
 
           <LangSwitch current={lang} />
-          <Link className="icon-btn" href="/account" aria-label={t("myAccount", lang)}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
-            </svg>
+          {/* WHO IS SIGNED IN, IN TWO LETTERS.
+              The person outline is the same drawing whether somebody is
+              signed in or not, so the one question it is asked -- am I
+              signed in, and as whom? -- it could not answer. Initials from
+              the address do, in the space the icon already occupies.
+
+              The icon stays for a visitor who has no account, and for an
+              address that yields no usable letters. */}
+          <Link className="icon-btn" href="/account"
+            aria-label={initials
+              ? `${t("myAccount", lang)} — ${customerEmail}`
+              : t("myAccount", lang)}
+            title={customerEmail || undefined}>
+            {initials ? (
+              <span className="avatar" aria-hidden="true">{initials}</span>
+            ) : (
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
+              </svg>
+            )}
           </Link>
           <Link className="icon-btn hd-cart" href="/list" aria-label={t("navList", lang)}>
             <CartIcon size={17} />

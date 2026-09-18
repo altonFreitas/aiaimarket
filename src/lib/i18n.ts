@@ -24,6 +24,7 @@ export const STR: Record<string, [string,string,string]> = {
      The shop types its own word in Settings. */
   taxDefaultName:["Taxa","Imposto","Tax"],
   taxIncludedShort:["inklui ona","já incluído","already included"],
+  browseCatalog:["Haree katálogu","Ver catálogo","Browse catalog"],
   /* Said when somebody tries to add more than the shelf holds. Both name
      the two numbers that matter -- what is there and what was asked for --
      because "not enough stock" leaves the shopper to guess how many to
