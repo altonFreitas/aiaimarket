@@ -96,8 +96,13 @@ export default function ProductSection({
       <div className="rail" ref={rail}>
         {products.map((p) => (
           <div key={p.id} className="home-card-wrap">
-            {badgeLabel && badgeForIds?.has(p.id) && <span className="seller-badge">{badgeLabel}</span>}
-            <ProductCard p={p} lang={lang} sellerName={sellersById?.[p.seller_id]?.store_name} />
+            {/* The flag goes to the card, not next to it. It used to be a
+                sibling of the card, absolutely positioned over its corner,
+                which put it in the wrong stacking context the moment the
+                card lifted -- and on the same 8px square as the discount
+                pill the card draws itself. ProductCard owns both now. */}
+            <ProductCard p={p} lang={lang} sellerName={sellersById?.[p.seller_id]?.store_name}
+              flag={badgeLabel && badgeForIds?.has(p.id) ? badgeLabel : undefined} />
           </div>
         ))}
       </div>

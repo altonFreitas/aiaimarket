@@ -22,7 +22,10 @@ const BADGE = { in: ["b-in", "stockIn"], low: ["b-low", "stockLow"], out: ["b-ou
  * this size read as a smudge rather than a heart. */
 const HEART = "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z";
 
-export default function ProductCard({ p, lang, sellerName }: { p: Product; lang: Lang; sellerName?: string }) {
+export default function ProductCard(
+  { p, lang, sellerName, flag }:
+  { p: Product; lang: Lang; sellerName?: string; flag?: string },
+) {
   const [cls, key] = BADGE[p.stock_status];
   const img = p.images?.[0] || placeholder(p.name);
   const loc = p.suku || p.municipality || "";
@@ -85,7 +88,24 @@ export default function ProductCard({ p, lang, sellerName }: { p: Product; lang:
             </svg>
           </button>
         </div>
-        {pct != null && <span className="card-deal">-{pct}%</span>}
+        {/* THE TOP-RIGHT FLAGS, IN ONE COLUMN.
+            "BEST SELLER" and "-40%" used to be two separately positioned
+            elements that both claimed top:8px right:8px -- the discount
+            inside the photo, the best-seller flag on a wrapper outside the
+            card entirely. They landed on the same 8px square and overlapped,
+            which is why the row read "BEST -40%": one amber pill with the
+            back half of "SELLER" hidden under the discount.
+
+            Stacking them is what keeps both whole. Putting the flag INSIDE
+            the card is what keeps it visible: the card lifts to z-index 3
+            under the pointer, so a flag sitting outside it was painted over
+            and vanished on exactly the card being looked at. */}
+        {(flag || pct != null) && (
+          <div className="card-flags">
+            {flag && <span className="card-flag">{flag}</span>}
+            {pct != null && <span className="card-deal">-{pct}%</span>}
+          </div>
+        )}
         {/* next/image, not <img>: on a 360px phone this serves a 360px AVIF
             instead of the full 1200px WebP the seller uploaded -- typically
             an 80-90% saving on the single heaviest asset in the catalog

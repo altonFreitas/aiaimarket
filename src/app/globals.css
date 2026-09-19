@@ -903,9 +903,9 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .home-section-more{display:none;font-size:13px;font-weight:600;color:var(--ink-3);text-decoration:none;white-space:nowrap}
 .home-section-more-mobile{display:flex;margin-top:12px}
 
+/* The wrapper is still what the rail snaps to; it no longer carries a
+   badge of its own -- see .card-flags, which the card draws itself. */
 .home-card-wrap{position:relative}
-.seller-badge{position:absolute;top:8px;right:8px;z-index:1;background:var(--amber);color:#3a2b00;
-  font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.05em;padding:3px 6px;border-radius:4px}
 
 .promo{background:var(--amber-soft);border:1px solid var(--amber);border-radius:var(--r);
   padding:20px 18px;margin:30px 0 10px;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
@@ -1644,8 +1644,24 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    the existing stock badge (.badge / .b-in etc. above) rather than
    replacing it, so both "in stock" and "-30%" can show at once, the way
    a dense catalogue grid usually does. */
-.card-deal{position:absolute;top:8px;right:8px;background:var(--amber);color:var(--amber-ink);
-  font-weight:800;font-size:11px;padding:2px 7px;border-radius:4px;z-index:1;letter-spacing:.01em}
+/* ONE COLUMN, NOT TWO PINS ON THE SAME CORNER. The discount pill and the
+   best-seller flag were positioned separately and both asked for
+   top:8px right:8px, so they stacked on top of each other and read as a
+   single pill: "BEST -40%", with the rest of "SELLER" underneath. They
+   share a flex column now, so a card can carry both, either, or neither
+   and the corner lays itself out.
+
+   z-index 2 matches .card-tags on the left, so neither corner can end up
+   under the photo. align-items:flex-end keeps the pills flush to the
+   right edge whatever their width -- "MAIS VENDIDO" is half again as
+   wide as "-40%". */
+.card-flags{position:absolute;top:8px;right:8px;z-index:2;
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.card-flag,.card-deal{background:var(--amber);color:var(--amber-ink);
+  border-radius:4px;white-space:nowrap}
+.card-flag{font-family:var(--mono);font-size:9.5px;font-weight:700;
+  letter-spacing:.05em;padding:3px 6px}
+.card-deal{font-weight:800;font-size:11px;padding:2px 7px;letter-spacing:.01em}
 
 /* ---------- category rail: heading + hover mega panel ---------- */
 /* These are outside the desktop media query because they only ever render
