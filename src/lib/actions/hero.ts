@@ -5,6 +5,7 @@ import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
 import { videoExtFor } from "@/lib/videoTypes";
+import { writeTolerating } from "@/lib/missingColumn";
 import type { HeroSlide } from "@/lib/types";
 
 /** Reuses the same public "product-images" storage bucket as product
@@ -98,7 +99,19 @@ export async function updateHeroSlide(
 ) {
   await requireAdmin();
   const sb = supabaseAdmin();
-  const { error } = await sb.from("hero_slides").update(fields).eq("id", id);
+  /* video_fit arrived with a later revision of supabase/hero-video.sql, so
+     a shop running this code against a database it has not migrated yet
+     has no such column -- and Postgres fails the WHOLE update when one is
+     named: `column "video_fit" of relation "hero_slides" does not exist`.
+     That would have broken Save for every slide, photo slides included,
+     over a field nobody on that shop can even see. Same treatment the
+     product form gives `audience`: try it, and if the column is what the
+     database objects to, save everything else and drop that one. */
+  const { video_fit, ...always } = fields;
+  const { error } = await writeTolerating(
+    video_fit === undefined ? {} : { video_fit },
+    (extra) => sb.from("hero_slides").update({ ...always, ...extra }).eq("id", id),
+  );
   if (error) throw error;
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.hero);

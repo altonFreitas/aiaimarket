@@ -173,13 +173,19 @@ export async function saveProduct(input: ProductFormInput) {
     // field nobody had filled in. It is dropped and the save retried; it
     // starts being kept the moment the migration runs.
     const { error } = await writeTolerating(
-      { audience: normalizeAudience(input.audience) },
+      {
+        audience: normalizeAudience(input.audience),
+        // preorders.sql is a migration too, and these were written among
+        // the columns that always exist -- so a shop with this code and
+        // without that file could not save a product at all, over two
+        // fields its form does not even show. Same treatment as audience.
+        preorder_enabled: input.preorder_enabled ?? true,
+        preorder_eta: input.preorder_eta || null,
+      },
       (extra) => sb.from("products").update({
         name: input.name, slug, price, seller_id: sellerId,
         discount_price: discount,
         description: input.description,
-        preorder_enabled: input.preorder_enabled ?? true,
-        preorder_eta: input.preorder_eta || null,
         category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
         images: input.images,
         pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
@@ -230,13 +236,17 @@ export async function saveProduct(input: ProductFormInput) {
     // starts at its first unit rather than at some number that was already
     // there when the ledger began.
     const { data: made, error } = await writeTolerating<{ id: string }>(
-      { audience: normalizeAudience(input.audience) },
+      {
+        audience: normalizeAudience(input.audience),
+        // As above: from supabase/preorders.sql, so not every database has
+        // them, and naming one the database lacks fails the whole insert.
+        preorder_enabled: input.preorder_enabled ?? true,
+        preorder_eta: input.preorder_eta || null,
+      },
       (extra) => sb.from("products").insert({
         ref, name: input.name, slug, price, qty: 0, seller_id: sellerId,
         discount_price: discount,
         stock_status: "out", description: input.description,
-        preorder_enabled: input.preorder_enabled ?? true,
-        preorder_eta: input.preorder_eta || null,
         category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
         images: input.images,
         pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,

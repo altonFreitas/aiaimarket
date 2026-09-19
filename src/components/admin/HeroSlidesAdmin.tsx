@@ -29,6 +29,7 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
       ...drafts[s.id],
     };
   }
+
   function setDraft(id: string, patch: Partial<Draft>) {
     setDrafts((d) => ({ ...d, [id]: { ...d[id], ...patch } }));
   }
@@ -167,7 +168,19 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                         video cannot be both -- so the choice is the
                         owner's, per slide, rather than one rule the shop
                         has to live with. It saves with the Save button
-                        beside the other fields. */}
+                        beside the other fields.
+
+                        NOT OFFERED AT ALL until the database has the
+                        column -- s.video_fit is undefined exactly then,
+                        because the row came back without it. The server
+                        already refuses to fail over a column it does not
+                        have (updateHeroSlide uses writeTolerating), so
+                        this is not about errors: it is that a control
+                        which takes a choice, says "saved" and changes
+                        nothing is worse than one that is not there. The
+                        storefront does the right thing without it
+                        anyway, and shows the whole video. */}
+                    {s.video_fit !== undefined && (
                     <div className="hero-fit">
                       <span className="hero-fit-hd">{t("slideVideoFit", lang)}</span>
                       {(["contain", "cover"] as const).map((fit) => (
@@ -182,6 +195,7 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                         {t("slideVideoFitHint", lang)}
                       </p>
                     </div>
+                    )}
                   </WriteOnly>
                 )}
               </div>

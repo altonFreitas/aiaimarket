@@ -193,3 +193,78 @@ describe("readTolerating", () => {
     expect(calls).toBe(1);
   });
 });
+
+describe("dropping only what the database actually named", () => {
+  /* THE BUG THIS FIXES. writeTolerating used to drop EVERY optional field
+     the moment any one of them was missing. On a shop that had run
+     order-idempotency.sql but not order-discount.sql, an order carrying
+     both would have lost its duplicate-order protection to make room for
+     a saving nobody asked about -- a silent trade of the important field
+     for the cosmetic one. Postgres names the offending column; that is
+     the one that goes. */
+
+  const missing = (col: string) => ({
+    code: "42703",
+    message: `column "${col}" of relation "orders" does not exist`,
+  });
+
+  it("keeps the other optional fields", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const out = await writeTolerating(
+      { idempotency_key: "k", discount: 4 },
+      async (extra) => {
+        calls.push(extra);
+        return { error: "discount" in extra ? missing("discount") : null };
+      });
+    expect(out.error).toBeNull();
+    expect(out.degraded).toBe(true);
+    // The retry still carries the key that protects against double orders.
+    expect(calls).toEqual([{ idempotency_key: "k", discount: 4 }, { idempotency_key: "k" }]);
+  });
+
+  it("takes one pass per missing column, because Postgres names one", async () => {
+    /* A write carrying two fields the database lacks has to be told
+       twice: the first error names only the first column. */
+    const calls: Record<string, unknown>[] = [];
+    const out = await writeTolerating(
+      { discount: 4, is_preorder: false },
+      async (extra) => {
+        calls.push({ ...extra });
+        if ("discount" in extra) return { error: missing("discount") };
+        if ("is_preorder" in extra) return { error: missing("is_preorder") };
+        return { error: null };
+      });
+    expect(out.error).toBeNull();
+    expect(out.degraded).toBe(true);
+    expect(calls).toEqual([
+      { discount: 4, is_preorder: false },
+      { is_preorder: false },
+      {},
+    ]);
+  });
+
+  it("stops rather than looping when the error names nothing it holds", async () => {
+    let n = 0;
+    const out = await writeTolerating({ discount: 4 }, async () => {
+      n++;
+      return { error: missing("something_else") };
+    });
+    // One attempt only: dropping `discount` would not address that error.
+    expect(n).toBe(1);
+    expect(out.degraded).toBe(false);
+  });
+
+  it("hands the caller a fresh object each attempt", async () => {
+    /* The caller spreads this into a query. Mutating one object across
+       retries would hand it the same reference twice, so whatever it kept
+       would describe the last attempt rather than the one it made. */
+    const seen: Record<string, unknown>[] = [];
+    await writeTolerating({ discount: 4 }, async (extra) => {
+      seen.push(extra);
+      return { error: seen.length === 1 ? missing("discount") : null };
+    });
+    expect(seen[0]).not.toBe(seen[1]);
+    expect(seen[0]).toEqual({ discount: 4 });
+    expect(seen[1]).toEqual({});
+  });
+});

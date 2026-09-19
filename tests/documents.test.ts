@@ -154,7 +154,15 @@ describe("the discount reaches the invoice, not just the checkout", () => {
        their own purchase. */
     const orders = code("src/lib/actions/orders.ts");
     expect(orders).toMatch(/const discount = Math\.round\(itemsWithSeller\.reduce/);
-    expect(orders).toMatch(/^\s*discount,$/m);
+    /* It reaches the INSERT, wherever in the call it is named.
+       This used to require `discount,` on a line of its own in the
+       always-written object -- which pinned the very arrangement that
+       broke checkout on any shop without supabase/order-discount.sql:
+       Postgres fails the whole statement over one unknown column, and
+       nothing was dropping this one. It belongs in writeTolerating's
+       optional set now, and the test asks that it is written at all
+       rather than exactly where. See tests/migrationWindow.test.ts. */
+    expect(orders).toMatch(/writeTolerating<Order>\([\s\S]{0,800}?discount/);
   });
 
   it("is computed from the product rows, never from the basket", () => {

@@ -9,6 +9,7 @@ const NO_COMMENTS = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
 const SQL = fs.readFileSync(path.join(root, "supabase/hero-video.sql"), "utf8");
 const RUN_ALL = fs.readFileSync(path.join(root, "supabase/run-all.sql"), "utf8");
 const ADMIN = fs.readFileSync(path.join(root, "src/components/admin/HeroSlidesAdmin.tsx"), "utf8");
+const ACTION = fs.readFileSync(path.join(root, "src/lib/actions/hero.ts"), "utf8");
 
 /* A HERO VIDEO WAS BEING CUT DOWN TO A STRIP.
  *
@@ -97,5 +98,44 @@ describe("the column behind the choice", () => {
   it("is in the generated run-all", () => {
     // Or the owner runs the manifest and the column never appears.
     expect(RUN_ALL).toMatch(/add column if not exists video_fit/);
+  });
+});
+
+describe("a shop that has not run the migration yet", () => {
+  /* THE BUG THIS CAUGHT, and it was in the change that added the column.
+     The admin's draft always carries a video_fit, because the radios need
+     one to show -- so Save began naming that column in every UPDATE.
+     Postgres fails the WHOLE statement when one column is unknown:
+
+       ERROR: column "video_fit" of relation "hero_slides" does not exist
+
+     which broke Save for EVERY slide, photo slides included, on every
+     shop that had this code and had not run supabase/run-all.sql yet.
+     Reproduced against a real database at both states: `UPDATE 1` with
+     the column, that error without it. */
+
+  it("saves everything else rather than failing the whole update", () => {
+    // Same treatment products.ts gives `audience`.
+    expect(ACTION).toMatch(/writeTolerating\(/);
+    expect(ACTION).toMatch(/import \{ writeTolerating \}/);
+    // The optional field is separated from the ones that always exist.
+    expect(ACTION).toMatch(/const \{ video_fit, \.\.\.always \} = fields/);
+    expect(ACTION).toMatch(/video_fit === undefined \? \{\} : \{ video_fit \}/);
+  });
+
+  it("does not name the column among the ones it always writes", () => {
+    /* The point of splitting it out. If video_fit stayed in the object
+       passed straight to .update(), the retry would name it too and the
+       tolerance would be decorative. */
+    const call = /writeTolerating\(([\s\S]*?)\n  \);/.exec(ACTION);
+    expect(call, "the tolerant write").not.toBeNull();
+    expect(call![1]).toMatch(/\{ \.\.\.always, \.\.\.extra \}/);
+  });
+
+  it("does not offer a choice it cannot keep", () => {
+    /* A control that takes a choice, says "saved" and changes nothing is
+       worse than one that is not there. s.video_fit is undefined exactly
+       when the row came back without the column. */
+    expect(ADMIN).toMatch(/\{s\.video_fit !== undefined && \(/);
   });
 });

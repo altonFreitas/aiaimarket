@@ -48,11 +48,25 @@ export function isMissingColumnError(err: unknown, column?: string): boolean {
   return true;
 }
 
-/** Runs a write, and runs it again without the optional fields if the
- * database turns out not to have them yet.
+/** Runs a write, and runs it again without whichever optional fields the
+ * database turns out not to have yet.
  *
- * The retry is once and only for this. A second failure is returned as it
- * is, because whatever is wrong the second time is not a missing column.
+ * DROPS ONLY WHAT THE DATABASE NAMED. This used to drop every optional
+ * field the moment any one of them was missing, which quietly traded away
+ * more than it had to: an order carrying both `discount` and
+ * `idempotency_key` on a shop that had run order-idempotency.sql but not
+ * order-discount.sql would have lost its duplicate-order protection to
+ * make room for a saving nobody asked about. Postgres names the offending
+ * column in the error; that is the one that goes.
+ *
+ * ONE PASS PER MISSING FIELD, because Postgres reports one unknown column
+ * at a time: a write carrying two fields the database lacks needs to be
+ * told twice. Bounded by the number of optional fields -- every pass must
+ * remove one, or the loop stops -- so a persistent error still ends after
+ * a single retry, as it always did.
+ *
+ * Anything that is not a missing column is returned as it is, because
+ * whatever is wrong is real and the save should fail loudly.
  */
 export async function writeTolerating<T>(
   optional: Record<string, unknown>,
@@ -60,18 +74,27 @@ export async function writeTolerating<T>(
   // Supabase returns: null alongside an error, the row alongside none.
   run: (extra: Record<string, unknown>) => PromiseLike<{ error: unknown; data?: T | null }>
 ): Promise<{ error: unknown; data?: T | null; degraded: boolean }> {
-  const first = await run(optional);
-  if (!first.error) return { ...first, degraded: false };
+  // A FRESH OBJECT EVERY PASS. The caller is handed this to spread into a
+  // query; mutating one object across retries would hand it the same
+  // reference twice and leave whatever it kept looking like the last
+  // attempt rather than the one it made.
+  let extra: Record<string, unknown> = { ...optional };
+  let attempt = await run({ ...extra });
+  let dropped = false;
 
-  const names = Object.keys(optional);
-  const missing = names.some((n) => isMissingColumnError(first.error, n));
-  if (!missing) return { ...first, degraded: false };
+  for (let pass = 0; pass < Object.keys(optional).length && attempt.error; pass++) {
+    const gone = Object.keys(extra).find((n) => isMissingColumnError(attempt.error, n));
+    if (!gone) break;
+    // Everything the shop actually typed still saves; the one field the
+    // database cannot hold yet is dropped, and starts being kept the
+    // moment the migration runs.
+    const { [gone]: _absent, ...rest } = extra;
+    extra = rest;
+    dropped = true;
+    attempt = await run({ ...extra });
+  }
 
-  // Without them. Everything the shop actually typed still saves; the one
-  // field the database cannot hold yet is dropped, and starts being kept
-  // the moment the migration runs.
-  const second = await run({});
-  return { ...second, degraded: !second.error };
+  return { ...attempt, degraded: dropped && !attempt.error };
 }
 
 /** The reading half of the same problem.

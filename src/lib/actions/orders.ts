@@ -466,8 +466,26 @@ export async function placeOrder(input: PlaceOrderInput) {
      quietly keeps tax on goods the shop no longer sold. */
   const itemsWithTax = itemsWithSeller.map((i, n) => ({ ...i, tax: lineTax[n] ?? 0 }));
 
+  /* BOTH OPTIONAL COLUMNS GO IN THE TOLERATED SET, and this is not a
+     tidy-up: `discount` was listed among the columns that always exist,
+     with a comment saying writeTolerating would drop it. It could not --
+     the helper only ever retries without the fields it was HANDED, and it
+     was handed idempotency_key alone. So on a shop running this code
+     against a database that had not yet had supabase/order-discount.sql
+     applied, Postgres failed the whole INSERT with `column "discount" of
+     relation "orders" does not exist`, the retry named it again and failed
+     identically, and NO ORDER COULD BE PLACED AT ALL. Reproduced against a
+     real database with the column absent.
+
+     Listing both is safe now that the helper drops only the column the
+     database actually named: a shop missing `discount` keeps its
+     duplicate-order protection instead of losing it to make room for a
+     saving nobody asked about. */
   const { data, error } = await writeTolerating<Order>(
-    { idempotency_key: idemKey },
+    // is_preorder comes from supabase/preorders.sql, the same way, and was
+    // written among the always-there columns -- so it failed the insert on
+    // its own on a shop without that file, even once discount was fixed.
+    { idempotency_key: idemKey, discount, is_preorder: isPreorder },
     (extra) => sb
     .from("orders")
     .insert({
@@ -479,12 +497,8 @@ export async function placeOrder(input: PlaceOrderInput) {
          own lines disagreed, and anything totting up what the shop owes off
          orders.tax would have read zero. */
       ...money.orderColumns(taxed.tax || taxed.includedTax),
-      // Dropped by writeTolerating on a database that has not run
-      // supabase/order-discount.sql, where an order simply records no saving.
-      discount,
       ref,
       lang,
-      is_preorder: isPreorder,
       // Normalised here as well as in the form. The form is the only
       // place a person types this, but it is not the only place the
       // request can come from -- and the sales screens' promise that one
