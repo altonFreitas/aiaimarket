@@ -68,6 +68,11 @@ export default function ProductCard(
   return (
     <Link className={"card" + (p.stock_status === "out" ? " is-out" : "")} href={`/p/${p.slug}`}>
       <div className="ph">
+        {/* BOTH CORNERS ON ONE ROW, so they cannot collide. See
+            .card-badges: laying them out as a flex row is what makes
+            "IN STOCK" and "BEST SELLER" measure each other instead of
+            each pinning itself to an edge and hoping. */}
+        <div className="card-badges">
         <div className="card-tags">
           <span className={"badge " + cls}>{t(key, lang)}</span>
           <button type="button" className={"card-love" + (loved ? " is-on" : "")}
@@ -106,6 +111,7 @@ export default function ProductCard(
             {pct != null && <span className="card-deal">-{pct}%</span>}
           </div>
         )}
+        </div>
         {/* next/image, not <img>: on a 360px phone this serves a 360px AVIF
             instead of the full 1200px WebP the seller uploaded -- typically
             an 80-90% saving on the single heaviest asset in the catalog

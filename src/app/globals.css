@@ -406,7 +406,23 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    IN STOCK" depends on how wide IN STOCK is in the language being read --
    Tetun, Portuguese and English all differ. A flex row measures that for
    free, and the two never overlap. */
-.card-tags{position:absolute;top:8px;left:8px;z-index:2;display:flex;align-items:center;gap:2px}
+/* ONE ROW ACROSS THE TOP OF THE PHOTO, not two corners that each pin
+   themselves to an edge. Both halves used to be absolutely positioned --
+   the stock badge at left:8px, the flags at right:8px -- so neither could
+   see the other, and on the narrowest card in the app they overlapped:
+   at 768px the homepage rail packs four cards into 174px each, and an
+   80px "BEST SELLER" ran 17px into "IN STOCK".
+
+   This is the same fix, one level up, that .card-tags already applies to
+   the badge and the heart inside it: a flex row measures its children for
+   free. space-between holds the two ends apart, and flex-wrap is the
+   safety net -- when a card is too narrow for both, the flags drop to a
+   second line instead of being drawn on top of the badge. Which is what
+   makes it hold in Tetun and Portuguese too, where every one of these
+   words is a different length. */
+.card-badges{position:absolute;top:8px;left:8px;right:8px;z-index:2;
+  display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:6px}
+.card-tags{display:flex;align-items:center;gap:2px}
 .badge{position:absolute;top:8px;left:8px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
   padding:3px 6px;border-radius:4px;font-weight:700}
 .card-tags .badge{position:static;top:auto;left:auto}
@@ -1655,13 +1671,32 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    under the photo. align-items:flex-end keeps the pills flush to the
    right edge whatever their width -- "MAIS VENDIDO" is half again as
    wide as "-40%". */
-.card-flags{position:absolute;top:8px;right:8px;z-index:2;
-  display:flex;flex-direction:column;align-items:flex-end;gap:4px}
-.card-flag,.card-deal{background:var(--amber);color:var(--amber-ink);
-  border-radius:4px;white-space:nowrap}
-.card-flag{font-family:var(--mono);font-size:9.5px;font-weight:700;
+.card-flags{display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+  margin-left:auto}
+.card-flag,.card-deal{border-radius:4px;white-space:nowrap}
+.card-flag{background:var(--amber);color:var(--amber-ink);
+  font-family:var(--mono);font-size:9.5px;font-weight:700;
   letter-spacing:.05em;padding:3px 6px}
-.card-deal{font-weight:800;font-size:11px;padding:2px 7px;letter-spacing:.01em}
+/* THE DISCOUNT SHOUTS. In amber at 11px it was the quietest thing on the
+   card -- the same colour as the best-seller flag above it and smaller
+   than the product name, so the one fact that makes somebody stop
+   scrolling was the one they had to hunt for. Red, and big enough to read
+   across the room.
+
+   WHITE ON --red IS 5.60:1, past the 4.5:1 this needs even at the smaller
+   size, so the loudest pill on the page is also the most legible. Red is
+   the shop's existing sale colour -- the struck-through price below uses
+   it too, so the badge and the price agree rather than introducing a
+   third meaning for a new colour.
+
+   THE SIZE IS BOUNDED BY THE CARD, not by how loud it could be. This pill
+   and the stock badge in the opposite corner share one line across the
+   top of the photo; at 17px it measures 58x30 and still leaves 27px of
+   clear air between them on a 390px phone, which is the tightest case in
+   the app. Anything much larger and the two corners meet. */
+.card-deal{background:var(--red);color:#fff;font-weight:800;font-size:17px;
+  padding:4px 10px;letter-spacing:-.01em;line-height:1.2;
+  box-shadow:0 1px 4px rgba(0,0,0,.28)}
 
 /* ---------- category rail: heading + hover mega panel ---------- */
 /* These are outside the desktop media query because they only ever render
