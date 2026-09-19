@@ -1,14 +1,14 @@
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getSettings } from "@/lib/data/public";
 import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import {
-  LEGAL_DOCS, pick, fillLegal, hasPlaceholders, legalVars, type LegalSlug,
+  LEGAL_DOCS, LEGAL_MOVED, pick, fillLegal, hasPlaceholders, legalVars, type LegalSlug,
 } from "@/lib/legal";
 
-const SLUGS: LegalSlug[] = ["terms", "privacy", "returns"];
+const SLUGS: LegalSlug[] = ["terms", "returns"];
 
 export function generateStaticParams() {
   return SLUGS.map((slug) => ({ slug }));
@@ -18,6 +18,7 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug } = await params;
+  if (LEGAL_MOVED[slug]) return {};
   const doc = LEGAL_DOCS[slug as LegalSlug];
   if (!doc) return {};
   const lang = await getLang();
@@ -39,6 +40,12 @@ export default async function LegalPage(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  /* /legal/privacy is part of /legal/terms now, and lands on its own
+     heading there. Permanent rather than temporary: the old URL is not
+     coming back, and a 308 is what tells a crawler to move the ranking
+     across instead of indexing two addresses for one document. */
+  const moved = LEGAL_MOVED[slug];
+  if (moved) permanentRedirect(moved);
   const doc = LEGAL_DOCS[slug as LegalSlug];
   if (!doc) notFound();
 
@@ -59,7 +66,9 @@ export default async function LegalPage(
       )}
 
       {doc.sections.map((sec, i) => (
-        <section key={i}>
+        // The id is what /legal/privacy redirects onto; scroll-margin-top
+        // in globals.css keeps the heading clear of the sticky header.
+        <section key={i} id={sec.id}>
           <h2>{fill(sec.heading)}</h2>
           {sec.body.map((p, j) => <p key={j}>{fill(p)}</p>)}
         </section>

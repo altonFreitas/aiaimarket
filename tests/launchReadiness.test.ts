@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { openChecks, siteUrlOk, unfinishedLegal } from "@/lib/launchReadiness";
 import {
-  LEGAL_DOCS, fillLegal, hasPlaceholders, legalVars, pick,
+  LEGAL_DOCS, LEGAL_MOVED, fillLegal, hasPlaceholders, legalVars, pick,
   type LegalSlug, type LegalVars,
 } from "@/lib/legal";
 
@@ -122,8 +122,10 @@ describe("what the checks are actually about", () => {
   });
 
   it("calls every policy unfinished until the shop fills its facts in", () => {
-    // The state every shop is in on day one.
-    expect(unfinishedLegal(BLANK).sort()).toEqual(["privacy", "returns", "terms"]);
+    /* The state every shop is in on day one. Two pages, not three: the
+       privacy text is the second half of the terms page now, so its
+       unfilled markers are reported against "terms". */
+    expect(unfinishedLegal(BLANK).sort()).toEqual(["returns", "terms"]);
   });
 
   it("calls them finished once it has", () => {
@@ -171,5 +173,55 @@ describe("what the checks are actually about", () => {
     for (const word of ["MPGS_", "PAYMENT_METHODS", "SCHEMA_FEATURES", "schema_inventory"]) {
       expect([word, code.includes(word)]).toEqual([word, false]);
     }
+  });
+});
+
+describe("terms and privacy, joined", () => {
+  /* THE RISK OF MERGING TWO DOCUMENTS BY CONCATENATION is that the join is
+     silent: drop a spread and the page still renders, still passes a type
+     check, and is simply missing the half nobody looked at. A shop
+     publishing terms where its privacy policy used to be is a legal
+     problem, not a layout one, so the seam is checked rather than trusted. */
+
+  it("still publishes the privacy text, inside the terms page", () => {
+    const terms = LEGAL_DOCS.terms;
+    const headings = terms.sections.map((s) => s.heading[2]);
+    // From the terms half...
+    expect(headings).toContain("Who we are");
+    // ...and from the privacy half, which used to be its own page.
+    expect(headings).toContain("What we keep");
+  });
+
+  it("gives the privacy half an anchor to be linked to", () => {
+    /* /legal/privacy is on receipts, in the cookie banner and in whatever
+       a payment provider filed. It redirects here, and has to land on the
+       privacy heading rather than the top of a long page. */
+    const anchored = LEGAL_DOCS.terms.sections.filter((s) => s.id);
+    expect(anchored).toHaveLength(1);
+    expect(anchored[0].id).toBe("privacy");
+    expect(LEGAL_MOVED.privacy).toBe("/legal/terms#privacy");
+  });
+
+  it("keeps the old URL resolving rather than 404ing", () => {
+    // A slug that is no longer a document must still be a route, or every
+    // link ever printed to it breaks.
+    expect(Object.keys(LEGAL_DOCS)).not.toContain("privacy");
+    expect(LEGAL_MOVED.privacy).toBeTruthy();
+    expect(LEGAL_MOVED.privacy.startsWith("/legal/")).toBe(true);
+  });
+
+  it("reports a privacy FILL IN against the page that now carries it", () => {
+    /* The marker that only ever appears in the privacy text. If the merge
+       dropped that half, this passes vacuously -- so the heading check
+       above is what makes this one mean something. */
+    expect(hasPlaceholders(LEGAL_DOCS.terms, BLANK)).toBe(true);
+    expect(hasPlaceholders(LEGAL_DOCS.terms, FILLED)).toBe(false);
+  });
+
+  it("does not leave the shop with a title that names only half of it", () => {
+    for (const lang of [0, 1, 2] as const) {
+      expect(LEGAL_DOCS.terms.title[lang].length).toBeGreaterThan(0);
+    }
+    expect(LEGAL_DOCS.terms.title[2].toLowerCase()).toContain("privacy");
   });
 });

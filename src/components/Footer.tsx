@@ -23,8 +23,12 @@ export default function Footer({ settings, lang }: { settings: Settings; lang: L
           these reachable from every page, and most payment providers ask
           to see them before approving a merchant account. */}
       <nav className="foot-legal">
-        <Link href="/legal/terms">{t("termsTitle", lang)}</Link>
-        <Link href="/legal/privacy">{t("privacyTitle", lang)}</Link>
+        {/* Terms and privacy are one page now, so this is one link. The
+            old /legal/privacy address still resolves -- it redirects onto
+            the privacy heading -- but pointing two footer links at the
+            same document would just make the footer look like it repeats
+            itself. */}
+        <Link href="/legal/terms">{t("termsPrivacyTitle", lang)}</Link>
         <Link href="/legal/returns">{t("returnsTitle", lang)}</Link>
       </nav>
 

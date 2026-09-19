@@ -20,11 +20,23 @@ import type { Lang } from "./types";
  * paragraph is a legal gap, and mixing them makes both harder to review.
  */
 
-export type LegalSlug = "terms" | "privacy" | "returns";
+/* TERMS AND PRIVACY ARE ONE DOCUMENT NOW. They were two pages a shopper
+   had to find separately, and they overlap so heavily -- who we are, what
+   an order commits each side to, what we do with what you typed -- that
+   reading one without the other left half a picture. The privacy text has
+   not changed a word; it is the second half of the terms page, under its
+   own heading, and /legal/privacy still resolves (see LEGAL_MOVED). */
+export type LegalSlug = "terms" | "returns";
 
 export interface LegalSection {
   heading: [tet: string, pt: string, en: string];
   body: [tet: string, pt: string, en: string][];
+  /** An anchor, for a heading something links straight to. Only the
+   * privacy half of the terms page has one -- /legal/privacy redirects to
+   * it, so every printed receipt and cookie banner that names that URL
+   * still lands on the right paragraph rather than the top of a long
+   * page. */
+  id?: string;
 }
 
 export interface LegalDoc {
@@ -160,8 +172,10 @@ const TERMS: LegalDoc = {
   ],
 };
 
-const PRIVACY: LegalDoc = {
-  slug: "privacy",
+/* NOT A PAGE OF ITS OWN ANY MORE, so it has no slug: this is the second
+   half of TERMS_AND_PRIVACY below. The text is untouched -- only where it
+   is published changed. */
+const PRIVACY: Omit<LegalDoc, "slug"> = {
   title: ["Privasidade", "Privacidade", "Privacy"],
   intro: [
     "Ne'e esplika dadus saida mak ami rai kona-ba Ita, tanba sá, no oinsá atu husu.",
@@ -259,10 +273,49 @@ const RETURNS: LegalDoc = {
   ],
 };
 
+/** Terms and privacy, joined -- the terms first, then the privacy text
+ * whole and unedited under its own heading.
+ *
+ * Built by concatenation rather than by retyping: TERMS and PRIVACY above
+ * stay the single source of each half, so a correction to a privacy
+ * paragraph is still made in one place and cannot drift from a copy. The
+ * divider carries the privacy document's own title and intro, which is
+ * what makes the seam read as a chapter rather than as a paragraph that
+ * changed subject. */
+const TERMS_AND_PRIVACY: LegalDoc = {
+  slug: "terms",
+  title: [
+    "Termu uzu no privasidade",
+    "Termos de utilização e privacidade",
+    "Terms of use and privacy",
+  ],
+  intro: [
+    "Termu sira ne'e aplika ba ema hotu ne'ebé uza website ida-ne'e no hola sasan iha ne'e. Parte segundu esplika dadus saida mak ami rai kona-ba Ita.",
+    "Estes termos aplicam-se a quem utiliza este site e faz encomendas nele. A segunda parte explica que dados guardamos sobre si.",
+    "These terms apply to anyone who uses this site and places an order on it. The second half explains what we keep about you.",
+  ],
+  sections: [
+    ...TERMS.sections,
+    // The seam. Its heading is the privacy document's own title, and its
+    // body is that document's intro, so nothing was written for the merge
+    // that was not already being shown to a shopper.
+    { heading: PRIVACY.title, body: [PRIVACY.intro], id: "privacy" },
+    ...PRIVACY.sections,
+  ],
+};
+
 export const LEGAL_DOCS: Record<LegalSlug, LegalDoc> = {
-  terms: TERMS,
-  privacy: PRIVACY,
+  terms: TERMS_AND_PRIVACY,
   returns: RETURNS,
+};
+
+/** Policy URLs that used to be a page of their own and are now part of
+ * one. They redirect rather than 404: /legal/privacy is linked from the
+ * cookie banner, is the address a shopper is given when they ask what is
+ * held about them, and is the page a payment provider looks for when
+ * approving a merchant. Losing it would break all three to save a route. */
+export const LEGAL_MOVED: Record<string, string> = {
+  privacy: "/legal/terms#privacy",
 };
 
 /** Substitutes what the shop already knows about itself, so the store name

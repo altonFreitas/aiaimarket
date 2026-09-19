@@ -106,12 +106,29 @@ describe("buildNav", () => {
     expect(nav.map((r) => r.id)).not.toContain("empty");
   });
 
-  it("previews real products, and only the few the panel has room for", () => {
-    const many = Array.from({ length: 9 }, (_, i) =>
+  it("previews real products, a row's worth plus something to scroll to", () => {
+    /* Four FIT the panel's third column; eight are sent, because that row
+       scrolls sideways. A panel that carried exactly what fit had nothing
+       past its right edge, so the gesture had nothing to find.
+
+       The cap still matters in the other direction: this is a menu, and
+       every entry in it costs a thumbnail on a connection the shop was
+       designed around. */
+    const many = Array.from({ length: 20 }, (_, i) =>
       product({ id: "m" + i, category_id: "fridges", images: ["https://x/" + i + ".webp"] }));
     const [appliances] = buildNav(CATS, many, "en");
-    expect(appliances.feature).toHaveLength(4);
+    expect(appliances.feature.length).toBeGreaterThan(4);
+    expect(appliances.feature.length).toBeLessThanOrEqual(12);
     expect(appliances.feature[0].image).toBe("https://x/0.webp");
+  });
+
+  it("does not send the whole catalogue to fill a menu", () => {
+    // The bound is what keeps a 400-product shop from putting 400
+    // thumbnails in its navigation payload.
+    const many = Array.from({ length: 400 }, (_, i) =>
+      product({ id: "m" + i, category_id: "fridges", images: ["https://x/" + i + ".webp"] }));
+    const [appliances] = buildNav(CATS, many, "en");
+    expect(appliances.feature.length).toBeLessThanOrEqual(12);
   });
 
   it("ships no data URL for a product with no photo", () => {

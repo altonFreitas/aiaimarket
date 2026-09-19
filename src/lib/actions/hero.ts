@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
+import { videoExtFor } from "@/lib/videoTypes";
 import type { HeroSlide } from "@/lib/types";
 
 /** Reuses the same public "product-images" storage bucket as product
@@ -23,13 +24,6 @@ export async function uploadHeroImage(dataUrl: string, filenameHint: string) {
   const { data } = sb.storage.from("product-images").getPublicUrl(path);
   return data.publicUrl;
 }
-
-/** Videos this hero will accept, and the extension each is stored under.
- * Two containers, both playable by every browser this shop sees. */
-const VIDEO_TYPES: Record<string, string> = {
-  "video/mp4": "mp4",
-  "video/webm": "webm",
-};
 
 /** A hard ceiling on a hero video. Not a technical limit -- a promise to
  * the visitor: this store is used on mobile data in Timor-Leste, and a
@@ -56,8 +50,8 @@ export async function createHeroVideoUpload(
   filenameHint: string, contentType: string, sizeBytes: number
 ): Promise<{ path: string; token: string; publicUrl: string }> {
   await requireAdmin();
-  const ext = VIDEO_TYPES[contentType];
-  if (!ext) throw new Error("Unsupported video format — use MP4 or WebM");
+  const ext = videoExtFor(contentType, filenameHint);
+  if (!ext) throw new Error("Unsupported video format — use MP4, WebM or MOV");
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > MAX_VIDEO_MB * 1024 * 1024) {
     throw new Error(`Video is too large (max ${MAX_VIDEO_MB} MB)`);
   }

@@ -76,7 +76,7 @@ export default function CookieNotice({ lang }: { lang: Lang }) {
     <div className="cookie-note" role="region" aria-label={t("cookieTitle", lang)}>
       <p>
         {t("cookieBody", lang)}{" "}
-        <Link href="/legal/privacy">{t("cookieMore", lang)}</Link>
+        <Link href="/legal/terms#privacy">{t("cookieMore", lang)}</Link>
       </p>
       <button type="button" className="btn btn-sm btn-amber" onClick={acknowledge}>
         {t("cookieOk", lang)}

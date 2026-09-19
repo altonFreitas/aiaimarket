@@ -1163,6 +1163,7 @@ export const STR: Record<string, [string,string,string]> = {
   /* policy pages */
   termsTitle:["Termu uzu","Termos","Terms"],
   privacyTitle:["Privasidade","Privacidade","Privacy"],
+  termsPrivacyTitle:["Termu no privasidade","Termos e privacidade","Terms & privacy"],
   returnsTitle:["Fila fali","Devoluções","Returns"],
   legalDraft:["Testu ida-ne'e sei rascunhu no presiza revizaun legál molok publika. Parte ne'ebé hakerek \"FILL IN\" seidauk prienxe.","Este texto é um rascunho e precisa de revisão jurídica antes de ser publicado. As partes marcadas \"FILL IN\" ainda não foram preenchidas.","This text is a draft and needs legal review before it is relied on. The parts marked \"FILL IN\" have not been completed."],
   legalUpdated:["Se Ita iha pergunta kona-ba testu ne'e, kontaktu ami.","Se tiver dúvidas sobre este texto, contacte-nos.","If you have any question about this, contact us."],
@@ -1579,7 +1580,7 @@ export const STR: Record<string, [string,string,string]> = {
   heroMute:["Hamate lian","Silenciar","Mute"],
   heroUnmute:["Loke lian","Ativar som","Unmute"],
   addVideoSlide:["Tau vídeo","Adicionar vídeo","Add video"],
-  heroVideoHint:["Vídeo MP4 ka WebM, to'o 25 MB. Tau mós foto poster ba ema ne'ebé internet neneik.","Vídeo MP4 ou WebM, até 25 MB. Adicione também uma imagem de poster para quem tem ligação lenta.","MP4 or WebM video, up to 25 MB. Add a poster image too, for visitors on a slow connection."],
+  heroVideoHint:["Vídeo MP4, WebM ka MOV (iPhone), to'o 25 MB. Tau mós foto poster ba ema ne'ebé internet neneik. Hafoin hasa'e, haree slide ne'e: vídeo iPhone balun (HEVC) la toka iha Chrome — iha telefone, hili \u201cMost Compatible\u201d.","Vídeo MP4, WebM ou MOV (iPhone), até 25 MB. Adicione também uma imagem de poster para quem tem ligação lenta. Depois de carregar, verifique o slide: alguns vídeos de iPhone (HEVC) não tocam no Chrome — no telefone, escolha \u201cMais Compatível\u201d.","MP4, WebM or MOV (iPhone) video, up to 25 MB. Add a poster image too, for visitors on a slow connection. Check the slide after uploading: some iPhone videos (HEVC) will not play in Chrome — on the phone, choose \u201cMost Compatible\u201d."],
   slideKindVideo:["Vídeo","Vídeo","Video"],
   slideKindPhoto:["Foto","Foto","Photo"],
   slideAddPoster:["Tau poster","Adicionar poster","Add poster"],

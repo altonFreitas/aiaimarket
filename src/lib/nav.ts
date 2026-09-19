@@ -59,9 +59,15 @@ export function isNavFree(pathname: string): boolean {
   return NAV_FREE_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-/** Products previewed inside one open panel. Four is what fits the panel's
- * third column at every desktop width without wrapping to a second row. */
-const FEATURE_COUNT = 4;
+/** Products previewed inside one open panel.
+ *
+ * Four are VISIBLE -- that is what the column fits at every desktop width
+ * -- and eight are loaded, because the row scrolls sideways. A panel that
+ * showed exactly what fit had nothing to scroll and no reason to hint that
+ * there was more; eight makes the gesture worth making and still costs one
+ * small image each. Raising this further starts paying for pictures most
+ * people will never scroll to. */
+const FEATURE_COUNT = 8;
 
 /** How many plain category entries may sit in the bar beside Women/Men.
  * A navigation bar that scrolls sideways is not a navigation bar; the rest

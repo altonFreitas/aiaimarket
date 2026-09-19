@@ -111,7 +111,10 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
         </label>
         <label className="btn btn-sm" style={{ display: "inline-flex", cursor: busy ? "not-allowed" : "pointer" }}>
           {t("addVideoSlide", lang)}
-          <input type="file" accept="video/mp4,video/webm" hidden disabled={busy}
+          {/* .mov as well as the type: Safari reports video/quicktime, but
+              some browsers hand over an empty type for the same file and
+              would then grey it out in the picker. */}
+          <input type="file" accept="video/mp4,video/webm,video/quicktime,.mov" hidden disabled={busy}
             onChange={(e) => onUploadVideo(e.target.files)} />
         </label>
         <p className="hint" style={{ margin: 0, flexBasis: "100%" }}>{t("heroVideoHint", lang)}</p>

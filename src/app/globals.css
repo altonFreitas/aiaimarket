@@ -30,6 +30,15 @@
   --paper:#eceff3; --card:#fff; --line:#d7dbe3; --line-2:#e8ebf0;
   --muted:#4b5463; --muted-2:#5d687a;
   --amber:#f2b705; --amber-soft:#fff3cf; --amber-ink:#654900;
+  /* THE SECONDARY BUTTON'S SURFACE. "Add to cart" and "Share" were
+     transparent with a hairline round them, which on a white panel read as
+     a disabled control or as nothing at all -- an outline waiting to be
+     filled in. These two give it a body and a visible answer to the
+     pointer. Both are light enough for --ink to sit on at 11.5:1 and
+     9.7:1, and dark enough to be seen against the panel (1.35 and 1.61
+     against white) AND against the paper the page is made of (1.17 and
+     1.40), which --line-2 at 1.04 against paper was not. */
+  --surface-2:#d9dee7; --surface-2-hi:#c5ccd9;
   --green:#0d7449; --green-soft:#dff2e8;
   --red:#bb3a2a; --red-soft:#fbe4e0;
   --wa:#198845; --wa-dark:#126334;
@@ -60,8 +69,14 @@
      make the weave more present, drop it toward 0 to fade it out entirely.
      Below ~.06 it is invisible on most screens; past ~.16 it starts
      competing with the product photography, which is the thing people
-     actually came to look at. */
-  --tais-opacity:.12;
+     actually came to look at.
+
+     Taken down from .12: the weave was still legible as a pattern in the
+     gutters beside the catalogue, which is one graphic too many next to a
+     wall of product photos. At .07 it reads as a tint in the margins and
+     as nothing at all behind content -- present, not noticed, which is
+     what a ground is for. */
+  --tais-opacity:.07;
 
   /* =====================================================================
      THE SCALES
@@ -594,13 +609,26 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 .btn-wa{background:var(--wa);border-color:var(--wa);font-size:15px}
 .btn-wa:hover{background:var(--wa-dark);border-color:var(--wa-dark)}
-.btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
-.btn-ghost:hover{background:var(--line-2)}
+/* NOT A GHOST ANY MORE, whatever the class is still called. A transparent
+   button with a hairline round it reads as disabled, or as a field waiting
+   for input -- and on the paper the page is made of it barely read as
+   anything. It is the SECOND button on most screens here ("Add to cart"
+   beside "Order via WhatsApp", "Share" beside the quantity, "Back" beside
+   "Save"), so it should look like a button that is second, not like one
+   that is off. The hover darkens the surface and the edge together, so the
+   answer to the pointer survives on either ground. */
+.btn-ghost{background:var(--surface-2);color:var(--ink);border-color:var(--line)}
+.btn-ghost:hover{background:var(--surface-2-hi);border-color:var(--muted-2)}
 .btn-amber{background:var(--amber);border-color:var(--amber);color:#3a2b00}
 .btn-amber:hover{background:#dda803;border-color:#dda803}
 .btn-sm{height:32px;padding:0 10px;font-size:13px;border-radius:var(--r-s)}
-.btn-danger{background:transparent;color:var(--red);border-color:var(--red)}
-.btn-danger:hover{background:var(--red-soft)}
+/* The destructive one, filled for the same reason -- and it commits on
+   hover rather than merely tinting: white on --red is 5.60:1, where
+   darkening the soft tint any further would have taken the red text on it
+   below 4.5:1. A button that turns solid red under the pointer is also
+   saying something true about what it does. */
+.btn-danger{background:var(--red-soft);color:var(--red);border-color:var(--red)}
+.btn-danger:hover{background:var(--red);border-color:var(--red);color:#fff}
 .btn-row{display:flex;flex-direction:column;gap:8px;margin:12px 0}
 .btn-row .btn{width:100%}
 .qty{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:var(--r-s);height:44px;background:var(--card)}
@@ -870,8 +898,11 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .home .hero-sub{color:rgba(255,255,255,.75);font-size:14px;margin:0 0 16px;max-width:46ch}
 .home .hero-cta{display:flex;flex-direction:column;gap:8px}
 .home .hero-cta .btn{width:100%}
-.home .hero-cta .btn-ghost{color:#fff;border-color:rgba(255,255,255,.5)}
-.home .hero-cta .btn-ghost:hover{background:rgba(255,255,255,.1)}
+/* The hero's second button stands on a dark panel, so it takes the same
+   treatment in reverse: a translucent white body rather than the light one
+   above, which would put white text on a pale grey. */
+.home .hero-cta .btn-ghost{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.5)}
+.home .hero-cta .btn-ghost:hover{background:rgba(255,255,255,.26);border-color:#fff}
 .home .hero-art{max-width:220px;margin:0 auto}
 
 /* photo carousel hero (populated via /admin/hero) */
@@ -913,8 +944,21 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .hero-slide-acts{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
 
 .home-section{margin:30px 0}
-.home-section-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px}
-.home-section-hd h2{font-size:19px;margin:0 0 2px;letter-spacing:-.01em;color:var(--ink)}
+/* THE ROW HEADINGS, A THIRD BIGGER. At 19px "New Arrivals" was barely
+   louder than the product names under it, so a page of six rows read as
+   one undifferentiated column of cards. 25px is the 30% asked for, and
+   lands between --fs-h2 and --fs-h1 on the scale.
+
+   THE CARDS DO NOT MOVE, which was the condition attached to the ask. The
+   taller line box grows the heading block by 3px, so the gap under it
+   gives 3px back: 12px becomes 9px. Not 6px -- that overshot and pulled
+   the cards 4px UP, which is the same broken promise in the other
+   direction. Measured against the previous stylesheet on the same page,
+   the first card's top moved by (390px) -1, (768px) 0, (1440px) -1 --
+   sub-pixel line-box rounding, and as close to nothing as this gets. */
+.home-section-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:9px}
+.home-section-hd h2{font-size:25px;line-height:var(--lh-tight);margin:0 0 2px;
+  letter-spacing:-.02em;color:var(--ink)}
 .home-section-sub{color:var(--muted);font-size:13px;margin:0}
 .home-section-more{display:none;font-size:13px;font-weight:600;color:var(--ink-3);text-decoration:none;white-space:nowrap}
 .home-section-more-mobile{display:flex;margin-top:12px}
@@ -2141,6 +2185,11 @@ span.stock-btn:hover{filter:none}
    loses its place returning to the next one. */
 .legal{max-width:44rem}
 .legal h2{font-size:var(--fs-body-lg);margin:var(--sp-5) 0 var(--sp-2)}
+/* /legal/privacy redirects onto a heading partway down this page, and the
+   header is sticky -- without this the browser scrolls the heading to y=0,
+   which is underneath it. The offset is the pinned chrome plus a little
+   air, so the heading you were sent to is the first thing you read. */
+.legal section[id]{scroll-margin-top:calc(var(--nav-h) + 96px)}
 .legal p{line-height:1.65;margin:0 0 var(--sp-3);color:var(--ink)}
 .legal .sub{margin-bottom:var(--sp-4)}
 .foot-legal{display:flex;flex-wrap:wrap;gap:var(--sp-4);justify-content:center;margin-top:var(--sp-2)}
@@ -2255,7 +2304,34 @@ span.stock-btn:hover{filter:none}
     gap:var(--sp-6);padding:var(--sp-5) var(--sp-3) var(--sp-6)}
   .mega-col-kids{display:block}
   .mega-kids-inline{display:none}
-  .mega-col-feature{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3)}
+
+  /* THE TWO LISTS IN THIS PANEL EACH SCROLL THEMSELVES.
+     Before, only the panel did: a shop with twenty categories scrolled the
+     whole thing, so reaching the twentieth category pushed the products
+     that are the reason for the panel off the top. Giving each column its
+     own bound keeps the other one where it was. The panel's own
+     max-height stays as the outer limit. */
+  .mega-groups,.mega-kids{max-height:min(52vh,420px);overflow-y:auto;
+    overscroll-behavior:contain;scrollbar-width:thin}
+
+  /* The products, as a row that scrolls sideways. Four fit, eight are
+     loaded (FEATURE_COUNT in lib/nav.ts), so there is always something
+     past the right edge to swipe or wheel to on a catalogue big enough to
+     have it. grid-auto-columns is a quarter of the track minus the gaps,
+     which is exactly what repeat(4,1fr) gave before -- the four you see
+     are the same size they have always been.
+
+     padding-bottom is for the scrollbar: overflow-x on a box makes the
+     other axis scrollable too, and without the room a horizontal bar
+     draws over the bottom of the price line. */
+  /* NOT minmax(0, ...): a track whose minimum is 0 is allowed to shrink,
+     so all eight squeezed themselves into the width of four and the row
+     had nothing to scroll. A bare width is a real width. */
+  .mega-col-feature{display:grid;grid-auto-flow:column;
+    grid-auto-columns:calc((100% - 3 * var(--sp-3)) / 4);
+    gap:var(--sp-3);overflow-x:auto;overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity;padding-bottom:var(--sp-2);scrollbar-width:thin}
+  .mega-col-feature>*{scroll-snap-align:start}
 }
 
 /* ---------- homepage rails, audience tiles ---------- */
