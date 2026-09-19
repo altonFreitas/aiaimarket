@@ -2084,6 +2084,82 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .attn-foot{margin:0 0 var(--sp-4)}
 .attn-links{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 
+/* =====================================================================
+   THE ADMIN FRONT PAGE
+   =====================================================================
+   One screen, no scrolling to reach the second thing on it. See
+   components/admin/AdminHome.tsx for what is on it and why, and
+   lib/adminHomeKpis.ts for why those four figures. */
+
+/* The four figures: money in, money parked, money out, money kept. One
+   row on a desktop, two on a tablet, one column on a phone -- auto-fit
+   rather than a fixed count, because an account that holds only two of
+   the four sections gets two tiles and they should fill the row rather
+   than huddle at the left. */
+/* 160px, not 178: at 178 a 390px phone fits exactly one tile per row and
+   the four figures alone are most of the screen. 160 fits two, which
+   halves that block, and still gives four across from 748px up. */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:var(--sp-3);margin:0 0 var(--sp-3)}
+.kpi{display:flex;flex-direction:column;gap:2px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3);
+  text-decoration:none;color:inherit}
+.kpi:hover{border-color:var(--ink-3);background:var(--line-2)}
+/* The label first and small, the figure second and large. A dashboard
+   that puts the number first makes you read every number to find the one
+   you wanted; the label is what you scan by. */
+.kpi-label{font-size:var(--fs-caption);letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);font-family:var(--mono)}
+.kpi-value{font-size:var(--fs-h1);line-height:1.1;letter-spacing:-.03em;font-weight:700}
+.kpi-note{font-size:var(--fs-sm);font-family:var(--mono)}
+/* Green and red only where up and down actually mean better and worse.
+   Spending more is not bad on its own, so purchases stay neutral -- see
+   buildKpis, which decides this rather than the stylesheet. */
+.kpi-good{color:var(--green)}
+.kpi-bad{color:var(--red)}
+.kpi-flat{color:var(--muted)}
+
+/* The to-do list, as rows rather than as posters. Each was a card the
+   height of a paragraph, which put everything after it below the fold. */
+.home-head{align-items:flex-start;gap:var(--sp-3)}
+.home-loves{display:flex;flex-direction:column;align-items:flex-end;gap:0;
+  text-decoration:none;color:inherit;flex:0 0 auto}
+.home-loves b{font-family:var(--mono);font-size:var(--fs-h3);line-height:1.1}
+.home-loves span{font-size:var(--fs-caption);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);font-family:var(--mono)}
+.home-loves em{font-style:normal;font-size:var(--fs-sm);color:var(--ink-3);
+  max-width:20ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-loves:hover b{text-decoration:underline}
+
+.home-attn{margin-bottom:var(--sp-3)}
+.home-clear{margin:0}
+.attn-list{list-style:none;margin:0;padding:0}
+.attn-list li + li{border-top:1px solid var(--line-2)}
+/* A grid, not a flex row: the counts line up in their own column however
+   wide they get, so 3 and 147 do not push their labels out of step. */
+.attn-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;column-gap:var(--sp-3);padding:var(--sp-2) var(--sp-1);
+  text-decoration:none;color:inherit;border-left:3px solid transparent}
+/* THE SEVERITY STRIPE, RESTATED FOR THE ROW. .attn-urgent and friends set
+   border-left-color further up, for the cards these rows replaced -- and
+   the shorthand above, being later in the file at equal specificity, was
+   overriding all three back to transparent. Every row was drawing a 3px
+   stripe in no colour at all, which a browser reports as
+   rgba(0, 0, 0, 0) and an eye reports as "there is no stripe". */
+.attn-row.attn-urgent{border-left-color:var(--red)}
+.attn-row.attn-warn{border-left-color:var(--amber)}
+.attn-row.attn-info{border-left-color:var(--line)}
+.attn-row:hover{background:var(--line-2)}
+.attn-row .attn-n{font-size:var(--fs-h3);min-width:2ch;text-align:right}
+.attn-row .attn-label{margin:0;grid-column:2}
+.attn-row .attn-hint{grid-column:2;grid-row:2}
+.attn-row .attn-go{color:var(--muted);font-size:var(--fs-h4);line-height:1}
+.attn-row .attn-n{grid-row:span 2}
+
+.home-goto{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+  margin:0 0 var(--sp-4)}
+.home-goto .hint{margin:0}
+
 /* The quantity box on a return line. Narrow on purpose: it takes a number
    of shoes, not a price, and a full-width input invites a typo. */
 .qty-in{width:72px;text-align:right;font-family:var(--mono)}

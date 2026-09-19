@@ -1,32 +1,60 @@
 import Link from "next/link";
 import BusinessOverview from "./BusinessOverview";
+import { buildKpis, type KpiInput } from "@/lib/adminHomeKpis";
 import { t } from "@/lib/i18n";
 import type { PackedSalesLines } from "@/lib/salesWire";
 import type { AttentionItem } from "@/lib/attention";
 import type { Lang, PurchaseOrder } from "@/lib/types";
 
-/* Two things, in this order: what needs doing today, then how the business
- * is doing.
+/* THE FRONT PAGE, IN ONE SCREEN.
  *
- * THE TO-DO LIST STAYS FIRST, AND STAYS A TO-DO LIST. It is the only thing
- * on this page that is actionable this morning, and a trend chart above it
- * would push the work below the fold to make room for a number nobody can
- * act on. Every card is still a count of things waiting and a way to get to
- * them, and it still repeats nothing: takings and margin are not on it.
+ * WHAT IT WAS. A title, two big to-do cards, a row of link buttons, a
+ * "customer loves" panel, then six statistics and two charts. Everything
+ * on it came from Sales and Procurement; Catalog and the books were not
+ * represented at all, and reaching the second figure meant scrolling past
+ * the first. A front page that has to be scrolled is not a front page --
+ * it is the top of a report.
  *
- * THE OVERVIEW BELOW IT IS NOT A SECOND DASHBOARD EITHER. It computes one
- * thing the other screens cannot -- sales measured against purchases on one
- * timeline -- and links out for every breakdown rather than redrawing it.
- * Two screens saying the same thing in different words is the problem the
- * Statistics page was deleted for, and the rule has not changed. */
+ * WHAT IT IS NOW, top to bottom, and nothing below the fold:
+ *
+ *   1. One figure from each area -- money in, money parked, money out,
+ *      money kept (see lib/adminHomeKpis.ts for why those four and why in
+ *      that order). Each tile is a link to the screen that explains it.
+ *   2. What needs doing, as a list rather than as posters. The to-do items
+ *      are the only thing here anybody can act on this morning, so they
+ *      keep their place above everything discursive -- but a count and a
+ *      sentence do not need a card the size of a paragraph.
+ *   3. Where to go next, on one line.
+ *
+ * THE TREND STAYS, BELOW ALL OF THAT. It is the one thing this page
+ * computes that no other screen can -- sales against purchases on a single
+ * timeline -- so deleting it to save space would lose a capability rather
+ * than a decoration. It is simply no longer the thing you have to scroll
+ * past to find out how the shop is doing: the four figures above answer
+ * that, and the chart is there for whoever wants the shape of it.
+ *
+ * NOTHING HERE IS REPEATED FROM ANOTHER SCREEN. Each tile is a single
+ * number that its own dashboard breaks down in full, and every panel links
+ * out rather than redrawing. Two screens saying the same thing in
+ * different words is what the Statistics page was deleted for.
+ */
 
 const SEVERITY_CLASS: Record<AttentionItem["severity"], string> = {
   urgent: "attn-urgent", warn: "attn-warn", info: "attn-info",
 };
 
+const GO_TO: readonly { href: string; key: string }[] = [
+  { href: "/admin/sales", key: "salesDashboard" },
+  { href: "/admin/orders", key: "orders" },
+  { href: "/admin/products", key: "products" },
+  { href: "/admin/stock", key: "stockControl" },
+  { href: "/admin/procurement/reorder", key: "reorderPlan" },
+  { href: "/admin/procurement", key: "procurement" },
+];
+
 export default function AdminHome({
   lang, items, lines, purchases, today, canSales, canProcurement,
-  loves, topCustomer, topSupplier,
+  kpis, loves, topCustomer, topSupplier,
 }: {
   lang: Lang;
   items: AttentionItem[];
@@ -35,6 +63,9 @@ export default function AdminHome({
   today: string;
   canSales: boolean;
   canProcurement: boolean;
+  /** One figure per area, already withheld where the account cannot see
+   * the screen it comes from. */
+  kpis: KpiInput;
   /** Hearts tapped on the storefront. Null for an account without the
    * catalog section, and on a database that has not run
    * supabase/loves.sql the total is 0 -- see the render below for why
@@ -44,10 +75,11 @@ export default function AdminHome({
   topSupplier: { label: string; value: number } | null;
 }) {
   const urgent = items.filter((i) => i.severity === "urgent");
+  const tiles = buildKpis(kpis);
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head home-head">
         <div>
           <h1>{t("attnTitle", lang)}</h1>
           <p className="sub">
@@ -56,88 +88,79 @@ export default function AdminHome({
               : t("attnSubClear", lang)}
           </p>
         </div>
+        {/* The one thing worth knowing beside the title: hearts tapped and
+            not yet converted. Shown only once there is something to count
+            -- a shop on its first day would otherwise get a confident
+            "0 loves" meaning "nobody has tapped", "the migration has not
+            been run" and "the feature is broken" all at once, with no way
+            to read which. */}
+        {loves && loves.total > 0 && (
+          <Link className="home-loves" href="/admin/products">
+            <b>{loves.total}</b>
+            <span>{t("lovesTotal", lang)}</span>
+            {loves.top && <em title={loves.top.name}>{loves.top.name}</em>}
+          </Link>
+        )}
       </div>
 
-      {!items.length ? (
-        <div className="panel">
-          <div className="empty">
-            <p>{t("attnNothing", lang)}</p>
-            <Link className="btn btn-ghost" href="/admin/sales">{t("salesDashboard", lang)}</Link>
-          </div>
+      {tiles.length > 0 && (
+        <div className="kpi-row">
+          {tiles.map((k) => (
+            <Link key={k.key} href={k.href} className="kpi">
+              <span className="kpi-label">{t(k.labelKey, lang)}</span>
+              <b className="kpi-value">{k.value}</b>
+              <span className={"kpi-note kpi-" + k.tone}>
+                {k.note ?? t("kpiNoBasis", lang)}
+              </span>
+            </Link>
+          ))}
         </div>
-      ) : (
-        <>
-          {/* Urgent first and visually separate. A list where everything
-              looks equally important ranks nothing. */}
-          <div className="attn-grid">
-            {items.map((i) => (
-              <Link key={i.kind} href={i.href} className={"attn-card " + SEVERITY_CLASS[i.severity]}>
-                <b className="attn-n">{i.count}</b>
-                {/* The number above already says how many. Repeating it in
-                    the label duplicated it and forced a plural no single
-                    string can get right -- "1 products to approve". */}
-                <span className="attn-label">{fill(t(i.labelKey, lang), i.vars)}</span>
-                <span className="attn-hint">{fill(t(i.hintKey, lang), i.vars)}</span>
-              </Link>
-            ))}
-          </div>
+      )}
 
+      {/* WHAT NEEDS DOING, as rows. The old cards gave a count and one
+          sentence the height of a paragraph each, which put the second
+          figure on this page below the fold on a laptop. Urgent still
+          reads differently from the rest -- a list where everything looks
+          equally important ranks nothing. */}
+      <div className="panel home-attn">
+        <div className="panel-head">
+          <h3>{t("attnTodo", lang)}</h3>
           {urgent.length > 0 && (
-            <p className="hint attn-foot">
+            <span className="hint">
               {t("attnUrgentFoot", lang).replace("{n}", String(urgent.length))}
-            </p>
+            </span>
           )}
-        </>
-      )}
-
-      <div className="panel">
-        <div className="panel-head"><h3>{t("attnGoTo", lang)}</h3></div>
-        <div className="attn-links">
-          <Link className="btn btn-ghost" href="/admin/sales">{t("salesDashboard", lang)}</Link>
-          <Link className="btn btn-ghost" href="/admin/orders">{t("orders", lang)}</Link>
-          <Link className="btn btn-ghost" href="/admin/products">{t("products", lang)}</Link>
-          <Link className="btn btn-ghost" href="/admin/stock">{t("stockControl", lang)}</Link>
-          <Link className="btn btn-ghost" href="/admin/procurement/reorder">{t("reorderPlan", lang)}</Link>
-          <Link className="btn btn-ghost" href="/admin/procurement">{t("procurement", lang)}</Link>
         </div>
+        {!items.length ? (
+          <p className="sub home-clear">{t("attnNothing", lang)}</p>
+        ) : (
+          <ul className="attn-list">
+            {items.map((i) => (
+              <li key={i.kind}>
+                <Link href={i.href} className={"attn-row " + SEVERITY_CLASS[i.severity]}>
+                  <b className="attn-n">{i.count}</b>
+                  <span className="attn-label">{fill(t(i.labelKey, lang), i.vars)}</span>
+                  {/* The number above already says how many. Repeating it
+                      in the label duplicated it and forced a plural no
+                      single string can get right -- "1 products to
+                      approve". */}
+                  <span className="attn-hint">{fill(t(i.hintKey, lang), i.vars)}</span>
+                  <span className="attn-go" aria-hidden="true">›</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
-      {/* WHAT PEOPLE LIKED BUT DID NOT BUY.
-          Every other figure on this page is money that has already moved.
-          This one is the opposite: a product people keep hearting and not
-          buying is priced wrong or photographed badly, and the sales
-          figures will not say so until the season is over.
-
-          Shown only once there is something to count. A shop on its first
-          day would otherwise get a confident "0 loves" that means "nobody
-          has tapped yet", "the migration has not been run" and "the
-          feature is broken" all at once -- and there is no way to read
-          which. */}
-      {loves && loves.total > 0 && (
-        <>
-          <div className="panel-head ov-head">
-            <div>
-              <h2>{t("featLoves", lang)}</h2>
-              <p className="sub">{t("mostLovedSub", lang)}</p>
-            </div>
-          </div>
-          <div className="stat stat-fit">
-            <div>
-              <b>{loves.total}</b>
-              <span>{t("lovesTotal", lang)}</span>
-            </div>
-            <div>
-              <b title={loves.top?.name}>{loves.top ? loves.top.name : "—"}</b>
-              <span>{t("lovesTop", lang)}</span>
-              <em className="hint">
-                {loves.top
-                  ? t("lovesTopHint", lang).replace("{n}", String(loves.top.loves))
-                  : t("lovesNone", lang)}
-              </em>
-            </div>
-          </div>
-        </>
-      )}
+      <div className="home-goto">
+        <span className="hint">{t("attnGoTo", lang)}</span>
+        {GO_TO.map((g) => (
+          <Link key={g.href} className="btn btn-sm btn-ghost" href={g.href}>
+            {t(g.key, lang)}
+          </Link>
+        ))}
+      </div>
 
       {/* An account holding neither Sales nor Procurement has nothing to
           compare, and gets the to-do list alone -- exactly the screen it

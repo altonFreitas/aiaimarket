@@ -1,8 +1,12 @@
 import AdminHome from "@/components/admin/AdminHome";
-import { adminAttention, adminLoveStats } from "@/lib/data/admin";
+import { adminAttention, adminLoveStats, adminSellerLedgers } from "@/lib/data/admin";
+import { financeTables, cashSideTotals } from "@/lib/data/finance";
+import { profitAndLoss } from "@/lib/finance";
+import { headlineMetrics } from "@/lib/overview";
+import { stockOnHand, type KpiInput } from "@/lib/adminHomeKpis";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { adminProcurementData } from "@/lib/data/procurement";
-import { buildSalesLines, salesByCustomer, todayIso } from "@/lib/sales";
+import { buildSalesLines, isLive, salesByCustomer, todayIso } from "@/lib/sales";
 import { spendBySupplier } from "@/lib/procurement";
 import { packSalesLines } from "@/lib/salesWire";
 import { getLang } from "@/lib/lang";
@@ -32,22 +36,35 @@ export default async function AdminHomePage() {
   // it belongs to whoever holds the catalog -- the same section rule every
   // other panel on this page follows.
   const canCatalog = canSee(actor, "catalog");
+  // The books sit under Settings, being more sensitive than margin -- see
+  // adminSections. Home shows one figure off them and nothing more.
+  const canFinance = canSee(actor, "settings");
 
-  const [lang, items, sales, procurement, returns, loves] = await Promise.all([
-    getLang(),
-    adminAttention(),
-    canSales ? adminSalesData() : Promise.resolve(null),
-    canProcurement ? adminProcurementData() : Promise.resolve(null),
-    canSales ? returnedUnits() : Promise.resolve(new Map<string, number>()),
-    canCatalog ? adminLoveStats() : Promise.resolve(null),
-  ]);
+  /* THE CATALOGUE KPI NEEDS THE PRODUCT ROWS, which arrive inside the sales
+     payload. An account holding Catalog and not Sales would otherwise have
+     no way to be told what its own shelves are worth, so the load is
+     widened for either. */
+  const wantsProducts = canSales || canCatalog;
+
+  const [lang, items, sales, procurement, returns, loves, tables, cash, ledgers] =
+    await Promise.all([
+      getLang(),
+      adminAttention(),
+      wantsProducts ? adminSalesData() : Promise.resolve(null),
+      canProcurement ? adminProcurementData() : Promise.resolve(null),
+      canSales ? returnedUnits() : Promise.resolve(new Map<string, number>()),
+      canCatalog ? adminLoveStats() : Promise.resolve(null),
+      canFinance ? financeTables() : Promise.resolve(null),
+      canFinance ? cashSideTotals() : Promise.resolve(null),
+      canFinance ? adminSellerLedgers() : Promise.resolve(null),
+    ]);
 
   const mine = items.filter((item) => {
     const section = sectionForPath(item.href);
     return section !== null && canSee(actor, section);
   });
 
-  const lines = sales
+  const lines = sales && canSales
     ? buildSalesLines(sales.orders, {
         products: sales.products,
         categories: sales.categories,
@@ -65,13 +82,54 @@ export default async function AdminHomePage() {
   const topSupplier = canProcurement && procurement
     ? (spendBySupplier(pos, procurement.suppliers)[0] ?? null) : null;
 
+  /* ONE FIGURE FROM EACH AREA, over the same month the overview below uses.
+     Built here rather than in the component because three of the four are
+     database reads, and because each has to be withheld from an account
+     that cannot open the screen it comes from -- the same rule the to-do
+     cards follow. */
+  const today = todayIso();
+  const headline = canSales || canProcurement
+    ? headlineMetrics(lines, pos, "1m", today) : [];
+  const metric = (k: string) => headline.find((m) => m.key === k) ?? null;
+  const revenue = metric("revenue");
+  const spend = metric("purchaseCost");
+
+  const pl = canFinance && sales && tables && cash && ledgers
+    ? profitAndLoss({
+        lines: buildSalesLines(sales.orders, {
+          products: sales.products, categories: sales.categories,
+          sellers: sales.sellers, costs: costMap(sales.costs), returns,
+        }).filter(isLive).map((l) => ({
+          sellerId: l.sellerId, netSales: l.netSales, cost: l.cost,
+        })),
+        commission: ledgers.reduce((a, l) => a + l.commission, 0),
+        deliveryFees: cash.deliveryFees,
+        refunds: cash.refunds,
+        expenses: tables.expenses,
+      })
+    : null;
+
+  const shelf = canCatalog && sales
+    ? stockOnHand(sales.products, costMap(sales.costs)) : null;
+
+  const kpis: KpiInput = {
+    sales: canSales && revenue
+      ? { value: revenue.current ?? 0, pct: revenue.prev?.pct ?? null } : null,
+    catalog: shelf
+      ? { value: shelf.value, live: shelf.live, priced: shelf.priced } : null,
+    procurement: canProcurement && spend
+      ? { value: spend.current ?? 0, pct: spend.prev?.pct ?? null } : null,
+    finance: pl ? { value: pl.netProfit, margin: pl.netMargin } : null,
+  };
+
   return (
     <AdminHome
       lang={lang}
       items={mine}
       lines={packSalesLines(lines)}
       purchases={pos}
-      today={todayIso()}
+      today={today}
+      kpis={kpis}
       canSales={canSales}
       canProcurement={canProcurement}
       loves={loves}
