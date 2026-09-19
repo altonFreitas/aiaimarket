@@ -93,7 +93,8 @@ export async function createHeroSlide(imageUrl: string, videoUrl = ""): Promise<
 
 export async function updateHeroSlide(
   id: string,
-  fields: Partial<Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url">>
+  fields: Partial<Pick<HeroSlide,
+    "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url" | "video_fit">>
 ) {
   await requireAdmin();
   const sb = supabaseAdmin();

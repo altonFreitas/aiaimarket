@@ -70,6 +70,15 @@ export interface HeroSlide {
    * Optional: a database that has not run supabase/hero-video.sql has no
    * column, and a missing value reads as "photo" -- the safe answer. */
   video_url?: string | null;
+  /** How the video sits in the hero frame: "contain" shows the whole of
+   * it, letterboxed; "cover" fills the frame and crops what does not fit.
+   *
+   * Optional, and absent reads as "contain" -- the safe answer, because a
+   * database that has not run the latest supabase/hero-video.sql has no
+   * column, and showing a whole video in the wrong shape is a cosmetic
+   * problem where cropping one is a lost one. Ignored on a photo slide;
+   * photos have always been, and remain, cover. */
+  video_fit?: "contain" | "cover" | null;
   headline: string;
   subtext: string;
   cta_label: string;

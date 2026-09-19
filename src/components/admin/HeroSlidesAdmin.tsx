@@ -11,7 +11,7 @@ import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
 import type { HeroSlide, Lang } from "@/lib/types";
 
-type Draft = Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href">;
+type Draft = Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "video_fit">;
 
 export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: HeroSlide[] }) {
   const router = useRouter();
@@ -22,6 +22,10 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
   function draftFor(s: HeroSlide): Draft {
     return {
       headline: s.headline, subtext: s.subtext, cta_label: s.cta_label, cta_href: s.cta_href,
+      // A database that has not run the latest hero-video.sql has no
+      // column, and absent means "show the whole video" -- the same
+      // reading the storefront takes.
+      video_fit: s.video_fit ?? "contain",
       ...drafts[s.id],
     };
   }
@@ -157,6 +161,27 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                       <input type="file" accept="image/*" hidden disabled={busy}
                         onChange={(e) => onUploadPoster(s.id, e.target.files)} />
                     </label>
+
+                    {/* HOW THIS ONE SITS IN THE HERO. The frame is a tall
+                        box on a phone and a wide band on a desktop, and a
+                        video cannot be both -- so the choice is the
+                        owner's, per slide, rather than one rule the shop
+                        has to live with. It saves with the Save button
+                        beside the other fields. */}
+                    <div className="hero-fit">
+                      <span className="hero-fit-hd">{t("slideVideoFit", lang)}</span>
+                      {(["contain", "cover"] as const).map((fit) => (
+                        <label key={fit} className="hero-fit-opt">
+                          <input type="radio" name={`fit-${s.id}`} value={fit}
+                            checked={(d.video_fit ?? "contain") === fit} disabled={busy}
+                            onChange={() => setDraft(s.id, { video_fit: fit })} />
+                          <span>{t(fit === "contain" ? "slideFitWhole" : "slideFitFill", lang)}</span>
+                        </label>
+                      ))}
+                      <p className="hint" style={{ margin: 0, flexBasis: "100%" }}>
+                        {t("slideVideoFitHint", lang)}
+                      </p>
+                    </div>
                   </WriteOnly>
                 )}
               </div>

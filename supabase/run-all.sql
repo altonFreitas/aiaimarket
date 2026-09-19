@@ -4264,7 +4264,44 @@ alter table hero_slides
   add column if not exists video_url text not null default '';
 
 comment on column hero_slides.video_url is
-  'MP4/WebM URL. Empty means this slide is a photo. When set, image_url is the poster frame shown until the video plays.';
+  'MP4/WebM/MOV URL. Empty means this slide is a photo. When set, image_url is the poster frame shown until the video plays.';
+
+-- ---------------------------------------------------------------------------
+-- HOW THE VIDEO SITS IN THE FRAME.
+--
+-- The hero is one shape on a phone (portrait) and a very different one on
+-- a desktop (a wide band). A video filmed on a phone -- which is every
+-- video this shop will ever have -- is portrait, and filling a wide band
+-- with a portrait video means throwing most of it away: the reported
+-- symptom was a desktop hero showing a horizontal slice of sky while the
+-- phone showed the whole thing.
+--
+-- 'contain' shows the WHOLE video, always, whatever shape the frame is.
+-- It is the default because a video nobody cropped is the one the owner
+-- actually filmed.
+--
+-- 'cover' fills the frame edge to edge and crops whatever does not fit.
+-- It stays available because it is right for genuinely wide footage,
+-- where 'contain' would leave bars for nothing.
+--
+-- A CHECK rather than an enum: two values that the app reads as a string,
+-- and a constraint says which two. An enum would need its own migration to
+-- gain a third.
+-- ---------------------------------------------------------------------------
+
+alter table hero_slides
+  add column if not exists video_fit text not null default 'contain';
+
+do $$
+begin
+  alter table hero_slides
+    add constraint hero_slides_video_fit_ck check (video_fit in ('contain', 'cover'));
+exception
+  when duplicate_object then null;   -- already applied; this file re-runs
+end $$;
+
+comment on column hero_slides.video_fit is
+  'contain = show the whole video, letterboxed. cover = fill the frame and crop. Ignored on a photo slide.';
 
 -- ---------------------------------------------------------------------------
 -- Nothing to grant.

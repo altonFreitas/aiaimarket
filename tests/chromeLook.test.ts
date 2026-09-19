@@ -6,6 +6,8 @@ const root = process.cwd();
 const CSS = fs.readFileSync(path.join(root, "src/app/globals.css"), "utf8");
 const NO_COMMENTS = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
 const HEADER = fs.readFileSync(path.join(root, "src/components/Header.tsx"), "utf8");
+const BOTTOM = fs.readFileSync(path.join(root, "src/components/BottomNav.tsx"), "utf8");
+const ICON = fs.readFileSync(path.join(root, "src/components/TrackIcon.tsx"), "utf8");
 
 /** The body of the standalone rule for exactly this selector -- not a
  *  grouped rule that merely contains it. */
@@ -97,23 +99,64 @@ describe("the cloth behind the page", () => {
 });
 
 describe("the way to order tracking", () => {
-  it("is not wearing the search icon any more", () => {
-    /* The magnifying glass is the SEARCH icon and sits three elements to
-       the left in the same bar, so "where is my order" was dressed as
-       "find a product". */
-    const link = /<Link className="icon-btn hd-track"[\s\S]*?<\/Link>/.exec(HEADER);
-    expect(link, "the track link").not.toBeNull();
-    const svg = link![0].replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
-    expect(svg).not.toMatch(/<circle cx="11" cy="11" r="7"/);
-    // A parcel: the box outline plus the two strokes of its open top.
-    expect(svg.match(/<path/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(svg).toMatch(/aria-hidden="true"/);
+  it("is a parcel, not the search icon", () => {
+    /* The magnifying glass is the SEARCH icon and sits a few elements away
+       in the same chrome, so "where is my order" was dressed as "find a
+       product". A parcel: the box outline plus the two strokes of its open
+       top, which is what makes it read as one at 16px. */
+    expect(ICON).not.toMatch(/<circle cx="11" cy="11" r="7"/);
+    expect(ICON.match(/<path/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(ICON).toMatch(/aria-hidden="true"/);
   });
 
-  it("still says what it is in words", () => {
-    // An unlabelled glyph in a header is a guessing game, and this is the
-    // only route to tracking on a desktop.
-    const link = /<Link className="icon-btn hd-track"[\s\S]*?<\/Link>/.exec(HEADER)![0];
-    expect(link).toMatch(/\{t\("navTrack", lang\)\}/);
+  it("is the same drawing on a phone as on a laptop", () => {
+    /* THE BUG THIS FIXES. These were two copies of an inline <svg>, and
+       they drifted: the header got the parcel and the phone's bottom bar
+       was left holding the magnifying glass, so the same errand wore two
+       faces depending on the device -- and on the phone it wore SEARCH's,
+       which is a separate button two tabs away. A component cannot
+       drift. */
+    for (const [name, src] of [["Header", HEADER], ["BottomNav", BOTTOM]] as const) {
+      expect(src, name).toMatch(/<TrackIcon/);
+      expect(src, name).toMatch(/import TrackIcon from ".\/TrackIcon"/);
+      expect(src, name).not.toMatch(/<circle cx="11" cy="11" r="7"/);
+    }
+  });
+
+  it("still says what it is in words, in both places", () => {
+    // An unlabelled glyph is a guessing game, and on a desktop this is the
+    // only route to tracking at all.
+    const link = /<Link className="icon-btn hd-track"[\s\S]*?<\/Link>/.exec(HEADER);
+    expect(link, "the header track link").not.toBeNull();
+    expect(link![0]).toMatch(/\{t\("navTrack", lang\)\}/);
+    expect(BOTTOM).toMatch(/\{t\("navTrack", lang\)\}/);
+  });
+});
+
+describe("the section headings", () => {
+  it("are set in capitals", () => {
+    const h2 = /(?:^|\})\s*h2\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(h2, "the h2 rule").not.toBeNull();
+    expect(h2![1]).toMatch(/text-transform:uppercase/);
+  });
+
+  it("is done in CSS, not by retyping the words", () => {
+    /* text-transform keeps "New Arrivals" in the DOM, so a screen reader
+       says it rather than spelling out an acronym, the page title and the
+       search index keep real words, and a translator still receives a
+       normal sentence. */
+    const i18n = fs.readFileSync(path.join(root, "src/lib/i18n.ts"), "utf8");
+    expect(i18n).toMatch(/newArrivals:\[/);
+    expect(i18n).not.toMatch(/newArrivals:\["[^"]*NEW ARRIVALS/);
+  });
+
+  it("gives capitals the tracking they need", () => {
+    /* The negative letter-spacing these carried was chosen for mixed case;
+       on capitals it closes them into a block. Both the base rule and the
+       homepage rows, which set their own. */
+    const h2 = /(?:^|\})\s*h2\{([^}]*)\}/.exec(NO_COMMENTS)![1];
+    expect(Number(/letter-spacing:(-?[\d.]+)em/.exec(h2)?.[1] ?? -1)).toBeGreaterThan(0);
+    const row = rule(".home-section-hd h2");
+    expect(Number(/letter-spacing:(-?[\d.]+)em/.exec(row)?.[1] ?? -1)).toBeGreaterThan(0);
   });
 });

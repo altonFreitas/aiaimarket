@@ -314,7 +314,21 @@ button,input,select,textarea{font:inherit;color:inherit}
 .crumb a{text-decoration:none}
 .crumb a:hover{text-decoration:underline}
 h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.01em}
-h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
+/* EVERY h2 IN CAPITALS. A section heading is a signpost, not a sentence,
+   and setting them all one way stops the page reading as a dozen small
+   decisions -- the homepage rows, the panels on a product page and the
+   admin's section titles now agree.
+
+   text-transform, not typing them in capitals: the DOM keeps "New
+   Arrivals", so a screen reader says "New Arrivals" rather than spelling
+   out an acronym, the page title and the search index keep their real
+   words, and a translator still receives a normal sentence to translate.
+
+   Capitals need air that lower case does not -- the negative tracking
+   below was chosen for mixed case and closes capitals up into a block --
+   so the letter-spacing goes positive here and everywhere else an h2 sets
+   its own. */
+h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04em}
 .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
 
 /* ---------- category rail / sidebar (C2,C3,C5) ---------- */
@@ -915,9 +929,33 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
   padding:0 var(--bleed-pad);
   background:linear-gradient(0deg,rgba(11,20,36,.82) 0%,rgba(11,20,36,.35) 50%,transparent 80%)}
 .hero-slide-content{pointer-events:auto;padding:22px 0 46px;max-width:420px;color:#fff}
-/* A video fills its frame exactly like a slide photo; the black behind it
-   is what shows for the moment between the poster and the first frame. */
+/* THE VIDEO, WHOLE. Every video this shop will ever have is filmed on the
+   phone the shop is run from, so it is portrait; the hero is a tall box on
+   a phone and a wide band on a desktop. Filling that band with a portrait
+   clip means keeping a horizontal slice and throwing the rest away, which
+   is exactly what was reported: the laptop showed a strip of sky where the
+   phone showed the whole video.
+
+   object-fit:contain keeps all of it, whatever shape the frame is. The
+   slide can still ask for cover in /admin/hero when the footage really is
+   wide -- see hero_slides.video_fit. The background stays for the moment
+   between the poster and the first frame, and for a slide with no poster
+   to blur. */
 .hero-slide-video{background:#000}
+.hero-slide-video.is-contain{object-fit:contain;background:transparent}
+
+/* WHAT FILLS THE SPACE EITHER SIDE. Bars of flat black read as a page
+   that failed to load something; the clip's own poster, scaled up and
+   blurred out, reads as deliberate. scale() first so the blur has pixels
+   to work with past the edges instead of fading into the frame.
+
+   No z-index, on purpose: this sits before the video in the markup and
+   both are position:absolute, so tree order already paints it behind.
+   Lifting the video with a z-index instead would have raised it over the
+   headline overlay, which comes later still. */
+.hero-slide-fill{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  transform:scale(1.2);filter:blur(30px) brightness(.5) saturate(1.2);
+  pointer-events:none}
 /* Sound and pause, on the video itself -- the two controls a visitor
    reaches for when a banner starts moving at them. */
 .hero-ctrls{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;z-index:2}
@@ -942,6 +980,15 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
 .hero-slide-fields{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
 .hero-slide-fields input{border:1px solid var(--line);border-radius:var(--r-s);padding:7px 9px;font-size:13px;width:100%}
 .hero-slide-acts{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+/* The per-slide "how should this video sit in the frame" choice. Radios,
+   not a switch: there are two named options and neither is an on/off of
+   the other, so saying both names is clearer than labelling one and
+   leaving the reader to infer its opposite. */
+.hero-fit{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:2px}
+.hero-fit-hd{font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted)}
+.hero-fit-opt{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-body-sm);cursor:pointer}
+.hero-fit-opt input{margin:0}
 
 .home-section{margin:30px 0}
 /* THE ROW HEADINGS, A THIRD BIGGER. At 19px "New Arrivals" was barely
@@ -958,7 +1005,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.01em}
    sub-pixel line-box rounding, and as close to nothing as this gets. */
 .home-section-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:9px}
 .home-section-hd h2{font-size:25px;line-height:var(--lh-tight);margin:0 0 2px;
-  letter-spacing:-.02em;color:var(--ink)}
+  letter-spacing:.02em;color:var(--ink)}
 .home-section-sub{color:var(--muted);font-size:13px;margin:0}
 .home-section-more{display:none;font-size:13px;font-weight:600;color:var(--ink-3);text-decoration:none;white-space:nowrap}
 .home-section-more-mobile{display:flex;margin-top:12px}

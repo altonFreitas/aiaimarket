@@ -5,6 +5,7 @@ import CartIcon from "./CartIcon";
 import BasketBadge from "./BasketBadge";
 import SearchBar from "./SearchBar";
 import MegaNav from "./MegaNav";
+import TrackIcon from "./TrackIcon";
 import MobileNav from "./MobileNav";
 import { getCategories, getHeroSlides, getLiveProducts } from "@/lib/data/public";
 import { buildNav } from "@/lib/nav";
@@ -66,26 +67,7 @@ export default async function Header({ settings }: { settings: Settings }) {
               but that nav is hidden at desktop widths, so without this
               link there's no way to reach order tracking on desktop. */}
           <Link className="icon-btn hd-track" href="/track">
-            {/* A PARCEL WITH A PIN OVER IT, not a magnifying glass. The
-                glass is the search icon -- it sits three elements to the
-                left of this one in the same bar -- so the one control for
-                "where is my order" was wearing the costume of "find a
-                product". This says the thing itself: a box, and where it
-                is.
-
-                Drawn as a carton seen from slightly above rather than a
-                flat rectangle, because at 16px a rectangle with a line
-                across it is a rectangle with a line across it. The two
-                strokes of the open top are what make it read as a parcel.
-                Compared against three other drawings at 15, 16, 18 and
-                28px before choosing -- see the commit. */}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 1.6a3 3 0 0 0-3 3c0 2.1 3 5 3 5s3-2.9 3-5a3 3 0 0 0-3-3Z" />
-              <circle cx="12" cy="4.6" r="1" />
-              <path d="M4 14.6 12 11.4l8 3.2v5.9L12 23.7l-8-3.2Z" />
-              <path d="M4 14.6 12 17.8l8-3.2M12 17.8v5.9" />
-            </svg>
+            <TrackIcon />
             {t("navTrack", lang)}
           </Link>
 
