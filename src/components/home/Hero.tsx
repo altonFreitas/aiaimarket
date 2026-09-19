@@ -27,6 +27,24 @@ function videoSrc(s: HeroSlide): string {
   return (s.video_url || "").trim();
 }
 
+/** HOW THIS SLIDE SITS IN THE FRAME, chosen per slide in /admin/hero.
+ *
+ * "contain" is the default and shows the whole picture: the hero is a tall
+ * box on a phone and a wide band on a desktop, and everything this shop
+ * puts here was shot on a phone, so filling the desktop band meant
+ * throwing most of the picture away -- the reported symptom was a
+ * horizontal slice of sky where the phone showed the whole clip. "cover"
+ * stays for genuinely wide material, where letterboxing would cost space
+ * for nothing.
+ *
+ * Anything that is not "cover" reads as "contain", which covers both a
+ * database that has not run the latest supabase/hero-video.sql (no column
+ * at all) and a value nobody recognises. Showing a whole picture in the
+ * wrong shape is cosmetic; cropping one loses it. */
+function fitOf(s: HeroSlide): "contain" | "cover" {
+  return s.media_fit === "cover" ? "cover" : "contain";
+}
+
 /** Inline SVG visual — same "no photo yet" visual language as
  * lib/placeholder.ts (layered navy/amber shapes, zero network requests),
  * used as the hero's brand visual until the admin uploads real photos
@@ -163,52 +181,51 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
     <section className="hero-carousel" aria-roledescription="carousel" aria-label={srTitle}>
       <h1 className="sr">{srTitle}</h1>
 
+      {/* WHAT FILLS THE LETTERBOX, ALL OF THEM BEFORE ANY PICTURE.
+          A contained picture leaves the rest of the frame empty, and empty
+          reads as broken -- two black slabs either side of a phone photo
+          look like the page failed to load something. The image itself,
+          blown up and blurred, fills the band with its own colours.
+
+          BEFORE, not behind with a z-index: these are all absolutely
+          positioned with z-index auto, so tree order IS paint order.
+          Lifting the pictures with a z-index instead would have lifted
+          them over the headline overlay further down as well.
+
+          ALL the fills first, then ALL the pictures, rather than each
+          fill beside its own: interleaved, the next slide's fill paints
+          over the last slide's picture, and both are half-visible during
+          a crossfade.
+
+          On a video slide this is the POSTER, not a second copy of the
+          video: the poster is already downloaded and decoded, where a
+          second <video> costs another decode on every device for scenery.
+          A slide with no picture to blur keeps the dark ground behind it,
+          which is what that case has always looked like. */}
+      {slides.map((s, idx) => (
+        fitOf(s) === "cover" || !s.image_url ? null : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={"fill-" + s.id} src={s.image_url} alt="" aria-hidden="true"
+            className={"hero-slide-fill" + (idx === i ? " active" : "")} />
+        )
+      ))}
+
       {slides.map((s, idx) => (
         videoSrc(s) ? null : (
           // eslint-disable-next-line @next/next/no-img-element
           <img key={s.id} src={s.image_url} alt="" aria-hidden="true"
-            className={"hero-slide-img" + (idx === i ? " active" : "")} />
+            className={"hero-slide-img" + (idx === i ? " active" : "")
+              + (fitOf(s) === "cover" ? "" : " is-contain")} />
         )
       ))}
-
-      {/* WHAT FILLS THE LETTERBOX, and it has to come BEFORE the video.
-          A contained video leaves the rest of the frame empty, and empty
-          reads as broken -- two black slabs either side of a phone video
-          look like the page failed to load something. The poster frame,
-          blown up and blurred, fills the band with the clip's own colours
-          instead.
-
-          BEFORE, not behind with a z-index: these are both absolutely
-          positioned with z-index auto, so tree order IS paint order, and
-          lifting the video with a positive z-index would have lifted it
-          over the headline overlay further down as well.
-
-          It is the POSTER, not a second copy of the video: the poster is
-          already downloaded and decoded, where a second <video> costs
-          another decode on every device for scenery. A slide with no
-          poster keeps the dark ground behind it, which is what that case
-          has always looked like. */}
-      {src !== "" && active.video_fit !== "cover" && active.image_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="hero-slide-fill" src={active.image_url} alt="" aria-hidden="true" />
-      )}
 
       {src && (
         <video
           key={active.id}
           ref={videoRef}
-          /* HOW IT SITS IN THE FRAME, chosen per slide in /admin/hero.
-             "contain" is the default and shows the whole video: the hero
-             is a tall box on a phone and a wide band on a desktop, and
-             every video this shop will have was filmed on a phone, so
-             filling the desktop band meant throwing most of the picture
-             away -- the reported symptom was a horizontal slice of sky
-             where the phone showed the whole clip. "cover" stays for
-             genuinely wide footage, where letterboxing would cost space
-             for nothing. Absent reads as "contain": a database without
-             the column should show the whole video, not crop it. */
+          /* HOW IT SITS IN THE FRAME -- see fitOf. */
           className={"hero-slide-img active hero-slide-video"
-            + (active.video_fit === "cover" ? "" : " is-contain")}
+            + (fitOf(active) === "cover" ? "" : " is-contain")}
           poster={active.image_url || undefined}
           playsInline
           loop={slides.length === 1}

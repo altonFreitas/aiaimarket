@@ -11,7 +11,7 @@ import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
 import type { HeroSlide, Lang } from "@/lib/types";
 
-type Draft = Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "video_fit">;
+type Draft = Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "media_fit">;
 
 export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: HeroSlide[] }) {
   const router = useRouter();
@@ -23,9 +23,9 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
     return {
       headline: s.headline, subtext: s.subtext, cta_label: s.cta_label, cta_href: s.cta_href,
       // A database that has not run the latest hero-video.sql has no
-      // column, and absent means "show the whole video" -- the same
+      // column, and absent means "show the whole picture" -- the same
       // reading the storefront takes.
-      video_fit: s.video_fit ?? "contain",
+      media_fit: s.media_fit ?? "contain",
       ...drafts[s.id],
     };
   }
@@ -111,7 +111,7 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
       <div className="panel" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <label className="btn btn-sm" style={{ display: "inline-flex", cursor: busy ? "not-allowed" : "pointer" }}>
           {t("addSlide", lang)}
-          <input type="file" accept="image/*" multiple hidden disabled={busy}
+          <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={busy}
             onChange={(e) => onUpload(e.target.files)} />
         </label>
         <label className="btn btn-sm" style={{ display: "inline-flex", cursor: busy ? "not-allowed" : "pointer" }}>
@@ -159,9 +159,13 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                     <label className="btn btn-sm btn-ghost"
                       style={{ display: "inline-flex", alignSelf: "flex-start", cursor: busy ? "not-allowed" : "pointer" }}>
                       {s.image_url ? t("slideReplacePoster", lang) : t("slideAddPoster", lang)}
-                      <input type="file" accept="image/*" hidden disabled={busy}
+                      <input type="file" accept="image/*,.heic,.heif" hidden disabled={busy}
                         onChange={(e) => onUploadPoster(s.id, e.target.files)} />
                     </label>
+                  </WriteOnly>
+                )}
+
+                <WriteOnly>
 
                     {/* HOW THIS ONE SITS IN THE HERO. The frame is a tall
                         box on a phone and a wide band on a desktop, and a
@@ -170,8 +174,13 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                         has to live with. It saves with the Save button
                         beside the other fields.
 
+                        A PHOTO SLIDE GETS THE SAME CHOICE. A photo taken
+                        on the same phone has the same problem as a video
+                        taken on it: portrait, in a frame that is a wide
+                        band on a desktop.
+
                         NOT OFFERED AT ALL until the database has the
-                        column -- s.video_fit is undefined exactly then,
+                        column -- s.media_fit is undefined exactly then,
                         because the row came back without it. The server
                         already refuses to fail over a column it does not
                         have (updateHeroSlide uses writeTolerating), so
@@ -179,25 +188,24 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                         which takes a choice, says "saved" and changes
                         nothing is worse than one that is not there. The
                         storefront does the right thing without it
-                        anyway, and shows the whole video. */}
-                    {s.video_fit !== undefined && (
+                        anyway, and shows the whole picture. */}
+                    {s.media_fit !== undefined && (
                     <div className="hero-fit">
-                      <span className="hero-fit-hd">{t("slideVideoFit", lang)}</span>
+                      <span className="hero-fit-hd">{t("slideMediaFit", lang)}</span>
                       {(["contain", "cover"] as const).map((fit) => (
                         <label key={fit} className="hero-fit-opt">
                           <input type="radio" name={`fit-${s.id}`} value={fit}
-                            checked={(d.video_fit ?? "contain") === fit} disabled={busy}
-                            onChange={() => setDraft(s.id, { video_fit: fit })} />
+                            checked={(d.media_fit ?? "contain") === fit} disabled={busy}
+                            onChange={() => setDraft(s.id, { media_fit: fit })} />
                           <span>{t(fit === "contain" ? "slideFitWhole" : "slideFitFill", lang)}</span>
                         </label>
                       ))}
                       <p className="hint" style={{ margin: 0, flexBasis: "100%" }}>
-                        {t("slideVideoFitHint", lang)}
+                        {t("slideMediaFitHint", lang)}
                       </p>
                     </div>
                     )}
-                  </WriteOnly>
-                )}
+                </WriteOnly>
               </div>
               <div className="hero-slide-acts"><WriteOnly>
                 <button className="btn btn-sm btn-ghost" disabled={busy || i === 0}

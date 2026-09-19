@@ -942,7 +942,12 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    between the poster and the first frame, and for a slide with no poster
    to blur. */
 .hero-slide-video{background:#000}
-.hero-slide-video.is-contain{object-fit:contain;background:transparent}
+/* A PHOTO GETS THE SAME CHOICE AS A VIDEO. A photo taken on the same
+   phone has the same problem: portrait, in a frame that is a wide band on
+   a desktop. .is-contain is set from hero_slides.media_fit, whichever kind
+   of slide it is. */
+.hero-slide-img.is-contain{object-fit:contain}
+.hero-slide-video.is-contain{background:transparent}
 
 /* WHAT FILLS THE SPACE EITHER SIDE. Bars of flat black read as a page
    that failed to load something; the clip's own poster, scaled up and
@@ -955,7 +960,11 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    headline overlay, which comes later still. */
 .hero-slide-fill{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
   transform:scale(1.2);filter:blur(30px) brightness(.5) saturate(1.2);
-  pointer-events:none}
+  pointer-events:none;opacity:0;transition:opacity .6s ease}
+/* Crossfaded with the picture it belongs to, on the same curve: a fill
+   that switched instantly would flash the next slide's colours behind the
+   one still fading out. */
+.hero-slide-fill.active{opacity:1}
 /* Sound and pause, on the video itself -- the two controls a visitor
    reaches for when a banner starts moving at them. */
 .hero-ctrls{position:absolute;right:12px;bottom:12px;display:flex;gap:6px;z-index:2}

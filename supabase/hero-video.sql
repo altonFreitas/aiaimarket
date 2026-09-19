@@ -27,22 +27,29 @@ comment on column hero_slides.video_url is
   'MP4/WebM/MOV URL. Empty means this slide is a photo. When set, image_url is the poster frame shown until the video plays.';
 
 -- ---------------------------------------------------------------------------
--- HOW THE VIDEO SITS IN THE FRAME.
+-- HOW THE PICTURE SITS IN THE FRAME.
 --
 -- The hero is one shape on a phone (portrait) and a very different one on
--- a desktop (a wide band). A video filmed on a phone -- which is every
--- video this shop will ever have -- is portrait, and filling a wide band
--- with a portrait video means throwing most of it away: the reported
+-- a desktop (a wide band). Anything filmed or photographed on a phone --
+-- which is everything this shop will ever put here -- is portrait, and
+-- filling a wide band with it means throwing most of it away: the reported
 -- symptom was a desktop hero showing a horizontal slice of sky while the
 -- phone showed the whole thing.
 --
--- 'contain' shows the WHOLE video, always, whatever shape the frame is.
--- It is the default because a video nobody cropped is the one the owner
--- actually filmed.
+-- 'contain' shows the WHOLE picture, always, whatever shape the frame is.
+-- It is the default because a picture nobody cropped is the one the owner
+-- actually took.
 --
 -- 'cover' fills the frame edge to edge and crops whatever does not fit.
--- It stays available because it is right for genuinely wide footage,
+-- It stays available because it is right for genuinely wide material,
 -- where 'contain' would leave bars for nothing.
+--
+-- media_fit, NOT video_fit, WHICH IS WHAT THIS WAS CALLED FIRST. It was
+-- added for videos and then asked to govern photo slides too, and a column
+-- named after one of the two things it decides is a column that lies to
+-- the next person reading the table. The rename below carries any value
+-- the old name already held, so it does not matter whether this file has
+-- been run before or not.
 --
 -- A CHECK rather than an enum: two values that the app reads as a string,
 -- and a constraint says which two. An enum would need its own migration to
@@ -50,18 +57,30 @@ comment on column hero_slides.video_url is
 -- ---------------------------------------------------------------------------
 
 alter table hero_slides
-  add column if not exists video_fit text not null default 'contain';
+  add column if not exists media_fit text not null default 'contain';
+
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_name = 'hero_slides' and column_name = 'video_fit') then
+    -- Whatever the earlier name was holding is what the slide meant.
+    update hero_slides set media_fit = video_fit
+      where video_fit in ('contain', 'cover');
+    -- Its own CHECK goes with it.
+    alter table hero_slides drop column video_fit;
+  end if;
+end $$;
 
 do $$
 begin
   alter table hero_slides
-    add constraint hero_slides_video_fit_ck check (video_fit in ('contain', 'cover'));
+    add constraint hero_slides_media_fit_ck check (media_fit in ('contain', 'cover'));
 exception
   when duplicate_object then null;   -- already applied; this file re-runs
 end $$;
 
-comment on column hero_slides.video_fit is
-  'contain = show the whole video, letterboxed. cover = fill the frame and crop. Ignored on a photo slide.';
+comment on column hero_slides.media_fit is
+  'contain = show the whole photo or video, letterboxed. cover = fill the frame and crop.';
 
 -- ---------------------------------------------------------------------------
 -- Nothing to grant.

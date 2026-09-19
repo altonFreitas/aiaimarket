@@ -470,7 +470,7 @@ function Dashboard({
             )}
             <label className="btn btn-ghost btn-sm" style={{ marginTop: 8, display: "inline-flex" }}>
               {o.proof_url ? t("uploadProof", lang) + " ↻" : t("uploadProof", lang)}
-              <input type="file" accept="image/*" hidden onChange={(e) => onProof(e.target.files?.[0])} />
+              <input type="file" accept="image/*,.heic,.heif" hidden onChange={(e) => onProof(e.target.files?.[0])} />
             </label>
           </div>
         )}

@@ -68,6 +68,22 @@ const nextConfig: NextConfig = {
       // to default-src 'self' and are blocked with nothing in the UI to say
       // so -- the banner simply stays on its poster frame forever.
       "media-src 'self' blob: https://*.supabase.co",
+      /* WHY BLOB WORKERS ARE ALLOWED. A photo taken on an iPhone arrives
+         as .HEIC, which no browser will decode into an <img>, so the
+         uploader falls back to a WebAssembly decoder (heic-to). Every
+         build of it starts that decoder in a Worker created from a blob:
+         URL. Without this line workers fall back to default-src 'self',
+         the browser refuses the blob, and the upload fails with the same
+         "decode failed" it always did -- which is exactly what the first
+         attempt at this did, caught by running it in a browser rather
+         than reasoning about it.
+
+         What it costs: a blob: worker runs script the PAGE constructed.
+         script-src above already allows 'unsafe-inline', so anything able
+         to put script in the page can already run it there; being able to
+         run it in a worker as well is not new ground. 'self' and blob:
+         only -- no remote origin may start one. */
+      "worker-src 'self' blob:",
       "font-src 'self' data:",
       withPayment("connect-src 'self' https://*.supabase.co" + (isDev ? " ws: wss:" : "")),
       // The hosted checkout is reached by a top-level redirect, but some

@@ -95,21 +95,21 @@ export async function createHeroSlide(imageUrl: string, videoUrl = ""): Promise<
 export async function updateHeroSlide(
   id: string,
   fields: Partial<Pick<HeroSlide,
-    "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url" | "video_fit">>
+    "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url" | "media_fit">>
 ) {
   await requireAdmin();
   const sb = supabaseAdmin();
-  /* video_fit arrived with a later revision of supabase/hero-video.sql, so
+  /* media_fit arrived with a later revision of supabase/hero-video.sql, so
      a shop running this code against a database it has not migrated yet
      has no such column -- and Postgres fails the WHOLE update when one is
-     named: `column "video_fit" of relation "hero_slides" does not exist`.
-     That would have broken Save for every slide, photo slides included,
-     over a field nobody on that shop can even see. Same treatment the
-     product form gives `audience`: try it, and if the column is what the
-     database objects to, save everything else and drop that one. */
-  const { video_fit, ...always } = fields;
+     named: `column "media_fit" of relation "hero_slides" does not exist`.
+     That would break Save for every slide over a field nobody on that shop
+     can even see. Same treatment the product form gives `audience`: try
+     it, and if the column is what the database objects to, save everything
+     else and drop that one. */
+  const { media_fit, ...always } = fields;
   const { error } = await writeTolerating(
-    video_fit === undefined ? {} : { video_fit },
+    media_fit === undefined ? {} : { media_fit },
     (extra) => sb.from("hero_slides").update({ ...always, ...extra }).eq("id", id),
   );
   if (error) throw error;

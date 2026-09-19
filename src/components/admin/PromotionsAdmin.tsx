@@ -59,7 +59,7 @@ export default function PromotionsAdmin({ lang, promotions }: { lang: Lang; prom
       <div className="panel">
         <label className="btn btn-sm" style={{ display: "inline-flex", cursor: busy ? "not-allowed" : "pointer" }}>
           {t("addPromotion", lang)}
-          <input type="file" accept="image/*" multiple hidden disabled={busy}
+          <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={busy}
             onChange={(e) => onUpload(e.target.files)} />
         </label>
       </div>

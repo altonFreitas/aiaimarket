@@ -11,13 +11,17 @@ const RUN_ALL = fs.readFileSync(path.join(root, "supabase/run-all.sql"), "utf8")
 const ADMIN = fs.readFileSync(path.join(root, "src/components/admin/HeroSlidesAdmin.tsx"), "utf8");
 const ACTION = fs.readFileSync(path.join(root, "src/lib/actions/hero.ts"), "utf8");
 
-/* A HERO VIDEO WAS BEING CUT DOWN TO A STRIP.
+/* A HERO PICTURE WAS BEING CUT DOWN TO A STRIP.
  *
- * The frame is a tall box on a phone and a wide band on a desktop. Every
- * video this shop will have is filmed on the phone it is run from, so it
- * is portrait -- and filling the desktop band with a portrait clip means
- * keeping a horizontal slice and discarding the rest. The reported symptom
- * was a laptop showing sky where the phone showed the whole video.
+ * The frame is a tall box on a phone and a wide band on a desktop.
+ * Everything this shop puts there is shot on the phone it is run from, so
+ * it is portrait -- and filling the desktop band with a portrait picture
+ * means keeping a horizontal slice and discarding the rest. The reported
+ * symptom was a laptop showing sky where the phone showed the whole clip.
+ *
+ * The setting began as video_fit and governs PHOTO slides too now, which
+ * is why it is media_fit: a column named after one of the two things it
+ * decides lies to the next person reading the table.
  *
  * Checked in a browser with a 9:16 frame marked at all four edges, in a
  * 1440x666 hero: with contain, the top band, the bottom band and both side
@@ -29,15 +33,17 @@ describe("the whole video, by default", () => {
     /* Absent reads as contain, NOT cover: a database that has not run the
        latest hero-video.sql has no column, and showing a whole video in
        the wrong shape is cosmetic where cropping one loses the picture. */
-    expect(HERO).toMatch(/video_fit === "cover" \? "" : " is-contain"/);
-    const rule = /\.hero-slide-video\.is-contain\{([^}]*)\}/.exec(NO_COMMENTS);
+    // One reading of the setting, used by both kinds of slide.
+    expect(HERO).toMatch(/function fitOf\(s: HeroSlide\)/);
+    expect(HERO).toMatch(/s\.media_fit === "cover" \? "cover" : "contain"/);
+    const rule = /\.hero-slide-img\.is-contain\{([^}]*)\}/.exec(NO_COMMENTS);
     expect(rule, "the contain rule").not.toBeNull();
     expect(rule![1]).toMatch(/object-fit:contain/);
   });
 
   it("keeps cover available for footage that is actually wide", () => {
     // Letterboxing a 16:9 clip would cost space for nothing.
-    expect(SQL).toMatch(/video_fit in \('contain', 'cover'\)/);
+    expect(SQL).toMatch(/media_fit in \('contain', 'cover'\)/);
     expect(ADMIN).toMatch(/\["contain", "cover"\]/);
   });
 });
@@ -58,13 +64,18 @@ describe("what fills the space either side", () => {
        tree order IS paint order -- the fill after the video covers it.
        Lifting the video with a positive z-index instead would have raised
        it over the headline overlay, which comes later still. */
-    const fill = HERO.indexOf('className="hero-slide-fill"');
+    const fill = HERO.indexOf('"hero-slide-fill"');
+    const photo = HERO.indexOf('"hero-slide-img"');
     // ref={videoRef}, not "<video": the file's own documentation discusses
     // what a <video> costs, and matching prose would have compared the
     // fill against a comment.
     const video = HERO.indexOf("ref={videoRef}");
     const overlay = HERO.indexOf('className="hero-slide-overlay"');
     expect(fill).toBeGreaterThan(-1);
+    // ALL the fills, then ALL the pictures: interleaved, the next slide's
+    // fill paints over the last slide's picture and both are half-visible
+    // through a crossfade.
+    expect(fill).toBeLessThan(photo);
     expect(fill).toBeLessThan(video);
     expect(video).toBeLessThan(overlay);
     expect(/\.hero-slide-fill\{([^}]*)\}/.exec(NO_COMMENTS)![1]).not.toMatch(/z-index/);
@@ -73,31 +84,40 @@ describe("what fills the space either side", () => {
   it("costs no second video download", () => {
     // The poster is already fetched and decoded; a second <video> would be
     // another decode on every device, for scenery.
-    const block = HERO.slice(HERO.indexOf('className="hero-slide-fill"') - 200,
-                             HERO.indexOf('className="hero-slide-fill"') + 120);
+    const at = HERO.indexOf('"hero-slide-fill"');
+    const block = HERO.slice(at - 260, at + 120);
     expect(block).toMatch(/<img/);
-    expect(block).toMatch(/active\.image_url/);
+    expect(block).not.toMatch(/<video/);
   });
 
-  it("shows nothing rather than a blank slab when there is no poster", () => {
-    expect(HERO).toMatch(/active\.video_fit !== "cover" && active\.image_url/);
+  it("shows nothing rather than a blank slab when there is nothing to blur", () => {
+    expect(HERO).toMatch(/fitOf\(s\) === "cover" \|\| !s\.image_url \? null/);
+  });
+
+  it("crossfades the fill with the picture it belongs to", () => {
+    // A fill that switched instantly would flash the next slide's colours
+    // behind the one still fading out.
+    const fill = /\.hero-slide-fill\{([^}]*)\}/.exec(NO_COMMENTS)![1];
+    expect(fill).toMatch(/opacity:0/);
+    expect(fill).toMatch(/transition:opacity/);
+    expect(NO_COMMENTS).toMatch(/\.hero-slide-fill\.active\{opacity:1\}/);
   });
 });
 
 describe("the column behind the choice", () => {
   it("defaults to showing the whole video", () => {
-    expect(SQL).toMatch(/add column if not exists video_fit text not null default 'contain'/);
+    expect(SQL).toMatch(/add column if not exists media_fit text not null default 'contain'/);
   });
 
   it("is constrained to the two the app knows", () => {
-    expect(SQL).toMatch(/hero_slides_video_fit_ck/);
+    expect(SQL).toMatch(/hero_slides_media_fit_ck/);
     // Re-runnable: the file is applied again every time run-all.sql is.
     expect(SQL).toMatch(/when duplicate_object then null/);
   });
 
   it("is in the generated run-all", () => {
     // Or the owner runs the manifest and the column never appears.
-    expect(RUN_ALL).toMatch(/add column if not exists video_fit/);
+    expect(RUN_ALL).toMatch(/add column if not exists media_fit/);
   });
 });
 
@@ -107,7 +127,7 @@ describe("a shop that has not run the migration yet", () => {
      one to show -- so Save began naming that column in every UPDATE.
      Postgres fails the WHOLE statement when one column is unknown:
 
-       ERROR: column "video_fit" of relation "hero_slides" does not exist
+       ERROR: column "media_fit" of relation "hero_slides" does not exist
 
      which broke Save for EVERY slide, photo slides included, on every
      shop that had this code and had not run supabase/run-all.sql yet.
@@ -119,8 +139,8 @@ describe("a shop that has not run the migration yet", () => {
     expect(ACTION).toMatch(/writeTolerating\(/);
     expect(ACTION).toMatch(/import \{ writeTolerating \}/);
     // The optional field is separated from the ones that always exist.
-    expect(ACTION).toMatch(/const \{ video_fit, \.\.\.always \} = fields/);
-    expect(ACTION).toMatch(/video_fit === undefined \? \{\} : \{ video_fit \}/);
+    expect(ACTION).toMatch(/const \{ media_fit, \.\.\.always \} = fields/);
+    expect(ACTION).toMatch(/media_fit === undefined \? \{\} : \{ media_fit \}/);
   });
 
   it("does not name the column among the ones it always writes", () => {
@@ -136,6 +156,50 @@ describe("a shop that has not run the migration yet", () => {
     /* A control that takes a choice, says "saved" and changes nothing is
        worse than one that is not there. s.video_fit is undefined exactly
        when the row came back without the column. */
-    expect(ADMIN).toMatch(/\{s\.video_fit !== undefined && \(/);
+    expect(ADMIN).toMatch(/\{s\.media_fit !== undefined && \(/);
+  });
+});
+
+describe("a photo gets the same choice as a video", () => {
+  /* A photo taken on the same phone has the same problem as a video taken
+     on it: portrait, in a frame that is a wide band on a desktop. Measured
+     in a browser with a 9:16 frame marked at all four edges, in a 1440x666
+     hero: contain keeps the top band, the bottom band and both side edges;
+     cover keeps only the middle. */
+
+  it("applies the fit to a photo slide, not only a video one", () => {
+    expect(HERO).toMatch(/fitOf\(s\) === "cover" \? "" : " is-contain"/);
+    // The rule is on .hero-slide-img, which both kinds of slide carry.
+    expect(NO_COMMENTS).toMatch(/\.hero-slide-img\.is-contain\{/);
+  });
+
+  it("offers the control on every slide, not only a video one", () => {
+    /* It used to sit inside `{video && (...)}` with the poster button, so
+       a photo slide could not be told how to sit in the frame at all. */
+    const fit = ADMIN.indexOf('className="hero-fit"');
+    const videoOnly = ADMIN.indexOf("{video && (");
+    const videoBlockEnd = ADMIN.indexOf("</WriteOnly>\n                )}", videoOnly);
+    expect(fit).toBeGreaterThan(-1);
+    expect(videoBlockEnd).toBeGreaterThan(-1);
+    expect(fit).toBeGreaterThan(videoBlockEnd);
+  });
+
+  it("names the setting after what it decides", () => {
+    /* video_fit governing a photo slide is a column that lies to whoever
+       reads the table next. The old name is gone everywhere. */
+    for (const [name, src] of [["hero", HERO], ["admin", ADMIN], ["action", ACTION]] as const) {
+      expect(src, name).not.toMatch(/video_fit/);
+    }
+    expect(SQL).toMatch(/media_fit/);
+  });
+
+  it("carries the old column's value across rather than resetting it", () => {
+    /* A shop that already ran the video_fit version has slides set the way
+       it wanted them. Verified against a real database: a slide on 'cover'
+       is still on 'cover' afterwards, and video_fit is gone. */
+    expect(SQL).toMatch(/update hero_slides set media_fit = video_fit/);
+    expect(SQL).toMatch(/alter table hero_slides drop column video_fit/);
+    // Guarded, so the file still runs on a database that never had it.
+    expect(SQL).toMatch(/if exists \(select 1 from information_schema\.columns/);
   });
 });

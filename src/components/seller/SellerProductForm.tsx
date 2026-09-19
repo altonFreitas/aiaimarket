@@ -275,7 +275,7 @@ export default function SellerProductForm({
             {images.length < 5 && (
               <label className="btn btn-sm btn-ghost" style={{ height: 52 }}>
                 +
-                <input type="file" accept="image/*" multiple hidden
+                <input type="file" accept="image/*,.heic,.heif" multiple hidden
                   onChange={(e) => addImages(e.target.files)} />
               </label>
             )}
