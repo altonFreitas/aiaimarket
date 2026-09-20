@@ -102,6 +102,8 @@ const EVERYTHING = snap([
   // taxonomy.sql -- the dynamic attribute model.
   "product_types", "attributes", "attribute_options", "product_type_attributes",
   "products.product_type_id",
+  // product-attributes.sql -- what each product answers.
+  "product_attribute_values",
 ]);
 
 describe("checkSchema", () => {

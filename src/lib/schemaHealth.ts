@@ -361,6 +361,12 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     routines: ["attribute_belongs_to_type", "type_belongs_to_category"],
   },
   {
+    // What each product answers. Named by the table, which nothing else
+    // creates.
+    file: "product-attributes.sql", labelKey: "featProductAttributes",
+    tables: ["product_attribute_values"],
+  },
+  {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
     // public anon key (it is in every browser's network tab) can insert
     // orders and upload files straight past the app's checks.
@@ -497,6 +503,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   // that reviews them.
   "taxonomy.sql",
   "taxonomy-seed.sql",
+  "product-attributes.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 

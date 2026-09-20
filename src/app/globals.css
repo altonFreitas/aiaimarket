@@ -2905,6 +2905,36 @@ tr.is-ended{opacity:.55}
 .dchart-col:first-child .dchart-lbl{left:0;transform:none}
 .dchart-col:last-child .dchart-lbl{left:auto;right:0;transform:none}
 
+/* ---------- the dynamic product form (/admin/p/new) ---------- */
+/* A product type's own fields, drawn from `attributes` rather than written
+   out per category -- see components/admin/TaxonomyPicker.tsx. A sofa
+   brings eighteen of these and a t-shirt fourteen, so they sit in a grid
+   that fills the width rather than one tall column nobody scrolls. */
+.taxonomy{display:flex;flex-direction:column;gap:var(--sp-2)}
+.attr-grid{display:grid;gap:var(--sp-2);
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  margin-top:var(--sp-2)}
+/* The unit belongs to the label, not the input: putting "(cm)" inside the
+   box would be a value somebody has to delete before typing. */
+.attr-unit{color:var(--muted);font-weight:400}
+.attr-req{color:var(--danger)}
+/* A multi-select with options. A column of checkboxes rather than a
+   multiple<select>, which on a phone is a scrolling box that needs a
+   modifier key nobody has. */
+.attr-checks{display:flex;flex-direction:column;gap:4px;
+  max-height:160px;overflow:auto;padding:6px 8px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--card)}
+.attr-check{display:flex;align-items:center;gap:8px;
+  font-size:var(--fs-sm);font-weight:400;cursor:pointer}
+.attr-check input{width:auto;margin:0}
+/* Swatch and box together: the swatch picks, the box takes "Navy" for a
+   catalogue whose colours are names rather than hexes. */
+.attr-color{display:flex;gap:8px;align-items:center}
+.attr-color input[type=color]{width:44px;flex:0 0 auto;padding:2px;
+  height:38px;border:1px solid var(--line);border-radius:var(--r-sm)}
+.attr-color input[type=text]{flex:1;min-width:0}
+
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
    1 January. Sits under the chips it explains, and has to be sized here:

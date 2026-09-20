@@ -126,7 +126,10 @@ async function storeName(sb: ReturnType<typeof supabaseAdmin>): Promise<string> 
   } catch { return ""; }
 }
 
-export async function saveProduct(input: ProductFormInput) {
+/* Returns the product's id, which the caller needs to write the dynamic
+ * attributes against it -- a new product's id is not known until this has
+ * run. Previously void; returning a value breaks no existing caller. */
+export async function saveProduct(input: ProductFormInput): Promise<string> {
   const actor = await requireAdmin();
 
   /* THE PRICE RULES, ON THE SERVER.
@@ -154,6 +157,8 @@ export async function saveProduct(input: ProductFormInput) {
   // save outright rather than half-way through -- a product created and
   // then found to be unassignable would already hold a ref number.
   const sellerId = await resolveSellerId(sb, input.seller_id);
+
+  let savedId = input.id ?? "";
 
   if (input.id) {
     const slug = await uniqueSlug(baseSlug, input.id);
@@ -260,6 +265,7 @@ export async function saveProduct(input: ProductFormInput) {
     // The insert asked for the id back, so a success without one means the
     // row is not there and stocking it would write against nothing.
     if (!made) throw new Error("The product was not created.");
+    savedId = made.id;
 
     if (input.qty) {
       await setStock(made.id, input.qty, "opening balance", "correction");
@@ -284,6 +290,7 @@ export async function saveProduct(input: ProductFormInput) {
   updateTag(CACHE_TAGS.products);
   revalidatePath("/admin");
   revalidatePath("/admin/products");
+  return savedId;
 }
 
 /** B3 — soft delete only, never a hard DELETE. */

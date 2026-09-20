@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveProduct, uploadProductImage } from "@/lib/actions/products";
 import { createCategory } from "@/lib/actions/categories";
+import { saveProductAttributes } from "@/lib/actions/product-attributes";
+import TaxonomyPicker, { type TaxonomySelection } from "./TaxonomyPicker";
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
@@ -13,6 +15,7 @@ import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
+import type { TaxonomyNode } from "@/lib/taxonomy/types";
 
 /** Just enough of an approved store to fill the "sold by" select. The whole
  * Seller row is forty columns including its TOTP secret's neighbours, and
@@ -33,6 +36,7 @@ const STOCK_PILL: Record<StockStatus, string> = {
 
 export default function ProductForm({
   lang, cats: initialCats, product, settings, sellers = [],
+  taxonomyRoots = [], initialTaxonomy,
 }: {
   lang: Lang; cats: Category[]; product: Product | null; settings: Settings;
   /** Approved stores the owner may file this product under. Anything else
@@ -40,6 +44,11 @@ export default function ProductForm({
    * -- is the marketplace's own catalogue, which is what the storefront
    * shows for it too. */
   sellers?: SellerOption[];
+  /** Top-level categories for the taxonomy picker. Only the roots: the
+   * rest is fetched as choices are made -- see TaxonomyPicker. */
+  taxonomyRoots?: TaxonomyNode[];
+  /** What this product already answers, for the edit form. */
+  initialTaxonomy?: TaxonomySelection;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -47,6 +56,16 @@ export default function ProductForm({
   const [busy, setBusy] = useState(false);
   const canWrite = useCanWrite();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  /* The taxonomy choice and its answers. Held here rather than inside the
+     picker so the save handler can read it -- the picker draws, this
+     component submits. */
+  const [tax, setTax] = useState<TaxonomySelection>(initialTaxonomy ?? {
+    categoryId: "", subcategoryId: "", productTypeId: "", values: {},
+  });
+  /* Errors the SERVER raised against individual attributes, shown against
+     the field that caused them. The browser checks too, but the server is
+     the one that decides. */
+  const [attrErrors, setAttrErrors] = useState<Record<string, string>>({});
   const [newCat, setNewCat] = useState("");
   const [newSubCat, setNewSubCat] = useState("");
   const [images, setImages] = useState<string[]>(product?.images || []);
@@ -203,7 +222,7 @@ export default function ProductForm({
 
     setBusy(true);
     try {
-      await saveProduct({
+      const savedId = await saveProduct({
         id: product?.id,
         name: f.name.trim(),
         price: parseNum(f.price, 0),
@@ -223,6 +242,24 @@ export default function ProductForm({
         pay_wallet: pay.wallet, pay_fiar: pay.fiar,
         municipality: f.municipality, post: f.post, suku: f.suku, landmark: f.landmark,
       });
+      /* THE DYNAMIC ATTRIBUTES, AFTER THE PRODUCT ITSELF.
+         In this order because a new product has no id until saveProduct
+         has run, and the values have to be written against one. The
+         universal fields are already safe at this point, so a refusal
+         here leaves a real, sellable product and an explained problem --
+         not a lost save. */
+      const attrRes = await saveProductAttributes({
+        productId: savedId,
+        productTypeId: tax.productTypeId,
+        values: tax.values,
+      });
+      if (!attrRes.ok) {
+        setAttrErrors(attrRes.errors);
+        toast(attrRes.errors._ ?? t("required", lang), true);
+        setBusy(false);
+        return;   // Stay on the form: the fields needing attention are here.
+      }
+
       toast(t("saved", lang));
       router.push("/admin/products");
       router.refresh();
@@ -363,6 +400,35 @@ export default function ProductForm({
             </select>
             <p className="hint">{t("audienceHint", lang)}</p>
           </div>
+
+          {/* THE PRODUCT TYPE, AND THE FIELDS THAT COME WITH IT.
+              Category -> subcategory -> product type -> that type's own
+              attributes, all read from the database. There is no branch
+              here on any particular category and there is no per-category
+              form: a sofa draws eighteen fields and a t-shirt fourteen
+              because that is what their rows say, and a product type added
+              next year draws correctly without this file changing. See
+              TaxonomyPicker and lib/taxonomy/.
+
+              Only shown once the taxonomy has been installed. Until the
+              SQL is pasted there are no categories to offer, and an empty
+              dropdown labelled "Category" beside the working one above it
+              would just look broken. */}
+          {taxonomyRoots.length > 0 && (
+            <div className="field">
+              <h3 style={{ margin: "18px 0 4px" }}>{t("productType", lang)}</h3>
+              <p className="hint" style={{ marginTop: 0 }}>
+                {t("productTypeHint", lang)}
+              </p>
+              <TaxonomyPicker
+                roots={taxonomyRoots}
+                value={tax}
+                onChange={setTax}
+                errors={attrErrors}
+                disabled={!canWrite || busy}
+              />
+            </div>
+          )}
 
           {/* WHO SELLS IT.
               The owner lists products for resellers who have no interest

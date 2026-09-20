@@ -365,6 +365,13 @@ describe("admin components that can change things know who is looking", () => {
     // gating it on the write role would stop a read-only staff account
     // turning 2FA ON for itself, which is backwards.
     ["AdminTotpSettings.tsx", "a person's own login, not the shop's data"],
+    // Every action it imports READS the taxonomy -- which categories exist,
+    // which product types are under one, which fields a type asks for. It
+    // writes nothing. Gating it on the write role would hide a product's
+    // own fields from a read-only account looking at the catalogue, which
+    // is backwards for the same reason as the 2FA entry above. The SAVE
+    // lives in ProductForm, which is gated, and passes `disabled` down.
+    ["TaxonomyPicker.tsx", "reads the taxonomy; the save is the parent's"],
   ]);
 
   it("gates every other one on the viewer's role", () => {
