@@ -39,7 +39,6 @@ export default function OpenReadiness({
          is the panel that has to be read on that day. */
       defaultOpen={bad.length > 0}
     >
-      <p className="hint" style={{ marginTop: 0 }}>{t("readyIntro", lang)}</p>
       <div className="pay-ready">
         {checks.map((c) => (
           <div key={c.key} className={"pay-row" + (c.ok ? " on" : "")}>

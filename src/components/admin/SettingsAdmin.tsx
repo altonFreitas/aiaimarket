@@ -133,7 +133,6 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
         </div>
         {/* ---- the shop's own legal facts ---- */}
         <h3 style={{ marginTop: 22 }}>{t("legalFacts", lang)}</h3>
-        <p className="hint" style={{ marginTop: -6 }}>{t("legalFactsHint", lang)}</p>
         <div className="two">
           <div className="field">
             <label htmlFor="lgl-addr">{t("legalAddress", lang)}</label>

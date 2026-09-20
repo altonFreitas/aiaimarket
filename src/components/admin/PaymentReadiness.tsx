@@ -25,8 +25,6 @@ export default function PaymentReadiness({ lang }: { lang: Lang }) {
       status={`${ready}/${rows.length} ${t("payReadyCount", lang)}`}
       tone={allReady ? "ok" : "warn"}
     >
-      <p className="hint" style={{ marginTop: 0 }}>{t("payGatewaysHint", lang)}</p>
-
       <div className="pay-ready">
         {rows.map((r) => <Row key={r.id} r={r} lang={lang} />)}
       </div>

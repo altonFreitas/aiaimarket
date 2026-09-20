@@ -6,7 +6,7 @@ import AdminTotpSettings from "@/components/admin/AdminTotpSettings";
 import { adminSettings } from "@/lib/data/admin";
 import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
-import { currentActor, sessionMinutes } from "@/lib/session";
+import { currentActor } from "@/lib/session";
 import { getTotpStatus } from "@/lib/totp";
 
 export default async function SettingsPage() {
@@ -30,9 +30,9 @@ export default async function SettingsPage() {
           it: it reads process.env, and only the NAMES of missing variables
           and a yes/no ever reach the browser. */}
       <OpenReadiness lang={lang} settings={settings} />
-      {/* Read on the server: the status is a boolean and the session
-          length a number, so no secret reaches the browser. */}
-      <AdminTotpSettings lang={lang} initiallyEnabled={totpOn} sessionMinutes={sessionMinutes()} />
+      {/* Read on the server: the status is a boolean, so no secret
+          reaches the browser. */}
+      <AdminTotpSettings lang={lang} initiallyEnabled={totpOn} />
       <PaymentReadiness lang={lang} />
       <SchemaHealth lang={lang} />
     </>

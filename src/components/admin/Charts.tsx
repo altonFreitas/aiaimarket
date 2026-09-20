@@ -1,6 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 import { money, moneyAxis } from "@/lib/utils";
+import { axisTicks } from "@/lib/axisTicks";
 
 /* Hand-rolled SVG, no charting library, matching the project's
  * data-frugality rule. A charting bundle would be larger than every other
@@ -540,6 +541,10 @@ export function DualBars({
   const max = Math.max(...points.flatMap((p) => [p.a, p.b]), 0);
   if (!points.length || max <= 0) return <Empty label={emptyLabel} />;
 
+  /* Which columns get a written date. Twenty-four of them in a tile this
+     wide used to wrap into two rows of digits -- see lib/axisTicks.ts. */
+  const ticks = axisTicks(points.length);
+
   return (
     <div className="dchart">
       <div className="dchart-key">
@@ -547,7 +552,7 @@ export function DualBars({
         <span><i className="is-b" />{labelB}</span>
       </div>
       <div className="dchart-plot" style={{ height: CHART_H }}>
-        {points.map((p) => (
+        {points.map((p, i) => (
           <div className="dchart-col" key={p.key}
             title={p.title || `${p.label}: ${labelA} ${format(p.a)} · ${labelB} ${format(p.b)}`}>
             <span className="dchart-pair">
@@ -558,7 +563,7 @@ export function DualBars({
               <i className="dchart-bar is-b"
                 style={{ height: `${Math.max(1.5, (p.b / max) * 100)}%` }} />
             </span>
-            <span className="dchart-lbl">{p.label}</span>
+            {ticks.has(i) && <span className="dchart-lbl">{p.label}</span>}
           </div>
         ))}
       </div>

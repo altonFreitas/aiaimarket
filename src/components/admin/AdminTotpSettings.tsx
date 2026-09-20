@@ -30,8 +30,8 @@ type View =
  * secret worth anything.
  */
 export default function AdminTotpSettings({
-  lang, initiallyEnabled, sessionMinutes,
-}: { lang: Lang; initiallyEnabled: boolean; sessionMinutes: number }) {
+  lang, initiallyEnabled,
+}: { lang: Lang; initiallyEnabled: boolean }) {
   const { toast } = useToast();
   const [enabled, setEnabled] = useState(initiallyEnabled);
   const [view, setView] = useState<View>({ name: "status" });
@@ -91,12 +91,9 @@ export default function AdminTotpSettings({
   return (
     <div className="panel">
       <h3>{t("twoFactorAuth", lang)}</h3>
-      <p className="hint" style={{ marginTop: -4 }}>{t("twoFactorAuthHint", lang)}</p>
 
       {view.name === "status" && (
         <>
-          <p className="sub">{enabled ? t("totpStatusOn", lang) : t("totpStatusOff", lang)}</p>
-          <p className="hint">{t("adminTotpHint", lang)}</p>
           {enabled ? (
             <button className="btn btn-ghost btn-sm" type="button"
               onClick={() => setView({ name: "disable" })}>
@@ -108,16 +105,6 @@ export default function AdminTotpSettings({
               {busy ? "…" : t("totpEnable", lang)}
             </button>
           )}
-
-          {/* THE OTHER HALF OF "IT ASKS ME EVERY TEN MINUTES", AND USUALLY
-              THE REAL ONE. Turning 2FA off removes the code step and
-              leaves the password step, because what actually lapses is the
-              session -- so the number is printed here beside the switch
-              rather than left to be discovered in the source. */}
-          <p className="hint" style={{ marginTop: 12 }}>
-            <b>{t("sessionLength", lang)}:</b>{" "}
-            {t("sessionLengthHint", lang).replace("{n}", String(sessionMinutes))}
-          </p>
         </>
       )}
 

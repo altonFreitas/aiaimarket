@@ -50,19 +50,24 @@ export default async function SchemaHealth({ lang }: { lang: Lang }) {
          not something this line should depend on. */
       defaultOpen={outstanding.length > 0 || unchecked.length > 0}
     >
-      <p className="hint" style={{ marginTop: 0 }}>
-        {/* A singular of its own rather than "1 files": one outstanding file
-            is not an edge case here, it is the state every existing shop is
-            in the moment it pulls this change and has not yet re-run
-            schema-health.sql. */}
-        {outstanding.length === 1
-          ? t("schemaOutstandingOne", lang)
-          : outstanding.length > 1
-            ? t("schemaOutstanding", lang).replace("{n}", String(outstanding.length))
-            : unchecked.length > 0
-              ? t("schemaSomeUnchecked", lang).replace("{n}", String(unchecked.length))
-              : t("schemaAllApplied", lang)}
-      </p>
+      {/* Only when there is something to say. "Every SQL file has been
+          run" was a line that appeared precisely when nobody needed to
+          read it; the green pill on every row below already says so, and
+          the rows are what somebody came here to check.
+
+          A singular of its own rather than "1 files": one outstanding file
+          is not an edge case here, it is the state every existing shop is
+          in the moment it pulls this change and has not yet re-run
+          schema-health.sql. */}
+      {(outstanding.length > 0 || unchecked.length > 0) && (
+        <p className="hint" style={{ marginTop: 0 }}>
+          {outstanding.length === 1
+            ? t("schemaOutstandingOne", lang)
+            : outstanding.length > 1
+              ? t("schemaOutstanding", lang).replace("{n}", String(outstanding.length))
+              : t("schemaSomeUnchecked", lang).replace("{n}", String(unchecked.length))}
+        </p>
+      )}
 
       <div className="pay-ready">
         {status.features.map((f) => (

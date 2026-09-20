@@ -2885,8 +2885,25 @@ tr.is-ended{opacity:.55}
 .dchart-bar{flex:1;display:block;border-radius:2px 2px 0 0}
 .dchart-bar.is-a{background:var(--ink)}
 .dchart-bar.is-b{background:var(--amber)}
-.dchart-lbl{position:absolute;bottom:0;left:0;right:0;text-align:center;
+/* Centred ON its own column but free to spill past it: only every Nth
+   column carries a date now (see lib/axisTicks.ts), so the room either
+   side is empty and a five-character date has somewhere to go. Pinning it
+   to left:0/right:0 was what forced "29/08" to wrap into two rows of
+   digits when twenty-four columns shared six hundred pixels. */
+.dchart-lbl{position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  white-space:nowrap;
   font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
+/* THE TWO THAT CANNOT BE CENTRED. A centred label overhangs its column by
+   half the difference between them -- about eleven pixels for a date over
+   a column on a phone. In the middle of the axis that is free, because the
+   columns either side are deliberately blank. At the two ENDS it is not:
+   the panel carries overflow:auto (the height cap on .dash-card children),
+   so the overhang was sliced off and the last date on the front page read
+   "21/0". Aligning the end labels inward costs nothing -- they move by
+   those same eleven pixels -- and puts every label inside the box that
+   clips. */
+.dchart-col:first-child .dchart-lbl{left:0;transform:none}
+.dchart-col:last-child .dchart-lbl{left:auto;right:0;transform:none}
 
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
