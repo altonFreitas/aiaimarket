@@ -2,7 +2,9 @@ import AdminHome from "@/components/admin/AdminHome";
 import { adminAttention, adminLoveStats, adminSellerLedgers } from "@/lib/data/admin";
 import { financeTables, cashSideTotals } from "@/lib/data/finance";
 import { profitAndLoss } from "@/lib/finance";
-import { headlineMetrics, overviewSeries, rangeWindow } from "@/lib/overview";
+import {
+  headlineMetrics, overviewSeries, rangeWindow, RANGES, type RangeKey,
+} from "@/lib/overview";
 import { stockOnHand, type KpiInput } from "@/lib/adminHomeKpis";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { adminProcurementData } from "@/lib/data/procurement";
@@ -30,8 +32,15 @@ import { canSee, sectionForPath } from "@/lib/adminSections";
  * purchase halves of the overview are filtered the same way, so a staff
  * account holding neither section sees the to-do list alone, exactly as
  * before. */
-export default async function AdminHomePage() {
+export default async function AdminHomePage(
+  { searchParams }: { searchParams: Promise<{ range?: string }> },
+) {
   const actor = await requireSection("home.overview");
+  /* WHICH SPAN THE FIGURES COVER, from the address rather than from state.
+     A server component computes these, so the picker is a row of links and
+     the page is recomputed -- which also means a range can be bookmarked,
+     opened in a second tab and shared with whoever is asked about it. */
+  const range = parseRange((await searchParams).range);
   const canSales = canSee(actor, "sales");
   const canProcurement = canSee(actor, "procurement");
   // The heart lives on the catalog's product cards, so the figure counting
@@ -91,7 +100,7 @@ export default async function AdminHomePage() {
      cards follow. */
   const today = todayIso();
   const headline = canSales || canProcurement
-    ? headlineMetrics(lines, pos, "1m", today) : [];
+    ? headlineMetrics(lines, pos, range, today) : [];
   const metric = (k: string) => headline.find((m) => m.key === k) ?? null;
   const revenue = metric("revenue");
   const spend = metric("purchaseCost");
@@ -123,7 +132,7 @@ export default async function AdminHomePage() {
   const ordersIn = (from: string, to: string) =>
     new Set(lines.filter((l) => l.date >= from && l.date <= to)
       .map((l) => l.orderId)).size;
-  const win = canSales ? rangeWindow(lines, pos, "1m", today) : null;
+  const win = canSales ? rangeWindow(lines, pos, range, today) : null;
   const orderCount = win ? ordersIn(win.from, win.to) : 0;
   const orderCountPrev = win
     ? ordersIn(shiftDays(win.from, -win.days), shiftDays(win.to, -win.days)) : 0;
@@ -133,11 +142,14 @@ export default async function AdminHomePage() {
       ? { value: revenue.current ?? 0, pct: revenue.prev?.pct ?? null } : null,
     grossProfit: canSales && gp
       ? {
-          value: gp.current ?? 0,
+          // null, not 0: no line in the window had a cost recorded, which
+          // is an unanswered question rather than an answer of nothing.
+          value: gp.current,
           pct: gp.prev?.pct ?? null,
           // Share of revenue kept. Null rather than 0 when nothing sold:
           // "no margin" and "no sales to have a margin on" differ.
-          margin: revenue?.current ? (gp.current ?? 0) / revenue.current : null,
+          margin: revenue?.current && gp.current != null
+            ? gp.current / revenue.current : null,
         }
       : null,
     orders: canSales && win
@@ -158,22 +170,19 @@ export default async function AdminHomePage() {
      Monthly buckets over the last half year: enough to see a direction,
      few enough to read at tile size. The full version, with its range
      tabs and year-on-year, is one click away at /admin/overview. */
-  const series = (canSales || canProcurement)
-    ? overviewSeries(lines, pos, "6m", today)
-    : [];
-  const months = new Map<string, { revenue: number; purchaseCost: number }>();
-  for (const pt of series) {
-    const k = pt.key.slice(0, 7);
-    const m = months.get(k) ?? { revenue: 0, purchaseCost: 0 };
-    m.revenue += pt.revenue;
-    m.purchaseCost += pt.purchaseCost;
-    months.set(k, m);
-  }
-  const flow = [...months.entries()].slice(-6).map(([k, m]) => ({
-    key: k, label: k.slice(5) + "/" + k.slice(2, 4),
-    a: Math.round(m.revenue * 100) / 100,
-    b: Math.round(m.purchaseCost * 100) / 100,
-  }));
+  const flow = ((canSales || canProcurement)
+    ? overviewSeries(lines, pos, range, today)
+    : [])
+    /* The last two dozen buckets at most. overviewSeries already chooses a
+       sensible bucket per range -- hours for a day, months for five years
+       -- so this only guards the long tail: "max" on a shop five years old
+       is sixty bars in a tile the width of a hand. */
+    .slice(-24)
+    .map((pt) => ({
+      key: pt.key, label: pt.label, title: pt.full,
+      a: Math.round(pt.revenue * 100) / 100,
+      b: Math.round(pt.purchaseCost * 100) / 100,
+    }));
 
   /* WHAT SELLS. The one breakdown worth a tile: a shop that cannot see
      which part of its catalogue earns is guessing when it reorders. */
@@ -190,6 +199,7 @@ export default async function AdminHomePage() {
       canSales={canSales}
       canProcurement={canProcurement}
       kpis={kpis}
+      range={range}
       flow={flow}
       categories={categories}
       loves={loves}
@@ -204,4 +214,14 @@ function shiftDays(iso: string, n: number): string {
   const d = new Date(iso + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
+}
+
+/** The range from the address, or the default.
+ *
+ * Validated against RANGES rather than trusted: ?range= is whatever
+ * somebody typed, and an unknown value must land on a real window rather
+ * than on an empty chart that looks like a shop with no trade. A month is
+ * the default because it is the span a shop actually plans against. */
+function parseRange(raw: string | undefined): RangeKey {
+  return RANGES.some((r) => r.key === raw) ? (raw as RangeKey) : "1m";
 }

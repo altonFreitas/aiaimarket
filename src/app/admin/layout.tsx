@@ -20,7 +20,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // decides what to SHOW; the server still decides what is allowed.
   return (
     <AccessProvider access={actor}>
-      <div className="wrap">
+      {/* `adm` is what the stylesheet hangs admin-only rules on -- the
+          headings in here are set in capitals, and a rule on h1 alone
+          would have caught a product name on the storefront. */}
+      <div className="wrap adm">
         <AdminNav lang={lang} access={actor} />
         {children}
       </div>

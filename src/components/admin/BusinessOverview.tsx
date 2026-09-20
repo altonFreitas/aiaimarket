@@ -79,7 +79,7 @@ function Delta({ label, value, judged }: {
 
 export default function BusinessOverview({
   lang, lines: wire, purchases, today, canSales, canProcurement,
-  topCustomer, topSupplier,
+  topCustomer, topSupplier, closeHref,
 }: {
   lang: Lang;
   lines: PackedSalesLines;
@@ -89,6 +89,9 @@ export default function BusinessOverview({
   canProcurement: boolean;
   topCustomer: { label: string; value: number } | null;
   topSupplier: { label: string; value: number } | null;
+  /** Where the X goes. Absent means this is not a screen of its own and
+   * no close button is drawn. */
+  closeHref?: string;
 }) {
   const lines = useMemo(() => unpackSalesLines(wire), [wire]);
   /* One month by default: long enough to show a shape, short enough that
@@ -165,6 +168,24 @@ export default function BusinessOverview({
             })}
           </p>
         </div>
+        {/* THE WAY BACK. This screen is opened from a tile on the front
+            page and has nothing else to do, so it closes rather than
+            navigating: the X returns to /admin, which is where whoever
+            opened it was standing.
+
+            A Link, not history.back(): somebody who arrived from a
+            bookmark or by typing the address has no history to go back
+            to, and a control that does nothing on one route in three is
+            worse than no control. Drawn only when a destination is given,
+            so the component can still be used where there is no "back". */}
+        {closeHref && (
+          <Link className="icon-btn ov-close" href={closeHref} aria-label={t("close", lang)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </Link>
+        )}
       </div>
 
       {/* ---- the six numbers, each with both comparisons ---- */}

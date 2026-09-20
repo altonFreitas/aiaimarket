@@ -280,7 +280,6 @@ export default function CheckoutForm({
   return (
     <div className="wrap">
       <h1>{t("checkout", lang)}</h1>
-      <p className="sub">{t("noAccount", lang)}</p>
 
       <div className="co-cols">
         {/* WHAT IS BEING BOUGHT, BESIDE THE FORM THAT BUYS IT.
@@ -294,7 +293,6 @@ export default function CheckoutForm({
         <aside className="co-summary" aria-label={t("orderSummary", lang)}>
           <div className="panel">
             <h3>{t("orderSummary", lang)}</h3>
-            <p className="hint" style={{ marginTop: -4 }}>{t("orderSummarySub", lang)}</p>
 
             <ul className="co-lines">
               {lines.map((l, i) => {
@@ -396,7 +394,6 @@ export default function CheckoutForm({
             {field("firstName", t("firstName", lang))}
             {field("lastName", t("lastName", lang))}
           </div>
-          <p className="hint" style={{ marginTop: -4 }}>{t("nameUpperHint", lang)}</p>
 
           {/* Country + local number — the select shows the calling code,
               the buyer only has to type their own local digits. "Other"

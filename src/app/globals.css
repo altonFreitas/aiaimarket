@@ -1275,6 +1275,11 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
 /* ---------- Home: the business overview ---------- */
 .ov-head{margin:var(--sp-6) 0 var(--sp-3);align-items:flex-start}
+/* The X that shuts this screen and returns to the front page. Dark on
+   paper rather than the light-on-navy .icon-btn wears in the header --
+   that one lives on the near-black chrome, this one does not. */
+.ov-close{flex:0 0 auto;border-color:var(--line);color:var(--ink);background:var(--card)}
+.ov-close:hover{background:var(--line-2);border-color:var(--ink-3)}
 .ov-head h2{margin:0;font-size:var(--fs-h3)}
 .ov-head .sub{margin:2px 0 0}
 /* Two deltas stack under each figure; .kpi-delta already colours them. */
@@ -2084,6 +2089,23 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .attn-foot{margin:0 0 var(--sp-4)}
 .attn-links{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 
+/* EVERY HEADING IN THE BACK OFFICE IS SET IN CAPITALS, h1 as well as the
+   h2s the whole site already sets that way. A page title is a signpost,
+   and the admin is a place of signposts: Today, Sales dashboard,
+   Procurement, Hero slides.
+
+   SCOPED TO .adm, WHICH THE ADMIN LAYOUT PUTS ON ITS SHELL. A rule on h1
+   alone would have caught the storefront too, where an h1 is a product
+   name or a seller's shop name -- "ADIDAS SAMBA" is a shout, not a
+   signpost, and a shop called "Loja da Ana" does not want to be renamed
+   by a stylesheet.
+
+   text-transform, not capitals in the text: the DOM keeps the real words,
+   so a screen reader says "Today" rather than spelling it out, and the
+   page title and the translations stay sentences. Capitals need air that
+   lower case does not, hence the tracking. */
+.adm h1{text-transform:uppercase;letter-spacing:.03em}
+
 /* =====================================================================
    THE ADMIN FRONT PAGE, AS A DASHBOARD
    =====================================================================
@@ -2109,6 +2131,14 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
 .dash-head{display:flex;align-items:flex-start;justify-content:space-between;
   gap:var(--sp-3);flex:0 0 auto}
+/* The range picker. Scrolls sideways on a phone rather than wrapping to a
+   second line: eight chips wrapped would cost the dashboard a row of
+   height it does not have, and a row that slides is the gesture a phone
+   already uses. */
+.dash-range{display:flex;gap:var(--sp-1);flex:0 0 auto;overflow-x:auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.dash-range::-webkit-scrollbar{display:none}
+.dash-range .chip{flex:0 0 auto;text-decoration:none}
 .dash-head h1{margin:0}
 .dash-head .sub{margin:2px 0 0}
 .dash-loves{display:flex;flex-direction:column;align-items:flex-end;

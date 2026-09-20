@@ -106,8 +106,11 @@ export interface KpiInput {
   /** Revenue in the window, and its change against the window before. */
   sales: { value: number; pct: number | null } | null;
   /** Revenue less the cost of the goods, over the same window. Separate
-   * from `finance` below because it is windowed and that one is not. */
-  grossProfit: { value: number; pct: number | null; margin: number | null } | null;
+   * from `finance` below because it is windowed and that one is not.
+   *
+   * `value` is null when NO line in the window had a unit cost recorded --
+   * which is not the same as no profit, and must not be rendered as one. */
+  grossProfit: { value: number | null; pct: number | null; margin: number | null } | null;
   /** Orders placed in the window -- the count, not the money. */
   orders: { value: number; pct: number | null } | null;
   catalog: { value: number; units: number; live: number; priced: number } | null;
@@ -117,9 +120,14 @@ export interface KpiInput {
   finance: { value: number; margin: number | null } | null;
 }
 
-/** How many days the windowed figures cover. Named so the label can say
- * "last 30 days" without the number being written twice. */
-export const KPI_WINDOW_DAYS = 30;
+/** The i18n key naming what a range covers, for the line under each
+ * windowed figure. Its own map rather than reusing the chip labels: a chip
+ * says "1M" because it is a button in a row of eight, and a tile has to
+ * say "Last 30 days" because it is the only thing telling the reader what
+ * the number above it means. */
+export function basisKeyFor(range: string): string {
+  return `kpiBasis_${range}`;
+}
 
 /** The row, in the fixed order above, skipping what this account cannot
  * see. */
@@ -135,9 +143,15 @@ export interface KpiWords {
   priced: string;
 }
 
-export function buildKpis(input: KpiInput, words?: KpiWords): Kpi[] {
+export function buildKpis(
+  input: KpiInput, words?: KpiWords, periodKey = "kpiBasisPeriod",
+): Kpi[] {
   const out: Kpi[] = [];
-  const period = "kpiBasisPeriod";   // "last 30 days"
+  /* WHAT THE WINDOWED FIGURES COVER, chosen by the range picker at the top
+     of the page and passed in rather than assumed here. Four of the six
+     tiles follow it; the other two say "right now" and "all time" because
+     that is what they are, and a filter cannot honestly change them. */
+  const period = periodKey;
 
   if (input.sales) {
     out.push({
@@ -151,13 +165,20 @@ export function buildKpis(input: KpiInput, words?: KpiWords): Kpi[] {
     const { value, pct, margin } = input.grossProfit;
     out.push({
       key: "grossProfit", labelKey: "kpiGrossProfit", href: "/admin/sales",
-      value: money(value), basisKey: period,
+      /* NOT "$0.00" WHEN NOTHING WAS COSTED. Gross profit is revenue less
+         what the goods cost, over the lines that HAVE a cost -- so a shop
+         that has recorded unit costs for two products out of eight has
+         not answered the question for the other six, and the honest
+         answer is a dash. Printing zero told such a shop it had made
+         nothing on a month it took $138 in, which is the same mistake the
+         stock tile makes if it reports an unpriced catalogue as empty. */
+      value: value == null ? "—" : money(value), basisKey: period,
       /* The MARGIN, not the change: a profit figure moving with revenue
          says nothing on its own, and the share of each dollar kept is what
          tells the shop whether it is selling better or just selling more.
          The change is still there when there is no margin to quote. */
       note: margin == null ? deltaText(pct) : `${(margin * 100).toFixed(1)}%`,
-      tone: value > 0 ? "good" : value < 0 ? "bad" : "flat",
+      tone: value == null ? "flat" : value > 0 ? "good" : value < 0 ? "bad" : "flat",
     });
   }
 

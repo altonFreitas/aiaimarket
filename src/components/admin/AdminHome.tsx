@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { DualBars, RankedBars, type DualPoint, type RankedRow } from "./Charts";
-import { buildKpis, type KpiInput } from "@/lib/adminHomeKpis";
+import { buildKpis, basisKeyFor, type KpiInput } from "@/lib/adminHomeKpis";
+import { RANGES, type RangeKey } from "@/lib/overview";
 import { t } from "@/lib/i18n";
 import type { AttentionItem } from "@/lib/attention";
 import type { Lang } from "@/lib/types";
@@ -49,7 +50,7 @@ const ACCENT: Record<string, string> = {
 };
 
 export default function AdminHome({
-  lang, items, canSales, canProcurement, kpis, flow, categories, loves,
+  lang, items, canSales, canProcurement, kpis, range, flow, categories, loves,
 }: {
   lang: Lang;
   items: AttentionItem[];
@@ -58,7 +59,9 @@ export default function AdminHome({
   /** One figure per area, already withheld where the account cannot see
    * the screen it comes from. */
   kpis: KpiInput;
-  /** Revenue against purchase cost, by month. */
+  /** Which span the windowed figures cover, from ?range= on the address. */
+  range: RangeKey;
+  /** Revenue against purchase cost, bucketed for that span. */
   flow: DualPoint[];
   /** What sold in the window, biggest first. */
   categories: RankedRow[];
@@ -69,7 +72,7 @@ export default function AdminHome({
     units: t("kpiUnits", lang),
     products: t("kpiProducts", lang),
     priced: t("kpiPriced", lang),
-  });
+  }, basisKeyFor(range));
 
   return (
     <div className="dash">
@@ -89,6 +92,30 @@ export default function AdminHome({
           </Link>
         )}
       </div>
+
+      {/* WHICH SPAN THE FIGURES COVER.
+          Links, not buttons: this page is computed on the server, so
+          picking a range is a request for a different page rather than a
+          change of state -- which also means a range can be bookmarked,
+          opened in a second tab and sent to whoever asked the question.
+
+          Four of the six tiles follow it. The other two do not, and say so
+          on their own faces: stock on hand is what is on the shelves at
+          this moment, and the books are not kept by date. A filter that
+          silently changed those would be telling the reader something
+          untrue about them. */}
+      <nav className="dash-range" aria-label={t("period", lang)}>
+        {RANGES.map((r) => (
+          <Link
+            key={r.key}
+            href={r.key === "1m" ? "/admin" : `/admin?range=${r.key}`}
+            className={"chip" + (range === r.key ? " is-on" : "")}
+            aria-current={range === r.key}
+          >
+            {t("rng_" + r.key, lang)}
+          </Link>
+        ))}
+      </nav>
 
       {tiles.length > 0 && (
         <div className="kpi-row">
@@ -113,7 +140,7 @@ export default function AdminHome({
             <div className="dash-card-hd">
               <div>
                 <h2>{t("ovMoneyTrend", lang)}</h2>
-                <p className="sub">{t("dashFlowSub", lang)}</p>
+                <p className="sub">{t(basisKeyFor(range), lang)}</p>
               </div>
               <Link className="dash-more" href="/admin/overview">
                 {t("dashFullOverview", lang)} <span aria-hidden="true">→</span>
@@ -134,7 +161,11 @@ export default function AdminHome({
             <div className="dash-card-hd">
               <div>
                 <h2>{t("salesByCategory", lang)}</h2>
-                <p className="sub">{t("kpiBasisPeriod", lang)}</p>
+                {/* This breakdown is windowed by the picker too, so it
+                    names the same span the tiles do rather than a fixed
+                    one -- the figures beside it would otherwise describe
+                    a different month from the bars. */}
+                <p className="sub">{t(basisKeyFor(range), lang)}</p>
               </div>
               <Link className="dash-more" href="/admin/sales">
                 {t("salesDashboard", lang)} <span aria-hidden="true">→</span>

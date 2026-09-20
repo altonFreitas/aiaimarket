@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { buildKpis, stockOnHand, deltaText, toneOf } from "@/lib/adminHomeKpis";
+import {
+  buildKpis, stockOnHand, deltaText, toneOf, basisKeyFor,
+} from "@/lib/adminHomeKpis";
 import type { Product } from "@/lib/types";
 
 /* ONE FIGURE FROM EACH AREA, ON THE FRONT PAGE.
@@ -82,7 +84,7 @@ describe("the comparison under each figure", () => {
 describe("the row itself", () => {
   const full = {
     sales: { value: 138.23, pct: -0.396 },
-    grossProfit: { value: 62.4, pct: 0.08, margin: 0.451 },
+    grossProfit: { value: 62.4 as number | null, pct: 0.08, margin: 0.451 as number | null },
     orders: { value: 9, pct: 0.125 },
     catalog: { value: 1420.5, units: 31, live: 24, priced: 21 },
     procurement: { value: 70, pct: 0.142 },
@@ -195,5 +197,74 @@ describe("the page hands over only what the account may see", () => {
       const re = new RegExp("canFinance \\? " + call.replace("(", "\\(").replace(")", "\\)"));
       expect(PAGE, call).toMatch(re);
     }
+  });
+});
+
+describe("the range picker changes what the figures cover", () => {
+  const full = {
+    sales: { value: 138.23, pct: -0.396 },
+    grossProfit: { value: 62.4, pct: 0.08, margin: 0.451 },
+    orders: { value: 9, pct: 0.125 },
+    catalog: { value: 1420.5, units: 31, live: 24, priced: 21 },
+    procurement: { value: 70, pct: 0.142 },
+    finance: { value: 41.87, margin: 0.302 },
+  };
+  const WORDS = { units: "units", products: "products", priced: "priced" };
+
+  it("names a basis for every range the picker offers", () => {
+    for (const r of ["1d", "5d", "1m", "6m", "ytd", "1y", "5y", "max"]) {
+      expect(basisKeyFor(r)).toBe(`kpiBasis_${r}`);
+    }
+  });
+
+  it("carries the chosen span onto the windowed figures", () => {
+    const by = Object.fromEntries(
+      buildKpis(full, WORDS, basisKeyFor("6m")).map((k) => [k.key, k.basisKey]));
+    expect(by.sales).toBe("kpiBasis_6m");
+    expect(by.grossProfit).toBe("kpiBasis_6m");
+    expect(by.orders).toBe("kpiBasis_6m");
+    expect(by.procurement).toBe("kpiBasis_6m");
+  });
+
+  it("does not let the filter rewrite the two it cannot window", () => {
+    /* Stock on hand is what is on the shelves at this moment and the books
+       are not kept by date. A picker that silently relabelled those would
+       be telling the reader something untrue about them -- which is the
+       exact failure this whole basis line exists to prevent. */
+    for (const r of ["1d", "6m", "max"]) {
+      const by = Object.fromEntries(
+        buildKpis(full, WORDS, basisKeyFor(r)).map((k) => [k.key, k.basisKey]));
+      expect(by.catalog, r).toBe("kpiBasisNow");
+      expect(by.finance, r).toBe("kpiBasisAllTime");
+    }
+  });
+});
+
+describe("gross profit with nothing costed", () => {
+  const WORDS = { units: "units", products: "products", priced: "priced" };
+  const base = {
+    sales: { value: 138.23, pct: null },
+    orders: null, catalog: null, procurement: null, finance: null,
+  };
+
+  it("is a dash, not zero", () => {
+    /* THE BUG. Gross profit is revenue less what the goods cost, over the
+       lines that HAVE a cost -- so a shop with unit costs on two products
+       out of eight has not answered the question for the other six. The
+       screen reported $0.00 against a month that took $138 in, which says
+       "you made nothing" where the truth is "nobody has told me". */
+    const k = buildKpis(
+      { ...base, grossProfit: { value: null, pct: null, margin: null } }, WORDS)
+      .find((x) => x.key === "grossProfit")!;
+    expect(k.value).toBe("—");
+    expect(k.tone).toBe("flat");
+  });
+
+  it("still reports a real zero as zero", () => {
+    // Sold at exactly cost is a fact, and different from not knowing.
+    const k = buildKpis(
+      { ...base, grossProfit: { value: 0, pct: null, margin: 0 } }, WORDS)
+      .find((x) => x.key === "grossProfit")!;
+    expect(k.value).toBe("$0.00");
   });
 });

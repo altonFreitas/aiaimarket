@@ -58,6 +58,7 @@ export default async function AdminOverviewPage() {
       today={todayIso()}
       canSales={canSales}
       canProcurement={canProcurement}
+      closeHref="/admin"
       topCustomer={topCustomer ? { label: topCustomer.label, value: topCustomer.revenue } : null}
       topSupplier={topSupplier ? { label: topSupplier.label, value: topSupplier.value } : null}
     />
