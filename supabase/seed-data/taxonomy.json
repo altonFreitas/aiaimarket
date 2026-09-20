@@ -1,0 +1,4439 @@
+[
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "T-Shirts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Style",
+   "Season",
+   "Occasion",
+   "Neck Type",
+   "Sleeve Length",
+   "Fabric Weight",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Shirts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Style",
+   "Collar Type",
+   "Sleeve Type",
+   "Closure",
+   "Pocket Type",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Hoodies",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Hood Type",
+   "Closure",
+   "Pocket Type",
+   "Fabric Thickness",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Sweatshirts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Neck Type",
+   "Fabric Thickness",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Jackets",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Closure",
+   "Pocket Type",
+   "Lining",
+   "Waterproof",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Coats",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Length",
+   "Closure",
+   "Hood Type",
+   "Lining",
+   "Insulation",
+   "Waterproof",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Vests",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Closure",
+   "Pocket Type",
+   "Insulation",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Jeans",
+  "attributes": [
+   "Gender",
+   "Waist Size",
+   "Length",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Rise",
+   "Leg Style",
+   "Stretch",
+   "Wash",
+   "Closure"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Trousers",
+  "attributes": [
+   "Gender",
+   "Waist Size",
+   "Length",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Rise",
+   "Leg Style",
+   "Stretch",
+   "Closure",
+   "Pocket Type"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Shorts",
+  "attributes": [
+   "Gender",
+   "Waist Size",
+   "Length",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Liner",
+   "Stretch",
+   "Pocket Type",
+   "Closure"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Joggers",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Waist Type",
+   "Leg Style",
+   "Stretch",
+   "Pocket Type",
+   "Cuff Type"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Tracksuits",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pieces Included",
+   "Closure",
+   "Stretch",
+   "Season"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Underwear",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Style",
+   "Fit",
+   "Waistband",
+   "Pack Size"
+  ]
+ },
+ {
+  "category": "Men's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Swimwear",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Style",
+   "Fit",
+   "Liner",
+   "UV Protection",
+   "Pattern"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "T-Shirts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Style",
+   "Sleeve Length",
+   "Neckline",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Tops",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Style",
+   "Neckline",
+   "Sleeve Length",
+   "Length",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Blouses",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Collar Type",
+   "Sleeve Length",
+   "Closure",
+   "Occasion"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Shirts",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pattern",
+   "Collar Type",
+   "Sleeve Type",
+   "Closure",
+   "Pocket Type"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Dresses",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Dress Type",
+   "Length",
+   "Neckline",
+   "Sleeve Length",
+   "Waist Type",
+   "Closure",
+   "Occasion"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Skirts",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Length",
+   "Waist Type",
+   "Pattern",
+   "Closure",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Jeans",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Waist Size",
+   "Rise",
+   "Leg Style",
+   "Length",
+   "Stretch",
+   "Wash",
+   "Closure"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Trousers",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Waist Size",
+   "Rise",
+   "Leg Style",
+   "Length",
+   "Stretch",
+   "Closure"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Shorts",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Waist Size",
+   "Length",
+   "Rise",
+   "Stretch",
+   "Liner"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Leggings",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Waist Type",
+   "Length",
+   "Compression",
+   "Stretch",
+   "Opacity"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Hoodies",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Hood Type",
+   "Closure",
+   "Pocket Type",
+   "Fabric Thickness"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Sweatshirts",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Neckline",
+   "Sleeve Length",
+   "Fabric Thickness"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Jackets",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Closure",
+   "Pocket Type",
+   "Lining",
+   "Waterproof",
+   "Season"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Coats",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Length",
+   "Closure",
+   "Hood Type",
+   "Lining",
+   "Insulation",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Jumpsuits",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Length",
+   "Sleeve Length",
+   "Neckline",
+   "Waist Type",
+   "Closure"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Bodysuits",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Neckline",
+   "Sleeve Length",
+   "Closure",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Lingerie",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Style",
+   "Fit",
+   "Cup Size",
+   "Band Size",
+   "Support Level",
+   "Pack Size"
+  ]
+ },
+ {
+  "category": "Women's Clothing",
+  "subcategory": "Clothing",
+  "product_type": "Swimwear",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Style",
+   "Fit",
+   "Liner",
+   "UV Protection",
+   "Pattern",
+   "Support"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Gym T-Shirts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Activity",
+   "Moisture Wicking",
+   "Breathability",
+   "Stretch",
+   "Sleeve Length"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Stringers",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Activity",
+   "Breathability",
+   "Stretch",
+   "Back Style"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Tank Tops",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Activity",
+   "Moisture Wicking",
+   "Breathability",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Compression Shirts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Compression Level",
+   "Activity",
+   "Breathability",
+   "Moisture Wicking"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Compression Shorts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Compression Level",
+   "Length",
+   "Activity",
+   "Stretch"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Gym Shorts",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Length",
+   "Liner",
+   "Pocket Type",
+   "Waistband Type",
+   "Compression",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Leggings",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Length",
+   "Waist Type",
+   "Compression",
+   "Stretch",
+   "Opacity",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Sports Bras",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Support Level",
+   "Compression",
+   "Cup Size",
+   "Band Size",
+   "Moisture Wicking",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Joggers",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Waistband Type",
+   "Cuff Type",
+   "Pocket Type",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Tracksuits",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Pieces Included",
+   "Closure",
+   "Activity",
+   "Season"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Training Jackets",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Fit",
+   "Closure",
+   "Hood Type",
+   "Waterproof",
+   "Breathability",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Sportswear & Gym Clothing",
+  "subcategory": "Gym & Sportswear",
+  "product_type": "Sports Socks",
+  "attributes": [
+   "Size",
+   "Color",
+   "Brand",
+   "Material",
+   "Length",
+   "Cushioning",
+   "Compression",
+   "Breathability",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Running Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Upper Material",
+   "Sole Material",
+   "Shoe Width",
+   "Weight",
+   "Cushioning",
+   "Support Type",
+   "Running Type",
+   "Terrain",
+   "Heel-to-Toe Drop",
+   "Breathability",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Training Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Shoe Width",
+   "Weight",
+   "Stability",
+   "Cushioning",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Gym Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Shoe Width",
+   "Weight",
+   "Grip",
+   "Stability",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Basketball Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Ankle Support",
+   "Cushioning",
+   "Grip",
+   "Playing Position"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Football Boots",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Upper Material",
+   "Stud Type",
+   "Surface",
+   "Closure",
+   "Fit",
+   "Playing Position"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Hiking Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Upper Material",
+   "Sole Material",
+   "Terrain",
+   "Ankle Support",
+   "Waterproof",
+   "Insulation",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Casual Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Closure",
+   "Style",
+   "Shoe Width"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Sneakers",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Closure",
+   "Style",
+   "Cushioning"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Sandals",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Closure",
+   "Strap Type",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Boots",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Shaft Height",
+   "Closure",
+   "Waterproof",
+   "Insulation"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Slides",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Waterproof",
+   "Strap Type"
+  ]
+ },
+ {
+  "category": "Shoes",
+  "subcategory": "Footwear",
+  "product_type": "Formal Shoes",
+  "attributes": [
+   "Gender",
+   "Size",
+   "Brand",
+   "Model",
+   "Color",
+   "Material",
+   "Sole Material",
+   "Closure",
+   "Toe Shape",
+   "Style"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Dumbbells",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Weight",
+   "Type",
+   "Material",
+   "Handle Material",
+   "Coating",
+   "Shape",
+   "Adjustable/Fixed",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Barbells",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Length",
+   "Weight",
+   "Diameter",
+   "Maximum Load",
+   "Shaft Material",
+   "Knurling",
+   "Sleeve Type",
+   "Bar Type"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Weight Plates",
+  "attributes": [
+   "Brand",
+   "Weight",
+   "Diameter",
+   "Hole Diameter",
+   "Material",
+   "Plate Type",
+   "Thickness",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Kettlebells",
+  "attributes": [
+   "Brand",
+   "Weight",
+   "Material",
+   "Handle Material",
+   "Coating",
+   "Color",
+   "Fixed/Adjustable"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Resistance Bands",
+  "attributes": [
+   "Brand",
+   "Resistance Level",
+   "Length",
+   "Width",
+   "Material",
+   "Handle Type",
+   "Set Quantity",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Pull-Up Bars",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Bar Length",
+   "Maximum Load",
+   "Mounting Type",
+   "Grip Type",
+   "Dimensions"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Gym Benches",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Bench Type",
+   "Material",
+   "Maximum Load",
+   "Adjustable Positions",
+   "Dimensions",
+   "Padding Material",
+   "Frame Material"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Squat Racks",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Material",
+   "Maximum Load",
+   "Height",
+   "Width",
+   "Depth",
+   "Rack Type",
+   "Adjustable"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Cable Machines",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Machine Type",
+   "Maximum Load",
+   "Cable Ratio",
+   "Dimensions",
+   "Weight Stack",
+   "Attachments Included"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Weight Machines",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Machine Type",
+   "Target Muscle",
+   "Maximum Load",
+   "Dimensions",
+   "Weight Stack",
+   "Adjustability"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Treadmills",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Motor Power",
+   "Speed Range",
+   "Incline Range",
+   "Running Surface",
+   "Maximum User Weight",
+   "Foldable",
+   "Display Features"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Exercise Bikes",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Bike Type",
+   "Resistance Type",
+   "Resistance Levels",
+   "Maximum User Weight",
+   "Dimensions",
+   "Display Features"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Rowing Machines",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Resistance Type",
+   "Resistance Levels",
+   "Maximum User Weight",
+   "Rail Length",
+   "Foldable",
+   "Display Features"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Yoga Mats",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Length",
+   "Width",
+   "Thickness",
+   "Weight",
+   "Non-Slip",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Foam Rollers",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Length",
+   "Diameter",
+   "Firmness",
+   "Surface Type",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Ab Wheels",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Wheel Diameter",
+   "Handle Material",
+   "Maximum Load",
+   "Single/Dual Wheel"
+  ]
+ },
+ {
+  "category": "Gym & Fitness Equipment",
+  "subcategory": "Fitness Equipment",
+  "product_type": "Jump Ropes",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Length",
+   "Handle Material",
+   "Bearing Type",
+   "Adjustable",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Gym Gloves",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Color",
+   "Closure",
+   "Palm Padding",
+   "Breathability"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Wrist Wraps",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Length",
+   "Width",
+   "Support Level",
+   "Closure",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Lifting Straps",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Length",
+   "Width",
+   "Closure",
+   "Maximum Load",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Knee Sleeves",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Thickness",
+   "Compression",
+   "Support Level",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Elbow Sleeves",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Thickness",
+   "Compression",
+   "Support Level",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Weight Belts",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Width",
+   "Buckle Type",
+   "Maximum Load",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Ankle Straps",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Size",
+   "Closure",
+   "Padding",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Lifting Hooks",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Maximum Load",
+   "Strap Type",
+   "Size",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Shaker Bottles",
+  "attributes": [
+   "Brand",
+   "Capacity",
+   "Material",
+   "Leakproof",
+   "Mixing System",
+   "Compartments",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Gym Towels",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Dimensions",
+   "Absorbency",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Gym Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Capacity",
+   "Dimensions",
+   "Compartments",
+   "Shoe Compartment",
+   "Waterproof",
+   "Strap Type",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gym Accessories",
+  "subcategory": "Gym Accessories",
+  "product_type": "Training Masks",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Resistance Levels",
+   "Adjustable",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Whey Protein",
+  "attributes": [
+   "Brand",
+   "Protein Type",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Protein per Serving",
+   "Calories",
+   "Carbohydrates",
+   "Fat",
+   "Ingredients",
+   "Sweetener",
+   "Allergen Information",
+   "Recommended Usage",
+   "Expiration Date",
+   "Batch Number"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Protein Bars",
+  "attributes": [
+   "Brand",
+   "Flavor",
+   "Weight",
+   "Servings",
+   "Protein per Serving",
+   "Calories",
+   "Carbohydrates",
+   "Fat",
+   "Ingredients",
+   "Allergens",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Creatine",
+  "attributes": [
+   "Brand",
+   "Creatine Type",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Creatine per Serving",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Pre-Workout",
+  "attributes": [
+   "Brand",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Caffeine per Serving",
+   "Creatine per Serving",
+   "Beta-Alanine",
+   "Citrulline",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "BCAA",
+  "attributes": [
+   "Brand",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "BCAA Ratio",
+   "Amino Acids",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "EAA",
+  "attributes": [
+   "Brand",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Amino Acid Profile",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Mass Gainer",
+  "attributes": [
+   "Brand",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Calories",
+   "Protein",
+   "Carbohydrates",
+   "Fat",
+   "Ingredients",
+   "Allergens",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Electrolytes",
+  "attributes": [
+   "Brand",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Sodium",
+   "Potassium",
+   "Magnesium",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Vitamins",
+  "attributes": [
+   "Brand",
+   "Vitamin Type",
+   "Form",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Dosage",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Minerals",
+  "attributes": [
+   "Brand",
+   "Mineral Type",
+   "Form",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Dosage",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Supplements & Sports Nutrition",
+  "subcategory": "Sports Nutrition",
+  "product_type": "Recovery Supplements",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Flavor",
+   "Net Weight",
+   "Serving Size",
+   "Servings",
+   "Protein",
+   "Carbohydrates",
+   "Ingredients",
+   "Recommended Usage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Watches",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Movement",
+   "Case Material",
+   "Case Diameter",
+   "Strap Material",
+   "Strap Color",
+   "Water Resistance",
+   "Display Type",
+   "Battery Type",
+   "Features"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Sunglasses",
+  "attributes": [
+   "Brand",
+   "Frame Material",
+   "Lens Material",
+   "Lens Color",
+   "Frame Color",
+   "UV Protection",
+   "Lens Type",
+   "Polarized",
+   "Frame Shape",
+   "Gender"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Belts",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Size",
+   "Width",
+   "Color",
+   "Buckle Type",
+   "Style"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Wallets",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Size",
+   "Dimensions",
+   "Color",
+   "Card Slots",
+   "Coin Pocket",
+   "Closure Type"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Caps",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Size",
+   "Color",
+   "Closure",
+   "Pattern",
+   "Style"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Hats",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Size",
+   "Color",
+   "Style",
+   "Season"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Backpacks",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Capacity",
+   "Dimensions",
+   "Weight",
+   "Compartments",
+   "Laptop Compatibility",
+   "Waterproof",
+   "Color"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Capacity",
+   "Dimensions",
+   "Weight",
+   "Compartments",
+   "Closure Type",
+   "Strap Type",
+   "Color"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Jewelry",
+  "attributes": [
+   "Brand",
+   "Jewelry Type",
+   "Material",
+   "Metal Type",
+   "Stone Type",
+   "Size",
+   "Color",
+   "Gender",
+   "Plating"
+  ]
+ },
+ {
+  "category": "Accessories",
+  "subcategory": "Accessories",
+  "product_type": "Keychains",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Dimensions",
+   "Color",
+   "Theme",
+   "Attachment Type"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Smartphones",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Condition",
+   "Color",
+   "Operating System",
+   "Screen Size",
+   "Resolution",
+   "Refresh Rate",
+   "RAM",
+   "Storage",
+   "Processor",
+   "Main Camera",
+   "Front Camera",
+   "Battery Capacity",
+   "5G",
+   "SIM Type",
+   "NFC",
+   "Bluetooth",
+   "Wi-Fi"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Tablets",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Condition",
+   "Color",
+   "Operating System",
+   "Screen Size",
+   "Resolution",
+   "Refresh Rate",
+   "RAM",
+   "Storage",
+   "Processor",
+   "Camera",
+   "Battery Capacity",
+   "Cellular Connectivity",
+   "Bluetooth",
+   "Wi-Fi"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Laptops",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Condition",
+   "Color",
+   "Processor",
+   "RAM",
+   "Storage",
+   "GPU",
+   "Screen Size",
+   "Resolution",
+   "Refresh Rate",
+   "Operating System",
+   "Battery",
+   "Ports",
+   "Weight",
+   "Keyboard Layout"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Smartwatches",
+  "attributes": [
+   "Brand",
+   "Model",
+   "OS",
+   "Display Type",
+   "Screen Size",
+   "Storage",
+   "Battery Life",
+   "GPS",
+   "NFC",
+   "Water Resistance",
+   "Health Features",
+   "Connectivity"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Headphones",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Type",
+   "Connection",
+   "Bluetooth Version",
+   "Noise Cancellation",
+   "Battery Life",
+   "Microphone",
+   "Driver Size",
+   "Water Resistance"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Earbuds",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Connection",
+   "Bluetooth Version",
+   "Noise Cancellation",
+   "Battery Life",
+   "Charging Case Capacity",
+   "Microphone",
+   "Water Resistance"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Speakers",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Type",
+   "Power Output",
+   "Connectivity",
+   "Bluetooth Version",
+   "Battery Life",
+   "Frequency Response",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Power Banks",
+  "attributes": [
+   "Brand",
+   "Capacity",
+   "Input",
+   "Output",
+   "Fast Charging",
+   "Number of Ports",
+   "Battery Type",
+   "Dimensions",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Chargers",
+  "attributes": [
+   "Brand",
+   "Charger Type",
+   "Power Output",
+   "Voltage",
+   "Current",
+   "Port Type",
+   "Fast Charging",
+   "Compatibility"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Cables",
+  "attributes": [
+   "Brand",
+   "Cable Type",
+   "Connector A",
+   "Connector B",
+   "Length",
+   "Data Transfer Speed",
+   "Charging Power",
+   "Material"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Keyboards",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Type",
+   "Connection",
+   "Switch Type",
+   "Layout",
+   "RGB",
+   "Backlight",
+   "Compatibility"
+  ]
+ },
+ {
+  "category": "Electronics",
+  "subcategory": "Consumer Electronics",
+  "product_type": "Mice",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Connection",
+   "Sensor Type",
+   "DPI",
+   "Buttons",
+   "Polling Rate",
+   "RGB",
+   "Compatibility"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "CPUs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Socket",
+   "Cores",
+   "Threads",
+   "Base Clock",
+   "Boost Clock",
+   "Cache",
+   "TDP",
+   "Integrated Graphics"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "GPUs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "VRAM",
+   "Memory Type",
+   "Memory Interface",
+   "Boost Clock",
+   "Power Consumption",
+   "Recommended PSU",
+   "Ports",
+   "Length"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "Motherboards",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Socket",
+   "Chipset",
+   "Form Factor",
+   "RAM Type",
+   "Maximum RAM",
+   "RAM Slots",
+   "Expansion Slots",
+   "Storage Interfaces",
+   "Wi-Fi",
+   "Bluetooth"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "RAM",
+  "attributes": [
+   "Brand",
+   "Capacity",
+   "Type",
+   "Speed",
+   "CAS Latency",
+   "Voltage",
+   "Module Type",
+   "Number of Modules"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "SSDs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Capacity",
+   "Interface",
+   "Form Factor",
+   "Read Speed",
+   "Write Speed",
+   "NAND Type",
+   "TBW"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "HDDs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Capacity",
+   "Form Factor",
+   "RPM",
+   "Interface",
+   "Cache Size",
+   "Recording Technology"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "Power Supplies",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Power Output",
+   "Efficiency Rating",
+   "Form Factor",
+   "Modular",
+   "Connectors",
+   "Fan Size"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "PC Cases",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Form Factor",
+   "Motherboard Compatibility",
+   "GPU Length",
+   "CPU Cooler Height",
+   "Fan Support",
+   "Radiator Support",
+   "Dimensions"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "Cooling Systems",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Cooling Type",
+   "Socket Compatibility",
+   "Fan Size",
+   "Fan Speed",
+   "Noise Level",
+   "Radiator Size"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "Monitors",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Screen Size",
+   "Panel Type",
+   "Resolution",
+   "Refresh Rate",
+   "Response Time",
+   "HDR",
+   "Adaptive Sync",
+   "Ports",
+   "VESA Mount"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "Keyboards",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Type",
+   "Switch Type",
+   "Layout",
+   "Connection",
+   "RGB",
+   "Backlight",
+   "Compatibility"
+  ]
+ },
+ {
+  "category": "Computers & Components",
+  "subcategory": "Computer Components",
+  "product_type": "Mice",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Sensor Type",
+   "DPI",
+   "Buttons",
+   "Polling Rate",
+   "Connection",
+   "RGB",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Consoles",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Platform",
+   "Storage",
+   "Resolution",
+   "Connectivity",
+   "Included Accessories",
+   "Region",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Controllers",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Platform",
+   "Compatibility",
+   "Connection Type",
+   "Battery Life",
+   "Vibration",
+   "Motion Control",
+   "RGB",
+   "Color"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Headsets",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Platform",
+   "Connection",
+   "Driver Size",
+   "Surround Sound",
+   "Microphone",
+   "Noise Cancellation",
+   "RGB",
+   "Battery Life"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Chairs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Material",
+   "Upholstery",
+   "Maximum Load",
+   "Seat Width",
+   "Height Range",
+   "Recline Angle",
+   "Armrest Type",
+   "Footrest"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Desks",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Width",
+   "Height",
+   "Depth",
+   "Maximum Load",
+   "Cable Management",
+   "RGB",
+   "Adjustable Height"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Keyboards",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Switch Type",
+   "Layout",
+   "Connection",
+   "RGB",
+   "Polling Rate",
+   "Macro Support"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Mice",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Sensor",
+   "DPI",
+   "Polling Rate",
+   "Buttons",
+   "Connection",
+   "RGB",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Mouse Pads",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Dimensions",
+   "Surface Type",
+   "Thickness",
+   "RGB",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Games",
+  "attributes": [
+   "Title",
+   "Platform",
+   "Genre",
+   "Edition",
+   "Region",
+   "Age Rating",
+   "Physical/Digital",
+   "Language"
+  ]
+ },
+ {
+  "category": "Gaming",
+  "subcategory": "Gaming Products",
+  "product_type": "Gaming Monitors",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Screen Size",
+   "Resolution",
+   "Refresh Rate",
+   "Response Time",
+   "Panel Type",
+   "HDR",
+   "Adaptive Sync",
+   "Ports"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Sofas",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Material",
+   "Upholstery Material",
+   "Frame Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Seat Height",
+   "Number of Seats",
+   "Maximum Load",
+   "Cushion Material",
+   "Cushion Removable",
+   "Reclining",
+   "Sofa Configuration",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Armchairs",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Upholstery Material",
+   "Frame Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Seat Height",
+   "Maximum Load",
+   "Cushion Material",
+   "Armrest Type",
+   "Reclining",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Chairs",
+  "attributes": [
+   "Chair Type",
+   "Brand",
+   "Material",
+   "Upholstery Material",
+   "Frame Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Seat Height",
+   "Maximum Load",
+   "Armrests",
+   "Adjustable Height",
+   "Wheels",
+   "Stackable",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Dining Chairs",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Upholstery Material",
+   "Frame Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Seat Height",
+   "Maximum Load",
+   "Armrests",
+   "Stackable",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Office Chairs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Upholstery Material",
+   "Frame Material",
+   "Color",
+   "Seat Height Range",
+   "Maximum Load",
+   "Adjustable Height",
+   "Armrests",
+   "Backrest Type",
+   "Lumbar Support",
+   "Headrest",
+   "Wheels",
+   "Recline Angle"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Gaming Chairs",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Upholstery Material",
+   "Frame Material",
+   "Color",
+   "Maximum Load",
+   "Seat Width",
+   "Height Range",
+   "Recline Angle",
+   "Armrest Type",
+   "Lumbar Support",
+   "Headrest",
+   "Footrest",
+   "Wheels"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Dining Tables",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Table Type",
+   "Color",
+   "Length",
+   "Width",
+   "Height",
+   "Maximum Load",
+   "Number of Seats",
+   "Shape",
+   "Extendable",
+   "Foldable",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Coffee Tables",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Length",
+   "Width",
+   "Height",
+   "Shape",
+   "Maximum Load",
+   "Storage",
+   "Number of Shelves",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Desks",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Maximum Load",
+   "Desk Type",
+   "Adjustable Height",
+   "Storage",
+   "Number of Drawers",
+   "Cable Management",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Office Desks",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Maximum Load",
+   "Adjustable Height",
+   "Number of Drawers",
+   "Cable Management",
+   "Storage",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Beds",
+  "attributes": [
+   "Brand",
+   "Bed Type",
+   "Material",
+   "Frame Material",
+   "Color",
+   "Mattress Size",
+   "Width",
+   "Length",
+   "Height",
+   "Maximum Load",
+   "Storage",
+   "Headboard",
+   "Adjustable",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Mattresses",
+  "attributes": [
+   "Brand",
+   "Mattress Type",
+   "Size",
+   "Length",
+   "Width",
+   "Height",
+   "Firmness",
+   "Material",
+   "Filling Material",
+   "Support Type",
+   "Hypoallergenic",
+   "Removable Cover",
+   "Breathability"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Bedside Tables",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Number of Drawers",
+   "Number of Shelves",
+   "Maximum Load",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Wardrobes",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Number of Doors",
+   "Door Type",
+   "Number of Shelves",
+   "Hanging Rail",
+   "Drawers",
+   "Maximum Load",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Cabinets",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Door Count",
+   "Drawer Count",
+   "Shelf Count",
+   "Maximum Load",
+   "Lockable",
+   "Assembly Required",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Shelves",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Number of Shelves",
+   "Maximum Load Per Shelf",
+   "Wall Mounted/Freestanding",
+   "Adjustable Shelves",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Bookcases",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Number of Shelves",
+   "Maximum Load Per Shelf",
+   "Adjustable Shelves",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "TV Units",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "TV Size Compatibility",
+   "Maximum Load",
+   "Shelves",
+   "Cabinets",
+   "Cable Management",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Storage Boxes",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Width",
+   "Height",
+   "Depth",
+   "Lid Type",
+   "Stackable",
+   "Foldable"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Storage Bins",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Width",
+   "Height",
+   "Depth",
+   "Lid Type",
+   "Stackable",
+   "Handles"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Kitchen Cabinets",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Door Count",
+   "Drawer Count",
+   "Shelf Count",
+   "Installation Type",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Kitchen Tables",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Length",
+   "Width",
+   "Height",
+   "Shape",
+   "Number of Seats",
+   "Maximum Load",
+   "Extendable",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Kitchen Chairs",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Height",
+   "Depth",
+   "Seat Height",
+   "Maximum Load",
+   "Stackable",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Lighting",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Material",
+   "Color",
+   "Light Type",
+   "Bulb Type",
+   "Wattage",
+   "Lumens",
+   "Color Temperature",
+   "Dimmable",
+   "Voltage",
+   "IP Rating",
+   "Smart Features"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Lamps",
+  "attributes": [
+   "Lamp Type",
+   "Brand",
+   "Material",
+   "Color",
+   "Bulb Type",
+   "Wattage",
+   "Lumens",
+   "Color Temperature",
+   "Dimmable",
+   "Switch Type",
+   "Cable Length"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Ceiling Lights",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Bulb Type",
+   "Wattage",
+   "Lumens",
+   "Color Temperature",
+   "Dimmable",
+   "Voltage",
+   "IP Rating",
+   "Installation Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Kitchenware",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Dimensions",
+   "Quantity",
+   "Dishwasher Safe",
+   "Microwave Safe",
+   "Oven Safe",
+   "Food Safe"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Cookware",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Material",
+   "Diameter",
+   "Capacity",
+   "Handle Material",
+   "Non-Stick",
+   "Induction Compatible",
+   "Oven Safe",
+   "Dishwasher Safe"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Dinnerware",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Material",
+   "Color",
+   "Diameter",
+   "Capacity",
+   "Quantity",
+   "Dishwasher Safe",
+   "Microwave Safe"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Curtains",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Width",
+   "Length",
+   "Pattern",
+   "Opacity",
+   "Blackout",
+   "Thermal Insulation",
+   "Mounting Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Rugs",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Length",
+   "Width",
+   "Shape",
+   "Pile Height",
+   "Pattern",
+   "Indoor/Outdoor",
+   "Non-Slip",
+   "Washable"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Mirrors",
+  "attributes": [
+   "Brand",
+   "Frame Material",
+   "Frame Color",
+   "Width",
+   "Height",
+   "Shape",
+   "Mirror Type",
+   "Mounting Type",
+   "Room Type"
+  ]
+ },
+ {
+  "category": "Home, Furniture & Living",
+  "subcategory": "Furniture / Home Equipment / Living",
+  "product_type": "Home Decoration",
+  "attributes": [
+   "Product Type",
+   "Brand",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Weight",
+   "Style",
+   "Room Type",
+   "Handmade",
+   "Mounting Type"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Skincare",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Volume",
+   "Weight",
+   "Skin Type",
+   "Ingredients",
+   "Fragrance",
+   "Benefits",
+   "SPF",
+   "Skin Concern",
+   "Suitable Age",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Haircare",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Volume",
+   "Hair Type",
+   "Ingredients",
+   "Fragrance",
+   "Benefits",
+   "Hair Concern",
+   "Suitable Age",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Makeup",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Shade",
+   "Finish",
+   "Skin Type",
+   "Volume",
+   "Ingredients",
+   "SPF",
+   "Coverage",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Perfume",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Volume",
+   "Fragrance Family",
+   "Top Notes",
+   "Heart Notes",
+   "Base Notes",
+   "Gender",
+   "Concentration",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Grooming",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Power Source",
+   "Battery Life",
+   "Attachments",
+   "Skin/Hair Type",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Oral Care",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Ingredients",
+   "Volume",
+   "Quantity",
+   "Suitable Age",
+   "Benefits",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Beauty & Personal Care",
+  "subcategory": "Personal Care",
+  "product_type": "Shaving Products",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Blade Count",
+   "Quantity",
+   "Skin Type",
+   "Ingredients",
+   "Suitable Age"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Backpacks",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Dimensions",
+   "Weight",
+   "Compartments",
+   "Laptop Compatibility",
+   "Laptop Size",
+   "Waterproof",
+   "Strap Type"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Gym Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Capacity",
+   "Dimensions",
+   "Compartments",
+   "Shoe Compartment",
+   "Waterproof",
+   "Strap Type",
+   "Color"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Handbags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Dimensions",
+   "Compartments",
+   "Closure Type",
+   "Strap Type",
+   "Style"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Shoulder Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Dimensions",
+   "Compartments",
+   "Closure Type",
+   "Strap Type"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Crossbody Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Color",
+   "Capacity",
+   "Dimensions",
+   "Compartments",
+   "Closure Type",
+   "Adjustable Strap"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Suitcases",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Size",
+   "Capacity",
+   "Dimensions",
+   "Weight",
+   "Wheels",
+   "Handle Type",
+   "Lock Type",
+   "Expandable",
+   "Hard/Soft Shell"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Travel Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Capacity",
+   "Dimensions",
+   "Weight",
+   "Compartments",
+   "Shoe Compartment",
+   "Waterproof",
+   "Strap Type"
+  ]
+ },
+ {
+  "category": "Bags & Luggage",
+  "subcategory": "Bags & Travel",
+  "product_type": "Laptop Bags",
+  "attributes": [
+   "Brand",
+   "Material",
+   "Laptop Size",
+   "Capacity",
+   "Compartments",
+   "Waterproof",
+   "Strap Type",
+   "Closure Type",
+   "Color"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Car Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Vehicle Make",
+   "Vehicle Model",
+   "Vehicle Year",
+   "Compatibility",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Installation Type"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Motorcycle Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Motorcycle Make",
+   "Model",
+   "Year",
+   "Compatibility",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Installation Type"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Car Electronics",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Device Type",
+   "Vehicle Compatibility",
+   "Voltage",
+   "Power",
+   "Connectivity",
+   "Display",
+   "Installation Type"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Interior Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Vehicle Make",
+   "Model",
+   "Year",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Exterior Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Vehicle Make",
+   "Model",
+   "Year",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Waterproof"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Maintenance Products",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Compatibility",
+   "Volume",
+   "Weight",
+   "Ingredients",
+   "Application",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Automotive",
+  "subcategory": "Automotive Products",
+  "product_type": "Automotive Tools",
+  "attributes": [
+   "Brand",
+   "Tool Type",
+   "Material",
+   "Dimensions",
+   "Weight",
+   "Maximum Load",
+   "Power Source",
+   "Voltage"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Football",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Weight",
+   "Construction",
+   "Surface",
+   "Certification",
+   "Color"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Basketball",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Weight",
+   "Surface",
+   "Construction",
+   "Color"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Volleyball",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Material",
+   "Weight",
+   "Construction",
+   "Surface",
+   "Color"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Tennis Rackets",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Head Size",
+   "Weight",
+   "Balance",
+   "String Pattern",
+   "Length",
+   "Grip Size",
+   "Material"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Running Equipment",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Size",
+   "Material",
+   "Weight",
+   "Activity",
+   "Terrain",
+   "Color"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Bicycles",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Bike Type",
+   "Frame Material",
+   "Frame Size",
+   "Wheel Size",
+   "Brake Type",
+   "Gear Count",
+   "Suspension",
+   "Weight",
+   "Color"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Camping Equipment",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Capacity",
+   "Dimensions",
+   "Weight",
+   "Waterproof",
+   "Number of Persons"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Hiking Equipment",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Size",
+   "Weight",
+   "Waterproof",
+   "Terrain",
+   "Support Level"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Swimming Equipment",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Size",
+   "Material",
+   "Color",
+   "UV Protection",
+   "Waterproof",
+   "Activity"
+  ]
+ },
+ {
+  "category": "Sports & Outdoor",
+  "subcategory": "Sports & Outdoor",
+  "product_type": "Fishing Equipment",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Length",
+   "Weight",
+   "Line Capacity",
+   "Action",
+   "Power"
+  ]
+ },
+ {
+  "category": "Books & Education",
+  "subcategory": "Education & Stationery",
+  "product_type": "Books",
+  "attributes": [
+   "Title",
+   "Author",
+   "Publisher",
+   "ISBN",
+   "Language",
+   "Edition",
+   "Publication Date",
+   "Number of Pages",
+   "Format",
+   "Condition",
+   "Subject",
+   "Genre"
+  ]
+ },
+ {
+  "category": "Books & Education",
+  "subcategory": "Education & Stationery",
+  "product_type": "Textbooks",
+  "attributes": [
+   "Title",
+   "Author",
+   "Publisher",
+   "ISBN",
+   "Language",
+   "Edition",
+   "Publication Date",
+   "Number of Pages",
+   "Subject",
+   "Education Level",
+   "Condition"
+  ]
+ },
+ {
+  "category": "Books & Education",
+  "subcategory": "Education & Stationery",
+  "product_type": "Study Materials",
+  "attributes": [
+   "Title",
+   "Subject",
+   "Education Level",
+   "Language",
+   "Format",
+   "Author/Creator",
+   "Edition",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Books & Education",
+  "subcategory": "Education & Stationery",
+  "product_type": "Notebooks",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Paper Type",
+   "Number of Pages",
+   "Cover Material",
+   "Binding Type",
+   "Color",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Books & Education",
+  "subcategory": "Education & Stationery",
+  "product_type": "Stationery",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Color",
+   "Quantity",
+   "Size",
+   "Intended Use"
+  ]
+ },
+ {
+  "category": "Books & Education",
+  "subcategory": "Education & Stationery",
+  "product_type": "Educational Toys",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Age Group",
+   "Material",
+   "Educational Level",
+   "Skill Developed",
+   "Safety Certification",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Baby Clothing",
+  "attributes": [
+   "Brand",
+   "Age Range",
+   "Gender",
+   "Size",
+   "Material",
+   "Color",
+   "Season",
+   "Closure",
+   "Care Instructions"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Kids Clothing",
+  "attributes": [
+   "Brand",
+   "Age Range",
+   "Gender",
+   "Size",
+   "Material",
+   "Color",
+   "Style",
+   "Season",
+   "Care Instructions"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Baby Shoes",
+  "attributes": [
+   "Brand",
+   "Age Range",
+   "Size",
+   "Material",
+   "Color",
+   "Sole Material",
+   "Closure",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Toys",
+  "attributes": [
+   "Brand",
+   "Toy Type",
+   "Age Range",
+   "Material",
+   "Dimensions",
+   "Battery Required",
+   "Safety Certification",
+   "Educational Level"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Strollers",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Type",
+   "Age Range",
+   "Maximum Load",
+   "Weight",
+   "Dimensions",
+   "Foldable",
+   "Wheel Type",
+   "Safety Features"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Baby Furniture",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Maximum Load",
+   "Safety Certification",
+   "Assembly Required"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "Feeding Products",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Capacity",
+   "Quantity",
+   "BPA Free",
+   "Dishwasher Safe",
+   "Suitable Age"
+  ]
+ },
+ {
+  "category": "Baby & Kids",
+  "subcategory": "Baby & Kids Products",
+  "product_type": "School Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Capacity",
+   "Age Range"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Pet Food",
+  "attributes": [
+   "Brand",
+   "Pet Type",
+   "Breed Size",
+   "Age",
+   "Flavor",
+   "Weight",
+   "Ingredients",
+   "Nutritional Information",
+   "Allergens",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Pet Toys",
+  "attributes": [
+   "Brand",
+   "Pet Type",
+   "Material",
+   "Dimensions",
+   "Toy Type",
+   "Age",
+   "Breed Size",
+   "Chew Resistant"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Pet Beds",
+  "attributes": [
+   "Brand",
+   "Pet Type",
+   "Breed Size",
+   "Material",
+   "Dimensions",
+   "Weight Capacity",
+   "Washable",
+   "Color"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Collars",
+  "attributes": [
+   "Brand",
+   "Pet Type",
+   "Size",
+   "Material",
+   "Width",
+   "Adjustable",
+   "Color",
+   "Closure Type"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Leashes",
+  "attributes": [
+   "Brand",
+   "Pet Type",
+   "Material",
+   "Length",
+   "Width",
+   "Maximum Load",
+   "Handle Type",
+   "Color"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Grooming",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Pet Type",
+   "Material",
+   "Size",
+   "Suitable Coat Type",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Pet Supplies",
+  "subcategory": "Pet Products",
+  "product_type": "Pet Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Pet Type",
+   "Material",
+   "Size",
+   "Color",
+   "Dimensions",
+   "Capacity"
+  ]
+ },
+ {
+  "category": "Tools & Hardware",
+  "subcategory": "Tools & Hardware",
+  "product_type": "Hand Tools",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Tool Type",
+   "Material",
+   "Dimensions",
+   "Weight",
+   "Handle Material",
+   "Maximum Load"
+  ]
+ },
+ {
+  "category": "Tools & Hardware",
+  "subcategory": "Tools & Hardware",
+  "product_type": "Power Tools",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Tool Type",
+   "Power Source",
+   "Voltage",
+   "Power",
+   "Battery Included",
+   "Battery Type",
+   "Speed",
+   "Torque",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Tools & Hardware",
+  "subcategory": "Tools & Hardware",
+  "product_type": "Measuring Tools",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Tool Type",
+   "Measurement Range",
+   "Accuracy",
+   "Units",
+   "Material",
+   "Power Source"
+  ]
+ },
+ {
+  "category": "Tools & Hardware",
+  "subcategory": "Tools & Hardware",
+  "product_type": "Hardware",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Size",
+   "Dimensions",
+   "Quantity",
+   "Finish",
+   "Application"
+  ]
+ },
+ {
+  "category": "Tools & Hardware",
+  "subcategory": "Tools & Hardware",
+  "product_type": "Electrical Tools",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Tool Type",
+   "Voltage",
+   "Power",
+   "Measurement Range",
+   "Accuracy",
+   "Power Source"
+  ]
+ },
+ {
+  "category": "Tools & Hardware",
+  "subcategory": "Tools & Hardware",
+  "product_type": "Workshop Equipment",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Equipment Type",
+   "Material",
+   "Dimensions",
+   "Weight",
+   "Maximum Load",
+   "Power Source"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Snacks",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Flavor",
+   "Weight",
+   "Ingredients",
+   "Nutritional Information",
+   "Allergens",
+   "Country of Origin",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Beverages",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Flavor",
+   "Volume",
+   "Ingredients",
+   "Nutritional Information",
+   "Caffeine",
+   "Country of Origin",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Coffee",
+  "attributes": [
+   "Brand",
+   "Type",
+   "Roast Level",
+   "Origin",
+   "Weight",
+   "Grind Type",
+   "Flavor Notes",
+   "Ingredients",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Tea",
+  "attributes": [
+   "Brand",
+   "Type",
+   "Origin",
+   "Weight",
+   "Flavor",
+   "Ingredients",
+   "Caffeine",
+   "Quantity",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Canned Food",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Weight",
+   "Net Weight",
+   "Ingredients",
+   "Nutritional Information",
+   "Allergens",
+   "Storage Instructions",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Cooking Ingredients",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Weight",
+   "Ingredients",
+   "Allergens",
+   "Country of Origin",
+   "Storage Instructions",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Frozen Food",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Weight",
+   "Ingredients",
+   "Allergens",
+   "Storage Temperature",
+   "Cooking Instructions",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Food & Grocery",
+  "subcategory": "Food & Grocery",
+  "product_type": "Sweets",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Flavor",
+   "Weight",
+   "Ingredients",
+   "Allergens",
+   "Nutritional Information",
+   "Expiration Date"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Printers",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Print Technology",
+   "Print Speed",
+   "Resolution",
+   "Paper Sizes",
+   "Connectivity",
+   "Duplex Printing",
+   "Ink/Toner Type"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Paper",
+  "attributes": [
+   "Brand",
+   "Paper Size",
+   "Paper Weight",
+   "Paper Type",
+   "Color",
+   "Quantity",
+   "Finish",
+   "Recycled"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Ink",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Ink Type",
+   "Color",
+   "Printer Compatibility",
+   "Page Yield",
+   "Volume"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Toners",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Toner Type",
+   "Color",
+   "Printer Compatibility",
+   "Page Yield"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Pens",
+  "attributes": [
+   "Brand",
+   "Pen Type",
+   "Ink Color",
+   "Tip Size",
+   "Material",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Notebooks",
+  "attributes": [
+   "Brand",
+   "Size",
+   "Paper Type",
+   "Number of Pages",
+   "Cover Material",
+   "Binding Type",
+   "Color",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Office Furniture",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Maximum Load",
+   "Assembly Required",
+   "Adjustable"
+  ]
+ },
+ {
+  "category": "Office Supplies",
+  "subcategory": "Office Products",
+  "product_type": "Filing Products",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Dimensions",
+   "Capacity",
+   "Color",
+   "Closure Type",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Guitars",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Guitar Type",
+   "Body Material",
+   "Neck Material",
+   "Number of Strings",
+   "Number of Frets",
+   "Pickup Type",
+   "Finish",
+   "Color",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Keyboards",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Number of Keys",
+   "Key Type",
+   "Polyphony",
+   "Voices",
+   "Connectivity",
+   "Weight",
+   "Dimensions"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Drums",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Drum Type",
+   "Shell Material",
+   "Number of Pieces",
+   "Diameter",
+   "Finish",
+   "Color"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Microphones",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Microphone Type",
+   "Polar Pattern",
+   "Connection",
+   "Frequency Response",
+   "Sensitivity",
+   "Phantom Power"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Speakers",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Speaker Type",
+   "Power Output",
+   "Frequency Response",
+   "Connectivity",
+   "Inputs",
+   "Weight"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Audio Interfaces",
+  "attributes": [
+   "Brand",
+   "Model",
+   "Number of Inputs",
+   "Number of Outputs",
+   "Sample Rate",
+   "Bit Depth",
+   "Phantom Power",
+   "Connectivity"
+  ]
+ },
+ {
+  "category": "Musical Instruments",
+  "subcategory": "Music Products",
+  "product_type": "Musical Accessories",
+  "attributes": [
+   "Brand",
+   "Product Type",
+   "Material",
+   "Compatibility",
+   "Dimensions",
+   "Color",
+   "Quantity"
+  ]
+ },
+ {
+  "category": "Collectibles & Hobbies",
+  "subcategory": "Collectibles & Hobbies",
+  "product_type": "Figures",
+  "attributes": [
+   "Brand",
+   "Series",
+   "Character",
+   "Edition",
+   "Material",
+   "Dimensions",
+   "Scale",
+   "Release Year",
+   "Limited Edition",
+   "Condition",
+   "Authenticity"
+  ]
+ },
+ {
+  "category": "Collectibles & Hobbies",
+  "subcategory": "Collectibles & Hobbies",
+  "product_type": "Trading Cards",
+  "attributes": [
+   "Brand",
+   "Series",
+   "Character/Player",
+   "Edition",
+   "Release Year",
+   "Card Number",
+   "Rarity",
+   "Condition",
+   "Language",
+   "Authenticity"
+  ]
+ },
+ {
+  "category": "Collectibles & Hobbies",
+  "subcategory": "Collectibles & Hobbies",
+  "product_type": "Models",
+  "attributes": [
+   "Brand",
+   "Series",
+   "Model Type",
+   "Scale",
+   "Material",
+   "Dimensions",
+   "Release Year",
+   "Assembly Required",
+   "Condition"
+  ]
+ },
+ {
+  "category": "Collectibles & Hobbies",
+  "subcategory": "Collectibles & Hobbies",
+  "product_type": "Collectible Toys",
+  "attributes": [
+   "Brand",
+   "Series",
+   "Character",
+   "Edition",
+   "Age Group",
+   "Material",
+   "Dimensions",
+   "Limited Edition",
+   "Condition"
+  ]
+ },
+ {
+  "category": "Collectibles & Hobbies",
+  "subcategory": "Collectibles & Hobbies",
+  "product_type": "Memorabilia",
+  "attributes": [
+   "Brand",
+   "Item Type",
+   "Subject",
+   "Year",
+   "Edition",
+   "Authenticity",
+   "Condition",
+   "Certificate of Authenticity"
+  ]
+ },
+ {
+  "category": "Collectibles & Hobbies",
+  "subcategory": "Collectibles & Hobbies",
+  "product_type": "Art & Crafts",
+  "attributes": [
+   "Product Type",
+   "Material",
+   "Technique",
+   "Dimensions",
+   "Theme",
+   "Color",
+   "Handmade",
+   "Customizable"
+  ]
+ },
+ {
+  "category": "Handmade & Crafts",
+  "subcategory": "Handmade / Custom",
+  "product_type": "Handmade Clothing",
+  "attributes": [
+   "Product Type",
+   "Material",
+   "Size",
+   "Color",
+   "Style",
+   "Pattern",
+   "Technique",
+   "Handmade",
+   "Customizable",
+   "Personalization",
+   "Production Time"
+  ]
+ },
+ {
+  "category": "Handmade & Crafts",
+  "subcategory": "Handmade / Custom",
+  "product_type": "Handmade Jewelry",
+  "attributes": [
+   "Jewelry Type",
+   "Material",
+   "Metal Type",
+   "Stone Type",
+   "Size",
+   "Color",
+   "Technique",
+   "Handmade",
+   "Personalization"
+  ]
+ },
+ {
+  "category": "Handmade & Crafts",
+  "subcategory": "Handmade / Custom",
+  "product_type": "Artwork",
+  "attributes": [
+   "Artwork Type",
+   "Artist",
+   "Material",
+   "Technique",
+   "Dimensions",
+   "Medium",
+   "Style",
+   "Theme",
+   "Handmade",
+   "Framed"
+  ]
+ },
+ {
+  "category": "Handmade & Crafts",
+  "subcategory": "Handmade / Custom",
+  "product_type": "Decorations",
+  "attributes": [
+   "Product Type",
+   "Material",
+   "Color",
+   "Dimensions",
+   "Style",
+   "Theme",
+   "Handmade",
+   "Mounting Type"
+  ]
+ },
+ {
+  "category": "Handmade & Crafts",
+  "subcategory": "Handmade / Custom",
+  "product_type": "Crafts",
+  "attributes": [
+   "Product Type",
+   "Material",
+   "Technique",
+   "Dimensions",
+   "Color",
+   "Theme",
+   "Handmade",
+   "Customizable"
+  ]
+ },
+ {
+  "category": "Handmade & Crafts",
+  "subcategory": "Handmade / Custom",
+  "product_type": "Custom Products",
+  "attributes": [
+   "Product Type",
+   "Material",
+   "Dimensions",
+   "Color",
+   "Personalization",
+   "Custom Text",
+   "Custom Image",
+   "Production Time",
+   "Handmade"
+  ]
+ }
+]

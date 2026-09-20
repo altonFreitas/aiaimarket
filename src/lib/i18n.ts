@@ -1479,6 +1479,7 @@ export const STR: Record<string, [string,string,string]> = {
   featStockLedger:["Xek diferensa stock","Verificação de diferenças de stock","Stock drift check"],
   featHardenRls:["Taka dalan públiku ba base dadus","Fechar o acesso público direto","Closing direct public access"],
   featAuditHardening:["Índise no lalais","Índices e velocidade","Indexes and speed"],
+  featTaxonomy:["Kategoria no atributu dinámiku","Taxonomia e atributos dinâmicos","Product taxonomy and dynamic attributes"],
   /* error and not-found pages */
   errorTitle:["Buat ruma sala","Algo correu mal","Something went wrong"],
   errorBody:["Ami la konsege hala'o pedidu ne'e. Koko fali, ka fila ba pájina uma.","Não conseguimos processar esse pedido. Tente de novo ou volte ao início.","We could not complete that request. Try again, or go back to the start."],

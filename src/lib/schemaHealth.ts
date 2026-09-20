@@ -352,6 +352,15 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     views: ["stock_reconciliation"],
   },
   {
+    // The dynamic attribute model: an attribute is a row, so a new category
+    // is INSERTs rather than a migration. Named by the join table, which
+    // nothing else creates.
+    file: "taxonomy.sql", labelKey: "featTaxonomy",
+    tables: ["product_types", "attributes", "attribute_options",
+             "product_type_attributes"],
+    routines: ["attribute_belongs_to_type", "type_belongs_to_category"],
+  },
+  {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
     // public anon key (it is in every browser's network tab) can insert
     // orders and upload files straight past the app's checks.
@@ -482,6 +491,12 @@ export const SCHEMA_ORDER: readonly string[] = [
   // LAST, both of them. These two REMOVE things -- open policies, and
   // grants on the audit log -- so anything that creates one has to have run
   // already or it is dropped and then recreated behind their backs.
+  // The dynamic attribute model, then the taxonomy that fills it.
+  // BEFORE the hardening files: this one creates read policies and
+  // grants, and anything that creates one has to run before the pass
+  // that reviews them.
+  "taxonomy.sql",
+  "taxonomy-seed.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
@@ -492,6 +507,12 @@ export const SCHEMA_ORDER: readonly string[] = [
 export const NOT_SCHEMA_FILES: readonly string[] = [
   // Sample data, not schema.
   "seed.sql",
+  // The taxonomy's CONTENTS -- 25 categories, 267 product types, 546
+  // attributes -- generated from the specification. taxonomy.sql creates
+  // the tables and the panel probes those; this one only fills them, so
+  // there is no object it could be probed by. An empty taxonomy is a shop
+  // that has not pasted it yet, not a broken schema.
+  "taxonomy-seed.sql",
   // A DATA fix, not a schema one: it rewrites settings.zones so a shop
   // stops offering "zone_z1" as a delivery option. It creates no table,
   // column, view or function, so the panel has nothing it could probe --

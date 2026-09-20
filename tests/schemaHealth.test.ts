@@ -17,6 +17,9 @@ const KINDS = {
     "reserve_order_stock", "release_stale_reservations",
     "seller_earnings", "sync_order_items", "is_expense_account",
     "apply_supplier_return_stock", "size_available",
+    // taxonomy.sql -- the two guards that stop a form posting a real id
+    // belonging to something else.
+    "attribute_belongs_to_type", "type_belongs_to_category",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -96,6 +99,9 @@ const EVERYTHING = snap([
   "orders.tax", "orders.currency", "order_items.tax",
   // order-discount.sql
   "orders.discount",
+  // taxonomy.sql -- the dynamic attribute model.
+  "product_types", "attributes", "attribute_options", "product_type_attributes",
+  "products.product_type_id",
 ]);
 
 describe("checkSchema", () => {
@@ -264,7 +270,11 @@ describe("an old schema_inventory() that can only see tables", () => {
       "pii-retention.sql",
       "operating-costs.sql", "supplier-returns.sql", "size-stock.sql",
       "order-items.sql", "stock-reservation.sql",
-      "stock-ledger.sql", "harden-rls.sql", "patch-audit-hardening.sql",
+      "stock-ledger.sql",
+      // Tables AND two guard functions; the old function reports the
+      // tables but not the functions, so it cannot say this one is done.
+      "taxonomy.sql",
+      "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {
       expect([f.file, f.applied]).toEqual([f.file, false]);
