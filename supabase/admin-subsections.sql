@@ -64,6 +64,9 @@ alter table admin_users
       'sales.dashboard','sales.orders','sales.returns','sales.notifications',
       'catalog.products','catalog.stock','catalog.categories','catalog.demand',
       'catalog.costs','catalog.reviews',
+      -- The dynamic taxonomy (supabase/taxonomy.sql): the tree of product
+      -- types, and the library of attributes they ask for.
+      'catalog.types','catalog.attributes',
       'procurement.orders','procurement.reorder','procurement.suppliers',
       'sellers.list','sellers.payouts',
       'storefront.hero','storefront.promotions',

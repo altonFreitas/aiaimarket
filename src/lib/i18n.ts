@@ -1483,6 +1483,8 @@ export const STR: Record<string, [string,string,string]> = {
   featProductAttributes:["Valór atributu produtu","Valores de atributos do produto","Product attribute values"],
   productType:["Tipu produtu","Tipo de produto","Product type"],
   productTypeHint:["Hili kategoria no tipu produtu; formuláriu sei hatudu kampu loos sira.","Escolha a categoria e o tipo de produto; o formulário mostra os campos certos.","Choose the category and product type — the right fields appear below."],
+  productTypes:["Tipu produtu","Tipos de produto","Product types"],
+  attributesAdmin:["Atributu","Atributos","Attributes"],
   /* error and not-found pages */
   errorTitle:["Buat ruma sala","Algo correu mal","Something went wrong"],
   errorBody:["Ami la konsege hala'o pedidu ne'e. Koko fali, ka fila ba pájina uma.","Não conseguimos processar esse pedido. Tente de novo ou volte ao início.","We could not complete that request. Try again, or go back to the start."],

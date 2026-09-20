@@ -95,6 +95,12 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
       { key: "catalog.products", labelKey: "products", paths: ["/admin/products", "/admin/p"] },
       { key: "catalog.stock", labelKey: "stockControl", paths: ["/admin/stock"] },
       { key: "catalog.categories", labelKey: "categories", paths: ["/admin/cats"] },
+      // The taxonomy's two halves. Separate keys because they are
+      // different jobs: one shapes the catalogue's tree, the other
+      // maintains the library of questions it can ask. A shop may well
+      // want somebody doing the first without the second.
+      { key: "catalog.types", labelKey: "productTypes", paths: ["/admin/types"] },
+      { key: "catalog.attributes", labelKey: "attributesAdmin", paths: ["/admin/attributes"] },
       // /admin/statistics is a retired screen that redirects into demand.
       // Listed so it is refused at its own door rather than one hop later,
       // and so "every page belongs to a subsection" stays literally true.

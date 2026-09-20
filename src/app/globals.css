@@ -2935,6 +2935,37 @@ tr.is-ended{opacity:.55}
   height:38px;border:1px solid var(--line);border-radius:var(--r-sm)}
 .attr-color input[type=text]{flex:1;min-width:0}
 
+/* ---------- the attribute builder (/admin/attributes, /admin/types) ---------- */
+/* The library of questions and the types that ask them. See
+   components/admin/AttributesAdmin.tsx. */
+.attr-editor{border:1px solid var(--amber);margin:var(--sp-2) 0}
+.attr-flags{display:grid;gap:var(--sp-2);
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  margin:var(--sp-2) 0}
+/* The flag rows carry a line of explanation under the label, so they need
+   to align on the box rather than centre on a two-line block. */
+.attr-flags .attr-check{align-items:flex-start}
+.opt-editor{padding:var(--sp-2) 0}
+.opt-list{list-style:none;margin:0 0 var(--sp-2);padding:0;
+  display:flex;flex-direction:column;gap:6px}
+.opt-list li{display:flex;gap:8px;align-items:center}
+.opt-list input{flex:1;min-width:0;max-width:280px}
+.opt-add{display:flex;gap:8px;align-items:center;margin-top:var(--sp-1)}
+.opt-add input,.opt-add select{flex:1;min-width:0;max-width:280px}
+/* One product type, with its fields folded away until asked for. */
+.pt-row{margin:var(--sp-2) 0}
+.pt-head{display:flex;justify-content:space-between;align-items:flex-start;
+  gap:var(--sp-2)}
+.pt-attrs{margin:var(--sp-2) 0;padding-left:var(--sp-3);
+  display:flex;flex-direction:column;gap:6px}
+.pt-attrs li{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pt-attr-name{flex:1;min-width:140px}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:var(--sp-2)}
+/* A button that reads as a link: used where the action is "show me more"
+   rather than "change something". */
+.btn-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;
+  color:var(--ink-3);text-decoration:underline;font-size:var(--fs-sm)}
+
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
    1 January. Sits under the chips it explains, and has to be sized here:
