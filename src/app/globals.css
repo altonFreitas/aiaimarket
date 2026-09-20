@@ -2085,54 +2085,105 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .attn-links{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 
 /* =====================================================================
-   THE ADMIN FRONT PAGE
+   THE ADMIN FRONT PAGE, AS A DASHBOARD
    =====================================================================
-   One screen, no scrolling to reach the second thing on it. See
-   components/admin/AdminHome.tsx for what is on it and why, and
-   lib/adminHomeKpis.ts for why those four figures. */
+   One screen: a row of figures, then three panels, and nothing below the
+   fold. See components/admin/AdminHome.tsx for what is on it and why, and
+   lib/adminHomeKpis.ts for which six figures and where each comes from.
 
-/* The four figures: money in, money parked, money out, money kept. One
-   row on a desktop, two on a tablet, one column on a phone -- auto-fit
-   rather than a fixed count, because an account that holds only two of
-   the four sections gets two tiles and they should fill the row rather
-   than huddle at the left. */
-/* 160px, not 178: at 178 a 390px phone fits exactly one tile per row and
-   the four figures alone are most of the screen. 160 fits two, which
-   halves that block, and still gives four across from 748px up. */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:var(--sp-3);margin:0 0 var(--sp-3)}
-.kpi{display:flex;flex-direction:column;gap:2px;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3);
-  text-decoration:none;color:inherit}
-.kpi:hover{border-color:var(--ink-3);background:var(--line-2)}
-/* The label first and small, the figure second and large. A dashboard
-   that puts the number first makes you read every number to find the one
-   you wanted; the label is what you scan by. */
-.kpi-label{font-size:var(--fs-caption);letter-spacing:.07em;text-transform:uppercase;
+   HOW IT STAYS ON ONE SCREEN, and how it does NOT. The first attempt gave
+   this a height of calc(100dvh - the pinned chrome) so the panels would
+   share whatever was left. That is the wrong instrument: it has to guess
+   how tall the chrome above it is, the guess was wrong, and the result was
+   three cards stretched to 593px around 270px of content on a page that
+   scrolled anyway. Measured, which is the only way this was ever going to
+   be settled.
+
+   What works is capping what can GROW. The header and the figures are a
+   fixed 155px between them; each panel is its heading plus a body that
+   stops at a share of the viewport and scrolls inside itself. A shop with
+   twenty things to do gets a scrollbar in one card rather than a page that
+   no longer fits, and nothing is stretched to fill space it does not
+   need. */
+.dash{display:flex;flex-direction:column;gap:var(--sp-3);padding-bottom:var(--sp-3)}
+
+.dash-head{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--sp-3);flex:0 0 auto}
+.dash-head h1{margin:0}
+.dash-head .sub{margin:2px 0 0}
+.dash-loves{display:flex;flex-direction:column;align-items:flex-end;
+  text-decoration:none;color:inherit;flex:0 0 auto}
+.dash-loves b{font-family:var(--mono);font-size:var(--fs-h3);line-height:1.1}
+.dash-loves span{font-size:var(--fs-caption);letter-spacing:.06em;text-transform:uppercase;
   color:var(--muted);font-family:var(--mono)}
-.kpi-value{font-size:var(--fs-h1);line-height:1.1;letter-spacing:-.03em;font-weight:700}
+.dash-loves:hover b{text-decoration:underline}
+
+/* The figures. auto-fit rather than a fixed count, because an account
+   holding three of the six sections gets three tiles and they should fill
+   the row rather than huddle at the left. 150px is what fits two on a
+   390px phone; six fit from about 1020px up. */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:var(--sp-2);flex:0 0 auto}
+.kpi{display:flex;flex-direction:column;gap:1px;background:var(--card);
+  border:1px solid var(--line);border-top:3px solid var(--line);
+  border-radius:var(--r);padding:var(--sp-2) var(--sp-3) var(--sp-3);
+  text-decoration:none;color:inherit;min-width:0}
+.kpi:hover{border-color:var(--ink-3);background:var(--line-2)}
+/* The accent belongs to the AREA, not to whether the number is good --
+   that is what the note colour underneath is for. Six identical white
+   cards make the eye read left to right and start again; a colour per area
+   lets somebody look straight at the one they came for. */
+.kpi-a-sales{border-top-color:var(--green)}
+.kpi-a-profit{border-top-color:var(--wa)}
+.kpi-a-orders{border-top-color:var(--ink-3)}
+.kpi-a-catalog{border-top-color:var(--amber)}
+.kpi-a-spend{border-top-color:var(--red)}
+.kpi-a-finance{border-top-color:#6b4fbb}
+/* The label first and small, the figure second and large. A dashboard that
+   leads with the number makes you read every number to find the one you
+   wanted; the label is what you scan by. */
+.kpi-label{font-size:var(--fs-caption);letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.kpi-value{font-size:var(--fs-h2);line-height:1.15;letter-spacing:-.03em;font-weight:700}
 .kpi-note{font-size:var(--fs-sm);font-family:var(--mono)}
-/* Green and red only where up and down actually mean better and worse.
-   Spending more is not bad on its own, so purchases stay neutral -- see
-   buildKpis, which decides this rather than the stylesheet. */
+/* WHAT PERIOD THE FIGURE COVERS. Quiet, and on every tile without
+   exception: a 30-day revenue beside an all-time profit with nothing to
+   say so is how this page once reported a shop keeping more than it
+   took. */
+.kpi-basis{font-size:var(--fs-caption);color:var(--muted-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Green and red only where up and down mean better and worse. Spending
+   more is not bad on its own -- buildKpis decides this, not the
+   stylesheet. */
 .kpi-good{color:var(--green)}
 .kpi-bad{color:var(--red)}
 .kpi-flat{color:var(--muted)}
 
-/* The to-do list, as rows rather than as posters. Each was a card the
-   height of a paragraph, which put everything after it below the fold. */
-.home-head{align-items:flex-start;gap:var(--sp-3)}
-.home-loves{display:flex;flex-direction:column;align-items:flex-end;gap:0;
-  text-decoration:none;color:inherit;flex:0 0 auto}
-.home-loves b{font-family:var(--mono);font-size:var(--fs-h3);line-height:1.1}
-.home-loves span{font-size:var(--fs-caption);letter-spacing:.06em;text-transform:uppercase;
-  color:var(--muted);font-family:var(--mono)}
-.home-loves em{font-style:normal;font-size:var(--fs-sm);color:var(--ink-3);
-  max-width:20ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.home-loves:hover b{text-decoration:underline}
+/* The three panels. They share the leftover height rather than each taking
+   what its contents want, which is the whole trick of fitting a screen. */
+.dash-grid{display:grid;gap:var(--sp-3);grid-template-columns:1fr}
+@media(min-width:1024px){
+  .dash-grid{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1.1fr)}
+}
+.dash-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);min-height:0}
+.dash-card-hd{display:flex;align-items:flex-start;justify-content:space-between;
+  gap:var(--sp-2);flex:0 0 auto}
+.dash-card-hd h2{margin:0;font-size:var(--fs-body-lg)}
+.dash-card-hd .sub{margin:0;font-size:var(--fs-sm)}
+.dash-more{font-size:var(--fs-sm);font-weight:600;color:var(--ink-3);
+  text-decoration:none;white-space:nowrap}
+.dash-more:hover{text-decoration:underline}
+/* The body of a panel stops here and scrolls inside itself. The clamp is
+   what keeps the page one screen on a laptop without flattening the charts
+   on a large monitor: 180px is the least a bar chart can say anything in,
+   34vh is the share of the screen three panels can have between them, and
+   300px is where a taller window stops making them taller for nothing. */
+.dash-card > :not(.dash-card-hd){min-height:0;max-height:clamp(180px,34vh,300px);
+  overflow:auto}
+.dash-clear{margin:0}
 
-.home-attn{margin-bottom:var(--sp-3)}
-.home-clear{margin:0}
 .attn-list{list-style:none;margin:0;padding:0}
 .attn-list li + li{border-top:1px solid var(--line-2)}
 /* A grid, not a flex row: the counts line up in their own column however
@@ -2144,21 +2195,16 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    border-left-color further up, for the cards these rows replaced -- and
    the shorthand above, being later in the file at equal specificity, was
    overriding all three back to transparent. Every row was drawing a 3px
-   stripe in no colour at all, which a browser reports as
-   rgba(0, 0, 0, 0) and an eye reports as "there is no stripe". */
+   stripe in no colour at all, which a browser reports as rgba(0, 0, 0, 0)
+   and an eye reports as "there is no stripe". */
 .attn-row.attn-urgent{border-left-color:var(--red)}
 .attn-row.attn-warn{border-left-color:var(--amber)}
 .attn-row.attn-info{border-left-color:var(--line)}
 .attn-row:hover{background:var(--line-2)}
-.attn-row .attn-n{font-size:var(--fs-h3);min-width:2ch;text-align:right}
+.attn-row .attn-n{font-size:var(--fs-h3);min-width:2ch;text-align:right;grid-row:span 2}
 .attn-row .attn-label{margin:0;grid-column:2}
 .attn-row .attn-hint{grid-column:2;grid-row:2}
 .attn-row .attn-go{color:var(--muted);font-size:var(--fs-h4);line-height:1}
-.attn-row .attn-n{grid-row:span 2}
-
-.home-goto{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
-  margin:0 0 var(--sp-4)}
-.home-goto .hint{margin:0}
 
 /* The quantity box on a return line. Narrow on purpose: it takes a number
    of shoes, not a price, and a full-width input invites a typo. */

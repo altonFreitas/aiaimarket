@@ -65,7 +65,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     // so it lives in the one section every signed-in account holds.
     key: "home", labelKey: "navHome",
     subsections: [
-      { key: "home.overview", labelKey: "attnTitle", paths: ["/admin", "/admin/no-access"] },
+      // /admin/overview is the deep version of the front page's money-in
+      // against money-out tile, and belongs to the same subsection: an
+      // account that may see one may see the other, and the two halves of
+      // it are withheld by Sales and Procurement inside the screen just as
+      // they are on the front page.
+      { key: "home.overview", labelKey: "attnTitle",
+        paths: ["/admin", "/admin/overview", "/admin/no-access"] },
     ],
   },
   {

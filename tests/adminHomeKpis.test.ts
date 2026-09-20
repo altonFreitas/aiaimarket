@@ -82,38 +82,81 @@ describe("the comparison under each figure", () => {
 describe("the row itself", () => {
   const full = {
     sales: { value: 138.23, pct: -0.396 },
-    catalog: { value: 1420.5, live: 24, priced: 21 },
+    grossProfit: { value: 62.4, pct: 0.08, margin: 0.451 },
+    orders: { value: 9, pct: 0.125 },
+    catalog: { value: 1420.5, units: 31, live: 24, priced: 21 },
     procurement: { value: 70, pct: 0.142 },
     finance: { value: 41.87, margin: 0.302 },
   };
+  const WORDS = { units: "units", products: "products", priced: "priced" };
 
-  it("reads left to right as money in, parked, out, kept", () => {
+  it("reads left to right as money in, kept, orders, parked, out, profit", () => {
     // The order is a sentence about the business, so it is fixed here
     // rather than left to whoever renders it.
-    expect(buildKpis(full).map((k) => k.key))
-      .toEqual(["sales", "catalog", "procurement", "finance"]);
+    expect(buildKpis(full, WORDS).map((k) => k.key))
+      .toEqual(["sales", "grossProfit", "orders", "catalog", "procurement", "finance"]);
+  });
+
+  it("says what period every single figure covers", () => {
+    /* THE BUG THIS EXISTS FOR. The first version put a 30-day revenue
+       beside an all-time net profit with nothing to say so, and the row
+       read as a shop that had kept almost twice what it took:
+       $138.23 in, $259.43 kept. Both figures were right; the row was
+       wrong. A basis is not documentation, it is part of the number. */
+    for (const k of buildKpis(full, WORDS)) {
+      expect(k.basisKey, k.key).toBeTruthy();
+    }
+    const by = Object.fromEntries(buildKpis(full, WORDS).map((k) => [k.key, k.basisKey]));
+    expect(by.sales).toBe("kpiBasisPeriod");
+    expect(by.procurement).toBe("kpiBasisPeriod");
+    // Stock is not a period at all, and the books are not windowed.
+    expect(by.catalog).toBe("kpiBasisNow");
+    expect(by.finance).toBe("kpiBasisAllTime");
+  });
+
+  it("explains where the stock figure comes from", () => {
+    /* "I don't know where $66 is coming from" was the report. It is the
+       unit cost of everything on the shelves, so the note says across how
+       much. */
+    const k = buildKpis(full, WORDS).find((x) => x.key === "catalog")!;
+    expect(k.note).toContain("31 units");
+    // 21 of 24 products have a cost recorded, so the total covers 21.
+    expect(k.note).toContain("21/24 priced");
+  });
+
+  it("drops the units and the products when it has no words for them", () => {
+    // Rather than printing an English sentence to a Tetun reader.
+    const k = buildKpis(full).find((x) => x.key === "catalog")!;
+    expect(k.note).toBeNull();
   });
 
   it("sends each figure to the screen that explains it", () => {
-    const hrefs = Object.fromEntries(buildKpis(full).map((k) => [k.key, k.href]));
+    const hrefs = Object.fromEntries(buildKpis(full, WORDS).map((k) => [k.key, k.href]));
     expect(hrefs).toEqual({
-      sales: "/admin/sales", catalog: "/admin/stock",
-      procurement: "/admin/procurement", finance: "/admin/finance",
+      sales: "/admin/sales", grossProfit: "/admin/sales", orders: "/admin/orders",
+      catalog: "/admin/stock", procurement: "/admin/procurement",
+      finance: "/admin/finance",
     });
+    // Every tile is a link. A dashboard tile you cannot open is a poster.
+    for (const k of buildKpis(full, WORDS)) expect(k.href.startsWith("/admin/")).toBe(true);
   });
 
   it("builds nothing for a section this account cannot open", () => {
     /* The same rule the to-do cards follow: a figure from a screen
        somebody cannot reach is a leak, however small. */
-    const only = buildKpis({ ...full, sales: null, finance: null });
+    const only = buildKpis(
+      { ...full, sales: null, grossProfit: null, orders: null, finance: null }, WORDS);
     expect(only.map((k) => k.key)).toEqual(["catalog", "procurement"]);
-    expect(buildKpis({ sales: null, catalog: null, procurement: null, finance: null })).toEqual([]);
+    expect(buildKpis({
+      sales: null, grossProfit: null, orders: null,
+      catalog: null, procurement: null, finance: null,
+    })).toEqual([]);
   });
 
   it("does not report an unpriced catalogue as an empty one", () => {
     /* "$0.00" reads as a shop with nothing on its shelves. A shop that has
        filled in no unit costs has not answered the question at all. */
-    const k = buildKpis({ ...full, catalog: { value: 0, live: 12, priced: 0 } })
+    const k = buildKpis({ ...full, catalog: { value: 0, units: 0, live: 12, priced: 0 } }, WORDS)
       .find((x) => x.key === "catalog")!;
     expect(k.value).toBe("—");
     expect(k.note).toBeNull();
@@ -121,17 +164,17 @@ describe("the row itself", () => {
 
   it("passes no judgement on spending more", () => {
     // A growing shop buys more stock. Up is not bad here.
-    const k = buildKpis(full).find((x) => x.key === "procurement")!;
+    const k = buildKpis(full, WORDS).find((x) => x.key === "procurement")!;
     expect(k.note).toBe("+14.2%");
     expect(k.tone).toBe("flat");
   });
 
   it("judges profit on the figure, not on the change", () => {
     // A loss is a loss whether or not last month was worse.
-    const loss = buildKpis({ ...full, finance: { value: -20, margin: -0.1 } })
+    const loss = buildKpis({ ...full, finance: { value: -20, margin: -0.1 } }, WORDS)
       .find((x) => x.key === "finance")!;
     expect(loss.tone).toBe("bad");
-    expect(buildKpis(full).find((x) => x.key === "finance")!.tone).toBe("good");
+    expect(buildKpis(full, WORDS).find((x) => x.key === "finance")!.tone).toBe("good");
   });
 });
 

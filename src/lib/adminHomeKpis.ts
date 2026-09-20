@@ -27,19 +27,30 @@ import type { Product } from "@/lib/types";
  * KPI whose source is missing is simply not built.
  */
 
-export type KpiKey = "sales" | "catalog" | "procurement" | "finance";
+export type KpiKey =
+  | "sales" | "grossProfit" | "orders"
+  | "catalog" | "procurement" | "finance";
 
 export interface Kpi {
   key: KpiKey;
-  /** i18n key for the label under the figure. */
+  /** i18n key for the label above the figure. */
   labelKey: string;
   /** Already formatted -- money, a count, or "—" when unknowable. */
   value: string;
-  /** The smaller line under the label: a comparison, a count, a share. */
+  /** The smaller line under the figure: a comparison, a count, a share. */
   note: string | null;
   /** How `note` should read: better, worse, or merely informative. */
   tone: "good" | "bad" | "flat";
-  /** Where this figure is explained in full. */
+  /** WHAT PERIOD THIS FIGURE COVERS, as an i18n key.
+   *
+   * Every card carries one, and that is not decoration. The first version
+   * of this row put a 30-day revenue beside an all-time net profit with
+   * nothing to say so, and the page read as though the shop had earned
+   * more than it took: $138.23 in, $259.43 kept. A figure whose basis is
+   * unstated is not a small documentation gap, it is a wrong number. */
+  basisKey: string;
+  /** Where this figure is explained in full. Every card is a link; a
+   * dashboard tile you cannot open is a poster. */
   href: string;
 }
 
@@ -94,36 +105,95 @@ export function stockOnHand(
 export interface KpiInput {
   /** Revenue in the window, and its change against the window before. */
   sales: { value: number; pct: number | null } | null;
-  catalog: { value: number; live: number; priced: number } | null;
+  /** Revenue less the cost of the goods, over the same window. Separate
+   * from `finance` below because it is windowed and that one is not. */
+  grossProfit: { value: number; pct: number | null; margin: number | null } | null;
+  /** Orders placed in the window -- the count, not the money. */
+  orders: { value: number; pct: number | null } | null;
+  catalog: { value: number; units: number; live: number; priced: number } | null;
   procurement: { value: number; pct: number | null } | null;
-  /** Net profit after expenses, and the margin as a 0..1 share. */
+  /** Net profit after every expense the books carry. ALL TIME: the books
+   * are not windowed, and the card says so rather than pretending. */
   finance: { value: number; margin: number | null } | null;
 }
 
+/** How many days the windowed figures cover. Named so the label can say
+ * "last 30 days" without the number being written twice. */
+export const KPI_WINDOW_DAYS = 30;
+
 /** The row, in the fixed order above, skipping what this account cannot
  * see. */
-export function buildKpis(input: KpiInput): Kpi[] {
+/** The few words a note needs spelled out, in the reader's language.
+ *
+ * Passed in rather than looked up here so this file stays a pure
+ * calculation with no view layer in it -- and so "31 units in 8 products"
+ * is a sentence in Tetun and Portuguese too, rather than an English one
+ * with the numbers swapped. */
+export interface KpiWords {
+  units: string;
+  products: string;
+  priced: string;
+}
+
+export function buildKpis(input: KpiInput, words?: KpiWords): Kpi[] {
   const out: Kpi[] = [];
+  const period = "kpiBasisPeriod";   // "last 30 days"
 
   if (input.sales) {
     out.push({
       key: "sales", labelKey: "kpiRevenue", href: "/admin/sales",
-      value: money(input.sales.value),
+      value: money(input.sales.value), basisKey: period,
       note: deltaText(input.sales.pct), tone: toneOf(input.sales.pct),
     });
   }
 
+  if (input.grossProfit) {
+    const { value, pct, margin } = input.grossProfit;
+    out.push({
+      key: "grossProfit", labelKey: "kpiGrossProfit", href: "/admin/sales",
+      value: money(value), basisKey: period,
+      /* The MARGIN, not the change: a profit figure moving with revenue
+         says nothing on its own, and the share of each dollar kept is what
+         tells the shop whether it is selling better or just selling more.
+         The change is still there when there is no margin to quote. */
+      note: margin == null ? deltaText(pct) : `${(margin * 100).toFixed(1)}%`,
+      tone: value > 0 ? "good" : value < 0 ? "bad" : "flat",
+    });
+  }
+
+  if (input.orders) {
+    out.push({
+      key: "orders", labelKey: "kpiOrders", href: "/admin/orders",
+      value: String(input.orders.value), basisKey: period,
+      note: deltaText(input.orders.pct), tone: toneOf(input.orders.pct),
+    });
+  }
+
   if (input.catalog) {
-    const { value, live, priced } = input.catalog;
+    const { value, units, live, priced } = input.catalog;
     out.push({
       key: "catalog", labelKey: "kpiStockValue", href: "/admin/stock",
       // A shop that has filled in no unit costs cannot be told what its
       // shelves are worth, and must not be told "$0.00" -- which reads as
       // an empty shop rather than as an unanswered question.
       value: priced ? money(value) : "—",
-      note: priced
-        ? `${live} ${live === 1 ? "product" : "products"}`
-        : null,
+      // NOT A PERIOD AT ALL, and the odd one out on this row: stock is a
+      // count of what is on the shelves at this moment, not something that
+      // happened over a month. Saying so is the difference between a
+      // figure somebody trusts and one they have to go and check.
+      basisKey: "kpiBasisNow",
+      /* WHERE THE NUMBER COMES FROM, which is exactly what was asked of
+         the first version of this card: "I don't know where $66 is coming
+         from". It is the unit cost of everything on the shelves, so the
+         note says how many units and across how many products -- and,
+         when some of those products have no cost recorded, that the total
+         only covers the ones that do. An unexplained total on a dashboard
+         is a number somebody has to go and verify, which is the same as
+         not having it. */
+      note: !priced || !words ? null
+        : priced < live
+          ? `${units} ${words.units} · ${priced}/${live} ${words.priced}`
+          : `${units} ${words.units} · ${live} ${words.products}`,
       tone: "flat",
     });
   }
@@ -131,7 +201,7 @@ export function buildKpis(input: KpiInput): Kpi[] {
   if (input.procurement) {
     out.push({
       key: "procurement", labelKey: "kpiPurchases", href: "/admin/procurement",
-      value: money(input.procurement.value),
+      value: money(input.procurement.value), basisKey: period,
       // Spending more is not bad on its own -- a growing shop buys more --
       // so this reports the change without passing judgement on it.
       note: deltaText(input.procurement.pct), tone: "flat",
@@ -143,6 +213,12 @@ export function buildKpis(input: KpiInput): Kpi[] {
     out.push({
       key: "finance", labelKey: "kpiNetProfit", href: "/admin/finance",
       value: money(value),
+      /* ALL TIME, said out loud. The books carry every expense the shop
+         has ever entered and are not filtered by date, so windowing this
+         to 30 days would report a number the Finance screen does not
+         show. Two screens disagreeing about profit is worse than a card
+         that covers a different span and says which. */
+      basisKey: "kpiBasisAllTime",
       note: margin == null ? null : `${(margin * 100).toFixed(1)}%`,
       // Here the verdict is on the figure itself, not on a change: a loss
       // is a loss whether or not last month was worse.

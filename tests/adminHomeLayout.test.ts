@@ -14,23 +14,28 @@ function rule(sel: string): string {
   return m![1];
 }
 
-/* THE FRONT PAGE FITS ON THE SCREEN.
+/* THE FRONT PAGE IS A DASHBOARD THAT FITS ON THE SCREEN.
  *
- * It was a title, two to-do cards the height of a paragraph each, a row of
- * link buttons, a "customer loves" panel and then six statistics with two
- * charts. Everything after the first card was below the fold on a laptop.
+ * Measured in a browser against the real admin chrome (the site header
+ * plus AdminNav, 124px), page total against the viewport:
  *
- * Measured in a browser after the rebuild, from the top of the page to the
- * bottom of the last row above the trend chart:
+ *   1920x1080  124 + 504 = 628   fits
+ *   1600x900   124 + 504 = 628   fits
+ *   1440x900   124 + 504 = 628   fits
+ *   1366x768   124 + 504 = 628   fits
+ *   1280x800   124 + 504 = 628   fits
+ *   1024x768   124 + 527 = 651   fits
  *
- *   1440x900   y=610      four figures across
- *   1280x800   y=610      four across
- *   1024x768   y=610      four across
- *    820x1180  y=610      four across
- *    390x844   y=752      two across, still inside the viewport
+ * HOW IT DOES NOT WORK. The first attempt gave the page
+ * height:calc(100dvh - the pinned chrome) so the panels would share what
+ * was left. That has to guess how tall the chrome is, the guess was wrong,
+ * and the result was three cards stretched to 593px around 270px of
+ * content on a page that scrolled anyway. What works is capping what can
+ * grow: the panels' bodies stop at a share of the viewport and scroll
+ * inside themselves.
  */
 
-describe("the four figures", () => {
+describe("the figures", () => {
   it("are one row that reflows rather than a fixed count", () => {
     /* An account holding only two of the four sections gets two tiles, and
        they should fill the row rather than huddle at the left. */
@@ -38,15 +43,30 @@ describe("the four figures", () => {
     expect(row).toMatch(/grid-template-columns:repeat\(auto-fit/);
   });
 
-  it("fits two on a phone, not one", () => {
-    /* At a 178px minimum a 390px screen fits exactly one, and the four
-       figures alone become most of the screen. Measured: 968px of page at
-       178, 752px at 160 -- the difference between scrolling and not. */
+  it("fits two on a phone and all six on a laptop", () => {
     const min = Number(/minmax\((\d+)px/.exec(rule(".kpi-row"))?.[1] ?? 0);
-    expect(min).toBeLessThanOrEqual(164);
-    // And still four across on a laptop: 4 * min + 3 gaps must clear a
-    // 1024px window's content width.
-    expect(min * 4).toBeLessThan(900);
+    // Two across a 390px phone: 2 * min + a gap must clear ~358px of
+    // content width.
+    expect(min * 2).toBeLessThan(350);
+    // Six across a 1024px window.
+    expect(min * 6).toBeLessThan(980);
+  });
+
+  it("says what period each figure covers, on the tile", () => {
+    /* The row once put a 30-day revenue beside an all-time profit with
+       nothing to say so. The basis is rendered, not just computed. */
+    expect(HOME).toMatch(/className="kpi-basis"/);
+    expect(HOME).toMatch(/\{t\(k\.basisKey, lang\)\}/);
+    expect(rule(".kpi-basis")).toMatch(/color:/);
+  });
+
+  it("gives each area its own accent", () => {
+    /* Six identical white cards make the eye read left to right and start
+       again. The accent belongs to the AREA, not to whether the number is
+       good -- that is what the note colour is for. */
+    for (const k of ["sales", "profit", "orders", "catalog", "spend", "finance"]) {
+      expect(rule(`.kpi-a-${k}`), k).toMatch(/border-top-color:/);
+    }
   });
 
   it("puts the label above the figure", () => {
@@ -95,18 +115,32 @@ describe("the to-do list", () => {
 });
 
 describe("what the page keeps", () => {
-  it("still carries the one thing no other screen computes", () => {
-    /* Sales against purchases on a single timeline. Deleting it to save
-       space would lose a capability rather than a decoration -- it is just
-       no longer what you scroll past to find out how the shop is doing. */
-    expect(HOME).toMatch(/<BusinessOverview/);
-    // Below the figures and the to-do list, not above them.
-    expect(HOME.indexOf('className="kpi-row"')).toBeLessThan(HOME.indexOf("<BusinessOverview"));
-    expect(HOME.indexOf('className="attn-list"')).toBeLessThan(HOME.indexOf("<BusinessOverview"));
+  it("moved the deep overview rather than deleting it", () => {
+    /* Sales against purchases on a single timeline is the one thing this
+       page computed that no other screen could, so it was never a
+       candidate for deletion to save space -- it had outgrown being the
+       bottom half of a front page. The front page keeps a monthly summary
+       and links to the full thing. */
+    const OVERVIEW = fs.readFileSync(
+      path.join(root, "src/app/admin/overview/page.tsx"), "utf8");
+    expect(OVERVIEW).toMatch(/<BusinessOverview/);
+    expect(OVERVIEW).toMatch(/requireSection\("home\.overview"\)/);
+    expect(HOME).toMatch(/href="\/admin\/overview"/);
+    expect(HOME).toMatch(/<DualBars/);
   });
 
-  it("still withholds it from an account with neither side", () => {
+  it("still withholds the two sides from an account without them", () => {
     expect(HOME).toMatch(/\{\(canSales \|\| canProcurement\) && \(/);
+    expect(HOME).toMatch(/\{canSales && \(/);
+  });
+
+  it("caps what can grow instead of forcing a page height", () => {
+    const body = /\.dash-card > :not\(\.dash-card-hd\)\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(body, "the panel body rule").not.toBeNull();
+    expect(body![1]).toMatch(/max-height:clamp\(/);
+    expect(body![1]).toMatch(/overflow:auto/);
+    // And the page itself is not pinned to a guessed viewport arithmetic.
+    expect(rule(".dash")).not.toMatch(/height:calc\(100dvh/);
   });
 
   it("keeps the hearts, and only once there are some", () => {
