@@ -39,12 +39,16 @@ export interface TaxonomySelection {
 }
 
 export default function TaxonomyPicker({
-  roots, value, onChange, errors = {}, disabled,
+  roots, value, onChange, onAttributes, errors = {}, disabled,
 }: {
   /** The top-level categories, loaded with the page. */
   roots: TaxonomyNode[];
   value: TaxonomySelection;
   onChange: (next: TaxonomySelection) => void;
+  /** The attributes this product type asks for, handed up as they load, so
+   * the variant editor beside this can offer the axes without fetching
+   * the same rows again. */
+  onAttributes?: (attrs: FormAttribute[]) => void;
   /** attribute id -> message, from the server's own validation. */
   errors?: Record<string, string>;
   disabled?: boolean;
@@ -109,9 +113,14 @@ export default function TaxonomyPicker({
     const id = value.productTypeId;
     if (!id) return;
     loadAttributes(id).then((list) => {
-      if (live) setAttrs({ type: id, list });
+      if (!live) return;
+      setAttrs({ type: id, list });
+      onAttributes?.(list);
     });
     return () => { live = false; };
+    // onAttributes is a callback the parent redefines each render; including
+    // it would refetch the attributes on every keystroke in the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.productTypeId]);
 
   function pickCategory(id: string) {

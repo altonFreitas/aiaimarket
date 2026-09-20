@@ -10,7 +10,7 @@ import {
 
 /** Everything a fully migrated database has beyond its tables. */
 const KINDS = {
-  views: ["stock_reconciliation", "stock_reservations", "product_size_stock"],
+  views: ["stock_reconciliation", "stock_reservations", "product_size_stock", "product_variant_stock"],
   routines: [
     "schema_inventory", "sync_order_stock", "increment_loves", "decrement_loves",
     "hit_rate_limit", "redact_old_order_pii",
@@ -20,6 +20,8 @@ const KINDS = {
     // taxonomy.sql -- the two guards that stop a form posting a real id
     // belonging to something else.
     "attribute_belongs_to_type", "type_belongs_to_category",
+    // variants.sql
+    "variant_available",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -104,6 +106,9 @@ const EVERYTHING = snap([
   "products.product_type_id",
   // product-attributes.sql -- what each product answers.
   "product_attribute_values",
+  // variants.sql -- a product that varies more than one way.
+  "product_variants", "variant_attribute_values",
+  "stock_movements.variant_id", "order_items.variant_id",
 ]);
 
 describe("checkSchema", () => {
@@ -276,6 +281,9 @@ describe("an old schema_inventory() that can only see tables", () => {
       // Tables AND two guard functions; the old function reports the
       // tables but not the functions, so it cannot say this one is done.
       "taxonomy.sql",
+      // Tables, a view and a function; the old inventory reports only the
+      // tables, so it cannot say this one is done either.
+      "variants.sql",
       "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {

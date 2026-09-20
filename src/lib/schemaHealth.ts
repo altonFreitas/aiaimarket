@@ -367,6 +367,15 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     tables: ["product_attribute_values"],
   },
   {
+    // Variants: a product that varies more than one way. Named by the two
+    // tables and the availability function, none of which anything else
+    // creates.
+    file: "variants.sql", labelKey: "featVariants",
+    tables: ["product_variants", "variant_attribute_values"],
+    views: ["product_variant_stock"],
+    routines: ["variant_available"],
+  },
+  {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
     // public anon key (it is in every browser's network tab) can insert
     // orders and upload files straight past the app's checks.
@@ -504,6 +513,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "taxonomy.sql",
   "taxonomy-seed.sql",
   "product-attributes.sql",
+  "variants.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
@@ -769,7 +779,7 @@ export const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
   ],
   // Reservations, then sizes.
   sync_order_stock_state: ["stock-reservation.sql", "size-stock.sql"],
-  reserve_order_stock: ["stock-reservation.sql", "size-stock.sql"],
+  reserve_order_stock: ["stock-reservation.sql", "size-stock.sql", "variants.sql"],
   // The two-argument wrapper, kept for callers predating the three-state form.
   sync_order_stock: ["stock-ledger.sql", "stock-reservation.sql"],
   // The trigger that moves products.qty gains the restock high-water mark.

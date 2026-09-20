@@ -2966,6 +2966,13 @@ tr.is-ended{opacity:.55}
 .btn-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;
   color:var(--ink-3);text-decoration:underline;font-size:var(--fs-sm)}
 
+/* ---------- variants (the product form) ---------- */
+.variants{display:flex;flex-direction:column;gap:var(--sp-2)}
+.var-axes{display:grid;gap:var(--sp-2);
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+/* The per-variant table gets narrow inputs: a SKU and a price, not prose. */
+.variants .table input{max-width:130px}
+
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
    1 January. Sits under the chips it explains, and has to be sized here:

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 import type { TaxonomySelection } from "@/components/admin/TaxonomyPicker";
+import type { VariantRow } from "@/components/admin/VariantEditor";
 
 export default async function ProductFormPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSection("catalog.products");
@@ -18,12 +19,14 @@ export default async function ProductFormPage({ params }: { params: Promise<{ id
 
   // What this product already answers, and where it sits in the tree.
   const initialTaxonomy = product ? await selectionFor(product.id) : undefined;
+  const variants = product ? await variantsFor(product.id) : [];
 
   return (
     <ProductForm
       lang={lang} cats={cats} product={product} settings={settings}
       taxonomyRoots={roots}
       initialTaxonomy={initialTaxonomy}
+      variants={variants}
       // Approved only, and only the two fields the select needs. A pending
       // or suspended store is not somewhere a product can be filed: the
       // storefront resolves "Sold by" from the approved set, so the
@@ -82,5 +85,37 @@ async function selectionFor(productId: string): Promise<TaxonomySelection | unde
     // The migration window: no taxonomy tables yet. The product still
     // opens and still saves -- it simply has no type to show.
     return undefined;
+  }
+}
+
+/* THE COMBINATIONS, WITH WHAT THE LEDGER SAYS IS ON THE SHELF.
+ *
+ * The balance comes from product_variant_stock, a GROUP BY over the ledger
+ * -- not from a column on the variant. There is exactly one account of how
+ * stock got where it is, and a second number stored beside it would be a
+ * second answer to the same question, wrong the first time anything failed
+ * midway. */
+async function variantsFor(productId: string): Promise<VariantRow[]> {
+  try {
+    const sb = supabaseAdmin();
+    const [{ data: rows }, { data: bal }] = await Promise.all([
+      sb.from("product_variants")
+        .select("id,label,sku,price,cost_price,status")
+        .eq("product_id", productId).order("display_order"),
+      sb.from("product_variant_stock").select("variant_id,qty")
+        .eq("product_id", productId),
+    ]);
+    if (!rows) return [];
+
+    const onHand = new Map(
+      ((bal ?? []) as { variant_id: string; qty: number }[])
+        .map((b) => [b.variant_id, b.qty]));
+
+    return (rows as Omit<VariantRow, "onHand">[]).map((v) => ({
+      ...v, onHand: onHand.get(v.id) ?? 0,
+    }));
+  } catch {
+    // The migration window again: no variant tables yet.
+    return [];
   }
 }

@@ -7,6 +7,7 @@ import { saveProduct, uploadProductImage } from "@/lib/actions/products";
 import { createCategory } from "@/lib/actions/categories";
 import { saveProductAttributes } from "@/lib/actions/product-attributes";
 import TaxonomyPicker, { type TaxonomySelection } from "./TaxonomyPicker";
+import VariantEditor, { type VariantRow } from "./VariantEditor";
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
@@ -15,7 +16,7 @@ import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
-import type { TaxonomyNode } from "@/lib/taxonomy/types";
+import type { TaxonomyNode, FormAttribute } from "@/lib/taxonomy/types";
 
 /** Just enough of an approved store to fill the "sold by" select. The whole
  * Seller row is forty columns including its TOTP secret's neighbours, and
@@ -36,7 +37,7 @@ const STOCK_PILL: Record<StockStatus, string> = {
 
 export default function ProductForm({
   lang, cats: initialCats, product, settings, sellers = [],
-  taxonomyRoots = [], initialTaxonomy,
+  taxonomyRoots = [], initialTaxonomy, variants = [],
 }: {
   lang: Lang; cats: Category[]; product: Product | null; settings: Settings;
   /** Approved stores the owner may file this product under. Anything else
@@ -49,6 +50,8 @@ export default function ProductForm({
   taxonomyRoots?: TaxonomyNode[];
   /** What this product already answers, for the edit form. */
   initialTaxonomy?: TaxonomySelection;
+  /** The combinations this product is already sold in. */
+  variants?: VariantRow[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -66,6 +69,10 @@ export default function ProductForm({
      the field that caused them. The browser checks too, but the server is
      the one that decides. */
   const [attrErrors, setAttrErrors] = useState<Record<string, string>>({});
+  /* The product type's attributes, handed up by the picker as they load --
+     the variant editor needs them to know which axes exist, and fetching
+     the same rows twice would be a second round trip for no reason. */
+  const [typeAttrs, setTypeAttrs] = useState<FormAttribute[]>([]);
   const [newCat, setNewCat] = useState("");
   const [newSubCat, setNewSubCat] = useState("");
   const [images, setImages] = useState<string[]>(product?.images || []);
@@ -425,7 +432,27 @@ export default function ProductForm({
                 value={tax}
                 onChange={setTax}
                 errors={attrErrors}
+                onAttributes={setTypeAttrs}
                 disabled={!canWrite || busy}
+              />
+            </div>
+          )}
+
+          {/* THE COMBINATIONS IT IS SOLD IN.
+              Only once the product exists: a variant hangs off a product
+              id, and a product being created for the first time has none
+              yet. Saving once and coming back is a smaller surprise than
+              a matrix that silently vanishes when the save fails. */}
+          {product?.id && typeAttrs.some((a) => a.is_variant) && (
+            <div className="field">
+              <h3 style={{ margin: "18px 0 4px" }}>{t("variantsTitle", lang)}</h3>
+              <p className="hint" style={{ marginTop: 0 }}>
+                {t("variantsHint", lang)}
+              </p>
+              <VariantEditor
+                productId={product.id}
+                attributes={typeAttrs}
+                variants={variants}
               />
             </div>
           )}

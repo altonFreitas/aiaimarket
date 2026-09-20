@@ -1481,8 +1481,11 @@ export const STR: Record<string, [string,string,string]> = {
   featAuditHardening:["Índise no lalais","Índices e velocidade","Indexes and speed"],
   featTaxonomy:["Kategoria no atributu dinámiku","Taxonomia e atributos dinâmicos","Product taxonomy and dynamic attributes"],
   featProductAttributes:["Valór atributu produtu","Valores de atributos do produto","Product attribute values"],
+  featVariants:["Variante produtu","Variantes de produto","Product variants"],
   productType:["Tipu produtu","Tipo de produto","Product type"],
   productTypeHint:["Hili kategoria no tipu produtu; formuláriu sei hatudu kampu loos sira.","Escolha a categoria e o tipo de produto; o formulário mostra os campos certos.","Choose the category and product type — the right fields appear below."],
+  variantsTitle:["Opsaun sira","Opções","Options"],
+  variantsHint:["Hili valór sira, depois kria kombinasaun. Kombinasaun ne'ebé iha ona la muda.","Escolha os valores e crie as combinações. As que já existem não são alteradas.","Pick the values and create the combinations. Ones that already exist are left alone."],
   productTypes:["Tipu produtu","Tipos de produto","Product types"],
   attributesAdmin:["Atributu","Atributos","Attributes"],
   /* error and not-found pages */

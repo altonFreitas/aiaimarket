@@ -72,7 +72,7 @@ const onHand = (ref: string) => Number(scalar(`select qty from products where re
  * made, drift or no drift. It did exactly that, and reported four rows of
  * zero drift as a failure. */
 const MINE = "(ref like 'CONC-%' or ref like 'HOLD-%' " +
-             "or ref like 'SIZE-%' or ref like 'STALE-%')";
+             "or ref like 'SIZE-%' or ref like 'STALE-%' or ref like 'VAR-%')";
 
 describeDb("two shoppers, one unit", () => {
   it("lets exactly one of them have it", async () => {
@@ -212,5 +212,136 @@ describeDb("the ledger and the balance", () => {
     const drift = sql(
       `select ref, drift from stock_reconciliation where drift <> 0 and ${MINE}`);
     expect(drift.rows).toEqual([]);
+  });
+});
+
+/* ===========================================================================
+ * VARIANTS
+ *
+ * supabase/variants.sql adds a third check to reserve_order_stock, beside
+ * the product total and the size. The risk in adding it was never that it
+ * would fail to work -- it is that touching this function at all would
+ * break the two checks already in it, which is exactly what happened the
+ * last time somebody extended it and dropped the line that held the stock.
+ *
+ * So these test the new behaviour AND that the old behaviour is untouched.
+ * ======================================================================== */
+
+/** A product with two variants and `each` units of each, through the ledger. */
+function variantStock(ref: string, each: number): { product: string; a: string; b: string } {
+  sql(`delete from stock_movements where product_id in (select id from products where ref = '${ref}')`);
+  sql(`delete from product_variants where product_id in (select id from products where ref = '${ref}')`);
+  sql(`delete from products where ref = '${ref}'`);
+  sql(`insert into products (ref, name, slug, price, description, status, archived, qty, stock_status)
+       values ('${ref}', '${ref} shirt', '${ref.toLowerCase()}', 10, 'x', 'approved', false, 0, 'out')`);
+  const product = scalar(`select id from products where ref = '${ref}'`)!;
+  for (const label of ["Black / M", "White / L"]) {
+    sql(`insert into product_variants (product_id, label) values ('${product}', '${label}')`);
+  }
+  sql(`insert into stock_movements (product_id, variant_id, delta, reason)
+       select '${product}', id, ${each}, 'purchase_receipt'
+         from product_variants where product_id = '${product}'`);
+  return {
+    product,
+    a: scalar(`select id from product_variants where product_id = '${product}' and label = 'Black / M'`)!,
+    b: scalar(`select id from product_variants where product_id = '${product}' and label = 'White / L'`)!,
+  };
+}
+
+/** A basket naming a variant. */
+function variantOrder(ref: string, productId: string, variantId: string, qty: number): string {
+  sql(`delete from orders where ref = '${ref}'`);
+  sql(`insert into orders (ref, buyer_name, buyer_phone, items, mode, subtotal, total, pay_method, status)
+       values ('${ref}', 'Buyer', '+67077712345',
+               jsonb_build_array(jsonb_build_object(
+                 'product_id', '${productId}', 'variant_id', '${variantId}',
+                 'name', 'shirt', 'price', 10, 'qty', ${qty})),
+               'pickup', ${qty * 10}, ${qty * 10}, 'cod', 'new')`);
+  return scalar(`select id from orders where ref = '${ref}'`)!;
+}
+
+describeDb("two shoppers, one unit of one variant", () => {
+  it("lets exactly one of them have it", async () => {
+    /* The same test as the one at the top of this file, one level down.
+       Genuinely concurrent: A holds its row lock while B tries the same
+       unit. Run in sequence this would pass with no lock at all. */
+    const { product, a: black } = variantStock("VAR-1", 1);
+    const oa = variantOrder("VAR-A", product, black, 1);
+    const ob = variantOrder("VAR-B", product, black, 1);
+
+    const first = sqlAsync(
+      `begin; select reserve_order_stock('${oa}'::uuid); select pg_sleep(1.5); commit;`);
+    await pause(400);
+    const second = sqlAsync(
+      `begin; select reserve_order_stock('${ob}'::uuid); commit;`);
+
+    const [ra, rb] = await Promise.all([first, second]);
+    expect([ra.ok, rb.ok]).toEqual([true, false]);
+    expect(onHand("VAR-1")).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describeDb("the variant check does work the total check cannot", () => {
+  it("refuses a variant that is out while the product is not", () => {
+    /* THE POINT OF THE WHOLE PHASE. Two units on the shelf, one of each
+       variant. Ordering two of ONE variant passes the product total (2 of
+       2) and must still be refused, because only one of them is that
+       variant. Before variants this order was accepted and the shop found
+       out when it went to pack it. */
+    const { product, a: black } = variantStock("VAR-2", 1);
+    expect(onHand("VAR-2")).toBe(2);              // two in total...
+
+    const o = variantOrder("VAR-C", product, black, 2);
+    const r = sqlAsync(`select reserve_order_stock('${o}'::uuid)`);
+    return r.then((res) => {
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(/Only 1 left/);
+      // ...and it names the variant, not just the product, so the shopper
+      // is told which choice ran out rather than being told the product
+      // has none when it plainly has some.
+      expect(res.error).toMatch(/Black \/ M/);
+    });
+  });
+
+  it("still allows what genuinely fits", () => {
+    const { product, a: black } = variantStock("VAR-3", 3);
+    const o = variantOrder("VAR-D", product, black, 3);
+    sql(`select reserve_order_stock('${o}'::uuid)`);
+    // Three of the three Black/M held; the three White/L untouched.
+    expect(onHand("VAR-3")).toBe(3);
+  });
+});
+
+describeDb("a basket with no variant behaves exactly as before", () => {
+  it("is not affected by the new loop at all", () => {
+    /* The compatibility guarantee. Every order placed before variants
+       existed, and every order for a product that has none, carries no
+       variant_id -- the new loop skips them entirely and the two original
+       checks decide, unchanged. */
+    const p = stock("VAR-4", 2);
+    const o = order("VAR-E", p, 2);
+    sql(`select reserve_order_stock('${o}'::uuid)`);
+    expect(onHand("VAR-4")).toBe(0);
+  });
+
+  it("is still refused by the product total when it asks for too much", () => {
+    const p = stock("VAR-5", 1);
+    const o = order("VAR-F", p, 2);
+    return sqlAsync(`select reserve_order_stock('${o}'::uuid)`).then((r) => {
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/Only 1 left/);
+    });
+  });
+
+  it("is still refused by the size check", () => {
+    /* The check size-stock.sql added. It has to survive this change: a
+       rewrite that quietly dropped it would pass every variant test in
+       this file and leave the shop overselling by size again. */
+    const p = stock("VAR-6", 2, "M");
+    const o = order("VAR-G", p, 2, "L");          // none in L
+    return sqlAsync(`select reserve_order_stock('${o}'::uuid)`).then((r) => {
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/in size L/);
+    });
   });
 });

@@ -106,7 +106,18 @@ describe("the picker only draws a level that exists", () => {
   });
 
   it("drops a response that arrives after the choice moved on", () => {
-    expect((PICKER.match(/let live = true/g) ?? []).length).toBe(3);
-    expect((PICKER.match(/if \(live\)/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    /* Each of the three effects opens a `live` flag, clears it on cleanup,
+       and CONSULTS it before setting state. Asserted per effect rather than
+       by counting one idiom across the file: `if (live) set(...)` and
+       `if (!live) return;` are the same guarantee written two ways, and a
+       test that only recognised one of them failed over a rewrite that
+       changed nothing about the behaviour. */
+    const effects = PICKER.split("useEffect(").slice(1);
+    expect(effects).toHaveLength(3);
+    for (const [i, body] of effects.entries()) {
+      expect(body, `effect ${i}: no live flag`).toContain("let live = true");
+      expect(body, `effect ${i}: never cleared`).toContain("live = false");
+      expect(body, `effect ${i}: never consulted`).toMatch(/if \(!?live\)/);
+    }
   });
 });
