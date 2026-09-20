@@ -259,6 +259,11 @@ export interface PurchaseOrderItem {
    * FROM this rather than trusting two fields to stay in step. Absent on a
    * database that has not run supabase/size-stock.sql. */
   size_qty?: Record<string, number> | null;
+  /** How many of each VARIANT this line buys, keyed by product_variants.id.
+   * A line uses this OR size_qty, never both: a variant already carries its
+   * size, so honouring both would count the same goods twice. Absent on a
+   * database that has not run supabase/variant-purchasing.sql. */
+  variant_qty?: Record<string, number> | null;
   /** Who the goods on this line are for. Copied onto the product at
    * receipt so the catalog does not have to be edited afterwards. Null is
    * "not said", which is not the same as unisex -- see lib/audience.ts. */

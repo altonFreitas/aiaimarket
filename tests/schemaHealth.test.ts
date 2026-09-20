@@ -109,6 +109,8 @@ const EVERYTHING = snap([
   // variants.sql -- a product that varies more than one way.
   "product_variants", "variant_attribute_values",
   "stock_movements.variant_id", "order_items.variant_id",
+  // variant-purchasing.sql -- buying and receiving by variant.
+  "purchase_order_items.variant_qty",
 ]);
 
 describe("checkSchema", () => {

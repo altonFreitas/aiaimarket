@@ -376,6 +376,12 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     routines: ["variant_available"],
   },
   {
+    // Buying and receiving by variant. Named by the column, which nothing
+    // else adds.
+    file: "variant-purchasing.sql", labelKey: "featVariantPurchasing",
+    columns: [["purchase_order_items", "variant_qty"]],
+  },
+  {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
     // public anon key (it is in every browser's network tab) can insert
     // orders and upload files straight past the app's checks.
@@ -514,6 +520,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "taxonomy-seed.sql",
   "product-attributes.sql",
   "variants.sql",
+  "variant-purchasing.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 

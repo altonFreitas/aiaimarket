@@ -1,7 +1,8 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
-import { normalizeSizeQty, receiptMovements } from "@/lib/sizeStock";
+import { normalizeSizeQty } from "@/lib/sizeStock";
+import { normalizeVariantQty, receiptMovementsFor } from "@/lib/variantStock";
 import { normalizeAudience } from "@/lib/audience";
 import { slugify } from "@/lib/utils";
 import { revalidatePath, updateTag } from "next/cache";
@@ -20,8 +21,9 @@ import type { PurchaseOrder } from "@/lib/types";
  * real purchase that must never appear in the shop.
  *
  * IDEMPOTENCE is enforced by the database, not by checking first: a unique
- * index on stock_movements(po_item_id) where reason = 'purchase_receipt'
- * means a second receipt of the same line is rejected by Postgres. That is
+ * index on stock_movements(po_item_id, size, variant) where reason =
+ * 'purchase_receipt' means a second receipt of the same line and the same
+ * combination is rejected by Postgres. That is
  * deliberate. A check-then-insert would still double-count under two
  * concurrent clicks; a constraint cannot. We catch the violation per line
  * and carry on, so re-receiving an order tops up only the lines that were
@@ -210,13 +212,40 @@ export async function applyReceipt(
        and the unique index is on (po_item_id, size) so each is idempotent
        on its own -- see supabase/size-stock.sql.
 
+       A line buying variants yields one movement per VARIANT instead,
+       and ignores its size map -- a variant already carries its size, so
+       honouring both would count the same shirts twice.
+
        Inserted as ONE statement rather than a loop: all the sizes of a
        line arrive together or none do, so a receipt cannot half-land and
        leave the shop believing in stock that was never counted. */
-    const moves = receiptMovements(normalizeSizeQty(item.size_qty), units);
+    /* WHICH SIZE EACH VARIANT IS, for the column that has not retired.
+       Every movement still carries a size -- the per-size views and the
+       reorder report read it -- and a variant receipt that left it empty
+       would quietly move that stock into the "no size recorded" pool,
+       which backs every size. Read once per line rather than once per
+       movement. */
+    const variantQty = normalizeVariantQty(item.variant_qty);
+    const sizeByVariant = new Map<string, string>();
+    const variantIds = Object.keys(variantQty);
+    if (variantIds.length) {
+      const { data: rows } = await sb
+        .from("variant_attribute_values")
+        .select("variant_id, value, attributes!inner(slug)")
+        .in("variant_id", variantIds)
+        .eq("attributes.slug", "size");
+      for (const r of (rows ?? []) as { variant_id: string; value: string }[]) {
+        sizeByVariant.set(r.variant_id, r.value);
+      }
+    }
+
+    const moves = receiptMovementsFor(
+      normalizeSizeQty(item.size_qty), variantQty, units,
+      (id) => sizeByVariant.get(id) ?? "");
     const { error: moveErr } = await sb.from("stock_movements").insert(
       moves.map((m) => ({
         product_id: productId,
+        variant_id: m.variantId,
         size: m.size,
         delta: m.qty,
         reason: "purchase_receipt",

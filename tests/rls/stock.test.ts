@@ -345,3 +345,96 @@ describeDb("a basket with no variant behaves exactly as before", () => {
     });
   });
 });
+
+/* ===========================================================================
+ * RECEIVING, PER VARIANT
+ *
+ * Receiving is idempotent because a unique index refuses the second
+ * receipt of a line -- Postgres rejecting it, not a check-then-insert two
+ * concurrent clicks could both pass. That index has now been widened
+ * twice: once for sizes, once for variants. Each widening is a chance to
+ * break the guarantee for the shapes that came before.
+ * ======================================================================== */
+
+/** A purchase-order line pointing at a product, ready to receive. */
+function poLine(ref: string, productId: string, qty: number): string {
+  sql(`delete from stock_movements where note = '${ref}'`);
+  sql(`delete from purchase_order_items where product_name = '${ref}'`);
+  sql(`delete from purchase_orders where po_number = '${ref}'`);
+  sql(`delete from suppliers where name = '${ref} supplier'`);
+  sql(`insert into suppliers (name) values ('${ref} supplier')`);
+  sql(`insert into purchase_orders (supplier_id, po_number, order_date, status)
+       select id, '${ref}', current_date, 'draft' from suppliers where name = '${ref} supplier'`);
+  sql(`insert into purchase_order_items (po_id, product_id, product_name, category, qty, unit_price)
+       select po.id, '${productId}', '${ref}', 'other', ${qty}, 1
+         from purchase_orders po where po.po_number = '${ref}'`);
+  return scalar(`select id from purchase_order_items where product_name = '${ref}'`)!;
+}
+
+const receipt = (item: string, productId: string, variantId: string | null,
+                 size: string, qty: number, note: string) =>
+  sqlAsync(`insert into stock_movements
+              (product_id, variant_id, size, delta, reason, po_item_id, note)
+            values ('${productId}', ${variantId ? `'${variantId}'` : "null"},
+                    '${size}', ${qty}, 'purchase_receipt', '${item}', '${note}')`);
+
+describeDb("receiving a line that buys several variants", () => {
+  it("writes one movement per variant, not one per line", async () => {
+    /* THE BUG THE WIDENED INDEX EXISTS TO PREVENT. On the old index --
+       unique on (po_item_id, size) -- three variants share one size, so
+       the first receipt would be accepted and the other two rejected. The
+       shop would receive ten shirts and believe it had thirty. */
+    const { product, a, b } = variantStock("VAR-7", 0);
+    const item = poLine("VAR-7", product, 20);
+
+    expect((await receipt(item, product, a, "", 10, "VAR-7")).ok).toBe(true);
+    expect((await receipt(item, product, b, "", 10, "VAR-7")).ok).toBe(true);
+    expect(Number(scalar(
+      `select count(*) from stock_movements where note = 'VAR-7'`))).toBe(2);
+  });
+
+  it("still refuses the same line and the same variant twice", async () => {
+    const { product, a } = variantStock("VAR-8", 0);
+    const item = poLine("VAR-8", product, 10);
+
+    expect((await receipt(item, product, a, "", 10, "VAR-8")).ok).toBe(true);
+    const second = await receipt(item, product, a, "", 10, "VAR-8");
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/stock_movements_receipt_once/);
+  });
+
+  it("still refuses a line with no variant twice", async () => {
+    /* THE NULL TRAP. A unique index treats NULLs as distinct, so
+       (item, '', null) twice would be two different keys and the second
+       receipt of every unvarianted line the shop has ever had would be
+       accepted -- the idempotency silently gone for the common case. The
+       COALESCE sentinel in the index is what stops that. */
+    const p = stock("VAR-9", 0);
+    const item = poLine("VAR-9", p, 5);
+
+    expect((await receipt(item, p, null, "", 5, "VAR-9")).ok).toBe(true);
+    const second = await receipt(item, p, null, "", 5, "VAR-9");
+    expect(second.ok).toBe(false);
+    expect(second.error).toMatch(/stock_movements_receipt_once/);
+  });
+
+  it("still refuses the same line and the same SIZE twice", () => {
+    // The guarantee size-stock.sql added, which this widening must keep.
+    const p = stock("VAR-10", 0);
+    const item = poLine("VAR-10", p, 5);
+    return receipt(item, p, null, "M", 5, "VAR-10").then(async (first) => {
+      expect(first.ok).toBe(true);
+      const second = await receipt(item, p, null, "M", 5, "VAR-10");
+      expect(second.ok).toBe(false);
+    });
+  });
+
+  it("lets the same line receive two different sizes", () => {
+    const p = stock("VAR-11", 0);
+    const item = poLine("VAR-11", p, 10);
+    return receipt(item, p, null, "M", 5, "VAR-11").then(async (first) => {
+      expect(first.ok).toBe(true);
+      expect((await receipt(item, p, null, "L", 5, "VAR-11")).ok).toBe(true);
+    });
+  });
+});
