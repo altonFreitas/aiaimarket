@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import ProductForm from "@/components/admin/ProductForm";
 import { adminCategories, adminProduct, adminSellers, adminSettings } from "@/lib/data/admin";
-import { taxonomyRoots, attributeValuesOf } from "@/lib/data/taxonomy";
+import { attributeValuesOf } from "@/lib/data/taxonomy";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
@@ -11,21 +11,21 @@ import type { VariantRow } from "@/components/admin/VariantEditor";
 export default async function ProductFormPage({ params }: { params: Promise<{ id: string }> }) {
   await requireSection("catalog.products");
   const { id } = await params;
-  const [lang, cats, settings, sellers, roots] = await Promise.all([
-    getLang(), adminCategories(), adminSettings(), adminSellers(), taxonomyRoots(),
+  const [lang, cats, settings, sellers] = await Promise.all([
+    getLang(), adminCategories(), adminSettings(), adminSellers(),
   ]);
   const product = id === "new" ? null : await adminProduct(id);
   if (id !== "new" && !product) notFound();
 
-  // What this product already answers, and where it sits in the tree.
-  const initialTaxonomy = product ? await selectionFor(product.id) : undefined;
+  // What this product already answers, and which type asked.
+  const saved = product ? await selectionFor(product.id) : undefined;
   const variants = product ? await variantsFor(product.id) : [];
 
   return (
     <ProductForm
       lang={lang} cats={cats} product={product} settings={settings}
-      taxonomyRoots={roots}
-      initialTaxonomy={initialTaxonomy}
+      initialTaxonomy={saved?.selection}
+      currentType={saved?.type ?? null}
       variants={variants}
       // Approved only, and only the two fields the select needs. A pending
       // or suspended store is not somewhere a product can be filed: the
@@ -42,15 +42,29 @@ export default async function ProductFormPage({ params }: { params: Promise<{ id
 /* REBUILDING THE FORM'S STATE FROM WHAT WAS STORED.
  *
  * Section 14: opening an existing product has to put the picker back where
- * it was -- category, subcategory, product type -- and then fill in every
- * answer. Only the product type is stored on the product; the two levels
- * above it are walked back up through categories.parent_id, so the tree is
- * described in exactly one place and cannot drift.
+ * it was and then fill in every answer.
+ *
+ * IT NO LONGER WALKS UP THE TREE, and that is the point of the change it
+ * belongs to. There used to be two Category dropdowns on this form, and
+ * this function answered the second one by climbing from the product type
+ * to its node and up through categories.parent_id. There is one pair now,
+ * and it is answered by products.category_id -- where the product is
+ * actually filed, which is what the shop menu and /c/[slug] read. So all
+ * that is wanted here is the type and its answers.
+ *
+ * THE TYPE'S NAME COMES WITH IT. A product type need not hang off the node
+ * its product is filed under, and in this shop it usually does not:
+ * /admin/migrate files the Tetum category "Sapatu" under the English type
+ * "Shoes", which lives under "Footwear". The picker offers the type it was
+ * given even when the node's own list does not contain it, and it needs
+ * the name to print.
  *
  * Returns undefined for a product with no type, which is every product
  * created before this existed. They open with the picker empty and
  * everything else exactly as before -- see section 23. */
-async function selectionFor(productId: string): Promise<TaxonomySelection | undefined> {
+async function selectionFor(productId: string): Promise<{
+  selection: TaxonomySelection; type: { id: string; name: string } | null;
+} | undefined> {
   try {
     const sb = supabaseAdmin();
     const { data: p } = await sb
@@ -59,28 +73,15 @@ async function selectionFor(productId: string): Promise<TaxonomySelection | unde
     if (!typeId) return undefined;
 
     const { data: pt } = await sb
-      .from("product_types").select("category_id").eq("id", typeId).maybeSingle();
-    const nodeId = (pt as { category_id?: string } | null)?.category_id;
-    if (!nodeId) return undefined;
-
-    // The node the type hangs off is either a subcategory (it has a
-    // parent) or a category in its own right.
-    const { data: node } = await sb
-      .from("categories").select("id,parent_id").eq("id", nodeId).maybeSingle();
-    const n = node as { id: string; parent_id: string | null } | null;
-    if (!n) return undefined;
+      .from("product_types").select("id,name").eq("id", typeId).maybeSingle();
+    const type = (pt as { id: string; name: string } | null) ?? null;
 
     const values: Record<string, string[]> = {};
     for (const v of await attributeValuesOf(productId)) {
       (values[v.attribute_id] ??= []).push(v.value);
     }
 
-    return {
-      categoryId: n.parent_id ?? n.id,
-      subcategoryId: n.parent_id ? n.id : "",
-      productTypeId: typeId,
-      values,
-    };
+    return { selection: { productTypeId: typeId, values }, type };
   } catch {
     // The migration window: no taxonomy tables yet. The product still
     // opens and still saves -- it simply has no type to show.

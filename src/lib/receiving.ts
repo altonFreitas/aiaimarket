@@ -4,6 +4,10 @@ import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
 import { normalizeSizeQty } from "@/lib/sizeStock";
 import { normalizeVariantQty, receiptMovementsFor } from "@/lib/variantStock";
 import { normalizeAudience } from "@/lib/audience";
+import { submittedFrom } from "@/lib/taxonomy/lineTaxonomy";
+import { attributesForType } from "@/lib/data/taxonomy";
+import { validateAttributeValues } from "@/lib/taxonomy/validate";
+import { isMissingColumnError } from "@/lib/missingColumn";
 import { slugify } from "@/lib/utils";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
@@ -13,9 +17,13 @@ import type { PurchaseOrder } from "@/lib/types";
  * downstream. For each line bought FOR RESALE it
  *
  *   1. creates the catalog product, if the line does not already point at one
- *   2. writes a stock_movements row, which the database trigger turns into
+ *   2. gives it the product TYPE the line was bought under, and the answers
+ *      the buyer gave to that type's questions -- which is what makes the
+ *      new listing draw its own fields, show a Specifications panel and
+ *      appear under the attribute filters, with nobody retyping anything
+ *   3. writes a stock_movements row, which the database trigger turns into
  *      stock on the product
- *   3. upserts the landed unit cost into product_costs
+ *   4. upserts the landed unit cost into product_costs
  *
  * Lines that are not for resale are skipped entirely -- an office chair is a
  * real purchase that must never appear in the shop.
@@ -167,6 +175,10 @@ export async function applyReceipt(
       productId = created.id as string;
       result.productsCreated++;
 
+      // What kind of thing it is, and what it answers. Only for a product
+      // this receipt CREATED -- see applyTaxonomy.
+      await applyTaxonomy(productId, item);
+
       // Point the line at what it created, so a second receipt tops up this
       // product rather than creating a duplicate.
       await sb.from("purchase_order_items")
@@ -202,6 +214,16 @@ export async function applyReceipt(
         }
       }
     }
+
+    /* AND THE SAME RULE FOR THE TYPE, on a product that already exists:
+       filled in when it has none, never replaced when it has one.
+       Replacing would be the most destructive thing a restock could do --
+       changing a product's type changes WHICH QUESTIONS EXIST, so every
+       answer the shop had written would be an answer to a question the new
+       type never asked, and saveProductAttributes deletes those. A shirt
+       restocked from a supplier who files it differently would come back
+       from the delivery with its whole specification gone. */
+    if (item.product_id && productId) await fillBlankTaxonomy(productId, item);
 
     /* THE LEDGER ROWS -- one per size. The trigger on stock_movements
        moves products.qty, which stays the sum of all of them.
@@ -292,6 +314,73 @@ export async function applyReceipt(
   if (sellerId) revalidatePath("/seller", "layout");
 
   return result;
+}
+
+/* ---------------------------------------------------------------------------
+ * The product type, and the answers that came with it
+ * ------------------------------------------------------------------------ */
+
+type Item = PurchaseOrder["items"] extends (infer I)[] | undefined ? I : never;
+
+/** Writes the line's product type and its answers onto a product this
+ * receipt has just created.
+ *
+ * VALIDATED AGAIN, against the type, on the way in. savePurchaseOrder
+ * already refused anything that did not fit -- so this cannot normally
+ * fail -- but months can pass between an order being placed and the goods
+ * landing, and an attribute can be retired from a product type in between.
+ * Re-reading the type is what stops a stale answer becoming a row nothing
+ * will ever show or be able to explain.
+ *
+ * A REFUSAL IS NOT A FAILED RECEIPT. The goods are on the shelf; a
+ * specification that could not be written is a listing to finish, not a
+ * delivery to reject. So this swallows its own errors, deliberately, and
+ * says why here.
+ */
+async function applyTaxonomy(productId: string, item: Item): Promise<void> {
+  const typeId = (item.product_type_id || "").trim();
+  if (!typeId) return;
+
+  const sb = supabaseAdmin();
+  try {
+    const attrs = await attributesForType(typeId, { includeAdminOnly: true });
+    const result = validateAttributeValues(attrs, submittedFrom(item.attribute_values));
+
+    /* The TYPE goes on even when the answers do not. A product that knows
+       what kind of thing it is draws the right form the moment somebody
+       opens it, and every question is then in front of them. A product
+       that does not know is a name and a price. */
+    const { error } = await sb.from("products")
+      .update({ product_type_id: typeId }).eq("id", productId);
+    // The migration window: products.product_type_id arrives with
+    // supabase/taxonomy.sql. Nothing else here can work without it either.
+    if (error) { if (isMissingColumnError(error, "product_type_id")) return; throw error; }
+
+    if (result.ok && result.rows.length) {
+      await sb.from("product_attribute_values").insert(
+        result.rows.map((r) => ({ product_id: productId, ...r })));
+    }
+  } catch {
+    /* No taxonomy tables yet, or a type retired since the order. The
+       product exists, the stock is about to land, and the listing can be
+       finished by hand -- which is exactly where every product was before
+       any of this. */
+  }
+}
+
+/** The same, for a product that already existed: only when it has no type
+ * of its own. See the note at the call site -- replacing a type deletes
+ * every answer under the old one. */
+async function fillBlankTaxonomy(productId: string, item: Item): Promise<void> {
+  if (!(item.product_type_id || "").trim()) return;
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("products").select("product_type_id").eq("id", productId).maybeSingle();
+    if (error || !data) return;
+    if ((data as { product_type_id?: string | null }).product_type_id) return;
+    await applyTaxonomy(productId, item);
+  } catch { /* migration window, as above */ }
 }
 
 /** The purchase order number, for the caller's record of the act. */

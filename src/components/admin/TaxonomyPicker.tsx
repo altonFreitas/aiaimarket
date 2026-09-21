@@ -1,19 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
-import { loadSubcategories, loadProductTypes, loadAttributes } from "@/lib/actions/taxonomy";
+import { loadProductTypes, loadAttributes } from "@/lib/actions/taxonomy";
 import AttributeField from "./AttributeField";
-import type {
-  TaxonomyNode, ProductType, FormAttribute,
-} from "@/lib/taxonomy/types";
+import type { ProductType, FormAttribute } from "@/lib/taxonomy/types";
 
-/* CATEGORY -> SUBCATEGORY -> PRODUCT TYPE -> THE FORM ITSELF.
+/* PRODUCT TYPE -> THE FORM ITSELF.
  *
  * Sections 4 and 28 of the brief. There is no branch in this file on any
- * particular category: it walks whatever tree the database holds and then
- * hands each attribute row to AttributeField, which draws the control the
- * row names. Adding "Musical Instruments -> Guitars" is INSERT statements.
+ * particular category: it asks what product types hang off the node it was
+ * given and then hands each attribute row to AttributeField, which draws
+ * the control the row names. Adding "Musical Instruments -> Guitars" is
+ * INSERT statements.
  *
- * WHAT HAPPENS WHEN A CHOICE CHANGES, and why it is not simply "reload the
+ * THE CATEGORY IS NOT ASKED FOR HERE, and used to be. This drew its own
+ * Category and Subcategory dropdowns directly beneath the form's own pair,
+ * over the same rows of the same table -- two controls for one fact, which
+ * is how a product ends up filed in one place and typed from another. The
+ * form owns that question now and hands the answer down as `node`.
+ *
+ * WHAT HAPPENS WHEN THE NODE CHANGES, and why it is not simply "reload the
  * next list". Changing the product type changes WHICH QUESTIONS EXIST, so
  * the answers to the old ones are no longer answers to anything -- a
  * sofa's Seat Height is not a smartphone's anything. Values are therefore
@@ -21,17 +26,9 @@ import type {
  * left to be written against attributes the new product type never asked
  * for. The server would refuse those anyway (lib/taxonomy/validate.ts);
  * this makes it not happen in the first place.
- *
- * A LEVEL WITH NOTHING IN IT DISAPPEARS. The specification gives every
- * category exactly one subcategory, but a shop is free to file product
- * types directly under a category. When a category has no children the
- * subcategory control is not drawn at all, rather than shown empty and
- * unusable.
  */
 
 export interface TaxonomySelection {
-  categoryId: string;
-  subcategoryId: string;
   productTypeId: string;
   /** attribute id -> its value(s). Always a list, even for single-valued
    * fields, so one shape covers both. */
@@ -39,10 +36,12 @@ export interface TaxonomySelection {
 }
 
 export default function TaxonomyPicker({
-  roots, value, onChange, onAttributes, errors = {}, disabled,
+  node, value, onChange, onAttributes, errors = {}, disabled, currentType,
+  idPrefix = "", title,
 }: {
-  /** The top-level categories, loaded with the page. */
-  roots: TaxonomyNode[];
+  /** The category or subcategory the product is filed under -- whichever
+   * of the two the form's pair settled on. Empty until one is chosen. */
+  node: string;
   value: TaxonomySelection;
   onChange: (next: TaxonomySelection) => void;
   /** The attributes this product type asks for, handed up as they load, so
@@ -52,6 +51,30 @@ export default function TaxonomyPicker({
   /** attribute id -> message, from the server's own validation. */
   errors?: Record<string, string>;
   disabled?: boolean;
+  /** THE TYPE THIS PRODUCT ALREADY HAS, even when it hangs off a different
+   * node than the one the product is filed under.
+   *
+   * Those two genuinely disagree in this shop: /admin/migrate files a
+   * Tetum category's products under an English product type, so a product
+   * in "Sapatu" is typed "Shoes", which lives under "Footwear". Without
+   * this the select would find no matching option, render blank, and the
+   * first save would quietly strip the type and every answer under it.
+   * Offered as an option until the category is changed, at which point the
+   * type is cleared on purpose. */
+  currentType?: { id: string; name: string } | null;
+  /** Set when a page draws more than one of these -- a purchase order has
+   * one per line. Everything below carries it, because two controls with
+   * one id means every label points at the first of them. */
+  idPrefix?: string;
+  /** A heading and its explanation, drawn ONLY when there is something
+   * under them.
+   *
+   * It belongs here rather than in the parent because only this component
+   * knows whether the node has any product types -- and a shop that has
+   * not pasted the taxonomy SQL has none anywhere. Left in the parent, the
+   * product form showed a "PRODUCT TYPE" heading, a sentence about picking
+   * one, and then nothing at all. */
+  title?: React.ReactNode;
 }) {
   /* EACH CACHE REMEMBERS WHAT IT IS FOR.
      Holding the parent id beside the list, and deriving what to render
@@ -60,22 +83,24 @@ export default function TaxonomyPicker({
      and a list belonging to the previous choice cannot flash on screen
      while the new one is still in flight -- it simply does not match, so
      it is not shown. */
-  const [subs, setSubs] = useState<{ parent: string; list: TaxonomyNode[] }>(
-    { parent: "", list: [] });
   const [types, setTypes] = useState<{ parent: string; list: ProductType[] }>(
     { parent: "", list: [] });
   const [attrs, setAttrs] = useState<{ type: string; list: FormAttribute[] }>(
     { type: "", list: [] });
 
-  // Product types hang off whichever node is actually selected -- the
-  // subcategory when there is one, the category when there is not.
-  const typeParent = value.subcategoryId || value.categoryId;
-
   // What this render is allowed to draw: only a list that belongs to the
-  // choice currently made.
-  const visibleSubs = subs.parent === value.categoryId ? subs.list : [];
-  const visibleTypes = types.parent === typeParent ? types.list : [];
+  // node currently chosen.
+  const loaded = types.parent === node ? types.list : [];
   const visibleAttrs = attrs.type === value.productTypeId ? attrs.list : [];
+
+  /* The type the product already carries, kept in the list until it is
+     replaced. Appended rather than merged in place so the node's own types
+     stay in their configured order. */
+  const visibleTypes = currentType
+    && currentType.id === value.productTypeId
+    && !loaded.some((p) => p.id === currentType.id)
+    ? [...loaded, { ...currentType, category_id: "", slug: "", display_order: 0 }]
+    : loaded;
 
   /* "Loading" is not a separate fact to store -- it is exactly "a type is
      chosen and its attributes have not arrived". Deriving it keeps the two
@@ -88,25 +113,13 @@ export default function TaxonomyPicker({
 
   useEffect(() => {
     let live = true;
-    const id = value.categoryId;
-    if (id) {
-      loadSubcategories(id).then((list) => {
-        if (live) setSubs({ parent: id, list });
+    if (node) {
+      loadProductTypes(node).then((list) => {
+        if (live) setTypes({ parent: node, list });
       });
     }
     return () => { live = false; };
-  }, [value.categoryId]);
-
-  useEffect(() => {
-    let live = true;
-    const id = typeParent;
-    if (id) {
-      loadProductTypes(id).then((list) => {
-        if (live) setTypes({ parent: id, list });
-      });
-    }
-    return () => { live = false; };
-  }, [typeParent]);
+  }, [node]);
 
   useEffect(() => {
     let live = true;
@@ -123,53 +136,28 @@ export default function TaxonomyPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.productTypeId]);
 
-  function pickCategory(id: string) {
-    // Everything below is about to mean something else.
-    onChange({ categoryId: id, subcategoryId: "", productTypeId: "", values: {} });
-  }
-  function pickSubcategory(id: string) {
-    onChange({ ...value, subcategoryId: id, productTypeId: "", values: {} });
-  }
   function pickType(id: string) {
-    onChange({ ...value, productTypeId: id, values: {} });
+    onChange({ productTypeId: id, values: {} });
   }
   function setValue(attrId: string, next: string[]) {
     onChange({ ...value, values: { ...value.values, [attrId]: next } });
   }
 
+  /* NOTHING TO DRAW IS NOTHING DRAWN.
+     No product types under this node and none already chosen: the shop
+     either has not installed the taxonomy or does not file anything here.
+     Either way an empty control and a heading over it read as broken, and
+     on a purchase order line an empty block would also take a row of its
+     own in the flex layout. */
+  if (!visibleTypes.length && !busy) return null;
+
   return (
     <div className="taxonomy">
-      <div className="two">
-        <div className="field">
-          <label htmlFor="tx-cat">Category</label>
-          <select id="tx-cat" value={value.categoryId} disabled={disabled}
-            onChange={(e) => pickCategory(e.target.value)}>
-            <option value="">Select a category</option>
-            {roots.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Only drawn when there is something in it. */}
-        {visibleSubs.length > 0 && (
-          <div className="field">
-            <label htmlFor="tx-sub">Subcategory</label>
-            <select id="tx-sub" value={value.subcategoryId} disabled={disabled}
-              onChange={(e) => pickSubcategory(e.target.value)}>
-              <option value="">Select a subcategory</option>
-              {visibleSubs.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
+      {title}
       {visibleTypes.length > 0 && (
         <div className="field">
-          <label htmlFor="tx-type">Product type</label>
-          <select id="tx-type" value={value.productTypeId} disabled={disabled}
+          <label htmlFor={`${idPrefix}tx-type`}>Product type</label>
+          <select id={`${idPrefix}tx-type`} value={value.productTypeId} disabled={disabled}
             onChange={(e) => pickType(e.target.value)}>
             <option value="">Select a product type</option>
             {visibleTypes.map((p) => (
@@ -187,6 +175,7 @@ export default function TaxonomyPicker({
           {visibleAttrs.map((a) => (
             <AttributeField
               key={a.id}
+              idPrefix={idPrefix}
               attr={a}
               value={value.values[a.id] ?? []}
               onChange={(next) => setValue(a.id, next)}

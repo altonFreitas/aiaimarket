@@ -22,7 +22,7 @@ import { MULTI_VALUE } from "@/lib/taxonomy/types";
  */
 
 export default function AttributeField({
-  attr, value, onChange, error, disabled,
+  attr, value, onChange, error, disabled, idPrefix = "",
 }: {
   attr: FormAttribute;
   /** Always a list, even for single-valued fields, so one shape covers
@@ -31,8 +31,18 @@ export default function AttributeField({
   onChange: (next: string[]) => void;
   error?: string;
   disabled?: boolean;
+  /** Distinguishes two copies of the SAME attribute on one page.
+   *
+   * A purchase order restocking two shirts of the same product type draws
+   * Composition twice, and both would carry id="attr-<uuid>". Duplicate
+   * ids are not a tidiness question: every label, every aria-describedby
+   * and every click on a label resolves to the FIRST match, so the second
+   * line's error is announced against the first line's box and clicking
+   * its label focuses the wrong one. The product form, which draws each
+   * attribute once, passes nothing. */
+  idPrefix?: string;
 }) {
-  const id = `attr-${attr.id}`;
+  const id = `${idPrefix}attr-${attr.id}`;
   const one = value[0] ?? "";
   const set = (v: string) => onChange(v === "" ? [] : [v]);
 

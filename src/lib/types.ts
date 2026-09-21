@@ -271,6 +271,16 @@ export interface PurchaseOrderItem {
   /** Product description. Fills a product this line creates, or a blank
    * one on an existing product -- it never overwrites text already there. */
   description?: string;
+  /** What KIND of thing this line buys. Copied onto the product at receipt,
+   * which is what makes the new listing draw its own fields, show a
+   * Specifications panel and appear under the attribute filters. Absent on
+   * a database that has not run supabase/po-taxonomy.sql. */
+  product_type_id?: string | null;
+  /** The answers to that type's questions, {attribute_id: [value, ...]},
+   * written into product_attribute_values at receipt. Validated against
+   * the product type when the ORDER is saved, never at receipt -- see
+   * lib/purchasing.ts. */
+  attribute_values?: Record<string, string[]> | null;
   created_at: string;
 }
 

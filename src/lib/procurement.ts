@@ -307,6 +307,31 @@ export function landedCosts(po: PurchaseOrder): LandedCostLine[] {
   });
 }
 
+/* A COMMA SITTING INSIDE A NUMBER RATHER THAN BETWEEN TWO.
+ *
+ * Half sizes are real: Portugal sells shoes in 41,5, and half of this
+ * shop's staff write a decimal with a comma because that is what Portuguese
+ * does. Splitting the list on every comma turned one pair of shoes into a
+ * size 41 and a size 5 -- and then the shelf, the purchase order's size
+ * grid and the storefront's size picker all carried a size that does not
+ * exist and none of the ones that do.
+ *
+ * THE RULE, and it is the only one that separates the two cases without
+ * guessing: a comma is a decimal point when it sits directly between digits
+ * with no space, AND exactly ONE digit follows it. That is what a half or
+ * quarter size looks like -- 41,5 -- and it is not what a list looks like:
+ *
+ *   "41,5"        one size, forty-one and a half
+ *   "40, 41, 42"  three sizes; a list is written with a space
+ *   "40,41,42"    three sizes; two digits follow each comma
+ *   "S, M, L"     three sizes; no digits involved at all
+ *
+ * It costs one reading: "8,9,10" is taken as 8,9 and 10 rather than as
+ * three sizes, because a single digit does follow that comma. Writing the
+ * list the way everybody writes a list -- "8, 9, 10" -- is unambiguous, and
+ * the hint under the box asks for exactly that. */
+const DECIMAL_COMMA = /(\d),(\d)(?!\d)/g;
+
 /** Split sizes as the buyer typed them on the purchase order into the array
  * a product stores: "S, M, L, XL" -> ["S","M","L","XL"].
  *
@@ -317,12 +342,20 @@ export function landedCosts(po: PurchaseOrder): LandedCostLine[] {
 export function parseSizes(raw: string | null | undefined): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const part of String(raw || "").split(/[,/\n]+/)) {
-    const size = part.trim();
+  /* The decimal commas are stood aside before the split and put back
+     immediately after, so the splitter itself stays the plain thing it was
+     and there is one place that decides what a decimal comma is. \u0000
+     cannot occur in a size somebody typed into a text input. */
+  const guarded = String(raw || "").replace(DECIMAL_COMMA, "$1\u0000$2");
+  for (const part of guarded.split(/[,/\n]+/)) {
+    const size = part.trim().replace(/\u0000/g, ",");
     if (!size) continue;
-    // Case-insensitive de-duplication, but the first spelling is what is
-    // kept: "s, S" is one size, written the way it was first written.
-    const key = size.toLowerCase();
+    /* Case-insensitive de-duplication, but the first spelling is what is
+       kept: "s, S" is one size, written the way it was first written.
+       41,5 and 41.5 are one size for the same reason -- they are the same
+       shoe, and two spellings of it on one product would split its stock
+       into two piles that each look half empty. */
+    const key = size.toLowerCase().replace(/(\d),(\d)/g, "$1.$2");
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(size);

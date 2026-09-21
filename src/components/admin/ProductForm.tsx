@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveProduct, uploadProductImage } from "@/lib/actions/products";
-import { createCategory } from "@/lib/actions/categories";
 import { saveProductAttributes } from "@/lib/actions/product-attributes";
 import TaxonomyPicker, { type TaxonomySelection } from "./TaxonomyPicker";
 import VariantEditor, { type VariantRow } from "./VariantEditor";
@@ -16,7 +15,7 @@ import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
-import type { TaxonomyNode, FormAttribute } from "@/lib/taxonomy/types";
+import type { FormAttribute } from "@/lib/taxonomy/types";
 
 /** Just enough of an approved store to fill the "sold by" select. The whole
  * Seller row is forty columns including its TOTP secret's neighbours, and
@@ -36,8 +35,8 @@ const STOCK_PILL: Record<StockStatus, string> = {
 };
 
 export default function ProductForm({
-  lang, cats: initialCats, product, settings, sellers = [],
-  taxonomyRoots = [], initialTaxonomy, variants = [],
+  lang, cats, product, settings, sellers = [],
+  initialTaxonomy, currentType = null, variants = [],
 }: {
   lang: Lang; cats: Category[]; product: Product | null; settings: Settings;
   /** Approved stores the owner may file this product under. Anything else
@@ -45,26 +44,25 @@ export default function ProductForm({
    * -- is the marketplace's own catalogue, which is what the storefront
    * shows for it too. */
   sellers?: SellerOption[];
-  /** Top-level categories for the taxonomy picker. Only the roots: the
-   * rest is fetched as choices are made -- see TaxonomyPicker. */
-  taxonomyRoots?: TaxonomyNode[];
   /** What this product already answers, for the edit form. */
   initialTaxonomy?: TaxonomySelection;
+  /** Its product type, by name as well as id -- see TaxonomyPicker's
+   * `currentType`, which needs the name to keep offering a type that
+   * hangs off a different category than the product is filed under. */
+  currentType?: { id: string; name: string } | null;
   /** The combinations this product is already sold in. */
   variants?: VariantRow[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
-  const [cats, setCats] = useState(initialCats);
   const [busy, setBusy] = useState(false);
   const canWrite = useCanWrite();
   const [errors, setErrors] = useState<Record<string, string>>({});
   /* The taxonomy choice and its answers. Held here rather than inside the
      picker so the save handler can read it -- the picker draws, this
      component submits. */
-  const [tax, setTax] = useState<TaxonomySelection>(initialTaxonomy ?? {
-    categoryId: "", subcategoryId: "", productTypeId: "", values: {},
-  });
+  const [tax, setTax] = useState<TaxonomySelection>(
+    initialTaxonomy ?? { productTypeId: "", values: {} });
   /* Errors the SERVER raised against individual attributes, shown against
      the field that caused them. The browser checks too, but the server is
      the one that decides. */
@@ -73,8 +71,6 @@ export default function ProductForm({
      the variant editor needs them to know which axes exist, and fetching
      the same rows twice would be a second round trip for no reason. */
   const [typeAttrs, setTypeAttrs] = useState<FormAttribute[]>([]);
-  const [newCat, setNewCat] = useState("");
-  const [newSubCat, setNewSubCat] = useState("");
   const [images, setImages] = useState<string[]>(product?.images || []);
 
   const [f, setF] = useState({
@@ -84,19 +80,29 @@ export default function ProductForm({
     preorder_enabled: product?.preorder_enabled !== false,
     preorder_eta: product?.preorder_eta || "",
     description: product?.description || "",
-    category_id: product?.category_id || cats[0]?.id || "",
-    sizes: (product?.sizes || []).join(", "),
+    category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
     audience: normalizeAudience(product?.audience) ?? "",
     // Empty means the marketplace's own catalogue. A product already filed
     // under a store that is no longer approved reads as the shop's own
     // too, which is exactly what the storefront shows for it.
     seller_id: sellers.some((x) => x.id === product?.seller_id) ? product!.seller_id : "",
-    tags: (product?.tags || []).join(", "),
     municipality: product?.municipality || settings?.municipality || "",
     post: product?.post || settings?.post || "",
     suku: product?.suku || settings?.suku || "",
     landmark: product?.landmark || settings?.landmark || "",
   });
+
+  /* CARRIED, NOT EDITED.
+     The "Sizes / variants" and "What it's for (tags)" boxes are gone: a
+     size is a variant now (VariantEditor, below) and a tag was a second,
+     freehand way to say what the product type already says properly. The
+     COLUMNS stay, and every save still writes them -- so it has to write
+     back what is in them. Dropping the two keys instead would blank a
+     product's sizes the first time anybody edited its price, which would
+     take the size picker off the storefront and the size breakdown off
+     every restock of it. */
+  const keptSizes = product?.sizes || [];
+  const keptTags = product?.tags || [];
 
   // Derived here exactly as the database derives it on save.
   const derivedStatus = statusForQty(Number(f.qty) || 0);
@@ -171,43 +177,29 @@ export default function ProductForm({
     setBusy(false);
   }
 
-  async function onCreateCategory() {
-    const name = newCat.trim();
-    if (!name) return;
-    setBusy(true);
-    try {
-      const c = await createCategory(name, null);            // C1 inline creation
-      setCats((cur) => (cur.some((x) => x.id === c.id) ? cur : [...cur, c]));
-      set("category_id", c.id);
-      setNewCat("");
-      toast(t("newCategory", lang) + ": " + c.name);
-    } catch { toast("Error", true); }
-    setBusy(false);
+  /* MOVING THE PRODUCT, AND WHAT MOVES WITH IT.
+     Category/Subcategory are two cascading dropdowns over the same
+     category_id field: selecting a root category resets the subcategory
+     to "none" (product filed directly under the root); selecting a
+     subcategory files the product there instead. Both still ultimately
+     just set f.category_id -- there's no separate subcategory column.
+
+     THE PRODUCT TYPE GOES WITH THEM. Types hang off a node, so a product
+     moved to another one is no longer the type it was: "Sneakers" does not
+     exist under Kosmétiku. Clearing it here, where the move happens, is
+     what stops a save writing a type from the old branch and a set of
+     answers to questions the new one never asked. The picker refuses them
+     too -- the attributes are read from the type on the server, never from
+     the payload -- but it should not have to. */
+  function refile(categoryId: string) {
+    set("category_id", categoryId);
+    if (categoryId !== f.category_id) setTax({ productTypeId: "", values: {} });
   }
 
-  // Category/Subcategory are two cascading dropdowns over the same
-  // category_id field: selecting a root category resets the subcategory
-  // to "none" (product filed directly under the root); selecting a
-  // subcategory files the product there instead. Both still ultimately
-  // just set f.category_id -- there's no separate subcategory column.
   const selectedRootId = rootIdOf(f.category_id, cats) || cats.find((c) => !c.parent_id)?.id || "";
   const rootCats = cats.filter((c) => !c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
   const subCats = cats.filter((c) => c.parent_id === selectedRootId).sort((a, b) => a.sort_order - b.sort_order);
   const selectedSubId = cats.find((c) => c.id === f.category_id)?.parent_id ? f.category_id : "";
-
-  async function onCreateSubCategory() {
-    const name = newSubCat.trim();
-    if (!name || !selectedRootId) return;
-    setBusy(true);
-    try {
-      const c = await createCategory(name, selectedRootId);
-      setCats((cur) => (cur.some((x) => x.id === c.id) ? cur : [...cur, c]));
-      set("category_id", c.id);
-      setNewSubCat("");
-      toast(t("newCategory", lang) + ": " + c.name);
-    } catch { toast("Error", true); }
-    setBusy(false);
-  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -240,10 +232,10 @@ export default function ProductForm({
         preorder_eta: f.preorder_eta || null,
         description: f.description,
         category_id: f.category_id,
-        sizes: f.sizes.split(",").map((s) => s.trim()).filter(Boolean),
+        sizes: keptSizes,
         audience: f.audience || null,
         seller_id: f.seller_id || null,
-        tags: f.tags.split(",").map((s) => s.trim()).filter(Boolean),
+        tags: keptTags,
         images,
         pay_cod: pay.cod, pay_cop: pay.cop, pay_bank: pay.bank,
         pay_wallet: pay.wallet, pay_fiar: pay.fiar,
@@ -375,8 +367,8 @@ export default function ProductForm({
           <p className="hint">{t("catPanelHint", lang)}</p>
           <div className={"field" + (errors.category_id ? " err" : "")}>
             <label htmlFor="category_id">{t("category", lang)}</label>
-            <select id="category_id" value={selectedRootId}
-              onChange={(e) => set("category_id", e.target.value)}>
+            <select id="category_id" value={selectedRootId} disabled={!canWrite}
+              onChange={(e) => refile(e.target.value)}>
               {rootCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <p className="hint">{t("categoryHint", lang)}</p>
@@ -385,8 +377,8 @@ export default function ProductForm({
           {subCats.length > 0 && (
             <div className="field">
               <label htmlFor="subcategory_id">{t("subcategory", lang)}</label>
-              <select id="subcategory_id" value={selectedSubId}
-                onChange={(e) => set("category_id", e.target.value || selectedRootId)}>
+              <select id="subcategory_id" value={selectedSubId} disabled={!canWrite}
+                onChange={(e) => refile(e.target.value || selectedRootId)}>
                 <option value="">{t("none", lang)}</option>
                 {subCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -409,7 +401,7 @@ export default function ProductForm({
           </div>
 
           {/* THE PRODUCT TYPE, AND THE FIELDS THAT COME WITH IT.
-              Category -> subcategory -> product type -> that type's own
+              The category above -> product type -> that type's own
               attributes, all read from the database. There is no branch
               here on any particular category and there is no per-category
               form: a sofa draws eighteen fields and a t-shirt fourteen
@@ -417,26 +409,36 @@ export default function ProductForm({
               next year draws correctly without this file changing. See
               TaxonomyPicker and lib/taxonomy/.
 
-              Only shown once the taxonomy has been installed. Until the
-              SQL is pasted there are no categories to offer, and an empty
-              dropdown labelled "Category" beside the working one above it
-              would just look broken. */}
-          {taxonomyRoots.length > 0 && (
-            <div className="field">
-              <h3 style={{ margin: "18px 0 4px" }}>{t("productType", lang)}</h3>
-              <p className="hint" style={{ marginTop: 0 }}>
-                {t("productTypeHint", lang)}
-              </p>
-              <TaxonomyPicker
-                roots={taxonomyRoots}
-                value={tax}
-                onChange={setTax}
-                errors={attrErrors}
-                onAttributes={setTypeAttrs}
-                disabled={!canWrite || busy}
-              />
-            </div>
-          )}
+              ONE CATEGORY QUESTION, ASKED ONCE. This used to be a second
+              Category and Subcategory pair, drawn by the picker itself
+              directly under the pair above -- the same rows of the same
+              table, offered twice. Answering them differently filed the
+              product in one place and typed it from another, and there was
+              nothing on the screen to say which of the two the shop menu
+              would use. The pair above is now the only one, and `node` is
+              its answer.
+
+              The heading and the picker draw themselves whatever the
+              database holds: a shop that has not pasted the taxonomy SQL
+              has no product types under any node, so the select simply
+              does not appear. */}
+          <div className="field">
+            <TaxonomyPicker
+              title={<>
+                <h3 style={{ margin: "18px 0 4px" }}>{t("productType", lang)}</h3>
+                <p className="hint" style={{ marginTop: 0 }}>
+                  {t("productTypeHint", lang)}
+                </p>
+              </>}
+              node={f.category_id}
+              value={tax}
+              onChange={setTax}
+              currentType={currentType}
+              errors={attrErrors}
+              onAttributes={setTypeAttrs}
+              disabled={!canWrite || busy}
+            />
+          </div>
 
           {/* THE COMBINATIONS IT IS SOLD IN.
               Only once the product exists: a variant hangs off a product
@@ -481,34 +483,12 @@ export default function ProductForm({
               <p className="hint">{t("productSellerHint", lang)}</p>
             </div>
           )}
-          <WriteOnly>
-          <div className="field">
-            <label htmlFor="newcat">{t("newCategory", lang)}</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input id="newcat" value={newCat} onChange={(e) => setNewCat(e.target.value)}
-                placeholder="Sapatu, Kosmétiku…" />
-              <button type="button" className="btn btn-sm" disabled={busy} onClick={onCreateCategory}>
-                {t("add", lang)}
-              </button>
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="newsubcat">{t("newSubcategory", lang)}</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input id="newsubcat" value={newSubCat} onChange={(e) => setNewSubCat(e.target.value)}
-                placeholder="Sneakers, Sandalia…" />
-              <button type="button" className="btn btn-sm" disabled={busy || !selectedRootId}
-                onClick={onCreateSubCategory}>
-                {t("add", lang)}
-              </button>
-            </div>
-          </div>
-          </WriteOnly>
-        </div>
-
-        <div className="panel">
-          {field("sizes", t("sizesLabel", lang), "text", t("sizesHint", lang))}
-          {field("tags", t("utility", lang), "text", t("utilityHint", lang))}
+          {/* NO "CREATE CATEGORY" BOXES. They made a category from one
+              typed word, with no slug to check, no sort order, no parent
+              beyond the one implied, and no way to see what already
+              existed -- which is how a shop ends up with Sapatu, sapatu
+              and Sapatus. Catalog -> Categories is the screen for that,
+              and it is one click away. */}
         </div>
 
         <div className="panel">

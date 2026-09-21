@@ -382,11 +382,25 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["purchase_order_items", "variant_qty"]],
   },
   {
+    // Buying a product type. Named by the column, which nothing else adds.
+    file: "po-taxonomy.sql", labelKey: "featPoTaxonomy",
+    columns: [["purchase_order_items", "product_type_id"],
+              ["purchase_order_items", "attribute_values"]],
+  },
+  {
     // Filtering the catalogue by attribute. Named by the helper function,
     // which nothing else creates -- search_products is redefined here but
     // three other files also create it.
     file: "attribute-filters.sql", labelKey: "featAttributeFilters",
     routines: ["products_with_attribute"],
+  },
+  {
+    // Creates nothing -- it WIDENS two columns legal-currency-tax.sql
+    // already added. A column's precision is not in the inventory, so the
+    // file renames the range check instead, which is: the same rule under
+    // a name that can be seen. Same trick as admin-subsections.sql.
+    file: "tax-precision.sql", labelKey: "featTaxPrecision",
+    constraints: [["public.settings", "settings_tax_rate_range_check"]],
   },
   {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
@@ -483,6 +497,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "promotions.sql",
   "hero-video.sql",
   "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql
+  "tax-precision.sql",       // widens the two tax_rate columns it added
   "order-discount.sql",      // one column on orders; anywhere after schema.sql
   "loves.sql",
   "reorder-policy.sql",
@@ -528,6 +543,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   "product-attributes.sql",
   "variants.sql",
   "variant-purchasing.sql",
+  // AFTER taxonomy.sql, whose product_types it references, and after
+  // procurement.sql, whose purchase_order_items it adds two columns to.
+  "po-taxonomy.sql",
   "attribute-filters.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",

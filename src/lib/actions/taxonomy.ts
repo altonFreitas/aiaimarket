@@ -1,9 +1,7 @@
 "use server";
-import { requireSection } from "./guard";
-import {
-  subcategoriesOf, productTypesOf, attributesForType,
-} from "@/lib/data/taxonomy";
-import type { TaxonomyNode, ProductType, FormAttribute } from "@/lib/taxonomy/types";
+import { requireAnySection } from "./guard";
+import { productTypesOf, attributesForType } from "@/lib/data/taxonomy";
+import type { ProductType, FormAttribute } from "@/lib/taxonomy/types";
 
 /* WHAT THE FORM ASKS FOR AS SOMEBODY FILLS IT IN.
  *
@@ -13,22 +11,27 @@ import type { TaxonomyNode, ProductType, FormAttribute } from "@/lib/taxonomy/ty
  * "Home, Furniture & Living" fetches one subcategory, not the other 266
  * product types in the catalogue.
  *
+ * THE CATEGORY IS NOT ONE OF THEM. Loading subcategories used to be an
+ * action too, called by the picker's own Category dropdown. Both the
+ * product form and the purchase order line already hold every category the
+ * page loaded with -- there are twenty-five of them -- so asking the
+ * server for the children of one was a round trip to re-read rows that
+ * were already in the browser.
+ *
  * GUARDED, THOUGH THEY ONLY READ. The taxonomy is public on the
- * storefront, so none of this is secret -- but these are called from the
- * product form, and an action reachable without a session is one more
- * thing to remember about later. requireSection is what every other
- * catalogue action uses.
+ * storefront, so none of this is secret -- but these are called from a
+ * form, and an action reachable without a session is one more thing to
+ * remember about later.
+ *
+ * BY EITHER SECTION, because two screens draw the same lists: the product
+ * form under Catalog and a purchase order line under Procurement. A buyer
+ * who may place orders but not edit the catalogue still has to be able to
+ * say what kind of thing they are buying.
  */
-
-/** The subcategories under one category. */
-export async function loadSubcategories(categoryId: string): Promise<TaxonomyNode[]> {
-  await requireSection("catalog.products");
-  return subcategoriesOf(categoryId);
-}
 
 /** The product types filed under one category or subcategory. */
 export async function loadProductTypes(nodeId: string): Promise<ProductType[]> {
-  await requireSection("catalog.products");
+  await requireAnySection("catalog.products", "procurement");
   return productTypesOf(nodeId);
 }
 
@@ -41,6 +44,6 @@ export async function loadProductTypes(nodeId: string): Promise<ProductType[]> {
  * that flag, and the row-level policy refuses them there as well, so the
  * decision is not left to a caller remembering. */
 export async function loadAttributes(productTypeId: string): Promise<FormAttribute[]> {
-  await requireSection("catalog.products");
+  await requireAnySection("catalog.products", "procurement");
   return attributesForType(productTypeId, { includeAdminOnly: true });
 }

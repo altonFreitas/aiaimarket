@@ -574,3 +574,43 @@ describe("parseSizes", () => {
     expect(parseSizes("  ,  ")).toEqual([]);
   });
 });
+
+describe("parseSizes and the half size", () => {
+  /* Portugal sells shoes in 41,5, and half this shop writes a decimal with
+     a comma. Splitting on every comma turned one pair into a size 41 and a
+     size 5 -- a size the shop does not stock, on the shelf, on the purchase
+     order's size grid and in the storefront's size picker. */
+  it("keeps a decimal comma inside the size", () => {
+    expect(parseSizes("41,5")).toEqual(["41,5"]);
+    expect(parseSizes("41,4")).toEqual(["41,4"]);
+    expect(parseSizes("10,5kg")).toEqual(["10,5kg"]);
+  });
+
+  it("keeps a decimal point inside the size, as it always did", () => {
+    expect(parseSizes("41.5")).toEqual(["41.5"]);
+  });
+
+  it("still splits a list of whole sizes", () => {
+    // Two digits after the comma: a list, not a decimal.
+    expect(parseSizes("40,41,42")).toEqual(["40", "41", "42"]);
+    // A space after the comma: a list however many digits follow.
+    expect(parseSizes("40, 41, 42")).toEqual(["40", "41", "42"]);
+    expect(parseSizes("8, 9, 10")).toEqual(["8", "9", "10"]);
+  });
+
+  it("splits a list that mixes whole and half sizes", () => {
+    expect(parseSizes("41, 41,5, 42, 42,5")).toEqual(["41", "41,5", "42", "42,5"]);
+    expect(parseSizes("41/41,5/42")).toEqual(["41", "41,5", "42"]);
+  });
+
+  it("treats 41,5 and 41.5 as one size, keeping the first spelling", () => {
+    /* Two spellings of the same shoe on one product would split its stock
+       into two piles that each look half empty. */
+    expect(parseSizes("41,5, 41.5")).toEqual(["41,5"]);
+    expect(parseSizes("41.5, 41,5")).toEqual(["41.5"]);
+  });
+
+  it("leaves letters alone", () => {
+    expect(parseSizes("S, M, L, XL")).toEqual(["S", "M", "L", "XL"]);
+  });
+});

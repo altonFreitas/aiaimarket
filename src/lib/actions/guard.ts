@@ -89,6 +89,29 @@ export async function requireSection(key: SectionKey | string): Promise<AdminAct
   return actor;
 }
 
+/** The same lock, opened by ANY ONE of several sections.
+ *
+ * For the reads two different screens both need. The taxonomy -- what
+ * product types exist and what each one asks -- is drawn by the product
+ * form under Catalog AND by a purchase order line under Procurement, and a
+ * buyer who may place orders but not edit the catalogue must still be able
+ * to say what kind of thing they are buying.
+ *
+ * Not a way to weaken a guard: each key is checked exactly as
+ * requireSection checks it, and a caller holding none of them is turned
+ * away the same way. It exists so the alternative -- a second action doing
+ * the same read behind a second guard -- does not. */
+export async function requireAnySection(
+  ...keys: readonly (SectionKey | string)[]
+): Promise<AdminActor> {
+  const actor = await requireAdminRead();
+  const ok = keys.some((key) => (key.includes(".")
+    ? canOpenSubsection(actor, key)
+    : canSee(actor, key as SectionKey)));
+  if (!ok) redirect("/admin/no-access");
+  return actor;
+}
+
 /** Every seller-scoped server action must call this and use the
  * RETURNED seller's id for any query/write — never a seller id supplied
  * by the client. This is what actually enforces "a seller can never act

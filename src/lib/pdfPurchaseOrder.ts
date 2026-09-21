@@ -27,7 +27,17 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const RED: [number, number, number] = [0xc4, 0x3d, 0x2c];
 
-export function downloadPurchaseOrderPdf(po: PurchaseOrder, supplier?: Supplier) {
+export function downloadPurchaseOrderPdf(
+  po: PurchaseOrder, supplier?: Supplier,
+  /* WHAT EACH LINE IS, IN WORDS. The line stores a product type id and a
+     map of attribute ids; a sheet a warehouse checks a delivery against
+     cannot carry uuids. Resolved on the server -- see
+     lib/data/poSpecs.ts -- because this runs in the browser and has
+     nothing to look them up in. Absent on a shop that has not pasted
+     po-taxonomy.sql, and the document then prints exactly as it always
+     did. */
+  specs: Record<string, { typeName: string; specs: { name: string; value: string }[] }> = {},
+) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -142,10 +152,11 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrder, supplier?: Supplier)
     doc.text(l ? amt(l.landedUnitCost / fx) : "—", colLanded, y, { align: "right" });
     doc.text(amt(qty * unit), colTotal, y, { align: "right" });
 
-    // Sizes and category under the name: this is the row a warehouse reads
-    // when checking a delivery against the order.
+    // Sizes, category and product type under the name: this is the row a
+    // warehouse reads when checking a delivery against the order.
     const sub = [
       CATEGORY_LABELS[item.category] || item.category,
+      specs[item.id]?.typeName || "",
       item.sizes ? `Sizes: ${item.sizes}` : "",
     ].filter(Boolean).join("  ·  ");
     if (sub) {
@@ -163,6 +174,24 @@ export function downloadPurchaseOrderPdf(po: PurchaseOrder, supplier?: Supplier)
         y += 9;
       }
       y -= 9;
+    }
+
+    /* THE ANSWERS THE BUYER GAVE, under the line that bought them.
+       This is the half a delivery is actually checked against -- "41,5"
+       and "Cotton" and "Black" -- and until the order carried them it was
+       a conversation nobody could refer back to. Wrapped across the same
+       width as the description and capped at four rows: a sofa answers
+       eighteen questions, and a purchase order is not a specification
+       sheet. The spreadsheet export carries all of them. */
+    const answers = specs[item.id]?.specs ?? [];
+    if (answers.length) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(120);
+      const text = answers.map((a) => `${a.name}: ${a.value}`).join("  ·  ");
+      for (const ln of doc.splitTextToSize(text, colQty - marginX - 20).slice(0, 4)) {
+        y += 9;
+        doc.text(ln, marginX + 8, y);
+      }
     }
     doc.setTextColor(0);
   }

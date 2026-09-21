@@ -5,6 +5,11 @@ import { todayIso } from "@/lib/procurement";
 import { normalizeSizeQty } from "@/lib/sizeStock";
 import { normalizeAudience } from "@/lib/audience";
 import { scopeSellerId, scopeCanWrite, type ProcurementScope } from "@/lib/procurementScope";
+import { attributesForType } from "@/lib/data/taxonomy";
+import { checkLineTaxonomy, type LineTaxonomy } from "@/lib/taxonomy/lineTaxonomy";
+import { writeTolerating } from "@/lib/missingColumn";
+import type { Submitted } from "@/lib/taxonomy/validate";
+import type { FormAttribute } from "@/lib/taxonomy/types";
 import type { PoCategory, PoPaymentStatus, PoStatus } from "@/lib/types";
 
 /* Buying, as the database sees it -- for whoever is doing the buying.
@@ -209,6 +214,13 @@ export interface PoLineInput {
   /** Who the goods are for, copied onto the product at receipt. */
   audience?: string | null;
   description?: string;
+  /** What KIND of thing this line buys, from the taxonomy. Copied onto the
+   * product at receipt, which is what gives the new listing its fields,
+   * its Specifications panel and its place in the attribute filters. */
+  productTypeId?: string | null;
+  /** The answers to that type's questions. Checked against the type on the
+   * server -- see lib/taxonomy/lineTaxonomy.ts. */
+  attributeValues?: Submitted | null;
 }
 
 export interface PurchaseOrderInput {
@@ -318,6 +330,35 @@ export async function savePurchaseOrderIn(
     notes: clip(input.notes, MAX_TEXT),
   };
 
+  /* THE PRODUCT TYPES THE LINES NAME, READ FROM THE DATABASE.
+     Once per distinct type rather than once per line: an order restocking
+     twenty shirt colours names one product type twenty times, and the
+     attributes it asks for are the same twenty times.
+
+     null in the map means "asked for, and there is no such product type",
+     which checkLineTaxonomy refuses. That is different from an empty list,
+     which is a real type nobody has configured attributes for yet.
+
+     The whole lookup is wrapped because a shop that has not run
+     supabase/taxonomy.sql has no product_types table -- there, every line
+     is treated as naming a type that does not exist, and since no form on
+     such a shop can offer one, no line names one. */
+  const typeIds = [...new Set(lines
+    .map((l) => (l.productTypeId || "").trim()).filter(Boolean))];
+  const attrsByType = new Map<string, FormAttribute[] | null>();
+  for (const id of typeIds) {
+    try {
+      const { data } = await sb.from("product_types").select("id").eq("id", id).maybeSingle();
+      attrsByType.set(id, data
+        ? await attributesForType(id, { includeAdminOnly: true })
+        : null);
+    } catch { attrsByType.set(id, null); }
+  }
+
+  /* Held beside the rows rather than inside them, because the two columns
+     they become may not exist yet -- see the insert below. */
+  const taxonomy: LineTaxonomy[] = [];
+
   const rows = lines.map((l) => {
     const qty = Number(l.qty);
     const unitPrice = Number(l.unitPrice);
@@ -328,10 +369,21 @@ export async function savePurchaseOrderIn(
     if (sellPrice != null && sellPrice < 0) {
       throw new Error(`Selling price cannot be negative for "${l.productName}"`);
     }
+    const category = CATEGORIES.includes(l.category) ? l.category : ("other" as PoCategory);
+    /* Throws, with the line named. A purchase order can carry twenty lines
+       and "That field does not belong to this product type" would not say
+       which one to go and look at. */
+    taxonomy.push(checkLineTaxonomy(
+      category === "goods_for_resale",
+      l.productTypeId,
+      l.attributeValues,
+      attrsByType.get((l.productTypeId || "").trim()) ?? null,
+      l.productName || "line"));
+
     return {
       product_id: l.productId || null,
       product_name: clip(l.productName, MAX_NAME),
-      category: CATEGORIES.includes(l.category) ? l.category : ("other" as PoCategory),
+      category,
       qty,
       unit_price: unitPrice,
       catalog_category_id: l.catalogCategoryId || null,
@@ -387,9 +439,25 @@ export async function savePurchaseOrderIn(
     poId = data.id as string;
   }
 
-  const { error: itemErr } = await sb
-    .from("purchase_order_items")
-    .insert(rows.map((r) => ({ ...r, po_id: poId })));
+  /* THE TWO NEWEST COLUMNS, DROPPED IF THEY ARE NOT THERE YET.
+     This project deploys the code and runs the SQL by hand afterwards, and
+     Postgres fails the WHOLE statement over one unknown column name -- so
+     without this, pulling the code that can buy a product type would stop
+     a shop saving ANY purchase order until it had pasted po-taxonomy.sql.
+     Everything the buyer typed still saves; the type and its answers start
+     being kept the moment the migration runs. */
+  const { error: itemErr } = await writeTolerating(
+    { product_type_id: null, attribute_values: {} },
+    (extra) => sb.from("purchase_order_items").insert(
+      rows.map((r, i) => ({
+        ...r,
+        po_id: poId,
+        ...("product_type_id" in extra
+          ? { product_type_id: taxonomy[i].productTypeId } : {}),
+        ...("attribute_values" in extra
+          ? { attribute_values: taxonomy[i].values } : {}),
+      }))),
+  );
   if (itemErr) throw itemErr;
 
   /* SAVING AN ORDER AS "RECEIVED" RECEIVES IT.

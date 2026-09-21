@@ -37,21 +37,6 @@ export async function taxonomyRoots(): Promise<TaxonomyNode[]> {
   } catch { return []; }
 }
 
-/** The children of one category: the second dropdown. */
-export async function subcategoriesOf(categoryId: string): Promise<TaxonomyNode[]> {
-  if (!categoryId) return [];
-  try {
-    const sb = supabaseAdmin();
-    const { data, error } = await sb
-      .from("categories")
-      .select("id,name,slug,parent_id")
-      .eq("parent_id", categoryId)
-      .order("sort_order");
-    if (error) return [];
-    return (data as TaxonomyNode[]) ?? [];
-  } catch { return []; }
-}
-
 /** The product types filed under one category or subcategory.
  *
  * Takes the node the form is actually sitting on. A shop is free to file

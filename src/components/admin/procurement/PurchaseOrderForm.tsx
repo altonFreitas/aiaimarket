@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { savePurchaseOrder, setPurchaseOrderStatus, deletePurchaseOrder } from "@/lib/actions/procurement";
+import { exportPurchaseOrderExcel } from "@/lib/actions/export";
+import { downloadBase64 } from "@/lib/downloadFile";
 import { PO_CURRENCIES, countryFlag, countryName } from "@/lib/countries";
 import { money } from "@/lib/utils";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@/lib/procurement";
 import { AUDIENCES, AUDIENCE_KEY } from "@/lib/audience";
 import { t } from "@/lib/i18n";
+import TaxonomyPicker, { type TaxonomySelection } from "../TaxonomyPicker";
 import WriteOnly, { useCanWrite } from "../Access";
 import type {
   Category, Lang, PoCategory, PoPaymentStatus, PoStatus, Product, PurchaseOrder, Supplier,
@@ -47,13 +50,31 @@ interface LineDraft {
    * said", which is a real state and not the same as unisex. */
   audience: string;
   description: string;
+  /** WHAT KIND OF THING THIS LINE BUYS, and what it answers.
+   *
+   * The same cascade the product form uses, asked here because here is
+   * where the buyer knows. Without it a receipt created a name, a price
+   * and a category, and somebody afterwards opened the new product and
+   * filled in eighteen fields from memory. */
+  taxonomy: TaxonomySelection;
 }
 
 const blankLine = (): LineDraft => ({
   productName: "", category: "goods_for_resale", qty: "1", unitPrice: "0",
   productId: "", catalogCategoryId: "", sellPrice: "", sizes: "",
   sizeQty: {}, audience: "", description: "",
+  taxonomy: { productTypeId: "", values: {} },
 });
+
+/** The root a category id sits under -- itself when it is a root.
+ *
+ * Shop category and subcategory are two dropdowns over ONE field, exactly
+ * as they are on the product form: picking a root files the goods there,
+ * picking a child files them in the child. There is no second column, and
+ * catalog_category_id is always the leaf. */
+function rootIdOf(id: string, cats: Category[]): string {
+  return cats.find((x) => x.id === id)?.parent_id || id;
+}
 
 /** The sizes a line can be broken down by.
  *
@@ -103,7 +124,7 @@ function prefilledLines(
 }
 
 export default function PurchaseOrderForm({
-  lang, suppliers, po, products, categories, prefill,
+  lang, suppliers, po, products, categories, prefill, lineSpecs = {},
 }: {
   lang: Lang; suppliers: Supplier[]; po: PurchaseOrder | null;
   /** The live catalog, so a line can point at a product that already
@@ -114,6 +135,10 @@ export default function PurchaseOrderForm({
    * many of what. Only ever used for a NEW order -- an existing one has its
    * own lines and must not have them replaced by a link. */
   prefill?: { supplierId?: string; lines: Array<{ productId: string; qty: number }> };
+  /** Each line's product type and answers, in words rather than as ids --
+   * see lib/data/poSpecs.ts. The PDF is built in the browser and cannot
+   * look them up for itself. */
+  lineSpecs?: Record<string, { typeName: string; specs: { name: string; value: string }[] }>;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -157,11 +182,39 @@ export default function PurchaseOrderForm({
               .map(([k, v]) => [k, String(v)])),
           audience: i.audience || "",
           description: i.description || "",
+          taxonomy: {
+            productTypeId: i.product_type_id || "",
+            values: i.attribute_values || {},
+          },
         }))
       : prefilledLines(prefill, products)
   );
   const setLine = (i: number, patch: Partial<LineDraft>) =>
     setLines((ls) => ls.map((l, n) => (n === i ? { ...l, ...patch } : l)));
+
+  /* THE CATEGORY TREE, FROM THE ROWS THE PAGE ALREADY HAS.
+     `categories` is every category in sort order, so both levels come out
+     of it without a round trip -- the same thing the product form does. */
+  const rootCats = categories.filter((c) => !c.parent_id);
+  const subCatsOf = (leafId: string) => {
+    const root = rootIdOf(leafId, categories);
+    return root ? categories.filter((c) => c.parent_id === root) : [];
+  };
+
+  /* MOVING A LINE'S GOODS TO ANOTHER CATEGORY CLEARS ITS PRODUCT TYPE.
+     Types hang off a node: "Sneakers" does not exist under Kosmétiku, and
+     its questions are not the questions the new branch asks. Cleared here,
+     where the move happens, so a save cannot carry a type from the old
+     branch and a set of answers to questions nobody is asking. The server
+     refuses them as well -- it reads the attributes from the type, never
+     from the payload -- but it should not have to. */
+  function refile(i: number, categoryId: string) {
+    setLines((ls) => ls.map((l, n) => (n === i
+      ? { ...l, catalogCategoryId: categoryId,
+          taxonomy: categoryId === l.catalogCategoryId
+            ? l.taxonomy : { productTypeId: "", values: {} } }
+      : l)));
+  }
 
   // Live totals in the ORDER's currency: the buyer is reading an invoice
   // denominated in it, so showing them a converted figure while they type
@@ -212,6 +265,11 @@ export default function PurchaseOrderForm({
             sizeQty,
             audience: l.audience || null,
             description: l.description,
+            /* Sent for every line; the server clears both on anything that
+               is not goods for resale, because an office chair the shop
+               sits on is a real purchase and never a product. */
+            productTypeId: l.taxonomy.productTypeId || null,
+            attributeValues: l.taxonomy.values,
           };
         }),
       });
@@ -241,10 +299,27 @@ export default function PurchaseOrderForm({
     if (!po) return;
     try {
       const mod = await import("@/lib/pdfPurchaseOrder");
-      mod.downloadPurchaseOrderPdf(po, suppliers.find((s) => s.id === po.supplier_id));
+      mod.downloadPurchaseOrderPdf(
+        po, suppliers.find((s) => s.id === po.supplier_id), lineSpecs);
     } catch {
       toast(t("error", lang), true);
     }
+  }
+
+  /** The same order as a spreadsheet: what a shop works ON, as opposed to
+   * what a supplier is sent. Built on the server, because that is where
+   * the attribute names are and where exceljs already lives. */
+  async function downloadExcel() {
+    if (!po) return;
+    setBusy(true);
+    try {
+      const { base64, filename } = await exportPurchaseOrderExcel(po.id);
+      downloadBase64(base64, filename,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    } catch (e) {
+      toast(String((e as Error).message) || t("error", lang), true);
+    }
+    setBusy(false);
   }
 
   /* THE BUTTONS AND THE DROPDOWN ARE THE SAME FIELD.
@@ -301,9 +376,15 @@ export default function PurchaseOrderForm({
         {/* Only for a saved order: there is nothing to print from a form
             that has not been written down yet. */}
         {po && (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={downloadPdf}>
-            {t("downloadPdf", lang)}
-          </button>
+          <>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={downloadPdf}>
+              {t("downloadPdf", lang)}
+            </button>
+            <button type="button" className="btn btn-sm btn-ghost"
+              disabled={busy} onClick={downloadExcel}>
+              {t("exportExcel", lang)}
+            </button>
+          </>
         )}
       </div>
 
@@ -470,14 +551,37 @@ export default function PurchaseOrderForm({
                   already has a category and a price of its own. */}
               {l.category === "goods_for_resale" && !l.productId && (
                 <>
+                  {/* SHOP CATEGORY, AS TWO DROPDOWNS OVER ONE FIELD.
+                      It was a single flat list of every category and every
+                      subcategory together, so "Sneakers" sat beside
+                      "Kosmétiku" with nothing to say one was inside
+                      "Sapatu" and the other was not. Same pair, same rule
+                      and same code as the product form: the leaf is what
+                      is stored, and it is what the product type hangs
+                      off. */}
                   <div className="field">
                     <label htmlFor={`cc${i}`}>{t("shopCategory", lang)}</label>
-                    <select id={`cc${i}`} value={l.catalogCategoryId}
-                      onChange={(e) => setLine(i, { catalogCategoryId: e.target.value })}>
+                    <select id={`cc${i}`} value={rootIdOf(l.catalogCategoryId, categories)}
+                      onChange={(e) => refile(i, e.target.value)}>
                       <option value="">{t("uncategorised", lang)}</option>
-                      {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {rootCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
+                  {subCatsOf(l.catalogCategoryId).length > 0 && (
+                    <div className="field">
+                      <label htmlFor={`sc${i}`}>{t("subcategory", lang)}</label>
+                      <select id={`sc${i}`}
+                        value={categories.find((c) => c.id === l.catalogCategoryId)?.parent_id
+                          ? l.catalogCategoryId : ""}
+                        onChange={(e) => refile(i,
+                          e.target.value || rootIdOf(l.catalogCategoryId, categories))}>
+                        <option value="">{t("none", lang)}</option>
+                        {subCatsOf(l.catalogCategoryId).map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="field">
                     <label htmlFor={`sp${i}`}>{t("sellPrice", lang)}</label>
                     <input id={`sp${i}`} type="number" min="0" step="0.01" value={l.sellPrice}
@@ -491,7 +595,16 @@ export default function PurchaseOrderForm({
                   <div className="field">
                     <label htmlFor={`sz${i}`}>{t("sizesVariants", lang)}</label>
                     <input id={`sz${i}`} value={l.sizes} placeholder="S, M, L, XL"
+                      aria-describedby={`szh${i}`}
                       onChange={(e) => setLine(i, { sizes: e.target.value })} />
+                    {/* NOTHING BELOW THIS INPUT, for the reason written on
+                        the Quantity box: the fields on a line are
+                        bottom-aligned, so a note under one of them makes
+                        that field taller and lifts its box above every
+                        other box in the row. The rule about half sizes is
+                        said under the size grid instead, which is where
+                        the sizes it is talking about appear the moment
+                        they are typed. */}
                   </div>
                   {/* WHO THE GOODS ARE FOR, asked once, here, where the
                       buyer already knows. It is copied onto the product at
@@ -516,13 +629,56 @@ export default function PurchaseOrderForm({
                       placeholder={t("descriptionPoHint", lang)}
                       onChange={(e) => setLine(i, { description: e.target.value })} />
                   </div>
+                  {/* WHAT KIND OF THING IS BEING BOUGHT, AND WHAT IT IS.
+                      The same picker the product form draws, over the same
+                      taxonomy, hanging off the category chosen just above
+                      -- so the buyer answers the listing's questions at the
+                      moment they are holding the supplier's invoice and
+                      know the answers. Receiving copies both onto the
+                      product, and the product page, the card and the
+                      attribute filters are complete without anybody
+                      opening Catalog.
+
+                      A line pointing at an EXISTING product never gets
+                      here: that product already has a type and answers of
+                      its own, and a restock must not argue with them.
+
+                      idPrefix, because an order restocking two shirts of
+                      one type draws every attribute twice and two boxes
+                      with one id means both labels point at the first. */}
+                  <div className="field po-line-tax">
+                    <TaxonomyPicker
+                      idPrefix={`l${i}-`}
+                      node={l.catalogCategoryId}
+                      value={l.taxonomy}
+                      onChange={(next) => setLine(i, { taxonomy: next })}
+                      disabled={!canWrite || busy}
+                    />
+                  </div>
                 </>
               )}
               {l.productId && (
-                <div className="field">
-                  <label>{t("linkedProduct", lang)}</label>
-                  <span className="pill ok">{t("existingProduct", lang)}</span>
-                </div>
+                <>
+                  <div className="field">
+                    <label>{t("linkedProduct", lang)}</label>
+                    <span className="pill ok">{t("existingProduct", lang)}</span>
+                  </div>
+                  {/* WHY THE REST OF THE LINE HAS GONE. A restock asks none
+                      of the questions a new product does, because this
+                      product has answered them -- and a buyer watching the
+                      category, the price and the fields disappear as they
+                      pick a name should be told why rather than left to
+                      wonder.
+
+                      ON A ROW OF ITS OWN, like every other note on a line.
+                      Inside the field above it made that field taller, and
+                      since the line is bottom-aligned it lifted the pill
+                      36 pixels clear of every other box in the row --
+                      measured, after doing exactly that. */}
+                  <div className="field po-line-note">
+                    <p className="hint">{t("restockHint", lang)}</p>
+                  </div>
+                </>
               )}
               {/* HOW MANY OF EACH SIZE. Shown for any resale line whose
                   sizes are known -- typed above for a new product, or the
@@ -533,6 +689,12 @@ export default function PurchaseOrderForm({
                 && sizesForLine(l, products).length > 0 && (
                 <div className="field po-sizes">
                   <label>{t("qtyPerSize", lang)}</label>
+                  {/* Both notes live here, where a note costs no height:
+                      .po-sizes is a full-width row of its own. The first
+                      is about the boxes below it, the second about the
+                      box above -- and "41,5" typed into that box shows up
+                      here as one chip or two, immediately, which is the
+                      fastest way to find out which the shop meant. */}
                   <div className="po-size-grid">
                     {sizesForLine(l, products).map((sz) => (
                       <label key={sz} className="po-size">
@@ -547,6 +709,7 @@ export default function PurchaseOrderForm({
                     ))}
                   </div>
                   <p className="hint">{t("qtyFromSizes", lang)}</p>
+                  <p className="hint" id={`szh${i}`}>{t("sizesHint", lang)}</p>
                 </div>
               )}
               <div className="po-line-total">

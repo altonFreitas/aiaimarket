@@ -42,6 +42,7 @@ const KINDS = {
     ["public.sellers", "sellers_area_keys_check"],
     ["public.orders", "orders_status_check"],
     ["public.orders", "orders_discount_check"],
+    ["public.settings", "settings_tax_rate_range_check"],
   ] as [string, string][],
 };
 
@@ -113,6 +114,7 @@ const EVERYTHING = snap([
   "stock_movements.variant_id", "order_items.variant_id",
   // variant-purchasing.sql -- buying and receiving by variant.
   "purchase_order_items.variant_qty",
+  "purchase_order_items.product_type_id", "purchase_order_items.attribute_values",
 ]);
 
 describe("checkSchema", () => {
@@ -290,6 +292,9 @@ describe("an old schema_inventory() that can only see tables", () => {
       "variants.sql",
       // A function alone, which an old inventory cannot report at all.
       "attribute-filters.sql",
+      // A renamed check constraint alone -- the file widens two columns
+      // and an inventory reports neither a precision nor a constraint.
+      "tax-precision.sql",
       "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {

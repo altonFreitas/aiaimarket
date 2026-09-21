@@ -9,13 +9,23 @@ const PICKER = fs.readFileSync(
   path.join(ROOT, "src/components/admin/TaxonomyPicker.tsx"), "utf8");
 const CSS = fs.readFileSync(path.join(ROOT, "src/app/globals.css"), "utf8");
 
+/** Source with its comments taken out.
+ *
+ * The "no branch on a category" check below is a regex over the file, and
+ * prose is not a branch: explaining WHY the picker must not know what a
+ * shoe is required naming one, and the test failed over the sentence. What
+ * it is guarding is the code. */
+function code(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+}
+
 describe("the form has never heard of a sofa", () => {
   /* Section 28 of the brief, which is the whole point of the rebuild:
      no branch anywhere on a particular category, subcategory or product
      type. If one appears, the system has stopped being dynamic and the
      next category needs a developer again. */
   it("branches on field_type and on nothing else", () => {
-    for (const src of [FIELD, PICKER]) {
+    for (const src of [code(FIELD), code(PICKER)]) {
       expect(src).not.toMatch(/["'](shoes|sofa|smartphone|electronics|t-?shirt)["']/i);
       expect(src).not.toMatch(/category\s*===\s*["']/);
       expect(src).not.toMatch(/slug\s*===\s*["'](?!.*variant)/);
@@ -84,8 +94,16 @@ describe("controls that would otherwise be unusable", () => {
 });
 
 describe("the picker only draws a level that exists", () => {
-  it("hides the subcategory control when a category has no children", () => {
-    expect(PICKER).toContain("{visibleSubs.length > 0 && (");
+  it("draws no category control of its own", () => {
+    /* It used to draw Category and Subcategory directly beneath the form's
+       own pair, over the same rows of the same table. The form owns that
+       question; this takes the answer as `node`. */
+    expect(code(PICKER)).not.toMatch(/id="tx-(cat|sub)"/);
+    expect(code(PICKER)).not.toContain("loadSubcategories");
+    expect(PICKER).toContain("node: string;");
+  });
+
+  it("hides the product type control when a node has none", () => {
     expect(PICKER).toContain("{visibleTypes.length > 0 && (");
   });
 
@@ -93,27 +111,34 @@ describe("the picker only draws a level that exists", () => {
     /* The answers to the old questions are not answers to the new ones --
        a sofa's Seat Height is not a smartphone's anything. The server
        would refuse them; this stops them being sent. */
-    expect(PICKER).toContain("onChange({ ...value, productTypeId: id, values: {} })");
-    expect(PICKER).toContain('onChange({ categoryId: id, subcategoryId: "", productTypeId: "", values: {} })');
+    expect(PICKER).toContain("onChange({ productTypeId: id, values: {} })");
+  });
+
+  it("keeps offering a type that hangs off another branch", () => {
+    /* A migrated product is filed under a Tetum category and typed with an
+       English product type from elsewhere in the tree. If the select found
+       no matching option it would render blank, and the first save would
+       strip the type and every answer under it. */
+    expect(PICKER).toContain("currentType.id === value.productTypeId");
+    expect(PICKER).toContain("!loaded.some((p) => p.id === currentType.id)");
   });
 
   it("never shows a list belonging to a choice already moved on from", () => {
     // Each cache remembers its parent, and rendering derives from that --
-    // so a slow response for the previous category cannot flash on screen.
-    expect(PICKER).toContain("subs.parent === value.categoryId");
-    expect(PICKER).toContain("types.parent === typeParent");
+    // so a slow response for the previous node cannot flash on screen.
+    expect(PICKER).toContain("types.parent === node");
     expect(PICKER).toContain("attrs.type === value.productTypeId");
   });
 
   it("drops a response that arrives after the choice moved on", () => {
-    /* Each of the three effects opens a `live` flag, clears it on cleanup,
-       and CONSULTS it before setting state. Asserted per effect rather than
-       by counting one idiom across the file: `if (live) set(...)` and
-       `if (!live) return;` are the same guarantee written two ways, and a
-       test that only recognised one of them failed over a rewrite that
-       changed nothing about the behaviour. */
+    /* Each effect opens a `live` flag, clears it on cleanup, and CONSULTS
+       it before setting state. Asserted per effect rather than by counting
+       one idiom across the file: `if (live) set(...)` and `if (!live)
+       return;` are the same guarantee written two ways, and a test that
+       only recognised one of them failed over a rewrite that changed
+       nothing about the behaviour. */
     const effects = PICKER.split("useEffect(").slice(1);
-    expect(effects).toHaveLength(3);
+    expect(effects).toHaveLength(2);
     for (const [i, body] of effects.entries()) {
       expect(body, `effect ${i}: no live flag`).toContain("let live = true");
       expect(body, `effect ${i}: never cleared`).toContain("live = false");
