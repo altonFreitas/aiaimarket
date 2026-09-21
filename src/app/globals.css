@@ -3017,6 +3017,12 @@ tr.is-ended{opacity:.55}
 .filter-opt.is-on{background:var(--ink);color:#fff;font-weight:600}
 .filter-opt.is-on span:first-child::before{content:"\2713\00a0"}
 
+/* ---------- finishing the catalogue (/admin/migrate) ---------- */
+/* One row per category, because that is the unit of the decision -- see
+   components/admin/MigrateAdmin.tsx. */
+.mg-row{margin:var(--sp-2) 0}
+.mg-row .opt-add select{max-width:420px}
+
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
    1 January. Sits under the chips it explains, and has to be sized here:

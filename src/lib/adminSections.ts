@@ -92,7 +92,11 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   {
     key: "catalog", labelKey: "navCatalog",
     subsections: [
-      { key: "catalog.products", labelKey: "products", paths: ["/admin/products", "/admin/p"] },
+      { key: "catalog.products", labelKey: "products",
+        // /admin/migrate files the products that predate the taxonomy. It
+        // IS editing products, so it shares their key rather than adding a
+        // second one -- ALL_GRANT_KEYS must list each key once.
+        paths: ["/admin/products", "/admin/p", "/admin/migrate"] },
       { key: "catalog.stock", labelKey: "stockControl", paths: ["/admin/stock"] },
       { key: "catalog.categories", labelKey: "categories", paths: ["/admin/cats"] },
       // The taxonomy's two halves. Separate keys because they are
