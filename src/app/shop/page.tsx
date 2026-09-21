@@ -5,11 +5,13 @@ import { parseAudienceFilter } from "@/lib/audience";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import { listingMetadata } from "@/lib/listingMeta";
+import { parseAttributeFilters } from "@/lib/attributeFilterParams";
+import { filtersFor, idsMatching } from "@/lib/data/attributeFilters";
 
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string; for?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const [lang, sp, settings] = await Promise.all([getLang(), searchParams, getSettings()]);
   return listingMetadata({
@@ -27,20 +29,38 @@ export async function generateMetadata({
 export default async function ShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; in?: string; min?: string; max?: string; page?: string; for?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await searchParams;
+  const one = (v: string | string[] | undefined) =>
+    (Array.isArray(v) ? v[0] : v);
+
+  /* THE ATTRIBUTE FILTERS RESOLVE TO PRODUCT IDS BEFORE THE SEARCH RUNS,
+     not after it. Filtering the result would leave the total count, and
+     so the pager, describing the unfiltered catalogue -- offering pages
+     that do not exist and returning an empty page one while page four
+     was full. */
+  const active = parseAttributeFilters(sp);
+  const attributeIds = await idsMatching(active);
+
   const [lang, settings, cats, allProducts, result] = await Promise.all([
     getLang(), getSettings(), getCategories(), getLiveProducts(),
     searchCatalog({
-      inStockOnly: sp.in === "1",
-      audience: parseAudienceFilter(sp.for),
-      minPrice: parsePrice(sp.min),
-      maxPrice: parsePrice(sp.max),
-      sort: parseSort(sp.sort, false),
-      page: parsePage(sp.page),
+      inStockOnly: one(sp.in) === "1",
+      audience: parseAudienceFilter(one(sp.for)),
+      minPrice: parsePrice(one(sp.min)),
+      maxPrice: parsePrice(one(sp.max)),
+      sort: parseSort(one(sp.sort), false),
+      page: parsePage(one(sp.page)),
+      attributeIds,
     }),
   ]);
+
+  /* The options offered are built from the WHOLE catalogue rather than
+     from the filtered result, so they do not disappear as they are used
+     -- a colour list that shrinks to the one colour you picked is a
+     filter you cannot undo without the back button. */
+  const attributeFilters = await filtersFor(allProducts.map((p) => p.id));
 
   return (
     <CatalogLayout
@@ -51,7 +71,12 @@ export default async function ShopPage({
       lang={lang}
       settings={settings}
       basePath="/shop"
-      params={{ sort: sp.sort, in: sp.in, min: sp.min, max: sp.max, for: sp.for }}
+      attributeFilters={attributeFilters}
+      activeFilters={active}
+      params={{
+        sort: one(sp.sort), in: one(sp.in), min: one(sp.min),
+        max: one(sp.max), for: one(sp.for),
+      }}
     />
   );
 }

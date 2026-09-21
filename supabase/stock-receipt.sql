@@ -91,9 +91,34 @@ comment on table stock_movements is
 
 -- The idempotency lock. One receipt row per purchase order line, ever.
 -- Partial, so a product may still have many sales and adjustments.
-create unique index if not exists stock_movements_receipt_once
-  on stock_movements (po_item_id)
-  where reason = 'purchase_receipt' and po_item_id is not null;
+-- ONLY WHILE THE DATA STILL FITS IT. This index is widened twice by later
+-- files -- size-stock.sql adds the size, variant-purchasing.sql adds the
+-- variant -- because a line buying three sizes, or three variants, writes
+-- three receipt rows that share this key.
+--
+-- Re-pasting run-all.sql on a shop that has received such a line would
+-- otherwise fail HERE, several thousand lines before the file that widens
+-- it, and abort the whole paste. Re-running the manifest at any point is
+-- this project's entire deployment model, so an earlier file that can only
+-- be run once is a broken one.
+--
+-- Skipped rather than forced: the later file creates the correct index a
+-- moment afterwards, so skipping leaves the database with the RIGHT
+-- constraint rather than none.
+do $receipt_idx$
+begin
+  if exists (
+    select 1 from stock_movements
+     where reason = 'purchase_receipt' and po_item_id is not null
+     group by po_item_id having count(*) > 1
+  ) then
+    return;   -- a later file's wider index is the one this data needs
+  end if;
+
+  create unique index if not exists stock_movements_receipt_once
+    on stock_movements (po_item_id)
+    where reason = 'purchase_receipt' and po_item_id is not null;
+end $receipt_idx$;
 
 create index if not exists stock_movements_product_idx on stock_movements (product_id, created_at desc);
 create index if not exists stock_movements_po_idx      on stock_movements (po_id);

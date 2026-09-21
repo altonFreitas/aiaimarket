@@ -7,6 +7,7 @@ import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
 import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
+import { productSpecs } from "@/lib/data/productSpecs";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
 import { localeMetadata, localePath } from "@/lib/locale";
@@ -52,11 +53,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [related, reviews, sizeStock] = await Promise.all([
+  const [related, reviews, sizeStock, specs] = await Promise.all([
     getRelatedProducts(p.category_id, p.id), getProductReviews(p.id),
     // Null until the shop counts a size in; the picker then reads exactly
     // as it always did rather than showing a full shelf as sold out.
     oneSizeStock(p.id, p.sizes || []),
+    // Only what this product actually answers -- see lib/data/productSpecs.
+    productSpecs(p.id),
   ]);
 
   // Only emitted when reviews genuinely exist. Google treats a fabricated or
@@ -130,6 +133,27 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <h3>{t("description", lang)}</h3>
             <div style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
           </div>
+
+          {/* WHAT THIS PARTICULAR PRODUCT IS.
+              Drawn from the product type's own attributes, and only the
+              ones with an answer: eighteen questions with seven dashes
+              beside them is seven rows of nothing to read past, and it
+              makes a well-filled listing look like a neglected one. The
+              whole block disappears when nothing has been answered, which
+              is every product created before the taxonomy existed. */}
+          {specs.length > 0 && (
+            <div className="panel" style={{ marginTop: 12 }}>
+              <h3>{t("specifications", lang)}</h3>
+              <dl className="specs">
+                {specs.map((s) => (
+                  <div key={s.name} className="spec-row">
+                    <dt>{s.name}</dt>
+                    <dd>{s.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
         </div>
         <div>
           <h1>{p.name}</h1>

@@ -72,6 +72,12 @@ export interface CatalogQuery {
   sort?: CatalogSort;
   page?: number;
   perPage?: number;
+  /** The products that survived the attribute filters, already intersected
+   * -- see lib/data/attributeFilters.ts. Null or absent means no attribute
+   * filter at all, which is NOT the same as an empty array: that means the
+   * filters matched nothing, and the right answer is no products rather
+   * than every product. */
+  attributeIds?: string[] | null;
 }
 
 export interface CatalogResult {
@@ -124,6 +130,12 @@ async function searchCatalogUncached(query: CatalogQuery): Promise<CatalogResult
       // un-migrated shop keeps its fast search and degrades on this one
       // filter alone.
       ...(query.audience ? { audience_filter: query.audience } : {}),
+      /* Same treatment, and the same reason: a database that has not run
+         supabase/attribute-filters.sql has the ten-argument function, and
+         naming an argument it does not have fails the call -- which would
+         push EVERY search onto the slow in-memory path rather than just
+         the ones using this filter. */
+      ...(query.attributeIds != null ? { id_filter: query.attributeIds } : {}),
     });
     // A missing function, a missing column, a revoked grant -- all of them
     // mean the same thing to this caller: the indexed path isn't there yet.
@@ -154,6 +166,11 @@ async function fallbackSearch(
   const q = (query.q || "").trim().toLowerCase();
   const cats = query.categoryIds?.length ? new Set(query.categoryIds) : null;
   const sellers = query.sellerIds?.length ? new Set(query.sellerIds) : null;
+  /* The attribute filter applies here too. Null means no filter; an EMPTY
+     set means the filters matched nothing, and every product must fail --
+     which `has()` on an empty set does, so both cases fall out of the same
+     line without a special case. */
+  const attrIds = query.attributeIds != null ? new Set(query.attributeIds) : null;
 
   let hits = all.filter((p) => {
     if (q && !`${p.name} ${p.description} ${(p.tags || []).join(" ")}`.toLowerCase().includes(q)) {
@@ -161,6 +178,7 @@ async function fallbackSearch(
     }
     if (cats && !cats.has(p.category_id || "")) return false;
     if (sellers && !sellers.has(p.seller_id)) return false;
+    if (attrIds && !attrIds.has(p.id)) return false;
     if (query.inStockOnly && p.stock_status === "out") return false;
     if (!matchesAudience(normalizeAudience(p.audience), query.audience ?? null)) return false;
     const price = effectivePrice(p);

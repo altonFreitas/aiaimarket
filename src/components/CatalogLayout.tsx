@@ -8,6 +8,9 @@ import { getApprovedSellersById } from "@/lib/data/public";
 import { t } from "@/lib/i18n";
 import type { CatalogResult } from "@/lib/data/search";
 import type { Category, Lang, Product, Settings } from "@/lib/types";
+import AttributeFilters from "./AttributeFilters";
+import type { CatalogFilter } from "@/lib/data/attributeFilters";
+import type { AttributeFilters as Filters } from "@/lib/attributeFilterParams";
 
 /** Shared shell for every catalog view (/shop, /c/[slug], /search).
  *
@@ -24,6 +27,7 @@ import type { Category, Lang, Product, Settings } from "@/lib/types";
  */
 export default async function CatalogLayout({
   title, sub, cats, allProducts, result, activeSlug, lang, basePath, params, showRelevance = false,
+  attributeFilters = [], activeFilters = {},
 }: {
   title: React.ReactNode;
   sub?: React.ReactNode;
@@ -37,13 +41,26 @@ export default async function CatalogLayout({
   basePath: string;
   /** Active filters, preserved by the pagination links. */
   params: Record<string, string | undefined>;
+  /** What this catalogue can be filtered by, generated from the attributes
+   * its product types ask for. Empty until the taxonomy is in use, and the
+   * panel simply does not appear. */
+  attributeFilters?: CatalogFilter[];
+  /** Which of those are on right now. */
+  activeFilters?: Filters;
   showRelevance?: boolean;
 }) {
   const sellersById = await getApprovedSellersById();
   return (
     <div className="wrap wrap-rail">
       <div className="cols">
-        <Sidebar cats={cats} products={allProducts} activeSlug={activeSlug} lang={lang} />
+        <div className="cat-side">
+          <Sidebar cats={cats} products={allProducts} activeSlug={activeSlug} lang={lang} />
+          {/* Under the categories, because a shopper picks WHAT before
+              they narrow it. Generated -- see components/AttributeFilters. */}
+          <AttributeFilters
+            filters={attributeFilters} active={activeFilters}
+            basePath={basePath} params={params} lang={lang} />
+        </div>
         <div>
           <h1>{title}</h1>
           {sub}

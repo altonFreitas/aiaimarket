@@ -1483,10 +1483,12 @@ export const STR: Record<string, [string,string,string]> = {
   featProductAttributes:["Valór atributu produtu","Valores de atributos do produto","Product attribute values"],
   featVariants:["Variante produtu","Variantes de produto","Product variants"],
   featVariantPurchasing:["Sosa tuir variante","Compras por variante","Buying by variant"],
+  featAttributeFilters:["Filtru atributu","Filtros por atributo","Attribute filters"],
   productType:["Tipu produtu","Tipo de produto","Product type"],
   productTypeHint:["Hili kategoria no tipu produtu; formuláriu sei hatudu kampu loos sira.","Escolha a categoria e o tipo de produto; o formulário mostra os campos certos.","Choose the category and product type — the right fields appear below."],
   variantsTitle:["Opsaun sira","Opções","Options"],
   variantsHint:["Hili valór sira, depois kria kombinasaun. Kombinasaun ne'ebé iha ona la muda.","Escolha os valores e crie as combinações. As que já existem não são alteradas.","Pick the values and create the combinations. Ones that already exist are left alone."],
+  specifications:["Detallu","Detalhes","Details"],
   productTypes:["Tipu produtu","Tipos de produto","Product types"],
   attributesAdmin:["Atributu","Atributos","Attributes"],
   /* error and not-found pages */

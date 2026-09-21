@@ -382,6 +382,13 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["purchase_order_items", "variant_qty"]],
   },
   {
+    // Filtering the catalogue by attribute. Named by the helper function,
+    // which nothing else creates -- search_products is redefined here but
+    // three other files also create it.
+    file: "attribute-filters.sql", labelKey: "featAttributeFilters",
+    routines: ["products_with_attribute"],
+  },
+  {
     // Also creates nothing -- it DROPS. Until it is run, anyone with the
     // public anon key (it is in every browser's network tab) can insert
     // orders and upload files straight past the app's checks.
@@ -521,6 +528,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "product-attributes.sql",
   "variants.sql",
   "variant-purchasing.sql",
+  "attribute-filters.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
@@ -794,7 +802,7 @@ export const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
     "stock-receipt.sql", "stock-ledger.sql", "audience-restock.sql",
   ],
   // Catalogue search gains the audience filter.
-  search_products: ["marketplace-v2.sql", "audience-restock.sql"],
+  search_products: ["marketplace-v2.sql", "audience-restock.sql", "attribute-filters.sql"],
   // A refund counts when it has SETTLED, not when it was agreed.
   sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
   // The line-building trigger gains the line's share of the order's tax.

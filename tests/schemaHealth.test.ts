@@ -22,6 +22,8 @@ const KINDS = {
     "attribute_belongs_to_type", "type_belongs_to_category",
     // variants.sql
     "variant_available",
+    // attribute-filters.sql
+    "products_with_attribute",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -286,6 +288,8 @@ describe("an old schema_inventory() that can only see tables", () => {
       // Tables, a view and a function; the old inventory reports only the
       // tables, so it cannot say this one is done either.
       "variants.sql",
+      // A function alone, which an old inventory cannot report at all.
+      "attribute-filters.sql",
       "harden-rls.sql", "patch-audit-hardening.sql",
     ]);
     for (const f of out.filter((x) => x.unknown)) {

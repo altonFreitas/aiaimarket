@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { DATABASE_URL, sql, scalar } from "./db";
+import { DATABASE_URL, sql, scalar, sqlAsync } from "./db";
 import { INTENDED_REPLACEMENTS } from "@/lib/schemaHealth";
 
 /* WHAT THE REPLACED FUNCTIONS ACTUALLY DO.
@@ -382,5 +382,68 @@ describeDb("the map and the proofs", () => {
       "sync_order_stock_state",
     ];
     expect(Object.keys(INTENDED_REPLACEMENTS).sort()).toEqual(PROVEN.sort());
+  });
+});
+
+/* ===========================================================================
+ * ONE FUNCTION PER NAME
+ *
+ * `create or replace function` cannot change a signature. Add a parameter
+ * and you get an OVERLOAD beside the old definition, not a replacement --
+ * and from that moment every call that does not name the new argument
+ * matches both and fails with "is not unique".
+ *
+ * That is not a loud failure. lib/data/search.ts catches any error from
+ * the RPC and falls back to the in-memory path, so the storefront keeps
+ * working and quietly stops using its index. A shop with a few hundred
+ * products would notice nothing; a shop with ten thousand would just be
+ * slow, and nobody would connect it to a migration.
+ *
+ * Found exactly that way: supabase/attribute-filters.sql added id_filter
+ * and left the ten-argument version in place. audience-restock.sql had
+ * already got this right -- it drops both earlier arities first -- which
+ * is what the new file should have copied.
+ * ======================================================================== */
+
+describeDb("no function is left with two definitions", () => {
+  /* Every name a migration redefines. Reading it from INTENDED_REPLACEMENTS
+     would be neater, but that list is about WHICH FILE runs last, and this
+     is about what the database ended up holding -- two different questions,
+     and the whole bug was that the first one passed while the second did
+     not. */
+  const REDEFINED = [
+    "search_products", "reserve_order_stock", "sync_order_stock_state",
+    "apply_stock_movement", "sync_order_items", "sync_order_refund_status",
+    "decrement_stock_on_confirm", "sync_order_stock",
+  ];
+
+  it("leaves exactly one of each", () => {
+    const doubled: string[] = [];
+    for (const name of REDEFINED) {
+      const n = Number(scalar(
+        `select count(*) from pg_proc where proname = '${name}'`));
+      if (n > 1) doubled.push(`${name} (${n})`);
+    }
+    // Named rather than counted, so the failure says which one.
+    expect(doubled).toEqual([]);
+  });
+
+  it("lets the catalogue search be called the way the app calls it", () => {
+    /* The call lib/data/search.ts makes when no audience and no attribute
+       filter are set -- which is most of them. Ambiguity here is the
+       silent fallback described above. */
+    const r = sqlAsync(
+      `select count(*) from search_products(q => '', sort => 'new', lim => 5, off => 0)`);
+    return r.then((res) => {
+      expect(res.ok, res.error).toBe(true);
+      expect(res.error ?? "").not.toMatch(/not unique/);
+    });
+  });
+
+  it("still accepts the filter argument that was added last", () => {
+    const r = sqlAsync(
+      `select count(*) from search_products(q => '', sort => 'new', lim => 5,
+                                            off => 0, id_filter => null)`);
+    return r.then((res) => expect(res.ok, res.error).toBe(true));
   });
 });

@@ -322,14 +322,61 @@ comment on column purchase_order_items.size_qty is
 -- per line per size, and an unsized line has exactly one size ('') so it is
 -- still once per line.
 
-drop index if exists stock_movements_receipt_once;
+-- UNLESS A LATER FILE HAS ALREADY WIDENED IT. supabase/variant-purchasing.sql
+-- widens this same index again, to (po_item_id, size, variant), because a
+-- line buying three variants writes three movements that share one size.
+--
+-- Re-pasting run-all.sql on a shop that has received such a line would
+-- otherwise drop the wide index and fail to recreate the narrow one --
+-- those three rows violate it -- and the whole paste would abort HERE,
+-- before reaching the file that would have fixed it. Re-running the
+-- manifest at any point is this project's entire deployment model, so an
+-- earlier file that can only be run once is a broken one.
+--
+-- So: look before dropping. If the index already covers the variant, this
+-- file has nothing to do.
+do $receipt_idx$
+begin
+  if exists (
+    select 1 from pg_indexes
+     where schemaname = 'public'
+       and indexname = 'stock_movements_receipt_once'
+       and indexdef like '%variant_id%'
+  ) then
+    return;   -- already widened by supabase/variant-purchasing.sql
+  end if;
 
-create unique index if not exists stock_movements_receipt_once
-  on stock_movements (po_item_id, size)
-  where reason = 'purchase_receipt' and po_item_id is not null;
+  -- Or the index is absent but the data already needs the wider one: a
+  -- line received by variant writes several rows sharing one size.
+  if exists (
+    select 1 from stock_movements
+     where reason = 'purchase_receipt' and po_item_id is not null
+     group by po_item_id, size having count(*) > 1
+  ) then
+    return;
+  end if;
 
-comment on index stock_movements_receipt_once is
-  'Receiving is idempotent per purchase-order line PER SIZE. A second receipt of the same line and size is rejected by Postgres, not by a check-then-insert that two concurrent clicks could both pass.';
+  drop index if exists stock_movements_receipt_once;
+
+  create unique index if not exists stock_movements_receipt_once
+    on stock_movements (po_item_id, size)
+    where reason = 'purchase_receipt' and po_item_id is not null;
+end $receipt_idx$;
+
+-- Only when this file is the one that created it. The guard above returns
+-- early on a database whose data already needs the wider index, and
+-- commenting an index that does not exist is an error that aborts the
+-- paste -- several thousand lines before the file that creates the right
+-- one.
+do $receipt_idx_comment$
+begin
+  if exists (select 1 from pg_indexes
+              where schemaname = 'public'
+                and indexname = 'stock_movements_receipt_once') then
+    comment on index stock_movements_receipt_once is
+      'Receiving is idempotent per purchase-order line PER SIZE. A second receipt of the same line and size is rejected by Postgres, not by a check-then-insert that two concurrent clicks could both pass.';
+  end if;
+end $receipt_idx_comment$;
 
 -- ---------------------------------------------------------------------------
 -- 7. Who the goods are for, decided when they are bought

@@ -2973,6 +2973,50 @@ tr.is-ended{opacity:.55}
 /* The per-variant table gets narrow inputs: a SKU and a price, not prose. */
 .variants .table input{max-width:130px}
 
+/* ---------- the specification table (a product page) ---------- */
+/* What a particular product IS, from its product type's attributes. Two
+   columns on a desktop, stacked on a phone -- a definition list rather
+   than a table because that is what it is, and it reads correctly to a
+   screen reader without any row/column scaffolding. */
+.specs{margin:0;display:grid;gap:0}
+.spec-row{display:grid;grid-template-columns:minmax(120px,38%) 1fr;
+  gap:var(--sp-2);padding:8px 0;border-bottom:1px solid var(--line)}
+.spec-row:last-child{border-bottom:0}
+.spec-row dt{margin:0;color:var(--muted);font-size:var(--fs-sm)}
+.spec-row dd{margin:0}
+@media(max-width:480px){
+  /* Stacked: two columns of 120px each leaves nothing for a long answer
+     like "Brushed stainless steel". */
+  .spec-row{grid-template-columns:1fr;gap:2px}
+}
+
+/* ---------- generated catalogue filters ---------- */
+/* Built from the attributes a category's product types ask for -- see
+   components/AttributeFilters.tsx. Links rather than checkboxes, so a
+   filtered catalogue is a place that can be bookmarked and shared, and so
+   the page needs no JavaScript to filter at all. */
+.cat-side{display:flex;flex-direction:column;gap:var(--sp-3)}
+.filters{display:flex;flex-direction:column;gap:var(--sp-1)}
+.filters-head{display:flex;align-items:baseline;justify-content:space-between;
+  gap:var(--sp-2)}
+.filters-head h2{margin:0;font-size:var(--fs-body)}
+.filter-group{border-bottom:1px solid var(--line);padding-bottom:6px}
+.filter-group > summary{cursor:pointer;padding:6px 0;font-weight:600;
+  display:flex;align-items:center;gap:6px;font-size:var(--fs-sm)}
+.filter-group > summary::-webkit-details-marker{display:none}
+.filter-group ul{list-style:none;margin:0 0 4px;padding:0;
+  display:flex;flex-direction:column;gap:2px;
+  /* A colour list can be long. Scroll the group rather than the page. */
+  max-height:220px;overflow:auto}
+.filter-opt{display:flex;justify-content:space-between;gap:8px;
+  padding:5px 8px;border-radius:var(--r-sm);text-decoration:none;
+  color:var(--ink);font-size:var(--fs-sm)}
+.filter-opt:hover{background:var(--surface-2)}
+/* The chosen ones, marked by more than colour: a tick as well, so it does
+   not depend on being able to tell the two backgrounds apart. */
+.filter-opt.is-on{background:var(--ink);color:#fff;font-weight:600}
+.filter-opt.is-on span:first-child::before{content:"\2713\00a0"}
+
 /* ---------- the order book (/admin/orders) ---------- */
 /* Said on the days two periods mean the same range -- a Monday, the 1st,
    1 January. Sits under the chips it explains, and has to be sized here:
