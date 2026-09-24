@@ -2,8 +2,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { generateVariants, updateVariant, deleteVariant } from "@/lib/actions/variants";
-import { matrixSize, MAX_VARIANTS, type VariantAxis } from "@/lib/taxonomy/variantMatrix";
+import { updateVariant, deleteVariant } from "@/lib/actions/variants";
 import WriteOnly from "./Access";
 import type { FormAttribute } from "@/lib/taxonomy/types";
 
@@ -36,10 +35,12 @@ export interface VariantRow {
 }
 
 export default function VariantEditor({
-  productId, attributes, variants,
+  attributes, variants,
 }: {
-  productId: string;
-  /** This product type's attributes; only the variant axes are offered. */
+  /** This product type's attributes. Only the variant axes matter here,
+   * and only to say what this product is sold BY -- the combinations
+   * themselves are made from the answers when the product is saved, in
+   * lib/actions/product-attributes.ts. */
   attributes: FormAttribute[];
   variants: VariantRow[];
 }) {
@@ -49,27 +50,7 @@ export default function VariantEditor({
   const refresh = () => startTransition(() => router.refresh());
 
   const axes = useMemo(() => attributes.filter((a) => a.is_variant), [attributes]);
-  const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
-  const [orphans, setOrphans] = useState<string[]>([]);
-
-  const chosen: VariantAxis[] = axes.map((a) => ({
-    attributeId: a.id, name: a.name, values: picked[a.id] ?? [],
-  }));
-  const size = matrixSize(chosen);
-  const tooMany = size > MAX_VARIANTS;
-
-  function toggle(attrId: string, value: string) {
-    setPicked((p) => {
-      const have = p[attrId] ?? [];
-      return {
-        ...p,
-        [attrId]: have.includes(value)
-          ? have.filter((v) => v !== value)
-          : [...have, value],
-      };
-    });
-  }
 
   async function run(job: () => Promise<unknown>, done: string) {
     setBusy(true);
@@ -89,67 +70,20 @@ export default function VariantEditor({
 
   return (
     <div className="variants">
-      <WriteOnly>
-        <div className="var-axes">
-          {axes.map((a) => (
-            <div key={a.id} className="field">
-              <label>{a.name}</label>
-              {a.options.length ? (
-                <div className="attr-checks">
-                  {a.options.map((o) => (
-                    <label key={o.value} className="attr-check">
-                      <input type="checkbox" disabled={busy}
-                        checked={(picked[a.id] ?? []).includes(o.value)}
-                        onChange={() => toggle(a.id, o.value)} />
-                      {o.label}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                /* An axis whose options nobody has filled in yet. Typed
-                   as a list rather than left unusable -- the same decision
-                   the form makes for a select with no options. */
-                <input type="text" disabled={busy}
-                  placeholder="Black, White, Navy"
-                  value={(picked[a.id] ?? []).join(", ")}
-                  onChange={(e) => setPicked((p) => ({
-                    ...p,
-                    [a.id]: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                  }))} />
-              )}
-            </div>
-          ))}
-        </div>
+      {/* NO SECOND SET OF BOXES.
+          There was an OPTIONS block here -- a Size list, a Colour list and
+          a "Create N options" button -- sitting directly under the Size
+          and Colour fields the shop had just filled in with the same
+          values. Two places to say one thing, and the second read as
+          noise: a product with three sizes typed into it ended up with no
+          combinations at all, because nobody pressed a button they had no
+          reason to think meant anything.
 
-        <div className="row-actions">
-          <button type="button" className="btn btn-amber"
-            disabled={busy || size === 0 || tooMany}
-            onClick={() => run(async () => {
-              const r = await generateVariants({ productId, axes: chosen });
-              setOrphans(r.orphaned);
-              if (r.error) throw new Error(r.error);
-              toast(r.created
-                ? `${r.created} new option${r.created === 1 ? "" : "s"}`
-                : "Nothing new to add");
-            }, "Done")}>
-            {size > 0 ? `Create ${size} option${size === 1 ? "" : "s"}` : "Choose some values"}
-          </button>
-          {tooMany && (
-            <span className="msg" style={{ display: "block" }}>
-              {size} is more than the limit of {MAX_VARIANTS}. Use fewer values,
-              or split this into more than one product.
-            </span>
-          )}
-        </div>
+          The answers above ARE the values now. Saving the product makes
+          the combinations from them -- see syncVariants in
+          lib/actions/product-attributes.ts -- and this is what they came
+          out as, with the price, the SKU and the shelf count for each. */}
 
-        {orphans.length > 0 && (
-          /* Named, not removed: these may be units on a shelf. */
-          <p className="hint">
-            Still here but no longer covered by those values:{" "}
-            <b>{orphans.join(", ")}</b>. They keep selling until you hide them.
-          </p>
-        )}
-      </WriteOnly>
 
       {variants.length > 0 && (
         /* THE TABLE SCROLLS RATHER THAN SHRINKING. Six columns of option,

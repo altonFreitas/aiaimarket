@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import {
@@ -30,9 +30,17 @@ import type { Lang, PoStatus, PurchaseOrder, Supplier } from "@/lib/types";
  * had never sold before (lib/purchasing.ts, lib/receiving.ts).
  */
 
-interface Line { productName: string; qty: string; unitPrice: string; sellPrice: string }
+/* `key` IS NOT DATA, it is which row this is.
+   The list is keyed by it rather than by position because a row can now
+   be removed from the middle. React matches old rows to new ones by key,
+   so with the position as the key, deleting the first of three tells it
+   row 2 became row 1 -- the same node, with different contents -- and
+   anything the node itself owns rather than the state, the caret and the
+   selection above all, stays where it was while the words under it change. */
+interface Line { key: string; productName: string; qty: string; unitPrice: string; sellPrice: string }
 
-const BLANK_LINE: Line = { productName: "", qty: "1", unitPrice: "", sellPrice: "" };
+const blankLine = (key: string): Line =>
+  ({ key, productName: "", qty: "1", unitPrice: "", sellPrice: "" });
 
 export default function SellerProcurement({
   lang, suppliers, orders,
@@ -55,7 +63,13 @@ export default function SellerProcurement({
   const [supplierId, setSupplierId] = useState("");
   const [orderDate, setOrderDate] = useState(todayIso());
   const [expected, setExpected] = useState("");
-  const [lines, setLines] = useState<Line[]>([{ ...BLANK_LINE }]);
+  /* Counted in a ref, not derived from the length: two lines added and
+     the first removed would otherwise hand the new line the key the
+     removed one had. Read only in an event handler -- reading a ref while
+     rendering is what react-hooks/refs forbids, and what would make the
+     same row render under two different keys on the server and the client. */
+  const seq = useRef(0);
+  const [lines, setLines] = useState<Line[]>([blankLine("i0")]);
   const setLine = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, n) => (n === i ? { ...l, ...patch } : l)));
 
@@ -94,7 +108,7 @@ export default function SellerProcurement({
         sellPrice: l.sellPrice === "" ? null : Number(l.sellPrice),
       })),
     }), () => {
-      setLines([{ ...BLANK_LINE }]);
+      setLines([blankLine("i0")]);
       setExpected("");
       toast(t("saved", lang));
     });
@@ -169,18 +183,33 @@ export default function SellerProcurement({
 
                 <p className="crumb">{t("poLines", lang)}</p>
                 {lines.map((l, i) => (
-                  <div className="po-line-4" key={i}>
+                  <div className="po-line-4" key={l.key}>
                     <input aria-label={t("product", lang)} placeholder={t("product", lang)}
                       value={l.productName}
                       onChange={(e) => setLine(i, { productName: e.target.value })} />
                     <input aria-label={t("qty", lang)} inputMode="numeric" placeholder={t("qty", lang)}
                       value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
-                    <input aria-label={t("unitPrice", lang)} inputMode="decimal"
-                      placeholder={t("unitPrice", lang)}
+                    {/* THE SAME TWO WORDS THE OWNER'S FORM USES. They
+                        were "Unit price" and "Sell price" here and "Cost
+                        price" and "Selling price" there, for the identical
+                        pair of columns -- so a store owner who uses both
+                        screens had to work out that they meant the same
+                        thing. */}
+                    <input aria-label={t("costPrice", lang)} inputMode="decimal"
+                      placeholder={t("costPrice", lang)}
                       value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} />
-                    <input aria-label={t("sellPrice", lang)} inputMode="decimal"
-                      placeholder={t("sellPrice", lang)}
+                    <input aria-label={t("sellingPrice", lang)} inputMode="decimal"
+                      placeholder={t("sellingPrice", lang)}
                       value={l.sellPrice} onChange={(e) => setLine(i, { sellPrice: e.target.value })} />
+                    {/* A WAY BACK OUT. There was an "add line" and nothing
+                        to undo it, so a line typed by mistake could only be
+                        got rid of by reloading the page and starting the
+                        order again. Disabled on the last one: an order with
+                        no lines is not an order. */}
+                    <button type="button" className="btn btn-sm btn-danger"
+                      aria-label={t("del", lang)} title={t("del", lang)}
+                      disabled={lines.length === 1}
+                      onClick={() => setLines((ls) => ls.filter((_, n) => n !== i))}>×</button>
                   </div>
                 ))}
                 {/* Not .btn-row: that stacks and stretches its buttons to
@@ -189,7 +218,7 @@ export default function SellerProcurement({
                     running total. */}
                 <div className="po-line-foot">
                   <button type="button" className="btn btn-ghost btn-sm"
-                    onClick={() => setLines((ls) => [...ls, { ...BLANK_LINE }])}>
+                    onClick={() => setLines((ls) => [...ls, blankLine(`n${++seq.current}`)])}>
                     {t("poAddLine", lang)}
                   </button>
                   <span className="count">{money(draftTotal)}</span>

@@ -160,9 +160,11 @@ export async function applyReceipt(
     const units = Math.floor(Number(item.qty) || 0);
     if (units < 1) { result.skipped++; continue; }
 
+    /* Null here says exactly "no product carries this line yet" -- the
+       order did not name one and no earlier line in this receipt has
+       made one. The `if (!productId)` below is that same question, so
+       there is no second flag saying it again. */
     let productId = item.product_id || createdHere.get(productKey(item.product_name)) || null;
-    const isFirstOfProduct = !item.product_id
-      && !createdHere.has(productKey(item.product_name));
 
     // Create the product now, not when the order was drafted: an order that
     // never arrives must not leave unbuyable products in the shop.

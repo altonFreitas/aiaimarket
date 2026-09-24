@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
@@ -524,6 +524,15 @@ function CreditButton({
 /* ------------------------------------------------------------------ */
 
 interface ClaimLine {
+  /* WHICH ROW THIS IS, which the position cannot say once a row in the
+     middle can be removed. React pairs old rows with new ones by key, so
+     keyed by position, removing the first of three reads as "row 2 now
+     holds row 3's words" -- the same nodes, rewritten. What the nodes own
+     rather than the state then stays put while the contents move under
+     it: the caret, the selection, which box the keyboard is in. The ids
+     the labels point at are built from this too, so a label keeps naming
+     its own row's box rather than whatever slid into that position. */
+  key: string;
   productId: string;
   productName: string;
   qty: string;
@@ -531,9 +540,9 @@ interface ClaimLine {
   fromStock: boolean;
 }
 
-const BLANK_LINE: ClaimLine = {
-  productId: "", productName: "", qty: "1", unitCost: "0", fromStock: true,
-};
+const blankLine = (key: string): ClaimLine => ({
+  key, productId: "", productName: "", qty: "1", unitCost: "0", fromStock: true,
+});
 
 function ClaimForm({
   lang, busy, suppliers, catalog, onSave,
@@ -558,7 +567,12 @@ function ClaimForm({
   const [currency, setCurrency] = useState("USD");
   const [fxRate, setFxRate] = useState("1");
   const [shippedOn, setShippedOn] = useState(today());
-  const [lines, setLines] = useState<ClaimLine[]>([{ ...BLANK_LINE }]);
+  /* Counted, not taken from the length: add two rows, remove the first,
+     and the length would hand the next row a key a live row still holds.
+     Only ever read in an event handler -- react-hooks/refs forbids
+     reading a ref while rendering. */
+  const seq = useRef(0);
+  const [lines, setLines] = useState<ClaimLine[]>([blankLine("i0")]);
 
   const usd = currency.toUpperCase() === "USD";
 
@@ -600,10 +614,10 @@ function ClaimForm({
       {/* ---- the lines ---- */}
       <div className="ret-lines">
         {lines.map((l, i) => (
-          <div className="ret-line" key={i}>
+          <div className="ret-line" key={l.key}>
             <div className="field">
-              <label htmlFor={`p${i}`}>{t("product", lang)}</label>
-              <select id={`p${i}`} value={l.productId}
+              <label htmlFor={`p${l.key}`}>{t("product", lang)}</label>
+              <select id={`p${l.key}`} value={l.productId}
                 onChange={(e) => {
                   const id = e.target.value;
                   setLine(i, {
@@ -620,19 +634,19 @@ function ClaimForm({
             </div>
             {!l.productId && (
               <div className="field">
-                <label htmlFor={`pn${i}`}>{t("retWhatWasIt", lang)}</label>
-                <input id={`pn${i}`} value={l.productName}
+                <label htmlFor={`pn${l.key}`}>{t("retWhatWasIt", lang)}</label>
+                <input id={`pn${l.key}`} value={l.productName}
                   onChange={(e) => setLine(i, { productName: e.target.value })} />
               </div>
             )}
             <div className="field is-narrow">
-              <label htmlFor={`q${i}`}>{t("qty", lang)}</label>
-              <input id={`q${i}`} type="number" step="1" min="1" inputMode="numeric"
+              <label htmlFor={`q${l.key}`}>{t("qty", lang)}</label>
+              <input id={`q${l.key}`} type="number" step="1" min="1" inputMode="numeric"
                 value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
             </div>
             <div className="field is-narrow">
-              <label htmlFor={`c${i}`}>{t("retUnitCost", lang)}</label>
-              <input id={`c${i}`} type="number" step="0.01" min="0" inputMode="decimal"
+              <label htmlFor={`c${l.key}`}>{t("retUnitCost", lang)}</label>
+              <input id={`c${l.key}`} type="number" step="0.01" min="0" inputMode="decimal"
                 value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} />
             </div>
             <label className="check">
@@ -649,7 +663,7 @@ function ClaimForm({
           </div>
         ))}
         <button type="button" className="btn btn-sm"
-          onClick={() => setLines((ls) => [...ls, { ...BLANK_LINE }])}>
+          onClick={() => setLines((ls) => [...ls, blankLine(`n${++seq.current}`)])}>
           {t("retAddLine", lang)}
         </button>
       </div>

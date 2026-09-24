@@ -45,7 +45,7 @@ describe("the line asks the same questions the product form asks", () => {
        from the old branch and answers to questions the new one never
        asked. */
     expect(FORM).toMatch(
-      /function refile\(i: number, categoryId: string\)[\s\S]*?taxonomy: categoryId === l\.catalogCategoryId\s*\n?\s*\? l\.taxonomy : \{ productTypeId: "", values: \{\} \}/);
+      /function refile\(i: number, categoryId: string\)[\s\S]*?categoryId === l\.catalogCategoryId \? \{\} : \{[\s\S]*?productTypeId: "",/);
   });
 });
 

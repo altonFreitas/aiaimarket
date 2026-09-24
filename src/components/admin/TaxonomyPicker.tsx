@@ -134,9 +134,17 @@ export default function TaxonomyPicker({
   useEffect(() => {
     let live = true;
     if (node) {
-      loadProductTypes(node).then((list) => {
-        if (live) setTypes({ parent: node, list });
-      });
+      loadProductTypes(node)
+        .then((list) => { if (live) setTypes({ parent: node, list }); })
+        /* A REFUSED READ IS AN EMPTY LIST, not an unhandled rejection.
+           These are server actions: a session that expired while the form
+           was open, a redeploy, a dropped connection all reject, and a
+           rejection nobody catches is an uncaught error in the browser --
+           which in development takes the dev server down with it, and in
+           production leaves the select empty with no explanation and the
+           page's error overlay up. Caching the empty list against this
+           node also stops the effect retrying it on every render. */
+        .catch(() => { if (live) setTypes({ parent: node, list: [] }); });
     }
     return () => { live = false; };
   }, [node]);
@@ -145,11 +153,19 @@ export default function TaxonomyPicker({
     let live = true;
     const id = value.productTypeId;
     if (!id) return;
-    loadAttributes(id).then((list) => {
-      if (!live) return;
-      setAttrs({ type: id, list });
-      onAttributes?.(list);
-    });
+    loadAttributes(id)
+      .then((list) => {
+        if (!live) return;
+        setAttrs({ type: id, list });
+        onAttributes?.(list);
+      })
+      // As above. An empty list draws "no extra fields yet", which is the
+      // honest thing to say when the questions could not be read.
+      .catch(() => {
+        if (!live) return;
+        setAttrs({ type: id, list: [] });
+        onAttributes?.([]);
+      });
     return () => { live = false; };
     // onAttributes is a callback the parent redefines each render; including
     // it would refetch the attributes on every keystroke in the form.

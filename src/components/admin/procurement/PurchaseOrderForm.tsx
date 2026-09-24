@@ -9,17 +9,18 @@ import { downloadBase64 } from "@/lib/downloadFile";
 import { PO_CURRENCIES, countryFlag, countryName } from "@/lib/countries";
 import { money } from "@/lib/utils";
 import {
-  PO_STATUSES, deliveryState, parseSizes, poDelayDays, poLeadTime, poQty, poTotal,
+  PO_STATUSES, deliveryState, poDelayDays, poLeadTime, poQty, poTotal,
   todayIso,
 } from "@/lib/procurement";
 import { AUDIENCES, AUDIENCE_KEY } from "@/lib/audience";
 import { t } from "@/lib/i18n";
-import TaxonomyPicker, { type TaxonomySelection } from "../TaxonomyPicker";
-import { matrixSize, variantValueSets } from "@/lib/taxonomy/variantMatrix";
+import TaxonomyPicker from "../TaxonomyPicker";
+import AttributeField from "../AttributeField";
 import type { FormAttribute } from "@/lib/taxonomy/types";
 import WriteOnly, { useCanWrite } from "../Access";
 import type {
-  Category, Lang, PoCategory, PoPaymentStatus, PoStatus, Product, PurchaseOrder, Supplier,
+  Category, Lang, PoCategory, PoPaymentStatus, PoStatus, Product, PurchaseOrder,
+  PurchaseOrderItem, Supplier,
 } from "@/lib/types";
 
 /* Goods bought to sell on come first, and are the default: for a shop, that
@@ -31,62 +32,74 @@ const CATEGORIES: PoCategory[] = [
 ];
 const PAYMENT_STATUSES: PoPaymentStatus[] = ["unpaid", "partial", "paid", "overdue"];
 
-interface LineDraft {
-  /** A stable identity for React and for the per-line attribute cache.
-   *
-   * The list used to be keyed by index, which is fine for a list nobody
-   * edits and wrong for this one: deleting the middle of three lines makes
-   * React reconcile line 3 onto line 2's DOM, so the picker below it keeps
-   * the deleted line's loaded attributes and the boxes keep the deleted
-   * line's values. Generating twelve variants out of one line made that
-   * visible immediately. */
+/* ONE LINE IS ONE PRODUCT; ITS ROWS ARE THE THINGS ACTUALLY BOUGHT.
+ *
+ * It was one line per SKU, which made the money right -- a 45 costs more
+ * to buy than a 38 and sells for more -- and made the screen repeat
+ * itself: twelve rows each carrying the product's name, its category, its
+ * description and its type, identical every time, with one size box
+ * telling them apart.
+ *
+ * So the line is split. The HEADER says what the goods are, once. Each ROW
+ * says which one and what it cost, and each row becomes one
+ * purchase_order_items row on save, so nothing downstream changes: the
+ * ledger, the receipt and the variants all still see one row per SKU.
+ */
+interface VariantRow {
+  /** Stable for React and for the ids this row draws -- see the note on
+   * the key counter below. */
   key: string;
+  /** The answers to the product type's variant axes: {attrId: ["41,5"]}.
+   * What makes this row the SKU it is. */
+  values: Record<string, string[]>;
+  qty: string;
+  /** What the supplier charges for THIS one. */
+  unitPrice: string;
+  /** What the shop will sell THIS one for. */
+  sellPrice: string;
+  /** Who the goods are for. "" is "not said", which is a real state and
+   * not the same as unisex. */
+  audience: string;
+}
+
+interface LineDraft {
+  key: string;
+  /* ---- the header: true of every row under it ---- */
   productName: string;
   category: PoCategory;
-  qty: string;
-  unitPrice: string;
   /** An existing catalog product, or "" to create one on receipt. */
   productId: string;
   /** Where a newly created product should sit in the shop. */
   catalogCategoryId: string;
-  /** Its shelf price, for THIS combination. Unrelated to what it cost, so
-   * it is asked for -- and asked for per line, which is the whole point of
-   * a line being one SKU: a 45 costs more to buy and sells for more than a
-   * 38 of the same shoe, and one price for the lot could not say so. */
-  sellPrice: string;
-  /** Who the goods are for, copied onto the product at receipt. "" is "not
-   * said", which is a real state and not the same as unisex. */
-  audience: string;
   description: string;
-  /** WHAT KIND OF THING THIS LINE BUYS, and what it answers.
-   *
-   * The same cascade the product form uses, asked here because here is
-   * where the buyer knows. Without it a receipt created a name, a price
-   * and a category, and somebody afterwards opened the new product and
-   * filled in eighteen fields from memory. */
-  taxonomy: TaxonomySelection;
+  /** What kind of thing this line buys. Asked once: every row under it
+   * buys the same kind, which is what makes them one line. */
+  productTypeId: string;
+  /** What the header amounted to when this line was read back from a saved
+   * order, so consecutive rows could be grouped under it. Absent on a line
+   * the buyer is typing now -- it is only ever used at that one moment. */
+  headerKey?: string;
+  /* ---- the body ---- */
+  rows: VariantRow[];
 }
 
-/* THE COUNTER IS PER FORM, NOT PER MODULE, and that is not tidiness.
- *
- * A module-level counter keeps climbing for as long as the server process
- * lives, so the server rendered a line keyed l7 while the browser, loading
- * the module fresh, rendered the same line keyed l1. The keys themselves
- * are React's business -- but they are also the prefix on every id this
- * line draws, so the two documents disagreed about id="l7-attr-…" versus
- * id="l1-attr-…" and React threw a hydration mismatch over it.
- *
- * Found in a browser, on the console, within a minute of the ids being
- * built from the key. A useRef starting at zero gives the server and the
- * browser the same sequence, because each of them makes one form and
- * counts from the beginning. */
+const blankRow = (): VariantRow => ({
+  key: "", values: {}, qty: "1", unitPrice: "0", sellPrice: "", audience: "",
+});
+
 const blankLine = (): LineDraft => ({
   key: "",
-  productName: "", category: "goods_for_resale", qty: "1", unitPrice: "0",
-  productId: "", catalogCategoryId: "", sellPrice: "",
-  audience: "", description: "",
-  taxonomy: { productTypeId: "", values: {} },
+  productName: "", category: "goods_for_resale",
+  productId: "", catalogCategoryId: "", description: "",
+  productTypeId: "",
+  rows: [blankRow()],
 });
+
+/** What a whole line comes to: every row's own quantity at its own cost. */
+function lineTotal(l: LineDraft): number {
+  return l.rows.reduce(
+    (a, r) => a + (Number(r.qty) || 0) * (Number(r.unitPrice) || 0), 0);
+}
 
 /** The root a category id sits under -- itself when it is a root.
  *
@@ -132,9 +145,60 @@ function prefilledLines(
   const lines = prefill.lines.flatMap(({ productId, qty }) => {
     const p = byId.get(productId);
     if (!p || qty <= 0) return [];
-    return [{ ...blankLine(), productId: p.id, productName: p.name, qty: String(qty) }];
+    const line = blankLine();
+    return [{ ...line, productId: p.id, productName: p.name,
+              rows: [{ ...line.rows[0], qty: String(qty) }] }];
   });
   return lines.length ? lines : [blankLine()];
+}
+
+/* AN ORDER READ BACK, REGROUPED.
+ *
+ * purchase_order_items is flat: one row per SKU, which is what the ledger
+ * and the receipt want. The form is not -- it shows one header and its
+ * rows -- so opening a saved order has to put the rows back under the
+ * headers they came from.
+ *
+ * Grouped on what the header holds: the product name, the shop category,
+ * the product type and the description. Two lines that agree on all four
+ * ARE one line, because there is nothing left for them to disagree about;
+ * two that differ on any of them are two products and stay apart. Only
+ * CONSECUTIVE rows are joined, because the order they were written in is
+ * the order the buyer typed them in, and reordering somebody's purchase
+ * order to tidy it is not this function's business.
+ */
+function groupItems(items: PurchaseOrderItem[]): LineDraft[] {
+  const out: LineDraft[] = [];
+  let n = 0;
+  const headerOf = (i: PurchaseOrderItem) => [
+    i.product_name, i.category, i.product_id ?? "",
+    i.catalog_category_id ?? "", i.product_type_id ?? "", i.description ?? "",
+  ].join("\u0000");
+
+  for (const i of items) {
+    const row: VariantRow = {
+      key: `i${n++}`,
+      values: i.attribute_values ?? {},
+      qty: String(i.qty),
+      unitPrice: String(i.unit_price),
+      sellPrice: i.sell_price == null ? "" : String(i.sell_price),
+      audience: i.audience || "",
+    };
+    const last = out.at(-1);
+    if (last && last.headerKey === headerOf(i)) { last.rows.push(row); continue; }
+    out.push({
+      key: `i${n++}`,
+      headerKey: headerOf(i),
+      productName: i.product_name,
+      category: i.category,
+      productId: i.product_id || "",
+      catalogCategoryId: i.catalog_category_id || "",
+      description: i.description || "",
+      productTypeId: i.product_type_id || "",
+      rows: [row],
+    });
+  }
+  return out.length ? out : [blankLine()];
 }
 
 export default function PurchaseOrderForm({
@@ -189,28 +253,53 @@ export default function PurchaseOrderForm({
      lines the form started with. */
   const seq = useRef(0);
   const nextKey = () => `n${++seq.current}`;
-  const newLine = (): LineDraft => ({ ...blankLine(), key: nextKey() });
+  const newLine = (): LineDraft => {
+    const l = blankLine();
+    // Its row needs one too, or every id that row draws is a bare suffix.
+    return { ...l, key: nextKey(), rows: l.rows.map((r) => ({ ...r, key: nextKey() })) };
+  };
 
-  const [lines, setLines] = useState<LineDraft[]>(
-    po?.items?.length
-      ? po.items.map((i, n) => ({
-          key: `i${n}`,
-          productName: i.product_name, category: i.category,
-          qty: String(i.qty), unitPrice: String(i.unit_price),
-          productId: i.product_id || "",
-          catalogCategoryId: i.catalog_category_id || "",
-          sellPrice: i.sell_price == null ? "" : String(i.sell_price),
-          audience: i.audience || "",
-          description: i.description || "",
-          taxonomy: {
-            productTypeId: i.product_type_id || "",
-            values: i.attribute_values || {},
-          },
-        }))
-      : prefilledLines(prefill, products).map((l, n) => ({ ...l, key: `i${n}` }))
-  );
+  /* KEYED BY POSITION, NOT BY A COUNTER, for the lines this form OPENS
+     with: the same walk happens on the server and in the browser, so the
+     ids built from these keys match in both documents. Lines and rows
+     added afterwards only ever happen in the browser and come from the
+     counter, under a prefix that cannot collide. */
+  const [lines, setLines] = useState<LineDraft[]>(() =>
+    (po?.items?.length ? groupItems(po.items) : prefilledLines(prefill, products))
+      .map((l, n) => ({
+        ...l,
+        key: l.key || `i${n}`,
+        rows: l.rows.map((r, m) => ({ ...r, key: r.key || `i${n}r${m}` })),
+      })));
+
   const setLine = (i: number, patch: Partial<LineDraft>) =>
     setLines((ls) => ls.map((l, n) => (n === i ? { ...l, ...patch } : l)));
+
+  const setRow = (i: number, ri: number, patch: Partial<VariantRow>) =>
+    setLines((ls) => ls.map((l, n) => (n === i
+      ? { ...l, rows: l.rows.map((r, m) => (m === ri ? { ...r, ...patch } : r)) }
+      : l)));
+
+  /** One more of the same product, in another colour.
+   *
+   * The row is copied rather than blanked: the second colour is usually
+   * bought in the same numbers at the same cost, and correcting three
+   * boxes is faster than typing six. What is cleared is the combination
+   * itself -- this row exists to be a different one.
+   *
+   * The header is not touched at all, which is the point of the split. */
+  function addRow(i: number) {
+    const from = lines[i].rows.at(-1) ?? blankRow();
+    setLines((ls) => ls.map((l, n) => (n === i
+      ? { ...l, rows: [...l.rows, { ...from, key: nextKey(), values: {} }] }
+      : l)));
+  }
+
+  function removeRow(i: number, ri: number) {
+    setLines((ls) => ls.map((l, n) => (n === i
+      ? { ...l, rows: l.rows.filter((_, m) => m !== ri) }
+      : l)));
+  }
 
   /* WHAT EACH LINE'S PRODUCT TYPE ASKS FOR, kept by line key rather than
      by index -- generating variants replaces one line with twelve, and an
@@ -219,26 +308,6 @@ export default function PurchaseOrderForm({
      attributes are the axes without a second round trip. */
   const [lineAttrs, setLineAttrs] = useState<Record<string, FormAttribute[]>>({});
   const axesOf = (l: LineDraft) => (lineAttrs[l.key] ?? []).filter((a) => a.is_variant);
-
-  /* WHICH COMBINATION THIS LINE IS, in three words at the top of it.
-     Generating six lines out of one produces six rows that say "Blue
-     Shirt, 10, 4.00, 12.00" and nothing else -- identical to read, and the
-     only thing telling them apart was a Size box buried in the attribute
-     grid at the bottom of each. Measured in a browser: six rows, no way to
-     find the 42 in black without opening all six.
-
-     Joined with " / " because that is exactly how buildMatrix labels a
-     combination and how product_variants stores it, so what the buyer
-     reads here is the label the stock report will show them later. */
-  const skuOf = (l: LineDraft) => axesOf(l)
-    .map((a) => (l.taxonomy.values[a.id] ?? [])[0] ?? "")
-    .filter(Boolean)
-    .join(" / ");
-
-  /* THE BOXES THE BULK PANEL IS HOLDING, per line and per axis:
-     { "l3": { "<size attr id>": "S, M, L" } }. Open is simply "has an
-     entry", so there is no second flag to keep in step with it. */
-  const [bulk, setBulk] = useState<Record<string, Record<string, string>>>({});
 
   /* THE CATEGORY TREE, FROM THE ROWS THE PAGE ALREADY HAS.
      `categories` is every category in sort order, so both levels come out
@@ -256,108 +325,17 @@ export default function PurchaseOrderForm({
      branch and a set of answers to questions nobody is asking. The server
      refuses them as well -- it reads the attributes from the type, never
      from the payload -- but it should not have to. */
-  /* BULK GENERATE: one line becomes one line per combination.
-   *
-   * Twelve SKUs typed by hand is twelve chances to put the cost of the 41
-   * on the 42, and nobody checks a purchase order line by line afterwards.
-   * So the buyer fills one line in -- the product, the category, the type,
-   * every answer that is the same across the lot -- then says "S, M, L"
-   * once and gets three lines carrying all of it, differing in the size
-   * alone. Quantity, cost and price are copied too, because they are
-   * usually the same and correcting three is faster than typing thirty.
-   *
-   * THE AXES ARE THE PRODUCT TYPE'S OWN. Nothing here knows what a size
-   * is: an axis is an attribute the catalogue marked is_variant, so a
-   * product type whose axes are Capacity and Finish generates on those
-   * instead, with no change to this file.
-   *
-   * buildMatrix is the same function the product form's variant editor
-   * uses, cap and all -- see lib/taxonomy/variantMatrix.ts. Two hundred is
-   * the ceiling; past it the shop almost certainly meant something
-   * smaller, and finding that out after writing the rows is expensive. */
-  function generateVariants(i: number) {
-    const line = lines[i];
-    const typed = bulk[line.key] ?? {};
-    const axes = axesOf(line)
-      .map((a) => ({
-        attributeId: a.id,
-        name: a.name,
-        values: parseSizes(typed[a.id] ?? ""),
-      }))
-      .filter((a) => a.values.length > 0);
-
-    let sets;
-    try {
-      sets = variantValueSets(line.taxonomy.values, axes);
-    } catch (e) {
-      // TooManyVariants carries its own sentence, which says the number.
-      toast(String((e as Error).message), true);
-      return;
-    }
-    if (!sets.length) { toast(t("bulkNothingToSplit", lang), true); return; }
-
-    /* The generated lines are the same product type as the line they came
-       from, so they ask the same questions. Handing them its answers now
-       does two things: the combination shows in each row's heading at
-       once rather than after six identical round trips, and the pickers
-       below them have nothing left to fetch. */
-    const made = sets.map((values) => ({ key: nextKey(), values }));
-    setLineAttrs((m) => ({
-      ...m,
-      ...Object.fromEntries(made.map((v) => [v.key, m[line.key] ?? []])),
-    }));
-
-    setLines((ls) => [
-      ...ls.slice(0, i),
-      ...made.map(({ key, values }) => ({
-        ...line,
-        key,
-        /* A GENERATED LINE IS A NEW LINE, never one already received:
-           product_id points at a catalogue product and carrying it onto
-           twelve rows would top that product up twelve times from one
-           order. Only a line with no product_id can be split -- the panel
-           is drawn inside the "new product" half of the line. */
-        taxonomy: { ...line.taxonomy, values },
-      })),
-      ...ls.slice(i + 1),
-    ]);
-    // The panel has done its job; leaving it open over twelve new lines
-    // invites a second press that would square them.
-    setBulk((b) => { const { [line.key]: _gone, ...rest } = b; return rest; });
-    toast(t("bulkGenerated", lang).replace("{n}", String(sets.length)));
-  }
-
-  /** Another line for the same product, with the axes blank.
-   *
-   * Everything that describes the goods is copied -- the name, the
-   * category, the product type, the description, who they are for -- and
-   * so are the quantity and the prices, because the second colour is
-   * usually bought in the same numbers at the same cost and correcting one
-   * is faster than typing four. What is NOT copied is the combination
-   * itself: this line exists to be a different one.
-   *
-   * product_id goes too. A line pointing at a catalogue product is a
-   * restock of exactly that product, and copying it would top the same one
-   * up twice from one order. */
-  function addLineLike(i: number) {
-    const line = lines[i];
-    const axes = new Set(axesOf(line).map((a) => a.id));
-    const values = Object.fromEntries(
-      Object.entries(line.taxonomy.values).filter(([id]) => !axes.has(id)));
-    const key = nextKey();
-    setLineAttrs((m) => ({ ...m, [key]: m[line.key] ?? [] }));
-    setLines((ls) => [
-      ...ls.slice(0, i + 1),
-      { ...line, key, productId: "", taxonomy: { ...line.taxonomy, values } },
-      ...ls.slice(i + 1),
-    ]);
-  }
-
   function refile(i: number, categoryId: string) {
     setLines((ls) => ls.map((l, n) => (n === i
-      ? { ...l, catalogCategoryId: categoryId,
-          taxonomy: categoryId === l.catalogCategoryId
-            ? l.taxonomy : { productTypeId: "", values: {} } }
+      ? {
+          ...l, catalogCategoryId: categoryId,
+          ...(categoryId === l.catalogCategoryId ? {} : {
+            productTypeId: "",
+            // The answers went with the type: they answered questions the
+            // new branch never asks.
+            rows: l.rows.map((r) => ({ ...r, values: {} })),
+          }),
+        }
       : l)));
   }
 
@@ -366,8 +344,7 @@ export default function PurchaseOrderForm({
   // would mean checking the form against arithmetic they cannot see.
   // Units come from the size breakdown where there is one, so the money
   // agrees with the stock rather than with a quantity box nobody updated.
-  const subtotal = lines.reduce(
-    (a, l) => a + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0), 0);
+  const subtotal = lines.reduce((a, l) => a + lineTotal(l), 0);
   const total = subtotal + (Number(f.tax) || 0) + (Number(f.shipping) || 0) - (Number(f.discount) || 0);
   const inBase = total * (Number(f.fxRate) || 1);
 
@@ -391,24 +368,25 @@ export default function PurchaseOrderForm({
         paymentStatus: f.paymentStatus,
         paymentDate: f.paymentDate || null,
         notes: f.notes,
-        lines: lines.map((l) => {
-          return {
-            productName: l.productName, category: l.category,
-            // The line's own number now, not a total of a grid: one line
-            // is one combination.
-            qty: Number(l.qty), unitPrice: Number(l.unitPrice),
-            productId: l.productId || null,
-            catalogCategoryId: l.catalogCategoryId || null,
-            sellPrice: l.sellPrice === "" ? null : Number(l.sellPrice),
-            audience: l.audience || null,
-            description: l.description,
-            /* Sent for every line; the server clears both on anything that
-               is not goods for resale, because an office chair the shop
-               sits on is a real purchase and never a product. */
-            productTypeId: l.taxonomy.productTypeId || null,
-            attributeValues: l.taxonomy.values,
-          };
-        }),
+        /* FLATTENED BACK OUT. The form shows one header and its rows;
+           purchase_order_items is one row per SKU, which is what the
+           ledger, the receipt and the variants all read. The header is
+           repeated onto each row on the way out and regrouped under it on
+           the way back in -- see groupItems. */
+        lines: lines.flatMap((l) => l.rows.map((r) => ({
+          productName: l.productName, category: l.category,
+          qty: Number(r.qty), unitPrice: Number(r.unitPrice),
+          productId: l.productId || null,
+          catalogCategoryId: l.catalogCategoryId || null,
+          sellPrice: r.sellPrice === "" ? null : Number(r.sellPrice),
+          audience: r.audience || null,
+          description: l.description,
+          /* Sent for every row; the server clears both on anything that is
+             not goods for resale, because an office chair the shop sits on
+             is a real purchase and never a product. */
+          productTypeId: l.productTypeId || null,
+          attributeValues: r.values,
+        }))),
       });
       /* Green, and back to the list the buyer came from.
        *
@@ -629,13 +607,7 @@ export default function PurchaseOrderForm({
           </div>
           {lines.map((l, i) => (
             <div key={l.key} className="po-line">
-              {/* Full width and first, so six generated lines are six
-                  headings rather than six identical rows. */}
-              {skuOf(l) && (
-                <div className="field po-line-sku">
-                  <span className="pill">{skuOf(l)}</span>
-                </div>
-              )}
+              {/* ---- THE HEADER: what the goods ARE ---- */}
               <div className="field">
                 <label htmlFor={`n${i}`}>{t("product", lang)}</label>
                 {/* A datalist, not a select: the buyer types the supplier's
@@ -663,40 +635,16 @@ export default function PurchaseOrderForm({
                   {CATEGORIES.map((c) => <option key={c} value={c}>{t("cat_" + c, lang)}</option>)}
                 </select>
               </div>
-              {/* QUANTITY, COST AND PRICE, ALL FOR THIS ONE COMBINATION.
-                  The quantity used to be read-only whenever a size grid
-                  existed, because the grid decided it. There is no grid:
-                  the line is the grid row, so this is simply how many of
-                  THIS size and colour are being bought, and it is typed.
 
-                  NOTHING BELOW THESE INPUTS -- the fields on a line are
-                  bottom-aligned, so a note under one lifts it above every
-                  other box in the row. Notes go on .po-line-note. */}
-              <div className="field">
-                <label htmlFor={`q${i}`}>{t("quantity", lang)}</label>
-                <input id={`q${i}`} type="number" min="0.001" step="any"
-                  value={l.qty}
-                  onChange={(e) => setLine(i, { qty: e.target.value })} required />
-              </div>
-              <div className="field">
-                <label htmlFor={`u${i}`}>{t("costPrice", lang)}</label>
-                <input id={`u${i}`} type="number" min="0" step="any" value={l.unitPrice}
-                  onChange={(e) => setLine(i, { unitPrice: e.target.value })} required />
-              </div>
               {/* Only a resale line reaches the shop, so only a resale line
-                  is asked where it goes and what it sells for. Both are
-                  hidden once the line points at an existing product, which
-                  already has a category and a price of its own. */}
+                  is asked where it goes. Hidden once the line points at an
+                  existing product, which has a category of its own. */}
               {l.category === "goods_for_resale" && !l.productId && (
                 <>
-                  {/* SHOP CATEGORY, AS TWO DROPDOWNS OVER ONE FIELD.
-                      It was a single flat list of every category and every
-                      subcategory together, so "Sneakers" sat beside
-                      "Kosmétiku" with nothing to say one was inside
-                      "Sapatu" and the other was not. Same pair, same rule
-                      and same code as the product form: the leaf is what
-                      is stored, and it is what the product type hangs
-                      off. */}
+                  {/* SHOP CATEGORY, AS TWO DROPDOWNS OVER ONE FIELD -- the
+                      same pair, the same rule and the same code as the
+                      product form. The leaf is what is stored, and it is
+                      what the product type hangs off. */}
                   <div className="field">
                     <label htmlFor={`cc${i}`}>{t("shopCategory", lang)}</label>
                     <select id={`cc${i}`} value={rootIdOf(l.catalogCategoryId, categories)}
@@ -720,155 +668,29 @@ export default function PurchaseOrderForm({
                       </select>
                     </div>
                   )}
-                  <div className="field">
-                    <label htmlFor={`sp${i}`}>{t("sellingPrice", lang)}</label>
-                    <input id={`sp${i}`} type="number" min="0" step="0.01" value={l.sellPrice}
-                      placeholder="0.00"
-                      onChange={(e) => setLine(i, { sellPrice: e.target.value })} />
-                  </div>
-                  {/* WHO THE GOODS ARE FOR, asked once, here, where the
-                      buyer already knows. It is copied onto the product at
-                      receipt, so the shop never has to open Catalog and
-                      answer a question it already answered. */}
-                  <div className="field">
-                    <label htmlFor={`au${i}`}>{t("whoIsItFor", lang)}</label>
-                    <select id={`au${i}`} value={l.audience}
-                      onChange={(e) => setLine(i, { audience: e.target.value })}>
-                      {/* "" is not a blank to be filled in later -- it is
-                          the answer for a fridge, which is not unisex, it
-                          is simply not a question that applies. */}
-                      <option value="">{t("audienceAnyone", lang)}</option>
-                      {AUDIENCES.map((a) => (
-                        <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
-                      ))}
-                    </select>
-                  </div>
                   <div className="field po-line-desc">
                     <label htmlFor={`ds${i}`}>{t("description", lang)}</label>
                     <textarea id={`ds${i}`} rows={2} value={l.description}
                       placeholder={t("descriptionPoHint", lang)}
                       onChange={(e) => setLine(i, { description: e.target.value })} />
                   </div>
-                  {/* WHAT KIND OF THING IS BEING BOUGHT, AND WHAT IT IS.
-                      The same picker the product form draws, over the same
-                      taxonomy, hanging off the category chosen just above
-                      -- so the buyer answers the listing's questions at the
-                      moment they are holding the supplier's invoice and
-                      know the answers. Receiving copies both onto the
-                      product, and the product page, the card and the
-                      attribute filters are complete without anybody
-                      opening Catalog.
 
-                      A line pointing at an EXISTING product never gets
-                      here: that product already has a type and answers of
-                      its own, and a restock must not argue with them.
-
-                      idPrefix, because an order restocking two shirts of
-                      one type draws every attribute twice and two boxes
-                      with one id means both labels point at the first. */}
-                  {/* ONLY THE AXES. The product type's other questions --
-                      Brand, Fit, Pattern, Season, Neck Type, eleven of
-                      them for a t-shirt -- describe the PRODUCT, and a
-                      twelve-SKU order asked all fourteen twelve times and
-                      got the same eleven answers every time. They are
-                      asked once, on the product, which is where they are
-                      true. The receipt still gives the product its type,
-                      so that form opens with those questions ready.
-
-                      Nothing at all while the split is being set up: the
-                      generator below asks for a LIST of sizes, and its
-                      boxes beside this line's single-size boxes are two
-                      Size fields on one screen meaning different things --
-                      which is what made this look duplicated. */}
+                  {/* THE PRODUCT TYPE, WHICH IS ALSO THE HEADER'S.
+                      Every row below buys the same kind of thing -- that is
+                      what makes them one line -- so it is asked once, and
+                      this is where the row's questions are loaded from. */}
                   <div className="field po-line-tax">
                     <TaxonomyPicker
                       idPrefix={`${l.key}-`}
                       node={l.catalogCategoryId}
-                      value={l.taxonomy}
-                      fields={bulk[l.key] ? "none" : "variant"}
-                      onChange={(next) => setLine(i, { taxonomy: next })}
+                      value={{ productTypeId: l.productTypeId, values: {} }}
+                      fields="none"
+                      onChange={(next) => setLine(i, { productTypeId: next.productTypeId })}
                       onAttributes={(attrs) =>
                         setLineAttrs((m) => (m[l.key] === attrs ? m : { ...m, [l.key]: attrs }))}
                       disabled={!canWrite || busy}
                     />
                   </div>
-
-                  {/* ONE MORE OF THE SAME THING, IN ANOTHER COLOUR.
-                      The buyer has just said what the product is, where it
-                      goes and what type it is; buying it in red as well
-                      should not mean saying all of that again. This copies
-                      the line and clears the axes, so the only boxes left
-                      to fill are the ones that differ -- the colour, the
-                      quantity and the price.
-
-                      Beside the split, not instead of it: this is for the
-                      second colour and the third, and the generator is for
-                      the twelve. */}
-                  {l.taxonomy.productTypeId && (
-                    <WriteOnly>
-                      <div className="field po-line-more">
-                        <button type="button" className="btn btn-sm btn-ghost"
-                          onClick={() => addLineLike(i)}>+ {t("addLineLike", lang)}</button>
-                      </div>
-                    </WriteOnly>
-                  )}
-
-                  {/* BULK GENERATE, offered only when there is something to
-                      split on: a product type with no variant axis has no
-                      combinations, and a button that can only say "nothing
-                      to split" is a button that should not be there. */}
-                  {axesOf(l).length > 0 && (
-                    <div className="field po-line-bulk">
-                      {!bulk[l.key] ? (
-                        <WriteOnly>
-                          <button type="button" className="btn btn-sm btn-ghost"
-                            onClick={() => setBulk((b) => ({
-                              ...b,
-                              /* Prefilled with what this line already
-                                 answers, so "S" plus two more typed after
-                                 it generates S, M and L rather than
-                                 throwing the first away. */
-                              [l.key]: Object.fromEntries(axesOf(l).map((a) => [
-                                a.id, (l.taxonomy.values[a.id] ?? []).join(", "),
-                              ])),
-                            }))}>
-                            {t("bulkGenerate", lang)}
-                          </button>
-                        </WriteOnly>
-                      ) : (
-                        <div className="po-bulk">
-                          {axesOf(l).map((a) => (
-                            <div className="field" key={a.id}>
-                              <label htmlFor={`${l.key}-bulk-${a.id}`}>{a.name}</label>
-                              <input id={`${l.key}-bulk-${a.id}`}
-                                value={bulk[l.key][a.id] ?? ""}
-                                placeholder="S, M, L"
-                                onChange={(e) => setBulk((b) => ({
-                                  ...b, [l.key]: { ...b[l.key], [a.id]: e.target.value },
-                                }))} />
-                            </div>
-                          ))}
-                          <div className="po-bulk-go">
-                            <button type="button" className="btn btn-sm btn-amber"
-                              onClick={() => generateVariants(i)}>
-                              {t("bulkGenerateGo", lang)
-                                .replace("{n}", String(matrixSize(axesOf(l).map((a) => ({
-                                  attributeId: a.id, name: a.name,
-                                  values: parseSizes(bulk[l.key][a.id] ?? ""),
-                                })))))}
-                            </button>
-                            <button type="button" className="btn btn-sm btn-ghost"
-                              onClick={() => setBulk((b) => {
-                                const { [l.key]: _gone, ...rest } = b; return rest;
-                              })}>
-                              {t("cancel", lang)}
-                            </button>
-                          </div>
-                          <p className="hint">{t("bulkGenerateHint", lang)}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </>
               )}
               {l.productId && (
@@ -877,28 +699,105 @@ export default function PurchaseOrderForm({
                     <label>{t("linkedProduct", lang)}</label>
                     <span className="pill ok">{t("existingProduct", lang)}</span>
                   </div>
-                  {/* WHY THE REST OF THE LINE HAS GONE. A restock asks none
-                      of the questions a new product does, because this
-                      product has answered them -- and a buyer watching the
-                      category, the price and the fields disappear as they
-                      pick a name should be told why rather than left to
-                      wonder.
-
-                      ON A ROW OF ITS OWN, like every other note on a line.
-                      Inside the field above it made that field taller, and
-                      since the line is bottom-aligned it lifted the pill
-                      36 pixels clear of every other box in the row --
-                      measured, after doing exactly that. */}
+                  {/* ON A ROW OF ITS OWN, like every other note on a line:
+                      inside the field above it made that field taller, and
+                      since the line is bottom-aligned it lifted the pill 36
+                      pixels clear of every other box -- measured. */}
                   <div className="field po-line-note">
                     <p className="hint">{t("restockHint", lang)}</p>
                   </div>
                 </>
               )}
+
+              {/* ---- THE BODY: one row per thing actually bought ----
+                  Size, colour and material say WHICH one; the quantity,
+                  the cost and the price say what was bought of it and for
+                  how much. All six repeat, because all six differ between
+                  a 38 and a 45 of the same shoe -- which is the whole
+                  reason a line is not a product any more.
+
+                  Above them, in the header, is everything that does not
+                  differ. "+ Add line (same product)" copies a row and not
+                  the header, so buying the same shoe in red is one row
+                  rather than a second line saying everything twice. */}
+              <div className="field po-rows">
+                {l.rows.map((r, ri) => (
+                  <div key={r.key} className="po-row">
+                    {axesOf(l).map((a) => (
+                      <AttributeField
+                        key={a.id}
+                        idPrefix={`${r.key}-`}
+                        attr={a}
+                        value={r.values[a.id] ?? []}
+                        onChange={(next: string[]) => setRow(i, ri, {
+                          values: { ...r.values, [a.id]: next },
+                        })}
+                        disabled={!canWrite || busy}
+                      />
+                    ))}
+                    <div className="field">
+                      <label htmlFor={`${r.key}-q`}>{t("quantity", lang)}</label>
+                      <input id={`${r.key}-q`} type="number" min="0.001" step="any"
+                        value={r.qty}
+                        onChange={(e) => setRow(i, ri, { qty: e.target.value })} required />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`${r.key}-u`}>{t("costPrice", lang)}</label>
+                      <input id={`${r.key}-u`} type="number" min="0" step="any"
+                        value={r.unitPrice}
+                        onChange={(e) => setRow(i, ri, { unitPrice: e.target.value })} required />
+                    </div>
+                    {l.category === "goods_for_resale" && !l.productId && (
+                      <div className="field">
+                        <label htmlFor={`${r.key}-sp`}>{t("sellingPrice", lang)}</label>
+                        <input id={`${r.key}-sp`} type="number" min="0" step="0.01"
+                          value={r.sellPrice} placeholder="0.00"
+                          onChange={(e) => setRow(i, ri, { sellPrice: e.target.value })} />
+                      </div>
+                    )}
+                    {l.category === "goods_for_resale" && !l.productId && (
+                      <div className="field">
+                        <label htmlFor={`${r.key}-au`}>{t("whoIsItFor", lang)}</label>
+                        <select id={`${r.key}-au`} value={r.audience}
+                          onChange={(e) => setRow(i, ri, { audience: e.target.value })}>
+                          {/* "" is not a blank to be filled in later -- it
+                              is the answer for a fridge, which is not
+                              unisex, it is simply not a question that
+                              applies. */}
+                          <option value="">{t("audienceAnyone", lang)}</option>
+                          {AUDIENCES.map((a) => (
+                            <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div className="po-row-total">
+                      <span className="hint">{t("lineTotal", lang)}</span>
+                      <b className="mono">
+                        {((Number(r.qty) || 0) * (Number(r.unitPrice) || 0)).toFixed(2)}
+                      </b>
+                    </div>
+                    <WriteOnly>
+                      <button className="btn btn-sm btn-danger" type="button"
+                        disabled={l.rows.length === 1}
+                        onClick={() => removeRow(i, ri)}>×</button>
+                    </WriteOnly>
+                  </div>
+                ))}
+              </div>
+
+              {l.category === "goods_for_resale" && !l.productId && l.productTypeId && (
+                <WriteOnly>
+                  <div className="field po-line-more">
+                    <button type="button" className="btn btn-sm btn-ghost"
+                      onClick={() => addRow(i)}>+ {t("addLineLike", lang)}</button>
+                  </div>
+                </WriteOnly>
+              )}
+
               <div className="po-line-total">
-                <span className="hint">{t("lineTotal", lang)}</span>
-                <b className="mono">
-                  {((Number(l.qty) || 0) * (Number(l.unitPrice) || 0)).toFixed(2)}
-                </b>
+                <span className="hint">{t("subtotal", lang)}</span>
+                <b className="mono">{lineTotal(l).toFixed(2)}</b>
               </div>
               <WriteOnly>
                 <button className="btn btn-sm btn-danger" type="button"

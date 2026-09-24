@@ -73,6 +73,22 @@ export default function ProductForm({
   const [typeAttrs, setTypeAttrs] = useState<FormAttribute[]>([]);
   const [images, setImages] = useState<string[]>(product?.images || []);
 
+  /* THE PRODUCT THIS FORM HAS ALREADY CREATED.
+   *
+   * THE BUG THIS FIXES made two products out of one. Saving a NEW product
+   * writes the product first and its answers second -- it has to, because
+   * the answers need an id to hang off -- and if the answers are refused
+   * the form stays put so the fields needing attention are still on
+   * screen. The id that had just been created was a local const, thrown
+   * away when the handler returned. So the second press saved with no id
+   * again and INSERTED a second row: one product carrying the answers and
+   * one carrying none, which is exactly what the catalogue then listed.
+   *
+   * Holding it means the second press updates the product the first one
+   * made. Seeded from the prop for an edit, so the two paths are the same
+   * path. */
+  const [savedProductId, setSavedProductId] = useState(product?.id ?? "");
+
   const [f, setF] = useState({
     name: product?.name || "",
     price: product ? String(product.price) : "",
@@ -222,7 +238,7 @@ export default function ProductForm({
     setBusy(true);
     try {
       const savedId = await saveProduct({
-        id: product?.id,
+        id: savedProductId || undefined,
         name: f.name.trim(),
         price: parseNum(f.price, 0),
         discount_price: discountPrice.trim() && parseNum(discountPrice, 0) > 0
@@ -241,6 +257,9 @@ export default function ProductForm({
         pay_wallet: pay.wallet, pay_fiar: pay.fiar,
         municipality: f.municipality, post: f.post, suku: f.suku, landmark: f.landmark,
       });
+      // Before anything below can fail: whatever happens next, this form
+      // is now editing a product that exists.
+      setSavedProductId(savedId);
       /* THE DYNAMIC ATTRIBUTES, AFTER THE PRODUCT ITSELF.
          In this order because a new product has no id until saveProduct
          has run, and the values have to be written against one. The
@@ -452,7 +471,6 @@ export default function ProductForm({
                 {t("variantsHint", lang)}
               </p>
               <VariantEditor
-                productId={product.id}
                 attributes={typeAttrs}
                 variants={variants}
               />

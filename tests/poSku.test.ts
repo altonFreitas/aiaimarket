@@ -7,9 +7,6 @@ const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
 
 const FORM = read("src/components/admin/procurement/PurchaseOrderForm.tsx");
 const RECEIVE = read("src/lib/receiving.ts");
-const CSS = read("src/app/globals.css");
-const PICKER = read("src/components/admin/TaxonomyPicker.tsx");
-const PRODUCT_FORM = read("src/components/admin/ProductForm.tsx");
 
 /* ONE LINE, ONE SKU.
  *
@@ -24,120 +21,122 @@ const PRODUCT_FORM = read("src/components/admin/ProductForm.tsx");
  */
 
 describe("what the line stopped asking", () => {
-  it("has no sizes box and no per-size grid", () => {
-    for (const gone of ["sizesVariants", "qtyPerSize", "po-size-grid",
-                        "sizeQty", "sizesForLine", "lineUnits"]) {
+  it("has no sizes box, no per-size grid and no bulk generator", () => {
+    for (const gone of ["sizesVariants", "qtyPerSize", "po-size-grid", "sizeQty",
+                        "sizesForLine", "lineUnits", "bulkGenerate", "variantValueSets",
+                        "po-bulk"]) {
       expect(FORM, gone).not.toContain(gone);
     }
-  });
-
-  it("types the quantity rather than deriving it from a grid", () => {
-    // It was read-only whenever a grid existed. There is no grid: the line
-    // IS the grid row.
-    expect(FORM).not.toMatch(/readOnly=\{sizesForLine/);
-    expect(FORM).toMatch(/id=\{`q\$\{i\}`\}[\s\S]{0,120}value=\{l\.qty\}/);
   });
 
   it("names the two prices for what they are", () => {
     expect(FORM).toContain('t("costPrice", lang)');
     expect(FORM).toContain('t("sellingPrice", lang)');
   });
-
-  it("totals the line from its own quantity and cost", () => {
-    expect(FORM).toContain("((Number(l.qty) || 0) * (Number(l.unitPrice) || 0)).toFixed(2)");
-    expect(FORM).toContain("(a, l) => a + (Number(l.qty) || 0) * (Number(l.unitPrice) || 0), 0)");
-  });
 });
 
-describe("splitting one line into many", () => {
-  it("expands through the shared, tested matrix", () => {
-    expect(FORM).toContain("variantValueSets(line.taxonomy.values, axes)");
+describe("a header, and the rows it is true of", () => {
+  /* It was one line per SKU, which made the money right and made the
+     screen repeat itself: twelve rows each carrying the product's name,
+     its category, its description and its type, identical every time,
+     with one size box telling them apart. */
+  it("asks for the product, its category and its type once", () => {
+    for (const once of ['id={`n${i}`}', 'id={`c${i}`}', 'id={`cc${i}`}',
+                        'id={`ds${i}`}', "<TaxonomyPicker"]) {
+      expect(FORM.split(once).length - 1, once).toBe(1);
+    }
   });
 
-  it("splits on the product type's own axes, not on a size box", () => {
-    // Nothing here knows what a size is: an axis is an attribute the
-    // catalogue marked is_variant.
-    expect(FORM).toContain("(lineAttrs[l.key] ?? []).filter((a) => a.is_variant)");
+  it("asks for the quantity, both prices and the audience per ROW", () => {
+    /* All four differ between a 38 and a 45 of the same shoe, which is the
+       whole reason a line is not a product any more. */
+    for (const perRow of ["`${r.key}-q`", "`${r.key}-u`", "`${r.key}-sp`", "`${r.key}-au`"]) {
+      /* Twice each: the label's htmlFor and the control's id. Asserting it
+         is merely PRESENT passed with half of a rename applied, which is
+         the state where the label points at nothing. */
+      expect(FORM.split(perRow).length - 1, perRow).toBe(2);
+    }
+    expect(FORM).toContain("l.rows.map((r, ri) => (");
   });
 
-  it("hands the new lines the attributes they inherited", () => {
-    /* Same product type, same questions. Without it each generated line
-       fetches the identical attribute list again and its heading stays
-       blank until the answer comes back. */
-    expect(FORM).toContain("...Object.fromEntries(made.map((v) => [v.key, m[line.key] ?? []]))");
+  it("draws each row's own axes, and only the axes", () => {
+    expect(FORM).toContain("{axesOf(l).map((a) => (");
+    expect(FORM).toContain("value={r.values[a.id] ?? []}");
+    // The header's picker draws the type and nothing under it.
+    expect(FORM).toContain('fields="none"');
   });
 
-  it("heads each line with the combination it buys", () => {
-    /* MEASURED. Six generated rows read "Blue Shirt, 10, 4.00, 12.00" and
-       nothing else -- identical, with the size buried in an attribute grid
-       at the bottom of each. */
-    expect(FORM).toContain("const skuOf = (l: LineDraft)");
-    expect(FORM).toContain('.join(" / ")');
-    expect(FORM).toContain('className="field po-line-sku"');
-    expect(CSS).toMatch(/\.po-line \.field\.po-line-sku\{flex:1 1 100%/);
-  });
-});
-
-describe("each question is asked once, not once per line", () => {
-  it("draws only the axes on a line", () => {
-    /* A t-shirt's product type asks fourteen questions. Eleven of them --
-       Brand, Fit, Pattern, Season, Neck Type -- describe the PRODUCT, and
-       a twelve-SKU order asked all fourteen twelve times and got the same
-       eleven answers every time. */
-    expect(FORM).toContain('fields={bulk[l.key] ? "none" : "variant"}');
-    expect(PICKER).toContain('fields === "variant" ? forThisType.filter((a) => a.is_variant)');
+  it("gives every row its own ids", () => {
+    // Two rows of one product type draw the same attributes twice, and two
+    // boxes with one id means both labels point at the first.
+    expect(FORM).toContain("idPrefix={`${r.key}-`}");
   });
 
-  it("draws none of them while the split is being set up", () => {
-    /* The generator asks for a LIST of sizes. Its boxes beside the line's
-       own single-size boxes are two Size fields on one screen meaning
-       different things, which is what made this look duplicated. */
-    expect(PICKER).toContain('fields === "none" ? []');
-  });
-
-  it("still tells the truth about a type with no fields at all", () => {
-    // The notice has to answer for the TYPE, not for the subset asked
-    // for, or a line showing axes only would claim the type is empty.
-    expect(PICKER).toMatch(/fields !== "none" && value\.productTypeId\s*\n\s*&& forThisType\.length === 0/);
-  });
-
-  it("leaves the product form asking everything", () => {
-    // Default, so the one screen where a product is described in full is
-    // unchanged.
-    expect(PICKER).toContain('fields = "all"');
-    expect(PRODUCT_FORM).not.toContain("fields=");
+  it("totals a line from its rows", () => {
+    expect(FORM).toContain("(a, r) => a + (Number(r.qty) || 0) * (Number(r.unitPrice) || 0), 0)");
+    expect(FORM).toContain("lines.reduce((a, l) => a + lineTotal(l), 0)");
   });
 });
 
 describe("one more of the same thing, in another colour", () => {
-  it("offers it once a product type is chosen", () => {
-    // Nothing to copy before that: the line is not yet a SKU.
-    expect(FORM).toMatch(/\{l\.taxonomy\.productTypeId && \(\s*\n\s*<WriteOnly>\s*\n\s*<div className="field po-line-more">/);
-    expect(FORM).toContain('onClick={() => addLineLike(i)}');
+  it("adds a ROW, not a line", () => {
+    expect(FORM).toContain("onClick={() => addRow(i)}");
+    expect(FORM).toContain("rows: [...l.rows, { ...from, key: nextKey(), values: {} }]");
   });
 
-  it("copies what describes the goods and blanks what identifies the SKU", () => {
-    /* MEASURED: one line became two carrying "Blue Shirt", 10 and the
-       description. The combination is the one thing this line exists to
-       change. */
-    expect(FORM).toContain("const axes = new Set(axesOf(line).map((a) => a.id));");
-    expect(FORM).toContain(
-      "Object.entries(line.taxonomy.values).filter(([id]) => !axes.has(id))");
+  it("copies the numbers and clears the combination", () => {
+    /* The second colour is usually bought in the same numbers at the same
+       cost; correcting three boxes beats typing six. The combination is
+       the one thing the new row exists to change. */
+    expect(FORM).toContain("const from = lines[i].rows.at(-1) ?? blankRow();");
   });
 
-  it("never copies the link to a catalogue product", () => {
-    /* A line pointing at an existing product is a restock of exactly that
-       product; copying it would top the same one up twice from one order. */
-    expect(FORM).toContain('{ ...line, key, productId: "", taxonomy: { ...line.taxonomy, values } }');
+  it("does not touch the header", () => {
+    // That is the point of the split: the name, the category, the type and
+    // the description are said once.
+    const fn = FORM.slice(FORM.indexOf("function addRow("),
+                          FORM.indexOf("function removeRow("));
+    for (const header of ["productName", "catalogCategoryId", "productTypeId", "description"]) {
+      expect(fn, header).not.toContain(header);
+    }
   });
 
-  it("puts the new line directly under the one it came from", () => {
-    // Not at the bottom of a twelve-line order, where nobody would find it.
-    expect(FORM).toContain("...ls.slice(0, i + 1),");
+  it("is offered once a product type is chosen", () => {
+    // Nothing to repeat before that: the row has no questions yet.
+    expect(FORM).toContain('l.category === "goods_for_resale" && !l.productId && l.productTypeId && (');
+  });
+});
+
+describe("what is written, and what is read back", () => {
+  it("writes one purchase order item per row, carrying the header", () => {
+    /* purchase_order_items stays flat -- one row per SKU -- because that
+       is what the ledger, the receipt and the variants all read. */
+    expect(FORM).toContain("lines.flatMap((l) => l.rows.map((r) => ({");
+    expect(FORM).toContain("qty: Number(r.qty), unitPrice: Number(r.unitPrice),");
+    expect(FORM).toContain("productTypeId: l.productTypeId || null,");
+    expect(FORM).toContain("attributeValues: r.values,");
   });
 
-  it("hands it the attributes rather than making it fetch them again", () => {
-    expect(FORM).toContain("setLineAttrs((m) => ({ ...m, [key]: m[line.key] ?? [] }));");
+  it("puts the rows back under their header when the order is reopened", () => {
+    expect(FORM).toContain("po?.items?.length ? groupItems(po.items)");
+    expect(FORM).toContain("if (last && last.headerKey === headerOf(i))");
+  });
+
+  it("groups on everything the header holds, and only consecutively", () => {
+    /* Two rows that agree on all of it ARE one line; two that differ on
+       any of it are two products. Consecutive, because the order they were
+       written in is the order the buyer typed them in. */
+    const fn = FORM.slice(FORM.indexOf("const headerOf ="), FORM.indexOf("for (const i of items)"));
+    for (const part of ["i.product_name", "i.category", "i.product_id",
+                        "i.catalog_category_id", "i.product_type_id", "i.description"]) {
+      expect(fn, part).toContain(part);
+    }
+    expect(FORM).toContain("out.at(-1)");
+  });
+
+  it("clears the rows' answers when the goods are refiled", () => {
+    // They answered questions the new branch never asks.
+    expect(FORM).toContain("rows: l.rows.map((r) => ({ ...r, values: {} })),");
   });
 });
 
@@ -153,9 +152,13 @@ describe("the keys the lines are drawn with", () => {
   });
 
   it("keys the lines it opens with by position", () => {
-    // The same on the server and in the browser, which is the point.
-    expect(FORM).toMatch(/po\.items\.map\(\(i, n\) => \(\{\s*\n\s*key: `i\$\{n\}`/);
-    expect(FORM).toContain('.map((l, n) => ({ ...l, key: `i${n}` }))');
+    /* The same on the server and in the browser, which is the point: the
+       key is the prefix on every id the line draws. groupItems numbers
+       headers and rows from one counter as it walks the saved items, and
+       that walk is the same walk in both documents. */
+    expect(FORM).toContain("let n = 0;");
+    expect(FORM).toContain("key: `i${n++}`");
+    expect(FORM.split("key: `i${n++}`").length - 1, "header and row").toBe(2);
   });
 
   it("keys the rest from a counter, under a prefix that cannot collide", () => {

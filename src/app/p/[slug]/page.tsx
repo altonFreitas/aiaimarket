@@ -8,6 +8,7 @@ import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
 import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { productSpecs } from "@/lib/data/productSpecs";
+import SpecValue from "@/components/SpecValue";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
 import { localeMetadata, localePath } from "@/lib/locale";
@@ -129,9 +130,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <div className="pdp">
         <div>
           <ProductGallery images={p.images} name={p.name} lang={lang} />
+          {/* CAPPED, AND SCROLLED WHEN IT NEEDS TO BE.
+              A seller who pastes a supplier's four hundred words pushes
+              the specification, the reviews and the related products off
+              the bottom of the screen, and the one thing a shopper is
+              looking for -- the price, which is beside this -- ends up
+              alone in a tall empty column. tabIndex, because a region
+              that scrolls has to be reachable by keyboard. */}
           <div className="panel" style={{ marginTop: 12 }}>
             <h3>{t("description", lang)}</h3>
-            <div style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
+            <div className="pdp-scroll" tabIndex={0}
+              style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
           </div>
 
           {/* WHAT THIS PARTICULAR PRODUCT IS.
@@ -144,11 +153,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           {specs.length > 0 && (
             <div className="panel" style={{ marginTop: 12 }}>
               <h3>{t("specifications", lang)}</h3>
-              <dl className="specs">
+              {/* A sofa answers eighteen questions. Five rows is the
+                  height at which this stops being a list and starts being
+                  the page, so past that it scrolls in place. */}
+              <dl className={"specs" + (specs.length > 5 ? " specs-scroll" : "")}
+                tabIndex={specs.length > 5 ? 0 : undefined}>
                 {specs.map((s) => (
                   <div key={s.name} className="spec-row">
                     <dt>{s.name}</dt>
-                    <dd>{s.value}</dd>
+                    <dd><SpecValue spec={s} /></dd>
                   </div>
                 ))}
               </dl>
