@@ -1446,12 +1446,10 @@ export const STR: Record<string, [string,string,string]> = {
   /* stock per size */
   whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],
   audienceAnyone:["Ba ema hotu","Para qualquer pessoa","Anyone"],
-  qtyPerSize:["Kuantidade tuir tamañu","Quantidade por tamanho","How many of each size"],
   /* "below" no longer: the note sits under the size boxes now, not over
      them -- under the Quantity field it was pushing that one box up out of
      line with the rest of the row. A sentence that points the wrong way is
      worse than no sentence. */
-  qtyFromSizes:["Kuantidade iha leten soma husi sira ne'e.","A quantidade acima é a soma destes.","The quantity above is added up from these."],
   /* The two ways an order's status moves, told apart in words.
      They are ONE field. The buttons write it straight away; the dropdown
      is part of the form and goes with Save. Somebody who has just pressed
@@ -1597,7 +1595,6 @@ export const STR: Record<string, [string,string,string]> = {
   preorderAllowHint:["Bainhira laiha stock, kliente sei bele enkomenda uluk. Taka ne'e ba produtu ne'ebé sei la fila fali.","Sem stock, os clientes podem na mesma encomendar. Desligue para produtos que não voltam.","With no stock, shoppers can still order. Turn off for a line you will not restock."],
   preorderEtaHint:["Husik mamuk se seidauk hatene. Diak liu duke fó loron ne'ebé la loos.","Deixe vazio se ainda não sabe. Melhor do que dar uma data que falha.","Leave empty if you do not know yet. Better than a date that will be missed."],
   /* ---- purchase order details + PDF ---- */
-  sizesVariants:["Tamañu / variante","Tamanho / variante","Size / variant"],
   descriptionPoHint:["Deskrisaun ne'e sei ba produtu foun iha loja.","Esta descrição vai para o produto novo na loja.","This description goes onto the new product in the shop."],
   /* ---- main navigation (the bar under the logo) ---- */
   navMenu:["Menu","Menu","Menu"],
