@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
 import { normalizeSizeQty } from "@/lib/sizeStock";
 import { normalizeVariantQty, receiptMovementsFor } from "@/lib/variantStock";
-import { normalizeAudience } from "@/lib/audience";
 import { submittedFrom } from "@/lib/taxonomy/lineTaxonomy";
 import { attributesForType } from "@/lib/data/taxonomy";
 import { validateAttributeValues } from "@/lib/taxonomy/validate";
@@ -195,13 +194,6 @@ export async function applyReceipt(
           // they had just entered on the order.
           sizes: parseSizes(item.sizes),
           description: item.description || "",
-          /* WHO THE GOODS ARE FOR, from the line that bought them.
-             Without this every product created by a receipt arrived
-             unlabelled and had to be edited afterwards from memory -- by
-             the same person who had already answered the question when
-             they placed the order. Null stays null: "not said" is a real
-             state and is not the same as unisex (see lib/audience.ts). */
-          audience: normalizeAudience(item.audience),
           images: [],
         })
         .select("id")
@@ -225,9 +217,9 @@ export async function applyReceipt(
     // have written a careful description for the shop's own listing, and a
     // restock must not replace it with whatever the supplier called it.
     // Only genuinely blank fields are touched.
-    else if (item.sizes || item.description || item.audience) {
+    else if (item.sizes || item.description) {
       const { data: current } = await sb
-        .from("products").select("sizes, description, audience")
+        .from("products").select("sizes, description")
         .eq("id", productId).maybeSingle();
       if (current) {
         const patch: Record<string, unknown> = {};
@@ -237,13 +229,6 @@ export async function applyReceipt(
         }
         if (item.description && !String(current.description || "").trim()) {
           patch.description = item.description;
-        }
-        // Filled in only when the shop has not said. Someone may have
-        // deliberately marked a product unisex that the supplier calls
-        // men's, and a restock must not argue with them.
-        const incomingAudience = normalizeAudience(item.audience);
-        if (incomingAudience && !normalizeAudience(current.audience)) {
-          patch.audience = incomingAudience;
         }
         if (Object.keys(patch).length) {
           await sb.from("products").update(patch).eq("id", productId);

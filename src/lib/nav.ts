@@ -1,39 +1,29 @@
-/* The shop's main navigation: what sits in the bar under the logo, and what
- * drops down when a shopper points at it.
+/* The shop's aisles: the categories, and the products behind each one.
  *
- * THREE LEVELS, AND WHERE EACH ONE COMES FROM.
+ * TWO LEVELS, BOTH FROM THE CATEGORY TREE.
  *
- *   root    Women / Men, and the categories that are nobody's clothing --
- *           the top-level entries in the bar itself.
- *   group   a top-level category inside that root ("Sapatu", "Kalsa Jeans").
- *   child   one of that category's subcategories.
+ *   root    a top-level category ("Clothing", "Eletrodomestiku").
+ *   child   one of its subcategories ("Men's clothing", "Sapatu").
  *
- * Women and Men are NOT categories and deliberately never became any. The
- * store's category tree is whatever the admin set up (see CategoriesAdmin);
- * duplicating every clothing category into a men's and a women's copy is
- * exactly the trap src/lib/audience.ts was written to avoid. So the two
- * audience entries are a VIEW of the same tree, filtered by
- * products.audience, and every link inside them carries ?for= so the page
- * the shopper lands on is filtered the same way the menu was.
+ * THERE WAS A THIRD THING HERE AND IT IS GONE. The bar used to open with
+ * Women and Men -- not categories, but a VIEW of the whole tree filtered by
+ * products.audience, so that every clothing category did not have to be
+ * duplicated into a men's copy and a women's copy. That was the right
+ * answer to the question "how do I sell men's jeans and women's jeans
+ * without two Jeans categories", and the shop has since answered it a
+ * different way: Clothing is the category, Men's clothing and Women's
+ * clothing are subcategories of it, and a shop that also sells fridges is
+ * not asked who a fridge is for. One tree, one place to file a product,
+ * nothing derived from a second column that had to agree with it.
  *
- * WHEN A ROOT APPEARS AT ALL. Only when there is stock behind it:
- *
- *   Women / Men  when at least one product is labelled for that audience
- *                (or unisex, which belongs to both).
- *   a category   when it holds at least one product nobody has labelled --
- *                a saucepan, a fridge, a jacket nobody said is a man's.
- *
- * That rule is what makes this work on day one and on day one thousand. A
- * shop that has labelled nothing gets a bar of its own categories, exactly
- * what it has today. A clothing shop that has labelled everything gets
- * Women and Men. A shop that sells both gets both, and neither entry is
- * ever a door onto an empty shelf.
+ * WHEN A ROOT APPEARS AT ALL. Only when there is stock behind it, counting
+ * its subcategories -- browsing Clothing must not look empty because
+ * everything is filed under Men's clothing. A door onto an empty shelf is
+ * worse than no door.
  *
  * Everything here is derived, nothing is stored, and no counts are
- * invented: every number in the menu is a length of a real filtered list.
+ * invented: every number is a length of a real list.
  */
-import { matchesAudience, normalizeAudience, type Audience } from "./audience";
-import { t } from "./i18n";
 import type { Category, Lang, Product } from "./types";
 
 /** Where the shop's aisles are not what is being navigated.
@@ -46,11 +36,7 @@ import type { Category, Lang, Product } from "./types";
  *                    checkout worth the name strips its navigation for the
  *                    same reason; the logo still goes home and Cancel still
  *                    goes back to the cart.
- *
- * Both MegaNav and MobileNav ask this, so the two can never disagree about
- * where the navigation appears -- and the stylesheet's
- * body:not(:has(.mainnav)) rule gives the bar's height back to the sticky
- * stack wherever it says no. */
+ */
 export const NAV_FREE_PATHS: readonly string[] = ["/admin", "/seller", "/checkout"];
 
 /** Matches the path itself and anything under it, and nothing that merely
@@ -65,14 +51,8 @@ export function isNavFree(pathname: string): boolean {
  * -- and eight are loaded, because the row scrolls sideways. A panel that
  * showed exactly what fit had nothing to scroll and no reason to hint that
  * there was more; eight makes the gesture worth making and still costs one
- * small image each. Raising this further starts paying for pictures most
- * people will never scroll to. */
+ * small image each. */
 const FEATURE_COUNT = 8;
-
-/** How many plain category entries may sit in the bar beside Women/Men.
- * A navigation bar that scrolls sideways is not a navigation bar; the rest
- * of the tree stays one click away behind "Shop all". */
-const MAX_CATEGORY_ROOTS = 6;
 
 /** Just enough of a product to draw a small card in the menu. The whole nav
  * model is serialized into every page's payload, so this deliberately
@@ -119,8 +99,8 @@ function childrenOf(cats: Category[], id: string): Category[] {
   return cats.filter((c) => c.parent_id === id).sort(byOrder);
 }
 
-/** A category and its subcategories, the same "browsing Electronics must
- * not look empty because everything is filed under Phones" rule the
+/** A category and its subcategories, the same "browsing Clothing must not
+ * look empty because everything is filed under Men's clothing" rule the
  * category page itself uses. */
 function idsFor(cats: Category[], id: string): string[] {
   return [id, ...childrenOf(cats, id).map((c) => c.id)];
@@ -142,98 +122,96 @@ function compact(p: Product): NavProduct {
   };
 }
 
-/** ?for=women appended to a path that may already carry a query string.
- * None of the shop's category or catalog paths do today, but building the
- * link by hand is how a "/shop?for=men?for=men" gets shipped one day. */
-function withAudience(path: string, audience: Audience | null): string {
-  if (!audience) return path;
-  return `${path}${path.includes("?") ? "&" : "?"}for=${audience}`;
-}
-
-/** One top-level entry and the whole tree hanging off it, filtered to
- * `audience` when there is one. */
-function buildRoot(
-  id: string,
-  label: string,
-  href: string,
-  cats: Category[],
-  pool: Product[],
-  audience: Audience | null
-): NavRoot {
+/** One top-level category and the subcategories hanging off it. */
+function buildRoot(cat: Category, cats: Category[], products: Product[]): NavRoot {
+  const pool = inCategory(products, cats, cat.id);
   const groups: NavGroup[] = [];
-  for (const cat of topLevel(cats)) {
-    const items = inCategory(pool, cats, cat.id);
+  for (const kid of childrenOf(cats, cat.id)) {
+    const items = inCategory(products, cats, kid.id);
     if (!items.length) continue;
-    const children: NavLink[] = [];
-    for (const kid of childrenOf(cats, cat.id)) {
-      const n = pool.filter((p) => p.category_id === kid.id).length;
-      if (n) children.push({ label: kid.name, href: withAudience(`/c/${kid.slug}`, audience), count: n });
-    }
     groups.push({
-      id: cat.id,
-      label: cat.name,
-      href: withAudience(`/c/${cat.slug}`, audience),
+      id: kid.id,
+      label: kid.name,
+      href: `/c/${kid.slug}`,
       count: items.length,
-      children,
+      children: childrenOf(cats, kid.id)
+        .map((g) => ({
+          label: g.name,
+          href: `/c/${g.slug}`,
+          count: products.filter((p) => p.category_id === g.id).length,
+        }))
+        .filter((l) => l.count > 0),
     });
   }
   return {
-    id,
-    label,
-    href,
+    id: cat.id,
+    label: cat.name,
+    href: `/c/${cat.slug}`,
     count: pool.length,
     groups,
     feature: pool.slice(0, FEATURE_COUNT).map(compact),
   };
 }
 
-/** Women or Men: the whole category tree seen through one audience. Null
- * when the shop has nothing to put behind it -- an entry that opens onto
- * "No products found" is worse than no entry. */
-function audienceRoot(
-  audience: Audience, cats: Category[], products: Product[], lang: Lang
-): NavRoot | null {
-  const pool = products.filter((p) => matchesAudience(normalizeAudience(p.audience), audience));
-  if (!pool.length) return null;
-  const label = t(audience === "men" ? "audienceMen" : "audienceWomen", lang);
-  return buildRoot(audience, label, withAudience("/shop", audience), cats, pool, audience);
+/** Every top-level category the shop has something in, in the order the
+ * admin put them. `lang` is taken and unused: the labels are the shop's own
+ * category names, which are not translated strings, and the parameter stays
+ * so the callers -- and any future label that IS a phrase -- do not all
+ * have to change back. */
+export function buildNav(cats: Category[], products: Product[], _lang: Lang): NavRoot[] {
+  return topLevel(cats)
+    .map((c) => buildRoot(c, cats, products))
+    .filter((r) => r.count > 0);
 }
 
-/** The plain category entries -- the shop's Accessories, Electricals,
- * Homeware. Chosen by holding something nobody has labelled, but counted
- * and linked UNFILTERED: the entry is the category itself, not a slice of
- * it, so its numbers must be the category's own. */
-function categoryRoots(cats: Category[], products: Product[]): NavRoot[] {
-  const unlabelled = products.filter((p) => normalizeAudience(p.audience) === null);
-  const out: NavRoot[] = [];
-  for (const cat of topLevel(cats)) {
-    if (out.length >= MAX_CATEGORY_ROOTS) break;
-    if (!inCategory(unlabelled, cats, cat.id).length) continue;
-    const pool = inCategory(products, cats, cat.id);
-    out.push(buildRoot(cat.id, cat.name, `/c/${cat.slug}`, cats, pool, null));
+/** One entry per category, flattened for a <select>.
+ *
+ * WHY A FLAT LIST WITH A DEPTH RATHER THAN A TREE. This feeds the
+ * catalogue toolbar's category filter, and a <select> has no nesting --
+ * <optgroup> comes close but its labels are not selectable, and "Clothing"
+ * has to be choosable in its own right. So the shape of the tree is
+ * carried as a number the caller indents with, and the order is the tree's
+ * own: each top-level category followed by its children.
+ *
+ * The count is the category WITH its subcategories, the same rule the
+ * sidebar and the menu use -- picking Clothing must not report fewer
+ * products than picking Men's clothing inside it.
+ *
+ * Empty categories are kept here, unlike in the menu: this is a filter, and
+ * a filter that silently omits a category leaves the shop wondering where
+ * it went. It shows "(0)" and returns nothing, which is an answer. */
+export interface CategoryOption {
+  id: string;
+  slug: string;
+  name: string;
+  /** 0 for a top-level category, 1 for a subcategory. */
+  depth: number;
+  count: number;
+}
+
+export function categoryOptions(cats: Category[], products: Product[]): CategoryOption[] {
+  const out: CategoryOption[] = [];
+  for (const top of topLevel(cats)) {
+    out.push({
+      id: top.id, slug: top.slug, name: top.name, depth: 0,
+      count: inCategory(products, cats, top.id).length,
+    });
+    for (const kid of childrenOf(cats, top.id)) {
+      out.push({
+        id: kid.id, slug: kid.slug, name: kid.name, depth: 1,
+        count: inCategory(products, cats, kid.id).length,
+      });
+    }
   }
   return out;
 }
 
-/** The whole bar, left to right: Women, Men, then the categories that are
- * neither. "Shop all" is not in here -- it is a plain link with no panel,
- * and the header renders it directly. */
-export function buildNav(cats: Category[], products: Product[], lang: Lang): NavRoot[] {
-  const out: NavRoot[] = [];
-  for (const a of ["women", "men"] as const) {
-    const root = audienceRoot(a, cats, products, lang);
-    if (root) out.push(root);
-  }
-  out.push(...categoryRoots(cats, products));
-  return out;
-}
-
-/** The two audience entries on their own, for the homepage's "shop by"
- * tiles. Same rule as the bar: only what the shop actually stocks. */
-export function audienceHighlights(
-  cats: Category[], products: Product[], lang: Lang
-): NavRoot[] {
-  return (["women", "men"] as const)
-    .map((a) => audienceRoot(a, cats, products, lang))
-    .filter((r): r is NavRoot => r !== null);
+/** The ids a `?cat=` slug covers -- the category itself and its children.
+ * Null for a slug the shop does not have, which the caller treats as no
+ * filter rather than as an empty shelf: a stale bookmark should show the
+ * catalogue, not nothing. */
+export function categoryFilterIds(cats: Category[], slug: string | undefined): string[] | null {
+  if (!slug) return null;
+  const cat = cats.find((c) => c.slug === slug);
+  return cat ? idsFor(cats, cat.id) : null;
 }

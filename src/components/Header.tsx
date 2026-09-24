@@ -4,7 +4,6 @@ import LangSwitch from "./LangSwitch";
 import CartIcon from "./CartIcon";
 import BasketBadge from "./BasketBadge";
 import SearchBar from "./SearchBar";
-import MegaNav from "./MegaNav";
 import TrackIcon from "./TrackIcon";
 import MobileNav from "./MobileNav";
 import { getCategories, getHeroSlides, getLiveProducts } from "@/lib/data/public";
@@ -44,8 +43,8 @@ export default async function Header({ settings }: { settings: Settings }) {
         <div className="hd-in">
           {/* Phone only: the menu and search that replace the category row
               and the search strip below the header. Hidden from 768px up,
-              where MegaNav's bar and .hd-search do the same jobs with room
-              to spell them out. */}
+              where the shop icon and .hd-search do the same jobs with
+              room to spell them out. */}
           <MobileNav roots={navRoots} slides={slides} lang={lang} />
 
           <Link className="hd-logo" href="/" aria-label="Home">
@@ -54,11 +53,32 @@ export default async function Header({ settings }: { settings: Settings }) {
           </Link>
           <span className="hd-sp" />
 
-          {/* Desktop only, and it is why .mainnav-search exists too: this
-              is a 52px bar with four controls already in it, and a text
-              field does not fit beside them on a phone. There the same
-              search box sits on its own line under the categories. Only
-              one of the two is ever displayed. */}
+          {/* THE AISLES, IN ONE ICON.
+              A row of category buttons used to sit under this header --
+              Women, Men, two or three categories, Shop all. It was built
+              for a clothing shop; this one sells fridges and cookware and
+              cloth as well, and a bar wide enough to name every aisle is
+              not a bar. /shop has the whole tree down its left side with
+              live counts, so the door to it goes here, next to the search
+              box it sits beside in every other shop on earth.
+
+              Desktop only, both of them: this is a 52px row with four
+              controls in it already, and a text field does not fit beside
+              them on a phone. The phone gets the same search and the same
+              categories inside MobileNav's sheet. */}
+          <Link className="icon-btn hd-shop" href="/shop" aria-label={t("navShopAll", lang)}>
+            {/* Four squares: the shape every storefront uses for "all of
+                it", and the one thing a bag or a tag would be confused
+                with here -- the cart is three icons to the right. */}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            {t("navShopAll", lang)}
+          </Link>
           <div className="site-search hd-search">
             <SearchBar lang={lang} />
           </div>
@@ -101,13 +121,6 @@ export default async function Header({ settings }: { settings: Settings }) {
         </div>
       </header>
 
-      {/* The shop's own aisles, with the search box sitting at the end of
-          the same row. It used to be a third sticky strip of its own; a
-          storefront does not need three stacked bars of chrome before the
-          first product, and search belongs beside the categories it
-          searches. MegaNav renders nothing on the admin and seller screens,
-          so the search box correctly goes with it. */}
-      <MegaNav roots={navRoots} lang={lang} />
     </>
   );
 }

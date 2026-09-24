@@ -236,7 +236,6 @@ export async function exportPurchaseOrderExcel(poId: string) {
       "Landed unit cost": landed.get(item.id)
         ? Math.round(landed.get(item.id)!.landedUnitCost * 10000) / 10000 : "",
       Sizes: item.sizes ?? "",
-      "Who it is for": item.audience ?? "",
       "Sell price": item.sell_price ?? "",
       Description: item.description ?? "",
       ...Object.fromEntries(specColumns.map((c) => [c, answered.get(c) ?? ""])),

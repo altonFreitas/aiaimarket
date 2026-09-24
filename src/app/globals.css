@@ -59,11 +59,10 @@
   --sh:0 1px 2px rgba(11,20,36,.08),0 8px 24px -16px rgba(11,20,36,.25);
   --hd:52px;
   /* The main navigation bar (MegaNav). There is no separate search strip
-     any more -- the box is in the header on a desktop and inside this bar
-     on a phone. Zero here because on a phone the bar scrolls away with the
-     page rather than pinning: stacked sticky strips are most of a 640px
-     screen. Raised to its real height in the desktop block below, where it
-     does pin. */
+     any more -- the box is in the header. THE BAR ITSELF IS GONE TOO, so
+     this is zero at every width and stays only because the sticky stack is
+     expressed as "the header plus the navigation": a shop that grows a
+     second pinned row again sets this and everything below it moves. */
   --nav-h:0px;
   /* Strength of the tais cloth behind the page. The one knob: raise it to
      make the weave more present, drop it toward 0 to fade it out entirely.
@@ -220,14 +219,13 @@ body::before{
    sidebar and the admin's own sticky rows park below it, so there is one
    number to change rather than several that quietly drift apart.
 
-   DECLARED ON BODY, NOT :root, AND THAT IS THE WHOLE POINT. A custom
-   property's var()s are substituted on the element that DECLARES it, and
-   the answer is then inherited as a fixed value. Declared on :root this
-   calc() froze --nav-h at 44px, so the body:not(:has(.mainnav)) override
-   below -- which is what tells an admin page there is no navigation bar --
-   could never reach it, and the admin's sticky rows parked 44px below where
-   they belonged with the page scrolling through the gap. On body, both are
-   resolved against the same element. */
+   DECLARED ON BODY, NOT :root, AND IT STAYS THAT WAY. A custom property's
+   var()s are substituted on the element that DECLARES it, and the answer
+   is inherited as a fixed value from there. Declared on :root, this calc()
+   would freeze at whatever --nav-h was at that moment and no later
+   override of it could reach this sum. That bit a navigation bar that
+   existed at one width and not another; on body, both resolve against the
+   same element, whatever a future row sets. */
 body{--chrome-h:calc(var(--hd) + var(--nav-h));--admin-chrome-h:var(--chrome-h)}
 #view{flex:1 0 auto}
 img{max-width:100%;display:block}
@@ -250,6 +248,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .icon-btn:hover{background:rgba(255,255,255,.1)}
 .icon-btn .cnt{font-family:var(--mono);font-size:11px;background:var(--amber);color:#3a2b00;border-radius:20px;padding:0 5px;font-weight:700}
 .hd-track{display:none;text-decoration:none;font-weight:600;white-space:nowrap}
+/* The door to the whole catalogue, where the bar of category buttons used
+   to be. Desktop only and hidden the same way .hd-track is: a phone
+   reaches the aisles through MobileNav's sheet, which already lists them
+   with counts, and a second way in would be the same list twice. */
+.hd-shop{display:none;text-decoration:none;font-weight:600;white-space:nowrap}
 /* Mobile has this exact tab in the bottom nav (.nav) already -- showing
    it in the header too would just duplicate it. Revealed at the same
    desktop breakpoint where .nav itself is hidden, same pattern as
@@ -1062,19 +1065,6 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
 /* ---------- desktop ---------- */
 @media(min-width:768px){
-  /* The navigation bar pins at desktop widths, so from here on it is part
-     of the chrome everything else parks below. */
-  :root{--nav-h:44px}
-  /* Except where there is no navigation bar. MegaNav renders nothing on the
-     admin and seller screens -- the shop's aisles are not what someone
-     managing stock is navigating -- and the 44px it would have occupied has
-     to come back out of the sticky stack, or everything below it pins 44px
-     too low and the page scrolls through the gap above it.
-     :has() is doing real work here rather than being clever: the element
-     whose absence matters is a SIBLING of everything that has to react to
-     it, so no ancestor knows. On a browser without :has() the fallback is
-     that gap -- loose, not broken. */
-  body:not(:has(.mainnav)){--nav-h:0px}
   body{font-size:15.5px}
   /* Back to the start of the row from 768px up: there is room for the name
      beside the mark, and a centred wordmark with a search box on one side
@@ -1126,6 +1116,7 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
   .hd-mob{display:none}
   .hd-search{display:block;width:min(340px, 26vw)}
   .hd-track{display:inline-flex}
+  .hd-shop{display:inline-flex}
   .hd-cart{display:inline-flex}
   .wrap{padding-bottom:30px}
   h1{font-size:25px}
@@ -1745,7 +1736,7 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 /* body::before too: an invoice printed on a customer's receipt is not the
    place to spend their toner on background cloth. */
-@media print{.hd,.mainnav,.nav,.btn-row,.adm-nav,body::before{display:none}}
+@media print{.hd,.nav,.btn-row,.adm-nav,body::before{display:none}}
 
 /* ============================================================
    Dense marketplace layer — utility top bar + promo strip.
@@ -1758,8 +1749,8 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    ============================================================ */
 
 /* ---------- utility top bar ---------- */
-/* Above the mega menu's scrim (z 39 inside .mainnav) so the strip is not
-   blurred along with the page when the menu opens at the top of it. */
+/* Its own stacking context above the header, so the strip stays put and
+   legible over anything the page scrolls under it. */
 .topbar{background:var(--ink-2);color:rgba(255,255,255,.72);font-size:12px;display:none;
   position:relative;z-index:41}
 .topbar-in{max-width:var(--content-w);margin:0 auto;padding:6px 12px;display:flex;align-items:center;gap:14px}
@@ -2438,140 +2429,14 @@ span.stock-btn:hover{filter:none}
    rather than as a choice. */
 .empty-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center;margin-top:var(--sp-4)}
 
-/* ============================================================
-   MAIN NAVIGATION — the bar under the logo, and its mega panel
-   ============================================================
-   Three levels, one bar: Women / Men / the shop's other categories, each
-   opening a panel of categories, each category revealing its own
-   subcategories. See src/lib/nav.ts for where the entries come from and
-   src/components/MegaNav.tsx for the behaviour.
+/* The bar of category buttons that used to sit under the header, and its
+   mega panel, are gone with lib/nav.ts's audience roots -- see
+   components/Header.tsx. The shop's whole tree lives down the left of
+   /shop, reached from the icon beside the search box; a phone reaches the
+   same tree through MobileNav's sheet, which is why THAT panel's styles
+   (.side-mega-*) are still above and these are not. */
 
-   STACKING, WHICH IS THE WHOLE TRICK HERE. .mainnav is one stacking
-   context at z-index 39, which puts everything inside it above the page
-   and below the header (40) and the top strip (41). Inside it the order is
-   scrim (0) → the bar itself (1) → the open panel (2). Nothing needs a
-   z-index in the thousands, and nothing outside this block had to move. */
-/* Hidden on a phone -- see MobileNav, which replaces it with a menu button
-   and a full screen. It stays in the document rather than being dropped in
-   JavaScript so that body:has(.mainnav) still answers correctly for the
-   sticky stack, and so nothing depends on a breakpoint being read the same
-   way twice. */
-.mainnav{display:none;position:relative;z-index:39;background:var(--ink);color:#fff;
-  border-top:1px solid rgba(255,255,255,.09)}
-.mainnav-in{position:relative;z-index:1;background:var(--ink);
-  max-width:var(--content-w);margin:0 auto;padding:0 var(--sp-3)}
-.mainnav-row{min-width:0;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.mainnav-row::-webkit-scrollbar{display:none}
-.mainnav-item{flex:0 0 auto;display:inline-flex;align-items:center;height:44px;padding:0 var(--sp-3);
-  background:transparent;border:0;border-bottom:2px solid transparent;color:rgba(255,255,255,.82);
-  font-size:var(--fs-sm);font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-  text-decoration:none;white-space:nowrap;cursor:pointer}
-.mainnav-item:hover{color:#fff}
-.mainnav-item.is-on{color:#fff;border-bottom-color:var(--amber)}
-.mainnav-all{color:var(--amber)}
-.mainnav-all:hover{color:var(--amber)}
-
-/* The page, pushed back. Dimming and blurring what is not being chosen
-   from is what makes a wide panel readable over a busy catalogue without
-   an opaque sheet across the whole window. Both spellings of the property:
-   Safari still wants the prefixed one, and on a browser that supports
-   neither this degrades to the dim alone, which is enough. */
-.mega-scrim{position:fixed;inset:0;z-index:0;background:rgba(11,20,36,.42);
-  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);animation:megaFade .15s ease-out}
-@keyframes megaFade{from{opacity:0}to{opacity:1}}
-@keyframes megaDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
-
-.mega{position:absolute;left:0;right:0;top:100%;z-index:2;
-  background:var(--card);color:var(--ink);border-top:1px solid var(--line);
-  box-shadow:var(--sh);max-height:min(70vh,560px);overflow-y:auto;
-  animation:megaDown .14s ease-out}
-.mega-in{max-width:var(--content-w);margin:0 auto;padding:var(--sp-4) var(--sp-3) var(--sp-5);
-  display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4)}
-
-.mega-all{display:block;font-size:var(--fs-sm);font-weight:800;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink);text-decoration:none;padding:var(--sp-1) var(--sp-2) var(--sp-3);
-  border-bottom:1px solid var(--line-2);margin-bottom:var(--sp-2)}
-.mega-all:hover{color:var(--ink-3);text-decoration:underline}
-.mega-groups{list-style:none;margin:0;padding:0}
-.mega-groups li{display:flex;flex-wrap:wrap;align-items:center}
-.mega-group{flex:1;min-width:0;display:flex;justify-content:space-between;gap:var(--sp-2);align-items:center;
-  padding:var(--sp-2) var(--sp-2);border-radius:var(--r-s);text-decoration:none;font-size:var(--fs-body);font-weight:600}
-.mega-groups li.is-on .mega-group,.mega-group:hover{background:var(--line-2)}
-.mega-groups .n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted);font-weight:400}
-/* Touch has no hover, so this chevron is what opens a category on a phone.
-   On a desktop it is the same control, and pointing at the row does it
-   anyway -- so it reads as the affordance it is either way. */
-.mega-exp{flex:0 0 auto;width:32px;height:32px;padding:0;border:0;background:transparent;
-  color:var(--muted);font-size:var(--fs-h4);line-height:1;cursor:pointer;border-radius:var(--r-s)}
-.mega-exp:hover{background:var(--line-2);color:var(--ink)}
-.mega-exp[aria-expanded=true]{color:var(--ink);transform:rotate(90deg)}
-.mega-empty{padding:var(--sp-2);font-size:var(--fs-body-sm);color:var(--muted)}
-
-/* The subcategories. Twice in the markup, once visible: inline under their
-   category on a phone, in the column beside it on a desktop. One list to
-   maintain, no second menu to drift out of step. */
-.mega-kids-inline{list-style:none;margin:0 0 var(--sp-2);padding:0 0 var(--sp-1) var(--sp-4);flex-basis:100%}
-.mega-col-kids{display:none}
-.mega-kids-hd{margin:0 0 var(--sp-2);font-size:var(--fs-caption);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.mega-kids{list-style:none;margin:0;padding:0}
-.mega-kids-inline a,.mega-kids a{display:flex;justify-content:space-between;gap:var(--sp-2);
-  padding:var(--sp-2) var(--sp-2);text-decoration:none;font-size:var(--fs-body-sm);color:var(--ink-3);border-radius:var(--r-s)}
-.mega-kids-inline a:hover,.mega-kids a:hover{color:var(--ink);background:var(--line-2)}
-.mega-kids-inline .n,.mega-kids .n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted-2)}
-
-/* Real stock from behind the entry. It carries the panel on a catalogue
-   with no subcategories yet, and stays worth its space once there are
-   some -- four products say more than four more names. */
-/* Hidden on a phone. The panel there is a list to move through, and four
-   product cards push the categories under it off the screen -- the one
-   thing the menu exists to show. The same products are one tap away in the
-   rows on the page behind it. */
-.mega-col-feature{display:none}
-.mega-card{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:var(--sp-1)}
-.mega-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
-  border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
-.mega-card-nm{font-size:var(--fs-sm);font-weight:600;line-height:1.25;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.mega-card-pr{font-size:var(--fs-sm);color:var(--ink-3)}
-.mega-card-pr b{color:var(--red)}
-
-@media(min-width:768px){
-  .mainnav{display:block;position:sticky;top:var(--hd)}
-  .mega-in{grid-template-columns:minmax(210px,250px) minmax(170px,230px) minmax(0,1fr);
-    gap:var(--sp-6);padding:var(--sp-5) var(--sp-3) var(--sp-6)}
-  .mega-col-kids{display:block}
-  .mega-kids-inline{display:none}
-
-  /* THE TWO LISTS IN THIS PANEL EACH SCROLL THEMSELVES.
-     Before, only the panel did: a shop with twenty categories scrolled the
-     whole thing, so reaching the twentieth category pushed the products
-     that are the reason for the panel off the top. Giving each column its
-     own bound keeps the other one where it was. The panel's own
-     max-height stays as the outer limit. */
-  .mega-groups,.mega-kids{max-height:min(52vh,420px);overflow-y:auto;
-    overscroll-behavior:contain;scrollbar-width:thin}
-
-  /* The products, as a row that scrolls sideways. Four fit, eight are
-     loaded (FEATURE_COUNT in lib/nav.ts), so there is always something
-     past the right edge to swipe or wheel to on a catalogue big enough to
-     have it. grid-auto-columns is a quarter of the track minus the gaps,
-     which is exactly what repeat(4,1fr) gave before -- the four you see
-     are the same size they have always been.
-
-     padding-bottom is for the scrollbar: overflow-x on a box makes the
-     other axis scrollable too, and without the room a horizontal bar
-     draws over the bottom of the price line. */
-  /* NOT minmax(0, ...): a track whose minimum is 0 is allowed to shrink,
-     so all eight squeezed themselves into the width of four and the row
-     had nothing to scroll. A bare width is a real width. */
-  .mega-col-feature{display:grid;grid-auto-flow:column;
-    grid-auto-columns:calc((100% - 3 * var(--sp-3)) / 4);
-    gap:var(--sp-3);overflow-x:auto;overscroll-behavior-x:contain;
-    scroll-snap-type:x proximity;padding-bottom:var(--sp-2);scrollbar-width:thin}
-  .mega-col-feature>*{scroll-snap-align:start}
-}
-
-/* ---------- homepage rails, audience tiles ---------- */
+/* ---------- homepage rails ---------- */
 /* A gap between the navigation bar and the hero. Both are near-black navy,
    and butted together they read as one enormous block with the categories
    floating inside it; a few pixels of paper is all it takes to separate the

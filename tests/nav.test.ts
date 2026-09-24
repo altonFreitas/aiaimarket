@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildNav, audienceHighlights, isNavFree } from "@/lib/nav";
+import { buildNav, categoryOptions, categoryFilterIds, isNavFree } from "@/lib/nav";
 import type { Category, Product } from "@/lib/types";
 
 /* Only the fields the navigation actually reads. The rest of a product row
@@ -22,88 +22,61 @@ function cat(id: string, name: string, parent: string | null = null, order = 1):
   return { id, name, slug: id, parent_id: parent, sort_order: order };
 }
 
-/* A shop that sells clothes (labelled) and appliances (not). */
+/* A shop that sells clothing and appliances. Men's and Women's clothing
+ * are SUBCATEGORIES now, which is the whole point: "who is it for" used to
+ * be a column on the product and a pair of derived roots in the bar, and
+ * it is a place in the tree instead. */
 const CATS: Category[] = [
-  cat("shoes", "Sapatu", null, 1),
-  cat("sneakers", "Sneakers", "shoes", 1),
-  cat("sandals", "Sandals", "shoes", 2),
-  cat("jeans", "Kalsa Jeans", null, 2),
-  cat("appliances", "Eletrodomestiku", null, 3),
+  cat("clothing", "Clothing", null, 1),
+  cat("mens", "Men's clothing", "clothing", 1),
+  cat("womens", "Women's clothing", "clothing", 2),
+  cat("appliances", "Eletrodomestiku", null, 2),
   cat("fridges", "Fridges", "appliances", 1),
+  cat("empty", "Empty", null, 3),
 ];
 
 const PRODUCTS: Product[] = [
-  product({ id: "1", category_id: "sneakers", audience: "women" }),
-  product({ id: "2", category_id: "sandals", audience: "men" }),
-  product({ id: "3", category_id: "jeans", audience: "unisex" }),
-  product({ id: "4", category_id: "fridges" }),            // nobody's clothing
-  product({ id: "5", category_id: "appliances" }),         // filed on the parent
+  product({ id: "1", category_id: "mens" }),
+  product({ id: "2", category_id: "womens" }),
+  product({ id: "3", category_id: "clothing" }),   // filed on the parent
+  product({ id: "4", category_id: "fridges" }),
 ];
 
 describe("buildNav", () => {
-  it("puts Women and Men in the bar when products say who they are for", () => {
+  it("is the shop's own categories, in the order the admin put them", () => {
     const nav = buildNav(CATS, PRODUCTS, "en");
-    expect(nav.map((r) => r.id)).toEqual(["women", "men", "appliances"]);
-    expect(nav[0].label).toBe("Women");
-    expect(nav[0].href).toBe("/shop?for=women");
-  });
-
-  it("counts unisex under both audiences and neither audience under the other", () => {
-    const [women, men] = buildNav(CATS, PRODUCTS, "en");
-    // Women: the women's sneaker + the unisex jeans. Men: the men's sandal
-    // + the same jeans. The fridge and the loose appliance are in neither:
-    // nobody said they were anybody's, and unset is not unisex.
-    expect(women.count).toBe(2);
-    expect(men.count).toBe(2);
-  });
-
-  it("shows a category inside an audience only when that audience has stock in it", () => {
-    const [women] = buildNav(CATS, PRODUCTS, "en");
-    expect(women.groups.map((g) => g.id)).toEqual(["shoes", "jeans"]);
-    // Sandals are the men's product, so they are not one of the women's
-    // subcategories -- an empty shelf is never a link.
-    expect(women.groups[0].children.map((c) => c.label)).toEqual(["Sneakers"]);
-  });
-
-  it("carries the audience through every link in the panel", () => {
-    const [, men] = buildNav(CATS, PRODUCTS, "en");
-    expect(men.groups[0].href).toBe("/c/shoes?for=men");
-    expect(men.groups[0].children[0].href).toBe("/c/sandals?for=men");
-  });
-
-  it("gives the goods nobody labelled a top-level entry of their own", () => {
-    const nav = buildNav(CATS, PRODUCTS, "en");
-    const appliances = nav[2];
-    expect(appliances.href).toBe("/c/appliances");
-    // Unfiltered: the entry IS the category, so its numbers are the
-    // category's own -- the product filed on the parent counts too.
-    expect(appliances.count).toBe(2);
-    expect(appliances.groups[0].children[0].href).toBe("/c/fridges");
+    expect(nav.map((r) => r.id)).toEqual(["clothing", "appliances"]);
+    expect(nav[0].label).toBe("Clothing");
+    expect(nav[0].href).toBe("/c/clothing");
   });
 
   it("counts a category together with its subcategories", () => {
-    const [women] = buildNav(CATS, PRODUCTS, "en");
-    // Browsing "Sapatu" must not look empty because everything inside it is
-    // filed under "Sneakers".
-    expect(women.groups[0].count).toBe(1);
+    // Browsing Clothing must not look empty because everything inside it
+    // is filed under Men's clothing.
+    const [clothing] = buildNav(CATS, PRODUCTS, "en");
+    expect(clothing.count).toBe(3);
   });
 
-  it("falls back to the plain category list when nothing is labelled", () => {
-    // The state every shop is in on the day this ships. It must degrade to
-    // exactly what was there before -- the shop's own categories -- rather
-    // than to an empty bar.
-    const flat = PRODUCTS.map((p) => product({ ...p, audience: null }));
-    const nav = buildNav(CATS, flat, "en");
-    expect(nav.map((r) => r.id)).toEqual(["shoes", "jeans", "appliances"]);
+  it("hangs the subcategories off their parent", () => {
+    const [clothing] = buildNav(CATS, PRODUCTS, "en");
+    expect(clothing.groups.map((g) => g.label)).toEqual(["Men's clothing", "Women's clothing"]);
+    expect(clothing.groups[0].href).toBe("/c/mens");
+    expect(clothing.groups[0].count).toBe(1);
+  });
+
+  it("leaves out a subcategory with nothing in it", () => {
+    // An entry that opens onto "No products found" is worse than no entry.
+    const onlyMens = [product({ id: "1", category_id: "mens" })];
+    const [clothing] = buildNav(CATS, onlyMens, "en");
+    expect(clothing.groups.map((g) => g.id)).toEqual(["mens"]);
+  });
+
+  it("leaves out a category with no live products", () => {
+    expect(buildNav(CATS, PRODUCTS, "en").map((r) => r.id)).not.toContain("empty");
   });
 
   it("offers nothing at all for an empty catalogue", () => {
     expect(buildNav(CATS, [], "en")).toEqual([]);
-  });
-
-  it("leaves out a category with no live products", () => {
-    const nav = buildNav([...CATS, cat("empty", "Empty", null, 9)], PRODUCTS, "en");
-    expect(nav.map((r) => r.id)).not.toContain("empty");
   });
 
   it("previews real products, a row's worth plus something to scroll to", () => {
@@ -135,36 +108,57 @@ describe("buildNav", () => {
     // The placeholder is drawn by the browser from the product's name --
     // putting the SVG in the payload would cost every page a few hundred
     // bytes per menu entry for a picture that is generated anyway.
-    const [appliances] = buildNav(CATS, PRODUCTS, "en");
-    expect(appliances.feature[0].image).toBe("");
+    const [clothing] = buildNav(CATS, PRODUCTS, "en");
+    expect(clothing.feature[0].image).toBe("");
   });
 
-  it("keeps the bar to a readable number of entries", () => {
-    const wide: Category[] = [];
-    const stock: Product[] = [];
-    for (let i = 0; i < 12; i++) {
-      wide.push(cat("c" + i, "Category " + i, null, i));
-      stock.push(product({ id: "p" + i, category_id: "c" + i }));
-    }
-    expect(buildNav(wide, stock, "en")).toHaveLength(6);
-  });
-
-  it("names the entries in the shopper's language", () => {
-    expect(buildNav(CATS, PRODUCTS, "pt")[0].label).toBe("Mulher");
-    expect(buildNav(CATS, PRODUCTS, "tet")[0].label).toBe("Feto");
+  it("sends no ?for= anywhere, because there is nothing to filter by", () => {
+    const nav = buildNav(CATS, PRODUCTS, "en");
+    const hrefs = nav.flatMap((r) => [r.href, ...r.groups.flatMap((g) => [g.href, ...g.children.map((c) => c.href)])]);
+    for (const h of hrefs) expect([h, h.includes("?")]).toEqual([h, false]);
   });
 });
 
-describe("audienceHighlights", () => {
-  it("returns only the audiences the shop actually stocks", () => {
-    const menOnly = [product({ id: "1", category_id: "jeans", audience: "men" })];
-    expect(audienceHighlights(CATS, menOnly, "en").map((r) => r.id)).toEqual(["men"]);
+describe("categoryOptions", () => {
+  it("flattens the tree in its own order, with the depth to indent by", () => {
+    const opts = categoryOptions(CATS, PRODUCTS);
+    expect(opts.map((o) => [o.slug, o.depth])).toEqual([
+      ["clothing", 0], ["mens", 1], ["womens", 1],
+      ["appliances", 0], ["fridges", 1],
+      ["empty", 0],
+    ]);
   });
 
-  it("returns nothing when no product says who it is for", () => {
-    // Which is what keeps the homepage's "Shop by" tiles from appearing as
-    // two doors onto empty rooms.
-    expect(audienceHighlights(CATS, [product({ id: "1", category_id: "jeans" })], "en")).toEqual([]);
+  it("counts a category with its subcategories, like everything else here", () => {
+    const opts = categoryOptions(CATS, PRODUCTS);
+    expect(opts.find((o) => o.slug === "clothing")!.count).toBe(3);
+    expect(opts.find((o) => o.slug === "mens")!.count).toBe(1);
+  });
+
+  it("keeps an empty category, unlike the menu", () => {
+    /* This is a FILTER. A category that vanishes from the list leaves the
+       shop wondering where it went; "(0)" is an answer. */
+    const empty = categoryOptions(CATS, PRODUCTS).find((o) => o.slug === "empty");
+    expect(empty).toBeTruthy();
+    expect(empty!.count).toBe(0);
+  });
+});
+
+describe("categoryFilterIds", () => {
+  it("covers the category and its children", () => {
+    expect(categoryFilterIds(CATS, "clothing")).toEqual(["clothing", "mens", "womens"]);
+  });
+
+  it("is just itself for a subcategory", () => {
+    expect(categoryFilterIds(CATS, "mens")).toEqual(["mens"]);
+  });
+
+  it("is no filter at all for a slug the shop does not have", () => {
+    /* Null, not []. An empty array would read as "a filter that matched
+       nothing" downstream and show an empty shelf -- a stale bookmark
+       should show the catalogue. */
+    expect(categoryFilterIds(CATS, "gone")).toBeNull();
+    expect(categoryFilterIds(CATS, undefined)).toBeNull();
   });
 });
 

@@ -1,7 +1,6 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { queueProductAlerts } from "@/lib/notify/announce";
-import { normalizeAudience } from "@/lib/audience";
 import { writeTolerating } from "@/lib/missingColumn";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
@@ -72,7 +71,6 @@ export interface ProductFormInput {
   sizes: string[];
   tags: string[];
   /** men | women | unisex, or null for "the question does not apply". */
-  audience?: string | null;
   /** Which store sells this. Empty string or absent means the marketplace's
    * own catalogue, which is stored as the platform's seller id rather than
    * as null -- the column has been NOT NULL since schema.sql, and the
@@ -172,18 +170,13 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
     // from the quantity by the database. Writing either here would put the
     // balance and its history out of step -- which is what this form used
     // to do every time it was saved.
-    // `audience` arrived with supabase/audience-restock.sql. On a shop that
-    // has this code and has not run that file yet, naming it would fail the
-    // whole update -- so the product could not be saved at all, over a
-    // field nobody had filled in. It is dropped and the save retried; it
-    // starts being kept the moment the migration runs.
     const { error } = await writeTolerating(
       {
-        audience: normalizeAudience(input.audience),
-        // preorders.sql is a migration too, and these were written among
-        // the columns that always exist -- so a shop with this code and
-        // without that file could not save a product at all, over two
-        // fields its form does not even show. Same treatment as audience.
+        // From supabase/preorders.sql, and once written among the columns
+        // that always exist -- so a shop with this code and without that
+        // file could not save a product at all, over two fields its form
+        // does not even show. Named here instead, where a database that
+        // lacks the column drops them and keeps the save.
         preorder_enabled: input.preorder_enabled ?? true,
         preorder_eta: input.preorder_eta || null,
       },
@@ -242,7 +235,6 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
     // there when the ledger began.
     const { data: made, error } = await writeTolerating<{ id: string }>(
       {
-        audience: normalizeAudience(input.audience),
         // As above: from supabase/preorders.sql, so not every database has
         // them, and naming one the database lacks fails the whole insert.
         preorder_enabled: input.preorder_enabled ?? true,

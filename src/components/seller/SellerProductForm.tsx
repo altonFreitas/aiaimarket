@@ -7,7 +7,6 @@ import { saveSellerProduct, uploadSellerProductImage } from "@/lib/actions/selle
 import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
-import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import { parseSizes } from "@/lib/procurement";
 import { t } from "@/lib/i18n";
 import type { Category, Lang, Product, StockStatus } from "@/lib/types";
@@ -47,7 +46,6 @@ export default function SellerProductForm({
     qty: product ? String(product.qty) : "1",
     description: product?.description || "",
     category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
-    audience: normalizeAudience(product?.audience) ?? "",
     sizes: (product?.sizes || []).join(", "),
     tags: (product?.tags || []).join(", "),
   });
@@ -145,7 +143,6 @@ export default function SellerProductForm({
         qty: Number(f.qty) || 0,
         description: f.description,
         category_id: f.category_id,
-        audience: f.audience || null,
         /* THE SAME PARSER THE PURCHASE ORDER USES, not a second split on
            every comma. That one turned "41,5" into a size 41 and a size 5
            -- see parseSizes, which knows a Portuguese half size when it
@@ -247,19 +244,6 @@ export default function SellerProductForm({
               <p className="hint">{t("subcategoryHint", lang)}</p>
             </div>
           )}
-          <div className="field">
-            <label htmlFor="audience">{t("audienceLabel", lang)}</label>
-            <select id="audience" value={f.audience}
-              onChange={(e) => set("audience", e.target.value)}>
-              {/* Empty means the question does not apply to this product,
-                  which is not the same as unisex -- see lib/audience.ts. */}
-              <option value="">{t("audienceAny", lang)}</option>
-              {AUDIENCES.map((a) => (
-                <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
-              ))}
-            </select>
-            <p className="hint">{t("audienceHint", lang)}</p>
-          </div>
         </div>
 
         <div className="panel">

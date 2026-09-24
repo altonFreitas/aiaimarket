@@ -11,6 +11,7 @@ import type { Category, Lang, Product, Settings } from "@/lib/types";
 import AttributeFilters from "./AttributeFilters";
 import type { CatalogFilter } from "@/lib/data/attributeFilters";
 import type { AttributeFilters as Filters } from "@/lib/attributeFilterParams";
+import type { CategoryOption } from "@/lib/nav";
 
 /** Shared shell for every catalog view (/shop, /c/[slug], /search).
  *
@@ -27,7 +28,7 @@ import type { AttributeFilters as Filters } from "@/lib/attributeFilterParams";
  */
 export default async function CatalogLayout({
   title, sub, cats, allProducts, result, activeSlug, lang, basePath, params, showRelevance = false,
-  attributeFilters = [], activeFilters = {},
+  attributeFilters = [], activeFilters = {}, categories,
 }: {
   title: React.ReactNode;
   sub?: React.ReactNode;
@@ -47,6 +48,8 @@ export default async function CatalogLayout({
   attributeFilters?: CatalogFilter[];
   /** Which of those are on right now. */
   activeFilters?: Filters;
+  /** The aisle filter's options. Only /shop passes them -- see Toolbar. */
+  categories?: CategoryOption[];
   showRelevance?: boolean;
 }) {
   const sellersById = await getApprovedSellersById();
@@ -65,7 +68,8 @@ export default async function CatalogLayout({
           <h1>{title}</h1>
           {sub}
           <CatRail cats={cats} products={allProducts} activeSlug={activeSlug} lang={lang} />
-          <Toolbar count={result.total} lang={lang} showRelevance={showRelevance} />
+          <Toolbar count={result.total} lang={lang} showRelevance={showRelevance}
+            categories={categories} />
           {result.products.length ? (
             <>
               <div className="grid">

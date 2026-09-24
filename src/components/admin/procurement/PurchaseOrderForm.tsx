@@ -12,7 +12,6 @@ import {
   PO_STATUSES, deliveryState, poDelayDays, poLeadTime, poQty, poTotal,
   todayIso,
 } from "@/lib/procurement";
-import { AUDIENCES, AUDIENCE_KEY } from "@/lib/audience";
 import { t } from "@/lib/i18n";
 import TaxonomyPicker from "../TaxonomyPicker";
 import AttributeField from "../AttributeField";
@@ -59,7 +58,6 @@ interface VariantRow {
   sellPrice: string;
   /** Who the goods are for. "" is "not said", which is a real state and
    * not the same as unisex. */
-  audience: string;
 }
 
 interface LineDraft {
@@ -84,7 +82,7 @@ interface LineDraft {
 }
 
 const blankRow = (): VariantRow => ({
-  key: "", values: {}, qty: "1", unitPrice: "0", sellPrice: "", audience: "",
+  key: "", values: {}, qty: "1", unitPrice: "0", sellPrice: "",
 });
 
 const blankLine = (): LineDraft => ({
@@ -182,7 +180,6 @@ function groupItems(items: PurchaseOrderItem[]): LineDraft[] {
       qty: String(i.qty),
       unitPrice: String(i.unit_price),
       sellPrice: i.sell_price == null ? "" : String(i.sell_price),
-      audience: i.audience || "",
     };
     const last = out.at(-1);
     if (last && last.headerKey === headerOf(i)) { last.rows.push(row); continue; }
@@ -379,7 +376,6 @@ export default function PurchaseOrderForm({
           productId: l.productId || null,
           catalogCategoryId: l.catalogCategoryId || null,
           sellPrice: r.sellPrice === "" ? null : Number(r.sellPrice),
-          audience: r.audience || null,
           description: l.description,
           /* Sent for every row; the server clears both on anything that is
              not goods for resale, because an office chair the shop sits on
@@ -753,22 +749,6 @@ export default function PurchaseOrderForm({
                         <input id={`${r.key}-sp`} type="number" min="0" step="0.01"
                           value={r.sellPrice} placeholder="0.00"
                           onChange={(e) => setRow(i, ri, { sellPrice: e.target.value })} />
-                      </div>
-                    )}
-                    {l.category === "goods_for_resale" && !l.productId && (
-                      <div className="field">
-                        <label htmlFor={`${r.key}-au`}>{t("whoIsItFor", lang)}</label>
-                        <select id={`${r.key}-au`} value={r.audience}
-                          onChange={(e) => setRow(i, ri, { audience: e.target.value })}>
-                          {/* "" is not a blank to be filled in later -- it
-                              is the answer for a fridge, which is not
-                              unisex, it is simply not a question that
-                              applies. */}
-                          <option value="">{t("audienceAnyone", lang)}</option>
-                          {AUDIENCES.map((a) => (
-                            <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
-                          ))}
-                        </select>
                       </div>
                     )}
                     <div className="po-row-total">

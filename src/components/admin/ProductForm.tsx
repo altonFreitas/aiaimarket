@@ -13,7 +13,6 @@ import { statusForQty } from "@/lib/stockReport";
 import { parseNum } from "@/lib/numberInput";
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
-import { AUDIENCES, AUDIENCE_KEY, normalizeAudience } from "@/lib/audience";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 import type { FormAttribute } from "@/lib/taxonomy/types";
 
@@ -97,7 +96,6 @@ export default function ProductForm({
     preorder_eta: product?.preorder_eta || "",
     description: product?.description || "",
     category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
-    audience: normalizeAudience(product?.audience) ?? "",
     // Empty means the marketplace's own catalogue. A product already filed
     // under a store that is no longer approved reads as the shop's own
     // too, which is exactly what the storefront shows for it.
@@ -249,7 +247,6 @@ export default function ProductForm({
         description: f.description,
         category_id: f.category_id,
         sizes: keptSizes,
-        audience: f.audience || null,
         seller_id: f.seller_id || null,
         tags: keptTags,
         images,
@@ -371,16 +368,15 @@ export default function ProductForm({
           </div>
         </div>
 
-        {/* WHAT IT IS, AND WHO IT IS FOR, IN ONE PLACE.
-            These two used to sit in different panels, and the form gave no
-            hint that they were related -- so the obvious reading was that
-            "Category" was where you chose Man or Woman. It is not, and it
-            must not become that: a category tree split by gender means
-            every clothing category duplicated into a men's and a women's
-            copy, and then an argument about which one a unisex t-shirt goes
-            in. The shop menu builds Women and Men from `audience` instead,
-            over the SAME categories. See src/lib/audience.ts and
-            src/lib/nav.ts. */}
+        {/* WHERE THIS PRODUCT IS FILED.
+            There was a "Who is it for" box here -- Men / Women / Unisex /
+            unset -- kept deliberately out of the category tree so that
+            every clothing category would not have to be duplicated into a
+            men's copy and a women's copy. The shop has since decided the
+            other way round, and decided it in the tree itself: Clothing is
+            the category, Men's clothing and Women's clothing are
+            subcategories of it. One answer, given in one box, in the place
+            a shopper will actually look for it. */}
         <div className="panel">
           <h3>{t("catPanelTitle", lang)}</h3>
           <p className="hint">{t("catPanelHint", lang)}</p>
@@ -404,21 +400,6 @@ export default function ProductForm({
               <p className="hint">{t("subcategoryHint", lang)}</p>
             </div>
           )}
-          <div className="field">
-            <label htmlFor="audience">{t("audienceLabel", lang)}</label>
-            <select id="audience" value={f.audience} disabled={!canWrite}
-              onChange={(e) => setF({ ...f, audience: e.target.value })}>
-              {/* Empty is a real answer, not a missing one: it means the
-                  question does not apply to this product. A saucepan is not
-                  unisex. */}
-              <option value="">{t("audienceAny", lang)}</option>
-              {AUDIENCES.map((a) => (
-                <option key={a} value={a}>{t(AUDIENCE_KEY[a], lang)}</option>
-              ))}
-            </select>
-            <p className="hint">{t("audienceHint", lang)}</p>
-          </div>
-
           {/* THE PRODUCT TYPE, AND THE FIELDS THAT COME WITH IT.
               The category above -> product type -> that type's own
               attributes, all read from the database. There is no branch

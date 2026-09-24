@@ -1444,8 +1444,6 @@ export const STR: Record<string, [string,string,string]> = {
   featCustomerAlerts:["Avizu ba kliente","Avisos para clientes","Alerts for customers"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */
-  whoIsItFor:["Ba sé?","Para quem?","Who is it for?"],
-  audienceAnyone:["Ba ema hotu","Para qualquer pessoa","Anyone"],
   /* "below" no longer: the note sits under the size boxes now, not over
      them -- under the Quantity field it was pushing that one box up out of
      line with the rest of the row. A sentence that points the wrong way is
@@ -1473,7 +1471,8 @@ export const STR: Record<string, [string,string,string]> = {
   featProofPath:["Komprovante pagamentu nia link badak","Ligação curta ao comprovativo","Payment proofs behind a short-lived link"],
   featTotpReplay:["Kódigu 2FA uza dala ida deit","Código 2FA só serve uma vez","A 2FA code works only once"],
   featProductTimestamps:["Produtu nia troka ikus","Última alteração do produto","When a product last changed"],
-  featAudienceRestock:["Ba sé, no avisu stock","Para quem, e aviso de stock","Who it is for, and low stock"],
+  featRestockLevel:["Avisu stock menus","Aviso de stock baixo","Low-stock alerts"],
+  featDropAudience:["Hasai \"ba sé\"","Remover \"para quem\"","\"Who it is for\" removed"],
   featStockLedger:["Xek diferensa stock","Verificação de diferenças de stock","Stock drift check"],
   featHardenRls:["Taka dalan públiku ba base dadus","Fechar o acesso público direto","Closing direct public access"],
   featAuditHardening:["Índise no lalais","Índices e velocidade","Indexes and speed"],
@@ -1521,12 +1520,8 @@ export const STR: Record<string, [string,string,string]> = {
   payWalletNote:["Apple Pay no Google Pay la'ós servisu selu seluk. Sira dalan atu selu ho kartaun ne'ebé ema rai ona iha telefone — osan la'o liu adkirente kartaun ne'ebé Ita uza ona, ho presu hanesan. Tanba ne'e sira presiza kartaun funsiona lai.","O Apple Pay e o Google Pay não são serviços de pagamento separados. São formas de pagar com um cartão já guardado no telemóvel — o dinheiro passa pelo mesmo adquirente de cartões que já usa, com o mesmo preço. Por isso precisam primeiro dos cartões a funcionar.","Apple Pay and Google Pay are not separate payment services. They are ways to pay with a card already saved on a phone -- the money moves through the same card acquirer you already use, at the same rate. That is why they need cards working first."],
   zoomIn:["Haree besik","Aproximar","Zoom in"],
   zoomOut:["Haree dook","Afastar","Zoom out"],
-  audienceMen:["Mane","Homem","Men"],
-  audienceWomen:["Feto","Mulher","Women"],
-  audienceUnisex:["Rua hotu","Ambos","Unisex"],
-  audienceLabel:["Ba sé","Para quem","Who it is for"],
-  audienceAny:["Ba sé de'it","Para todos","Anyone"],
-  audienceHint:["Ne'e mak tau produtu iha Feto ka Mane iha menu loja nian. Husik mamuk ba sasán ne'ebé pergunta ne'e la aplika — frigorífiku la'ós ropa ema nian.","É isto que o coloca em Mulher ou Homem no menu da loja. Deixe vazio para artigos a que a pergunta não se aplica — um frigorífico não é roupa de ninguém.","This is what puts it under Women or Men in the shop menu. Leave empty for goods the question does not apply to — a fridge is nobody's clothing."],
+  categoryLabel:["Kategoria","Categoria","Category"],
+  categoryAll:["Kategoria hotu","Todas as categorias","All categories"],
   restockSoon:["Stock tun ba kraik","Stock a baixar","Running low"],
   restockSoonHint:["Produtu sira ne'e iha {pct}% ka menus husi entrega ikus.","Estes produtos estão a {pct}% ou menos da última entrega.","These are at {pct}% or less of their last delivery."],
   attnNotSelling:["Produtu la faan","Produtos parados","Not selling"],
@@ -1608,8 +1603,6 @@ export const STR: Record<string, [string,string,string]> = {
   navShopAll:["Haree hotu","Ver tudo","Shop all"],
   navShopAllOf:["Haree hotu iha","Ver tudo em","Shop all"],
   navNoSubcategories:["Seidauk iha sub-kategoria.","Ainda sem subcategorias.","No subcategories yet."],
-  shopByAudience:["Sosa ba sé","Comprar para quem","Shop by"],
-  shopByAudienceSub:["Ba feto no ba mane.","Para mulher e para homem.","For women and for men."],
   railPrev:["Molok","Anterior","Previous"],
   railNext:["Tuir mai","Seguinte","Next"],
   /* ---- hero video ---- */

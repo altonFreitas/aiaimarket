@@ -65,6 +65,15 @@ export interface FeatureCheck {
    * satisfied by an absence, and the reason harden-rls.sql could not be
    * expressed at all before. */
   droppedPolicies?: readonly (readonly [string, string])[];
+  /** Columns the file REMOVES, as [table, column]. Satisfied by an
+   * absence, like droppedPolicies: the file has been run when these are
+   * gone.
+   *
+   * A table that is not there at all counts as gone. It has to: a shop
+   * that has never run procurement.sql has no purchase_order_items, and
+   * asking it to run a file that drops a column from a table it does not
+   * have is sending it after work that does not exist. */
+  droppedColumns?: readonly (readonly [string, string])[];
   /** True for the ones the shop cannot open without. */
   core?: boolean;
 }
@@ -218,11 +227,26 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     constraints: [["public.sellers", "sellers_area_keys_check"]],
   },
   {
-    file: "audience-restock.sql", labelKey: "featAudienceRestock",
+    file: "audience-restock.sql", labelKey: "featRestockLevel",
+    /* NOT products.audience, which this file adds and drop-audience.sql
+       later removes. Probing a column a later file deletes would leave
+       this row reading "not applied" on a database where every file HAS
+       run -- and a health panel that cries wolf is one nobody reads. The
+       restock half of this file is what survives, so that is what it is
+       probed by. */
     columns: [
-      ["products", "audience"],
       ["products", "restock_level"],
       ["settings", "restock_alert_pct"],
+    ],
+  },
+  {
+    /* Probed by the ABSENCE of what it removes. Every other row here asks
+       "is the thing there yet"; this file's whole job is to take two
+       columns away, so the only honest question is the opposite one. */
+    file: "drop-audience.sql", labelKey: "featDropAudience",
+    droppedColumns: [
+      ["products", "audience"],
+      ["purchase_order_items", "audience"],
     ],
   },
   {
@@ -553,6 +577,12 @@ export const SCHEMA_ORDER: readonly string[] = [
   // procurement.sql, whose purchase_order_items it adds two columns to.
   "po-taxonomy.sql",
   "attribute-filters.sql",
+  // AFTER attribute-filters.sql, because it redefines the same
+  // search_products and has to be the last word on it, and after every
+  // file that adds products.audience or purchase_order_items.audience --
+  // it drops both columns, and a file that adds one again downstream of
+  // this would undo it.
+  "drop-audience.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
@@ -712,6 +742,13 @@ export function checkSchema(snapshot: SchemaSnapshot): FeatureStatus[] {
     for (const [tbl, pol] of f.droppedPolicies ?? []) {
       if (snapshot.policies.has(memberKey(tbl, pol))) lingering.push(`${tbl}: ${pol}`);
     }
+    for (const [tbl, col] of f.droppedColumns ?? []) {
+      // No table, nothing to drop -- see droppedColumns' note.
+      if (snapshot.tables.has(tbl.toLowerCase())
+          && snapshot.columns.has(`${tbl}.${col}`.toLowerCase())) {
+        lingering.push(`${tbl}.${col}`);
+      }
+    }
 
     return {
       ...f,
@@ -826,7 +863,8 @@ export const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
     "stock-receipt.sql", "stock-ledger.sql", "audience-restock.sql",
   ],
   // Catalogue search gains the audience filter.
-  search_products: ["marketplace-v2.sql", "audience-restock.sql", "attribute-filters.sql"],
+  search_products: ["marketplace-v2.sql", "audience-restock.sql", "attribute-filters.sql",
+                    "drop-audience.sql"],
   // A refund counts when it has SETTLED, not when it was agreed.
   sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
   // The line-building trigger gains the line's share of the order's tax.

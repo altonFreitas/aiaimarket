@@ -1,7 +1,7 @@
 import CatalogLayout from "@/components/CatalogLayout";
 import { getCategories, getLiveProducts, getSettings } from "@/lib/data/public";
 import { searchCatalog, parseSort, parsePage, parsePrice } from "@/lib/data/search";
-import { parseAudienceFilter } from "@/lib/audience";
+import { categoryOptions, categoryFilterIds } from "@/lib/nav";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import { listingMetadata } from "@/lib/listingMeta";
@@ -43,11 +43,16 @@ export default async function ShopPage({
   const active = parseAttributeFilters(sp);
   const attributeIds = await idsMatching(active);
 
-  const [lang, settings, cats, allProducts, result] = await Promise.all([
-    getLang(), getSettings(), getCategories(), getLiveProducts(),
+  /* The aisle filter needs the tree before the search can use it, so the
+     categories are read first rather than inside the Promise.all below --
+     getCategories() is cross-request cached (lib/data/public.ts), so the
+     second call costs nothing. */
+  const cats = await getCategories();
+  const [lang, settings, allProducts, result] = await Promise.all([
+    getLang(), getSettings(), getLiveProducts(),
     searchCatalog({
+      categoryIds: categoryFilterIds(cats, one(sp.cat)) ?? undefined,
       inStockOnly: one(sp.in) === "1",
-      audience: parseAudienceFilter(one(sp.for)),
       minPrice: parsePrice(one(sp.min)),
       maxPrice: parsePrice(one(sp.max)),
       sort: parseSort(one(sp.sort), false),
@@ -73,9 +78,10 @@ export default async function ShopPage({
       basePath="/shop"
       attributeFilters={attributeFilters}
       activeFilters={active}
+      categories={categoryOptions(cats, allProducts)}
       params={{
         sort: one(sp.sort), in: one(sp.in), min: one(sp.min),
-        max: one(sp.max), for: one(sp.for),
+        max: one(sp.max), cat: one(sp.cat),
       }}
     />
   );

@@ -134,10 +134,6 @@ export interface Product {
   /** Expected availability, YYYY-MM-DD. Null/absent means genuinely
    * unknown, which is shown as such rather than guessed at. */
   preorder_eta?: string | null;
-  /** Who the product is for: men, women, unisex, or absent when nobody
-   * has said (or the database has not run supabase/audience-restock.sql).
-   * Absent is NOT unisex -- see src/lib/audience.ts. */
-  audience?: string | null;
   /** Quantity on hand just after the last delivery, the reference the
    * low-stock alert compares against. Maintained by the database. */
   restock_level?: number | null;
@@ -264,10 +260,6 @@ export interface PurchaseOrderItem {
    * size, so honouring both would count the same goods twice. Absent on a
    * database that has not run supabase/variant-purchasing.sql. */
   variant_qty?: Record<string, number> | null;
-  /** Who the goods on this line are for. Copied onto the product at
-   * receipt so the catalog does not have to be edited afterwards. Null is
-   * "not said", which is not the same as unisex -- see lib/audience.ts. */
-  audience?: string | null;
   /** Product description. Fills a product this line creates, or a blank
    * one on an existing product -- it never overwrites text already there. */
   description?: string;
@@ -398,7 +390,8 @@ export interface Wallet { label: string; number: string; }
 export interface Settings {
   /** How far a product may fall below its last delivery before the admin
    * home mentions it, 1-99. Absent on a database that has not run
-   * supabase/audience-restock.sql; treated as the default when so. */
+   * supabase/audience-restock.sql's restock half; treated as the
+   * default when so. */
   restock_alert_pct?: number;
   /* The five facts the policy pages cannot know, and the money settings.
      All optional: a database that has not run

@@ -6,8 +6,6 @@ import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
 import { revalidatePath, updateTag } from "next/cache";
 import { CACHE_TAGS } from "@/lib/cache";
 import { moveStockTo } from "@/lib/stockLedger";
-import { normalizeAudience } from "@/lib/audience";
-import { writeTolerating } from "@/lib/missingColumn";
 
 /* A seller's stock goes through the same ledger the admin's does.
  *
@@ -74,10 +72,6 @@ export interface SellerProductFormInput {
   qty: number;
   description: string;
   category_id: string;
-  /** men | women | unisex, or null for "the question does not apply".
-   * What puts a listing under Women or Men in the shop menu -- see
-   * src/lib/audience.ts. */
-  audience?: string | null;
   sizes: string[];
   tags: string[];
   images: string[];
@@ -108,19 +102,20 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
     // from the quantity by the database. Writing either here would put the
     // balance and its history out of step -- which is what this form used
     // to do every time it was saved.
-    const { error } = await writeTolerating(
-      { audience: normalizeAudience(input.audience) },
-      (extra) => sb.from("products").update({
-        name: input.name, slug, price: input.price,
-        discount_price: input.discount_price,
-        description: input.description,
-        category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
-        images: input.images,
-        pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
-        pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
-        ...extra,
-      }).eq("id", input.id)
-    );
+    /* A plain write, not a writeTolerating one. The only column this form
+       sent that every database might not have was `audience`, and that
+       column is gone (supabase/drop-audience.sql) -- every field below has
+       existed since schema.sql, so there is nothing left for a retry to
+       drop. */
+    const { error } = await sb.from("products").update({
+      name: input.name, slug, price: input.price,
+      discount_price: input.discount_price,
+      description: input.description,
+      category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
+      images: input.images,
+      pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
+      pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
+    }).eq("id", input.id);
     if (error) throw error;
 
     // A counted shelf, recorded as what it is: an adjustment, with a
@@ -137,21 +132,18 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
     // Created empty and stocked by a movement, so a product's history
     // starts at its first unit rather than at some number that was already
     // there when the ledger began.
-    const { data: made, error } = await writeTolerating<{ id: string }>(
-      { audience: normalizeAudience(input.audience) },
-      (extra) => sb.from("products").insert({
-        ref, name: input.name, slug, price: input.price, qty: 0,
-        discount_price: input.discount_price,
-        stock_status: "out", description: input.description,
-        category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
-        images: input.images,
-        pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
-        pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
-        seller_id: seller.id,
-        status: "approved",
-        ...extra,
-      }).select("id").single()
-    );
+    // Plain, for the same reason as the update above.
+    const { data: made, error } = await sb.from("products").insert({
+      ref, name: input.name, slug, price: input.price, qty: 0,
+      discount_price: input.discount_price,
+      stock_status: "out", description: input.description,
+      category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
+      images: input.images,
+      pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
+      pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
+      seller_id: seller.id,
+      status: "approved",
+    }).select("id").single();
     if (error) throw error;
     // The insert asked for the id back, so a success without one means the
     // row is not there and stocking it would write against nothing.

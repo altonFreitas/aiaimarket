@@ -1,5 +1,4 @@
 import { cache } from "react";
-import { matchesAudience, normalizeAudience, type Audience } from "@/lib/audience";
 import { supabaseAnon } from "@/lib/supabase/anon";
 import { getLiveProducts } from "./public";
 import { effectivePrice, ratingAverage } from "@/lib/utils";
@@ -66,9 +65,6 @@ export interface CatalogQuery {
   minPrice?: number | null;
   maxPrice?: number | null;
   inStockOnly?: boolean;
-  /** "men" or "women". Null/absent means no preference, which shows
-   * everything -- including the products nobody has labelled. */
-  audience?: Audience | null;
   sort?: CatalogSort;
   page?: number;
   perPage?: number;
@@ -122,15 +118,7 @@ async function searchCatalogUncached(query: CatalogQuery): Promise<CatalogResult
       sort,
       lim: perPage,
       off: (page - 1) * perPage,
-      // Only sent when there is one to send. A database that has not run
-      // supabase/audience-restock.sql has the nine-argument function, and
-      // naming an argument it does not have fails the call -- which would
-      // push EVERY search onto the slow in-memory path, not just the ones
-      // using this filter. Sending it only when it matters means an
-      // un-migrated shop keeps its fast search and degrades on this one
-      // filter alone.
-      ...(query.audience ? { audience_filter: query.audience } : {}),
-      /* Same treatment, and the same reason: a database that has not run
+      /* Sent only when there is one to send. A database that has not run
          supabase/attribute-filters.sql has the ten-argument function, and
          naming an argument it does not have fails the call -- which would
          push EVERY search onto the slow in-memory path rather than just
@@ -180,7 +168,6 @@ async function fallbackSearch(
     if (sellers && !sellers.has(p.seller_id)) return false;
     if (attrIds && !attrIds.has(p.id)) return false;
     if (query.inStockOnly && p.stock_status === "out") return false;
-    if (!matchesAudience(normalizeAudience(p.audience), query.audience ?? null)) return false;
     const price = effectivePrice(p);
     if (query.minPrice != null && price < query.minPrice) return false;
     if (query.maxPrice != null && price > query.maxPrice) return false;

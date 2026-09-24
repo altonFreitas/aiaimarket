@@ -104,7 +104,8 @@ export async function updateHeroSlide(
      has no such column -- and Postgres fails the WHOLE update when one is
      named: `column "media_fit" of relation "hero_slides" does not exist`.
      That would break Save for every slide over a field nobody on that shop
-     can even see. Same treatment the product form gives `audience`: try
+     can even see. The same treatment the product form gives its own
+     migration-era columns: try
      it, and if the column is what the database objects to, save everything
      else and drop that one. */
   const { media_fit, ...always } = fields;

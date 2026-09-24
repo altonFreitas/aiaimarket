@@ -47,16 +47,19 @@ describe("a header, and the rows it is true of", () => {
     }
   });
 
-  it("asks for the quantity, both prices and the audience per ROW", () => {
-    /* All four differ between a 38 and a 45 of the same shoe, which is the
-       whole reason a line is not a product any more. */
-    for (const perRow of ["`${r.key}-q`", "`${r.key}-u`", "`${r.key}-sp`", "`${r.key}-au`"]) {
+  it("asks for the quantity and both prices per ROW", () => {
+    /* All three differ between a 38 and a 45 of the same shoe, which is the
+       whole reason a line is not a product any more. "Who is it for" was a
+       fourth and is not: it was the same answer for every row of a line,
+       and it is not asked anywhere now -- the category says it. */
+    for (const perRow of ["`${r.key}-q`", "`${r.key}-u`", "`${r.key}-sp`"]) {
       /* Twice each: the label's htmlFor and the control's id. Asserting it
          is merely PRESENT passed with half of a rename applied, which is
          the state where the label points at nothing. */
       expect(FORM.split(perRow).length - 1, perRow).toBe(2);
     }
     expect(FORM).toContain("l.rows.map((r, ri) => (");
+    expect(FORM, "the audience box is gone from the row").not.toContain("-au`");
   });
 
   it("draws each row's own axes, and only the axes", () => {

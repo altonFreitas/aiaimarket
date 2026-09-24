@@ -85,11 +85,13 @@ describe("columns that arrive with a migration are never required", () => {
     }
   });
 
-  it("keeps audience tolerated, which is the case this module was built for", () => {
-    for (const marker of [PRODUCT_UPDATE, PRODUCT_INSERT]) {
-      const { tolerated, always } = split(PRODUCTS, marker);
-      expect(always, marker).not.toMatch(/audience:/);
-      expect(tolerated, marker).toMatch(/audience/);
-    }
+  it("has nothing left of the column this module was built for", () => {
+    /* products.audience was the original case: added by a migration, named
+       among the columns that always exist, and so able to stop a shop
+       saving any product at all over a field nobody had filled in. The
+       column is gone (supabase/drop-audience.sql) and so is every mention
+       of it -- including the tolerated ones, which would now be retrying
+       past a column that is never coming back. */
+    expect(PRODUCTS).not.toMatch(/audience/);
   });
 });

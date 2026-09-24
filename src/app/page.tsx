@@ -1,9 +1,7 @@
 import Hero from "@/components/home/Hero";
 import ProductSection from "@/components/home/ProductSection";
-import AudienceTiles from "@/components/home/AudienceTiles";
 import PromoStrip from "@/components/home/PromoStrip";
 import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides, getPromotions, getApprovedSellersById } from "@/lib/data/public";
-import { audienceHighlights } from "@/lib/nav";
 import { mostLoved } from "@/lib/loves";
 import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
@@ -66,10 +64,6 @@ export default async function HomePage() {
   // never topped up.
   const loved = mostLoved(products, SECTION_SIZE);
 
-  // Women / Men, but only once the shop has said who its products are for.
-  // Same rule as the navigation bar -- see lib/nav.ts.
-  const audiences = audienceHighlights(cats, products, lang);
-
   // Homepage category spotlights: real top-level categories with actual
   // stock, not a hardcoded Men's/Women's/Accessories list — the store's
   // categories are whatever the admin has set up (see CategoriesAdmin),
@@ -89,7 +83,13 @@ export default async function HomePage() {
       <Hero lang={lang} settings={settings} slides={heroSlides} />
 
       <div className="wrap home-body">
-        <AudienceTiles roots={audiences} lang={lang} />
+        {/* A "Shop by" strip of Women and Men used to open this page. It
+            went with products.audience, and it is not coming back as a row
+            of category tiles: every top-level category already gets its own
+            titled section further down, with real products in it and a view
+            -all link. Two strips naming the same aisles, one with pictures
+            of the category and one with pictures of what is in it, is the
+            same list twice. */}
         <PromoStrip lang={lang} promotions={promotions} />
 
         <ProductSection

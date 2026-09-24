@@ -95,7 +95,11 @@ const EVERYTHING = snap([
   "admin_users", "audit_log", "admin_users.role", "admin_users.sections",
   "sellers.features",
   "sellers.address_public",
-  "products.audience", "products.restock_level", "settings.restock_alert_pct",
+  /* NOT products.audience. This is the end state of running every file in
+     order, and the last one to touch that column DROPS it -- see
+     supabase/drop-audience.sql. A fixture that still carried it would be
+     describing a database that cannot exist. */
+  "products.restock_level", "settings.restock_alert_pct",
   "products.updated_at",
   "settings.totp_last_counter",
   "orders.proof_path",
@@ -135,7 +139,10 @@ describe("checkSchema", () => {
     // schema-health.sql is the other exception, and for the same kind of
     // reason: this snapshot is kind-aware, which is only possible because
     // that file has been run.
-    const done = new Set(["harden-rls.sql", INVENTORY_FILE]);
+    /* drop-audience.sql joins them, and for exactly the same reason: it
+       only REMOVES, and on an empty database the columns it takes away are
+       not there to take. */
+    const done = new Set(["harden-rls.sql", "drop-audience.sql", INVENTORY_FILE]);
     expect(out.filter((f) => !done.has(f.file)).every((f) => !f.applied)).toBe(true);
     expect(out.filter((f) => f.applied).map((f) => f.file).sort())
       .toEqual([...done].sort());
@@ -157,14 +164,13 @@ describe("checkSchema", () => {
 
   it("catches the exact gap that stopped products saving", () => {
     const names = [...EVERYTHING.tables, ...EVERYTHING.columns]
-      .filter((n) => !n.startsWith("products.audience")
-                  && !n.startsWith("products.restock_level")
+      .filter((n) => !n.startsWith("products.restock_level")
                   && !n.startsWith("settings.restock_alert_pct"));
     const out = checkSchema(snap(names));
     const f = out.find((x) => x.file === "audience-restock.sql")!;
     expect(f.applied).toBe(false);
     expect(f.missing).toEqual([
-      "products.audience", "products.restock_level", "settings.restock_alert_pct",
+      "products.restock_level", "settings.restock_alert_pct",
     ]);
   });
 
@@ -425,6 +431,7 @@ describe("the feature list matches the folder", () => {
       const n = (f.tables?.length ?? 0) + (f.columns?.length ?? 0)
         + (f.views?.length ?? 0) + (f.routines?.length ?? 0)
         + (f.indexes?.length ?? 0) + (f.droppedPolicies?.length ?? 0)
+        + (f.droppedColumns?.length ?? 0)
         + (f.constraints?.length ?? 0);
       expect([f.file, n > 0]).toEqual([f.file, true]);
     }

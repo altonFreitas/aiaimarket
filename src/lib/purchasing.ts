@@ -3,7 +3,6 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { todayIso } from "@/lib/procurement";
 import { normalizeSizeQty } from "@/lib/sizeStock";
-import { normalizeAudience } from "@/lib/audience";
 import { scopeSellerId, scopeCanWrite, type ProcurementScope } from "@/lib/procurementScope";
 import { attributesForType } from "@/lib/data/taxonomy";
 import { checkLineTaxonomy, type LineTaxonomy } from "@/lib/taxonomy/lineTaxonomy";
@@ -212,7 +211,6 @@ export interface PoLineInput {
    * movement per size. */
   sizeQty?: Record<string, number> | null;
   /** Who the goods are for, copied onto the product at receipt. */
-  audience?: string | null;
   description?: string;
   /** What KIND of thing this line buys, from the taxonomy. Copied onto the
    * product at receipt, which is what gives the new listing its fields,
@@ -393,7 +391,6 @@ export async function savePurchaseOrderIn(
          breakdown carrying -3 or 2.5 would reach the ledger, and the
          ledger is the shop's record of what is on the shelf. */
       size_qty: normalizeSizeQty(l.sizeQty),
-      audience: normalizeAudience(l.audience),
       description: clip(l.description, MAX_TEXT),
     };
   });
