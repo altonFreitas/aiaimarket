@@ -1484,8 +1484,10 @@ export const STR: Record<string, [string,string,string]> = {
   featAttributeFilters:["Filtru atributu","Filtros por atributo","Attribute filters"],
   featTaxPrecision:["Presizaun taxa nian","Precisão da taxa de imposto","Tax rate precision"],
   featPoTaxonomy:["Sosa tuir tipu produtu","Compra por tipo de produto","Buying by product type"],
+  featStaleStock:["Avizu produtu la faan","Aviso de produtos parados","Slow-moving stock notice"],
   restockHint:["Produtu ne'e iha ona kategoria, folin no kampu rasik sira.","Este produto já tem a sua categoria, o seu preço e os seus campos.","This product already has its category, its price and its own fields."],
   costPrice:["Folin sosa","Preço de custo","Cost price"],
+  addLineLike:["Aumenta linha (produtu hanesan)","Adicionar linha (mesmo produto)","Add line (same product)"],
   bulkGenerate:["Fahe ba tamañu/kór","Dividir por tamanho/cor","Bulk generate variants"],
   bulkGenerateGo:["Halo linha {n}","Criar {n} linhas","Generate {n} lines"],
   bulkGenerateHint:["Hakerek valór sira ho vírgula. Linha ida ne'e sai linha ida ba kombinasaun ida-idak, ho kuantidade, folin sosa no folin faan rasik.","Escreva os valores separados por vírgula. Esta linha passa a uma linha por combinação, cada uma com a sua quantidade, preço de custo e preço de venda.","Comma separated. This line becomes one line per combination, each with its own quantity, cost price and selling price."],
@@ -1527,6 +1529,11 @@ export const STR: Record<string, [string,string,string]> = {
   audienceHint:["Ne'e mak tau produtu iha Feto ka Mane iha menu loja nian. Husik mamuk ba sasán ne'ebé pergunta ne'e la aplika — frigorífiku la'ós ropa ema nian.","É isto que o coloca em Mulher ou Homem no menu da loja. Deixe vazio para artigos a que a pergunta não se aplica — um frigorífico não é roupa de ninguém.","This is what puts it under Women or Men in the shop menu. Leave empty for goods the question does not apply to — a fridge is nobody's clothing."],
   restockSoon:["Stock tun ba kraik","Stock a baixar","Running low"],
   restockSoonHint:["Produtu sira ne'e iha {pct}% ka menus husi entrega ikus.","Estes produtos estão a {pct}% ou menos da última entrega.","These are at {pct}% or less of their last delivery."],
+  attnNotSelling:["Produtu la faan","Produtos parados","Not selling"],
+  attnNotSellingHint:["La faan ba loron {days} ba leten — «{name}» ne'e naruk liu. Konsidera deskontu.","Sem vendas há {days} dias — «{name}» é o mais antigo. Considere um desconto.","No sale in {days} days — \u201c{name}\u201d is the longest. Worth a discount."],
+  staleDays:["Loron to'o bainhira hein","Dias até avisar","Days before flagging"],
+  staleDaysHint:["Produtu ne'ebé la faan ba loron hirak ne'e sei sai iha lista serbisu. Produtu ne'ebé seidauk faan ida, sura husi loron tau iha lista. 1-365.","Um produto sem vendas durante estes dias aparece na lista de tarefas. Um produto que nunca vendeu conta a partir do dia em que foi listado. 1-365.","A product with no sale for this many days shows on the to-do list. One that has never sold counts from the day it was listed. 1\u2013365."],
+  filterNotSelling:["La faan","Parados","Not selling"],
   /* Shown on a low row, so the shop can see what the warning is measuring
      and judge whether the percentage is set where it wants it. */
   lowFromDelivery:["{pct}% husi {n} entrega ikus","{pct}% de {n} da última entrega","{pct}% of the last {n} delivered"],

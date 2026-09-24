@@ -31,6 +31,7 @@ export type AttentionKind =
   | "restock_soon"
   | "size_running_out"
   | "stock_drift"
+  | "not_selling"
   | "sellers_to_approve"
   | "refunds_to_settle"
   | "cards_to_void"
@@ -87,6 +88,14 @@ export interface AttentionInput {
    * lib/sizeStock.ts, which skips untracked products rather than reporting
    * every size of everything as out. */
   lowSizes?: ReadonlyArray<{ productName: string; size: string; qty: number }>;
+  /** Listed, in stock, and nobody has bought one for longer than the shop
+   * is prepared to wait. Longest idle first -- see lib/stale.ts. Absent on
+   * a shop that has not run supabase/stale-stock.sql, or cannot read its
+   * order lines. */
+  notSelling?: ReadonlyArray<{ name: string; days: number }>;
+  /** The limit those were found with, for the sentence that reports them.
+   * Shown rather than assumed: a shop that set 90 should be told 90. */
+  staleDays?: number;
   nowMs?: number;
 }
 
@@ -199,6 +208,23 @@ export function buildAttention(input: AttentionInput): AttentionItem[] {
     // The emptiest one, named, so the card says something before it is
     // opened. lowSizes() sorts emptiest first.
     sizes.length ? { name: `${sizes[0].productName} · ${sizes[0].size}` } : undefined);
+
+  /* MONEY ALREADY SPENT, SITTING STILL.
+     Every other item here is something going wrong now; this one is
+     something that has been quietly wrong for a month. It is `info`
+     deliberately -- nobody is waiting, no money is late, and ranking it
+     above an unconfirmed order would be wrong -- but it is the item most
+     likely to be worth actual money, because the stock is already paid
+     for and the only question left is the price.
+
+     Linked to the catalogue with the filter already applied, because "42
+     products have not sold" is useless without "and here they are". */
+  const idle = input.notSelling ?? [];
+  add("not_selling", idle.length, "info",
+    "/admin/products?stale=1", "attnNotSelling", "attnNotSellingHint",
+    // The stalest one, named, so the card says something before it is
+    // opened -- and the limit, so the sentence matches the setting.
+    { days: input.staleDays ?? 30, name: idle.length ? idle[0].name : "" });
 
   // Empty AND still selling. A listing nobody orders being at zero is not a
   // problem to solve today; one that people are still trying to buy is.

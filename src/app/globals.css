@@ -3285,6 +3285,8 @@ tr.is-ended{opacity:.55}
 /* Full width, like every other block that is about the line rather than
    about one box on it. */
 .po-line .field.po-line-bulk{flex:1 1 100%}
+/* Its own row, under the fields it copies. */
+.po-line .field.po-line-more{flex:1 1 100%}
 /* The combination this line buys, above the boxes rather than beside them:
    it names the row, and a name belongs at the top of the thing it names. */
 .po-line .field.po-line-sku{flex:1 1 100%;order:-1}

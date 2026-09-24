@@ -8,6 +8,8 @@ const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const FORM = read("src/components/admin/procurement/PurchaseOrderForm.tsx");
 const RECEIVE = read("src/lib/receiving.ts");
 const CSS = read("src/app/globals.css");
+const PICKER = read("src/components/admin/TaxonomyPicker.tsx");
+const PRODUCT_FORM = read("src/components/admin/ProductForm.tsx");
 
 /* ONE LINE, ONE SKU.
  *
@@ -73,6 +75,69 @@ describe("splitting one line into many", () => {
     expect(FORM).toContain('.join(" / ")');
     expect(FORM).toContain('className="field po-line-sku"');
     expect(CSS).toMatch(/\.po-line \.field\.po-line-sku\{flex:1 1 100%/);
+  });
+});
+
+describe("each question is asked once, not once per line", () => {
+  it("draws only the axes on a line", () => {
+    /* A t-shirt's product type asks fourteen questions. Eleven of them --
+       Brand, Fit, Pattern, Season, Neck Type -- describe the PRODUCT, and
+       a twelve-SKU order asked all fourteen twelve times and got the same
+       eleven answers every time. */
+    expect(FORM).toContain('fields={bulk[l.key] ? "none" : "variant"}');
+    expect(PICKER).toContain('fields === "variant" ? forThisType.filter((a) => a.is_variant)');
+  });
+
+  it("draws none of them while the split is being set up", () => {
+    /* The generator asks for a LIST of sizes. Its boxes beside the line's
+       own single-size boxes are two Size fields on one screen meaning
+       different things, which is what made this look duplicated. */
+    expect(PICKER).toContain('fields === "none" ? []');
+  });
+
+  it("still tells the truth about a type with no fields at all", () => {
+    // The notice has to answer for the TYPE, not for the subset asked
+    // for, or a line showing axes only would claim the type is empty.
+    expect(PICKER).toMatch(/fields !== "none" && value\.productTypeId\s*\n\s*&& forThisType\.length === 0/);
+  });
+
+  it("leaves the product form asking everything", () => {
+    // Default, so the one screen where a product is described in full is
+    // unchanged.
+    expect(PICKER).toContain('fields = "all"');
+    expect(PRODUCT_FORM).not.toContain("fields=");
+  });
+});
+
+describe("one more of the same thing, in another colour", () => {
+  it("offers it once a product type is chosen", () => {
+    // Nothing to copy before that: the line is not yet a SKU.
+    expect(FORM).toMatch(/\{l\.taxonomy\.productTypeId && \(\s*\n\s*<WriteOnly>\s*\n\s*<div className="field po-line-more">/);
+    expect(FORM).toContain('onClick={() => addLineLike(i)}');
+  });
+
+  it("copies what describes the goods and blanks what identifies the SKU", () => {
+    /* MEASURED: one line became two carrying "Blue Shirt", 10 and the
+       description. The combination is the one thing this line exists to
+       change. */
+    expect(FORM).toContain("const axes = new Set(axesOf(line).map((a) => a.id));");
+    expect(FORM).toContain(
+      "Object.entries(line.taxonomy.values).filter(([id]) => !axes.has(id))");
+  });
+
+  it("never copies the link to a catalogue product", () => {
+    /* A line pointing at an existing product is a restock of exactly that
+       product; copying it would top the same one up twice from one order. */
+    expect(FORM).toContain('{ ...line, key, productId: "", taxonomy: { ...line.taxonomy, values } }');
+  });
+
+  it("puts the new line directly under the one it came from", () => {
+    // Not at the bottom of a twelve-line order, where nobody would find it.
+    expect(FORM).toContain("...ls.slice(0, i + 1),");
+  });
+
+  it("hands it the attributes rather than making it fetch them again", () => {
+    expect(FORM).toContain("setLineAttrs((m) => ({ ...m, [key]: m[line.key] ?? [] }));");
   });
 });
 

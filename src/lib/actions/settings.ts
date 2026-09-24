@@ -1,6 +1,8 @@
 "use server";
 import { requireAdmin } from "./guard";
 import { normalizeRestockPct } from "@/lib/restock";
+import { normalizeStaleDays } from "@/lib/stale";
+import { writeTolerating } from "@/lib/missingColumn";
 import { normalizeCurrencyCode, normalizeTaxRate } from "@/lib/money";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath, updateTag } from "next/cache";
@@ -24,6 +26,10 @@ export async function saveSettings(input: {
   municipality: string; post: string; suku: string; landmark: string;
   pickup: boolean; commission_rate: number; seller_registration_enabled: boolean;
   restock_alert_pct?: number;
+  /** How long a listed, in-stock product may go unsold before the to-do
+   * list mentions it. Optional: a shop that has not run
+   * supabase/stale-stock.sql has no such column. */
+  stale_days?: number;
   /* The five facts the policy pages cannot know, and the money settings.
      All optional: a database that has not run
      supabase/legal-currency-tax.sql has none of these columns, and a save
@@ -40,18 +46,43 @@ export async function saveSettings(input: {
   // Clamped here as well as by the column's check constraint. The
   // constraint is the one that cannot be bypassed; this one turns a typo
   // into a sensible number instead of into a failed save.
-  const patch = {
-    ...input,
-    restock_alert_pct: normalizeRestockPct(input.restock_alert_pct),
-    legal_retention_years: period(input.legal_retention_years, 99),
-    legal_return_days: period(input.legal_return_days, 365),
-    legal_refund_days: period(input.legal_refund_days, 365),
-    display_currency: normalizeCurrencyCode(input.display_currency),
+  const {
+    legal_address, legal_registration, legal_retention_years,
+    legal_return_days, legal_refund_days, display_currency,
+    tax_rate, tax_label, tax_included, stale_days, ...core
+  } = input;
+
+  /* THE COLUMNS EVERY SHOP HAS, and the ones it may not.
+   *
+   * This application ships code and runs its SQL by hand afterwards, and
+   * Postgres fails the WHOLE statement over one unknown column name -- so
+   * naming stale_days on a shop that has not pasted stale-stock.sql yet
+   * would stop it saving ANY setting, including the ones it had just
+   * typed. The same was true of the legal and tax columns beside it, and
+   * was written down as a warning rather than handled.
+   *
+   * So the optional ones are offered and dropped individually if the
+   * database does not have them, and everything the shop actually typed
+   * still saves. They start being kept the moment the migration runs. */
+  const optional = {
+    legal_address, legal_registration,
+    legal_retention_years: period(legal_retention_years, 99),
+    legal_return_days: period(legal_return_days, 365),
+    legal_refund_days: period(legal_refund_days, 365),
+    display_currency: normalizeCurrencyCode(display_currency),
     // A percentage typed by a person, stored as the fraction the arithmetic
     // wants. 2.5 in the box is 0.025 in the column.
-    tax_rate: normalizeTaxRate(input.tax_rate),
+    tax_rate: normalizeTaxRate(tax_rate),
+    tax_label, tax_included,
+    stale_days: normalizeStaleDays(stale_days),
   };
-  const { error } = await sb.from("settings").update(patch).eq("id", 1);
+
+  const { error } = await writeTolerating(optional, (extra) =>
+    sb.from("settings").update({
+      ...core,
+      restock_alert_pct: normalizeRestockPct(input.restock_alert_pct),
+      ...extra,
+    }).eq("id", 1));
   if (error) throw error;
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.settings);

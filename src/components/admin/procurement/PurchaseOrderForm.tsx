@@ -327,6 +327,32 @@ export default function PurchaseOrderForm({
     toast(t("bulkGenerated", lang).replace("{n}", String(sets.length)));
   }
 
+  /** Another line for the same product, with the axes blank.
+   *
+   * Everything that describes the goods is copied -- the name, the
+   * category, the product type, the description, who they are for -- and
+   * so are the quantity and the prices, because the second colour is
+   * usually bought in the same numbers at the same cost and correcting one
+   * is faster than typing four. What is NOT copied is the combination
+   * itself: this line exists to be a different one.
+   *
+   * product_id goes too. A line pointing at a catalogue product is a
+   * restock of exactly that product, and copying it would top the same one
+   * up twice from one order. */
+  function addLineLike(i: number) {
+    const line = lines[i];
+    const axes = new Set(axesOf(line).map((a) => a.id));
+    const values = Object.fromEntries(
+      Object.entries(line.taxonomy.values).filter(([id]) => !axes.has(id)));
+    const key = nextKey();
+    setLineAttrs((m) => ({ ...m, [key]: m[line.key] ?? [] }));
+    setLines((ls) => [
+      ...ls.slice(0, i + 1),
+      { ...line, key, productId: "", taxonomy: { ...line.taxonomy, values } },
+      ...ls.slice(i + 1),
+    ]);
+  }
+
   function refile(i: number, categoryId: string) {
     setLines((ls) => ls.map((l, n) => (n === i
       ? { ...l, catalogCategoryId: categoryId,
@@ -740,17 +766,52 @@ export default function PurchaseOrderForm({
                       idPrefix, because an order restocking two shirts of
                       one type draws every attribute twice and two boxes
                       with one id means both labels point at the first. */}
+                  {/* ONLY THE AXES. The product type's other questions --
+                      Brand, Fit, Pattern, Season, Neck Type, eleven of
+                      them for a t-shirt -- describe the PRODUCT, and a
+                      twelve-SKU order asked all fourteen twelve times and
+                      got the same eleven answers every time. They are
+                      asked once, on the product, which is where they are
+                      true. The receipt still gives the product its type,
+                      so that form opens with those questions ready.
+
+                      Nothing at all while the split is being set up: the
+                      generator below asks for a LIST of sizes, and its
+                      boxes beside this line's single-size boxes are two
+                      Size fields on one screen meaning different things --
+                      which is what made this look duplicated. */}
                   <div className="field po-line-tax">
                     <TaxonomyPicker
                       idPrefix={`${l.key}-`}
                       node={l.catalogCategoryId}
                       value={l.taxonomy}
+                      fields={bulk[l.key] ? "none" : "variant"}
                       onChange={(next) => setLine(i, { taxonomy: next })}
                       onAttributes={(attrs) =>
                         setLineAttrs((m) => (m[l.key] === attrs ? m : { ...m, [l.key]: attrs }))}
                       disabled={!canWrite || busy}
                     />
                   </div>
+
+                  {/* ONE MORE OF THE SAME THING, IN ANOTHER COLOUR.
+                      The buyer has just said what the product is, where it
+                      goes and what type it is; buying it in red as well
+                      should not mean saying all of that again. This copies
+                      the line and clears the axes, so the only boxes left
+                      to fill are the ones that differ -- the colour, the
+                      quantity and the price.
+
+                      Beside the split, not instead of it: this is for the
+                      second colour and the third, and the generator is for
+                      the twelve. */}
+                  {l.taxonomy.productTypeId && (
+                    <WriteOnly>
+                      <div className="field po-line-more">
+                        <button type="button" className="btn btn-sm btn-ghost"
+                          onClick={() => addLineLike(i)}>+ {t("addLineLike", lang)}</button>
+                      </div>
+                    </WriteOnly>
+                  )}
 
                   {/* BULK GENERATE, offered only when there is something to
                       split on: a product type with no variant axis has no

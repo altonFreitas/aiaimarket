@@ -6,6 +6,7 @@ import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/s
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { normalizeRestockPct } from "@/lib/restock";
+import { normalizeStaleDays } from "@/lib/stale";
 import { taxRateAsPercent } from "@/lib/money";
 import { parseNum as num, normalizeNumText } from "@/lib/numberInput";
 import type { Bank, Lang, Settings, Wallet, Zone } from "@/lib/types";
@@ -40,6 +41,8 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
     commission_rate: String(settings.commission_rate ?? 10),
     seller_registration_enabled: settings.seller_registration_enabled ?? true,
     restock_alert_pct: String(normalizeRestockPct(settings.restock_alert_pct)),
+    stale_days: String(normalizeStaleDays(
+      (settings as { stale_days?: number }).stale_days)),
     /* THE FIVE FACTS THE POLICY PAGES CANNOT KNOW. Empty strings rather
        than nulls because these are form inputs; saveSettings turns an empty
        period back into null, which is what keeps the policy page showing
@@ -131,6 +134,21 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
             onBlur={(e) => set("restock_alert_pct", normalizeNumText(e.target.value, 0))} />
           <p className="hint">{t("restockAlertPctHint", lang)}</p>
         </div>
+
+        {/* HOW LONG THE SHOP IS PREPARED TO WAIT.
+            The one thing the application cannot work out for itself:
+            thirty days suits a clothes shop and would be absurd for
+            furniture. Beside the restock threshold because they are the
+            same kind of decision -- when to be told -- and a shop tuning
+            one usually wants to see the other. */}
+        <div className="field" style={{ maxWidth: 220, marginTop: 10 }}>
+          <label htmlFor="stale-days">{t("staleDays", lang)}</label>
+          <input id="stale-days" type="number" min={1} max={365} step={1}
+            value={f.stale_days} disabled={busy || !canWrite}
+            onChange={(e) => set("stale_days", e.target.value)}
+            onBlur={(e) => set("stale_days", normalizeNumText(e.target.value, 0))} />
+          <p className="hint">{t("staleDaysHint", lang)}</p>
+        </div>
         {/* ---- the shop's own legal facts ---- */}
         <h3 style={{ marginTop: 22 }}>{t("legalFacts", lang)}</h3>
         <div className="two">
@@ -221,6 +239,7 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
                  reach the database whatever this does. */
               commission_rate: num(f.commission_rate, 10),
               restock_alert_pct: num(f.restock_alert_pct, 0),
+              stale_days: num(f.stale_days, 0),
               tax_rate: num(f.tax_rate, 0),
               legal_retention_years: f.legal_retention_years === ""
                 ? null : Number(f.legal_retention_years),

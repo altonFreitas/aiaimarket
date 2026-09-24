@@ -19,8 +19,18 @@ function pathName(c: Category, cats: Category[]) {
 }
 
 export default function ProductList({
-  lang, products, cats,
-}: { lang: Lang; products: Product[]; cats: Category[] }) {
+  lang, products, cats, staleIds = [], staleDays = 30, initialStale = false,
+}: {
+  lang: Lang; products: Product[]; cats: Category[];
+  /** Products listed and in stock that nobody has bought for staleDays --
+   * see lib/stale.ts. The admin's to-do list links straight here with the
+   * filter on, because "42 products have not sold" is useless without
+   * "and here they are". */
+  staleIds?: readonly string[];
+  staleDays?: number;
+  /** True when arrived at from that link (?stale=1). */
+  initialStale?: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [, startTransition] = useTransition();
@@ -28,6 +38,8 @@ export default function ProductList({
   const [catId, setCatId] = useState("");
   const [stock, setStock] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [stale, setStale] = useState(initialStale);
+  const staleSet = useMemo(() => new Set(staleIds), [staleIds]);
   const canWrite = useCanWrite();
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -39,8 +51,9 @@ export default function ProductList({
     }
     if (catId) a = a.filter((p) => p.category_id === catId);
     if (stock) a = a.filter((p) => p.stock_status === stock);
+    if (stale) a = a.filter((p) => staleSet.has(p.id));
     return a;
-  }, [products, q, catId, stock, showArchived]);
+  }, [products, q, catId, stock, showArchived, stale, staleSet]);
 
   const live = products.filter((p) => !p.archived);
   const outCount = live.filter((p) => p.stock_status === "out").length;
@@ -119,6 +132,17 @@ export default function ProductList({
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />{" "}
           {t("archived", lang)}
         </label>
+        {/* Offered only when there is something behind it. A filter that
+            can only ever return nothing is a control that teaches people
+            the screen is broken. The count rides in the label, because
+            the number IS the reason to press it. */}
+        {staleIds.length > 0 && (
+          <label className="toggle" title={`${staleDays}d`}>
+            <input type="checkbox" checked={stale}
+              onChange={(e) => setStale(e.target.checked)} />{" "}
+            {t("filterNotSelling", lang)} ({staleIds.length})
+          </label>
+        )}
         <WriteOnly>
           <Link className="btn btn-sm btn-amber" href="/admin/p/new">+ {t("newProduct", lang)}</Link>
         </WriteOnly>

@@ -115,6 +115,7 @@ const EVERYTHING = snap([
   // variant-purchasing.sql -- buying and receiving by variant.
   "purchase_order_items.variant_qty",
   "purchase_order_items.product_type_id", "purchase_order_items.attribute_values",
+  "settings.stale_days",
 ]);
 
 describe("checkSchema", () => {

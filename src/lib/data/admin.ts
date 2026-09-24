@@ -496,7 +496,14 @@ export async function adminAttention() {
   const { adminPurchaseOrders } = await import("@/lib/data/procurement");
   const { adminStockDrift } = await import("@/lib/data/procurement");
 
-  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers, refunds, bySize] =
+  const { staleStock } = await import("@/lib/data/stale");
+  const { normalizeStaleDays } = await import("@/lib/stale");
+
+  const settingsRow = await adminSettings().catch(() => null);
+  const staleDays = normalizeStaleDays(
+    (settingsRow as { stale_days?: number } | null)?.stale_days);
+
+  const [orders, products, purchaseOrders, replenishment, pending, drift, settings, sellers, refunds, bySize, stale] =
     await Promise.all([
       adminOrders(), adminProducts(),
       adminPurchaseOrders().catch(() => []),
@@ -507,6 +514,12 @@ export async function adminAttention() {
       adminSellers().catch(() => []),
       (await import("@/lib/actions/returns")).pendingGatewayRefunds().catch(() => []),
       allSizeStock(),
+      /* Its own read rather than a filter over `orders` above: that list
+         is capped at the most recent N, and a busy shop's cap covers less
+         than thirty days -- so a product that sold last week would be
+         missing from it and reported as not having sold in a month. See
+         lib/data/stale.ts. */
+      staleStock(staleDays).catch(() => ({ products: [], days: staleDays })),
     ]);
 
   return buildAttention({
@@ -516,6 +529,8 @@ export async function adminAttention() {
     pendingMessages: pending.length,
     driftCount: drift.length,
     restockPct: (settings as { restock_alert_pct?: number } | null)?.restock_alert_pct,
+    notSelling: stale.products.map((p) => ({ name: p.name, days: p.days })),
+    staleDays: stale.days,
     /* Sizes running low, on products the shop has actually counted by
        size. Archived products are left out: a size of something no longer
        sold is not a thing to reorder. */

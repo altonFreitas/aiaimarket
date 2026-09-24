@@ -37,7 +37,7 @@ export interface TaxonomySelection {
 
 export default function TaxonomyPicker({
   node, value, onChange, onAttributes, errors = {}, disabled, currentType,
-  idPrefix = "", title,
+  idPrefix = "", title, fields = "all",
 }: {
   /** The category or subcategory the product is filed under -- whichever
    * of the two the form's pair settled on. Empty until one is chosen. */
@@ -75,6 +75,23 @@ export default function TaxonomyPicker({
    * product form showed a "PRODUCT TYPE" heading, a sentence about picking
    * one, and then nothing at all. */
   title?: React.ReactNode;
+  /** WHICH OF THE TYPE'S QUESTIONS TO DRAW.
+   *
+   *   all      every attribute -- the product form, where a product is
+   *            described once and in full.
+   *   variant  only the axes: Size, Colour. A purchase order line is one
+   *            SKU, and the other eleven questions -- Brand, Fit, Pattern,
+   *            Season, Neck Type -- describe the PRODUCT, not the line. A
+   *            twelve-SKU order asked all fourteen twelve times and the
+   *            answers were identical every time, which is the same
+   *            information typed twelve times over.
+   *   none     the product type alone, with nothing under it. For the
+   *            moment the line's split is being set up: the generator asks
+   *            for a LIST of sizes, and its boxes beside the line's own
+   *            single-size boxes are two Size fields on one screen meaning
+   *            different things.
+   */
+  fields?: "all" | "variant" | "none";
 }) {
   /* EACH CACHE REMEMBERS WHAT IT IS FOR.
      Holding the parent id beside the list, and deriving what to render
@@ -91,7 +108,10 @@ export default function TaxonomyPicker({
   // What this render is allowed to draw: only a list that belongs to the
   // node currently chosen.
   const loaded = types.parent === node ? types.list : [];
-  const visibleAttrs = attrs.type === value.productTypeId ? attrs.list : [];
+  const forThisType = attrs.type === value.productTypeId ? attrs.list : [];
+  const visibleAttrs = fields === "none" ? []
+    : fields === "variant" ? forThisType.filter((a) => a.is_variant)
+    : forThisType;
 
   /* The type the product already carries, kept in the list until it is
      replaced. Appended rather than merged in place so the node's own types
@@ -189,7 +209,8 @@ export default function TaxonomyPicker({
       {/* A product type whose attributes nobody has configured yet is a
           real state, not an error -- the shop can still save the universal
           fields. Saying so beats an empty space that looks broken. */}
-      {!busy && value.productTypeId && visibleAttrs.length === 0 && (
+      {!busy && fields !== "none" && value.productTypeId
+        && forThisType.length === 0 && (
         <p className="hint">This product type has no extra fields yet.</p>
       )}
     </div>

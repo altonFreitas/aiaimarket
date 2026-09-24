@@ -219,3 +219,49 @@ describe("buildAttention", () => {
     expect(items.every((i) => i.labelKey && i.hintKey)).toBe(true);
   });
 });
+
+describe("money already spent, sitting still", () => {
+  /* Every other item on this list is something going wrong now. This one
+     has been quietly wrong for a month: the stock is paid for, the shelf
+     is full, and the only sign is a number that never moves. */
+  it("is not shown when everything is moving", () => {
+    expect(find(input({ notSelling: [] }), "not_selling")).toBeUndefined();
+    expect(find(input(), "not_selling")).toBeUndefined();
+  });
+
+  it("counts the products, and names the stalest", () => {
+    // The card has to say something before it is opened.
+    const got = find(input({
+      notSelling: [{ name: "Blue Shirt", days: 91 }, { name: "Red Cap", days: 40 }],
+      staleDays: 30,
+    }), "not_selling");
+    expect(got?.count).toBe(2);
+    expect(got?.vars).toEqual({ days: 30, name: "Blue Shirt" });
+  });
+
+  it("reports the limit the shop actually set", () => {
+    // A shop that chose 90 must not be told 30.
+    expect(find(input({ notSelling: [{ name: "X", days: 120 }], staleDays: 90 }),
+      "not_selling")?.vars?.days).toBe(90);
+  });
+
+  it("ranks below anything somebody is waiting for", () => {
+    /* Nobody is waiting and no money is late. Ranking this above an
+       unconfirmed order would push the thing a customer is sitting on
+       down the page. */
+    const got = find(input({ notSelling: [{ name: "X", days: 60 }] }), "not_selling");
+    expect(got?.severity).toBe("info");
+    const list = buildAttention(input({
+      orders: [order({ status: "new" })],
+      notSelling: [{ name: "X", days: 60 }],
+    }));
+    expect(list[0].kind).toBe("orders_to_confirm");
+    expect(list.at(-1)?.kind).toBe("not_selling");
+  });
+
+  it("links to the catalogue with the filter already applied", () => {
+    // "42 products have not sold" is useless without "and here they are".
+    expect(find(input({ notSelling: [{ name: "X", days: 60 }] }), "not_selling")?.href)
+      .toBe("/admin/products?stale=1");
+  });
+});

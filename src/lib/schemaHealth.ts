@@ -382,6 +382,11 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["purchase_order_items", "variant_qty"]],
   },
   {
+    // How long a product may sit unsold before the shop is told.
+    file: "stale-stock.sql", labelKey: "featStaleStock",
+    columns: [["settings", "stale_days"]],
+  },
+  {
     // Buying a product type. Named by the column, which nothing else adds.
     file: "po-taxonomy.sql", labelKey: "featPoTaxonomy",
     columns: [["purchase_order_items", "product_type_id"],
@@ -498,6 +503,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "hero-video.sql",
   "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql
   "tax-precision.sql",       // widens the two tax_rate columns it added
+  "stale-stock.sql",         // one column on settings; anywhere after schema.sql
   "order-discount.sql",      // one column on orders; anywhere after schema.sql
   "loves.sql",
   "reorder-policy.sql",
