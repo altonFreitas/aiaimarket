@@ -245,12 +245,29 @@ export async function exportPurchaseOrderExcel(poId: string) {
   sheetFromObjects(wb, "Lines",
     lineRows.length ? lineRows : [{ Product: "(no lines)" }]);
 
-  const sizeRows = (po.items ?? []).flatMap((item) =>
-    Object.entries(item.size_qty ?? {})
-      .filter(([, n]) => Number(n) > 0)
-      .map(([size, n]) => ({ Product: item.product_name, Size: size, Quantity: Number(n) })));
-  sheetFromObjects(wb, "Sizes",
-    sizeRows.length ? sizeRows : [{ Product: "(no size breakdown)", Size: "", Quantity: "" }]);
+  /* HOW MANY OF EACH COMBINATION, WHICHEVER SHAPE THE ORDER IS IN.
+     An order placed before a line was one SKU carries a size_qty map --
+     {"S":5,"M":10} -- on a line that bought all of them at one price. A
+     line written since IS one combination, so its own quantity is the
+     answer and the combination is its answers to the variant axes. Both
+     come out as the same three columns, because a shop counting a
+     delivery is asking one question either way. */
+  const sizeRows = (po.items ?? []).flatMap((item) => {
+    const breakdown = Object.entries(item.size_qty ?? {}).filter(([, n]) => Number(n) > 0);
+    if (breakdown.length) {
+      return breakdown.map(([size, n]) => ({
+        Product: item.product_name, Variant: size, Quantity: Number(n),
+      }));
+    }
+    /* The AXES only. Joining every answer would put the composition and
+       the neck type in a column headed Variant, and the label would stop
+       matching the one product_variants stores. */
+    const sku = (specs[item.id]?.specs ?? [])
+      .filter((sp) => sp.variant).map((sp) => sp.value).join(" / ");
+    return sku ? [{ Product: item.product_name, Variant: sku, Quantity: Number(item.qty) || 0 }] : [];
+  });
+  sheetFromObjects(wb, "Variants",
+    sizeRows.length ? sizeRows : [{ Product: "(no breakdown)", Variant: "", Quantity: "" }]);
 
   const buffer = await wb.xlsx.writeBuffer();
   return {

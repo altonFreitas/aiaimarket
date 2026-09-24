@@ -95,10 +95,21 @@ export function checkLineTaxonomy(
  * already the right shape" is exactly the sort of thing that stops being
  * true. */
 export function submittedFrom(
-  stored: Record<string, string[]> | null | undefined
+  stored: Record<string, string[]> | null | undefined,
+  /** Only these attribute ids, when given.
+   *
+   * Receiving splits a line's answers in two: the variant axes go on the
+   * VARIANT it creates and everything else goes on the product. Passing
+   * the product's half here rather than deleting keys afterwards means the
+   * validator is handed exactly what it is being asked about -- and it
+   * refuses an id that is not on its list, so handing it the other half
+   * would have failed the whole set. */
+  only?: readonly string[]
 ): Submitted {
+  const allowed = only ? new Set(only) : null;
   const out: Submitted = {};
   for (const [id, v] of Object.entries(stored ?? {})) {
+    if (allowed && !allowed.has(id)) continue;
     if (Array.isArray(v) && v.length) out[id] = v;
   }
   return out;

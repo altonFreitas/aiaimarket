@@ -505,7 +505,23 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    height of an in-stock one. */
 @media (hover: hover) and (pointer: fine) {
   .card .card-add{opacity:0;transition:opacity .15s ease}
-  .card:hover .card-add,.card:focus-within .card-add{opacity:1}
+  .card:hover .card-add{opacity:1}
+  /* KEYBOARD FOCUS, NOT ANY FOCUS, and they are not the same thing.
+     This was :focus-within, which a MOUSE CLICK satisfies: clicking the
+     heart focuses that button, the focus stays there after the pointer
+     moves away, and the card went on showing "Add to cart" while the
+     shopper was looking at a different card entirely. Two cards offering
+     the button at once, one of them nowhere near the pointer.
+
+     :focus-visible is the browser's own answer to "is this person
+     navigating by keyboard", so tabbing to the card still reveals it and
+     clicking inside it no longer does.
+
+     A RULE OF ITS OWN, not a second selector on the line above: a browser
+     that does not know :has() discards the WHOLE rule it appears in, and
+     folding these together would have cost such a browser the hover
+     reveal as well -- which is the one that matters most. */
+  .card:has(:focus-visible) .card-add{opacity:1}
 }
 
 /* ---------- the cookie notice ---------- */
@@ -3264,6 +3280,26 @@ tr.is-ended{opacity:.55}
    under a box that shares the row lifts that box above the others. */
 .po-line .field.po-line-note{flex:1 1 100%}
 .po-line-note .hint{margin:0}
+
+/* ---------- splitting one line into one line per SKU ---------- */
+/* Full width, like every other block that is about the line rather than
+   about one box on it. */
+.po-line .field.po-line-bulk{flex:1 1 100%}
+/* The combination this line buys, above the boxes rather than beside them:
+   it names the row, and a name belongs at the top of the thing it names. */
+.po-line .field.po-line-sku{flex:1 1 100%;order:-1}
+.po-line-sku .pill{font-family:var(--mono);letter-spacing:.04em}
+.po-bulk{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--sp-2);
+  padding:var(--sp-2);border:1px dashed var(--line);border-radius:var(--r-s);
+  background:var(--bg)}
+/* One box per axis, and they sit beside each other until there is no room:
+   a shop typing sizes and colours is answering two halves of one question
+   and should be able to see both. */
+.po-bulk .field{flex:1 1 180px;margin:0}
+.po-bulk-go{display:flex;gap:var(--sp-2);align-items:center;flex:0 0 auto}
+/* The note is about the whole panel, so it takes the row under it rather
+   than making one box taller than its neighbours. */
+.po-bulk .hint{flex:1 1 100%;margin:0}
 .po-line-tax .taxonomy{margin-top:var(--sp-1)}
 .po-sizes .hint{margin-top:var(--sp-2)}
 .po-size-grid{display:flex;flex-wrap:wrap;gap:var(--sp-2)}

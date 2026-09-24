@@ -30,7 +30,7 @@ describe("the line asks the same questions the product form asks", () => {
        every label, every aria-describedby and every click resolves to the
        first -- so the second line's error is announced against the first
        line's box. */
-    expect(FORM).toContain("idPrefix={`l${i}-`}");
+    expect(FORM).toContain("idPrefix={`${l.key}-`}");
     expect(FIELD).toContain("const id = `${idPrefix}attr-${attr.id}`");
   });
 
@@ -51,30 +51,56 @@ describe("the line asks the same questions the product form asks", () => {
 
 describe("the line stays a row", () => {
   it("puts no note under a box that shares the row", () => {
-    /* MEASURED IN A BROWSER, AND BROKEN TWICE BY THIS VERY CHANGE. The
-       fields on a line are bottom-aligned so that a label wrapping onto
-       two lines still leaves the boxes level. A <p className="hint"> inside
-       one of them makes that field taller and lifts its box above every
-       other box in the row -- which is what the half-size note under
-       "Size / variant" did, and then what the restock note inside the
-       "Linked product" field did: the pill ended up 36 pixels clear of
-       everything beside it.
+    /* MEASURED IN A BROWSER, AND BROKEN TWICE. The fields on a line are
+       bottom-aligned so that a label wrapping onto two lines still leaves
+       the boxes level. A hint INSIDE one of them makes that field taller
+       and lifts its box above every other box in the row -- which is what
+       the half-size note under "Size / variant" did, and then what the
+       restock note inside the "Linked product" field did: the pill ended
+       up 36 pixels clear of everything beside it.
 
-       A note belongs in a field that is a row of its own. Each hint in the
-       line is therefore traced back to the field that contains it, and
-       that field has to be one of the full-width ones. */
-    const FULL_WIDTH = ["po-sizes", "po-line-desc", "po-line-note", "po-line-tax"];
+       Checked by CONTAINMENT rather than by walking backwards through the
+       source. The first version of this test looked for the nearest
+       preceding `className="field`, which put the bulk panel's note --
+       a sibling of the axis boxes, inside a flex container of its own --
+       down as being inside the last axis box. An element either contains
+       the note or it does not, and that is the question. */
     const line = FORM.slice(FORM.indexOf('className="po-line"'),
                             FORM.indexOf('className="po-line-total"'));
-    const hints = [...line.matchAll(/className="hint"/g)].map((m) => m.index!);
-    expect(hints.length).toBeGreaterThan(0);
-    for (const at of hints) {
-      const fieldAt = line.lastIndexOf('className="field', at);
-      expect(fieldAt, "a hint outside any field").toBeGreaterThan(-1);
-      const classes = line.slice(fieldAt + 'className="'.length,
-                                 line.indexOf('"', fieldAt + 'className="'.length));
-      expect(FULL_WIDTH.some((c) => classes.includes(c)), `hint inside .${classes}`).toBe(true);
+
+    /** Where the <div> opened at `from` closes. */
+    const endOfDiv = (src: string, from: number): number => {
+      let i = from, depth = 0;
+      while (i < src.length) {
+        const open = src.indexOf("<div", i);
+        const close = src.indexOf("</div>", i);
+        if (close === -1) return src.length;
+        if (open !== -1 && open < close) {
+          // Self-closing tags never need a matching </div>.
+          const tagEnd = src.indexOf(">", open);
+          if (src.slice(open, tagEnd).trimEnd().endsWith("/")) { i = tagEnd + 1; continue; }
+          depth++; i = tagEnd + 1; continue;
+        }
+        depth--;
+        if (depth === 0) return close;
+        i = close + 6;
+      }
+      return src.length;
+    };
+
+    // Every box that shares the row: className="field" with nothing added
+    // to it. The full-width ones carry a second class and are where a note
+    // belongs.
+    const inline = [...line.matchAll(/<div className="field"[ >]/g)].map((m) => m.index!);
+    expect(inline.length, "inline fields on the line").toBeGreaterThan(4);
+    for (const at of inline) {
+      const body = line.slice(at, endOfDiv(line, at));
+      expect(body.includes('className="hint"'),
+        `a note inside ${body.slice(0, 70).replace(/\s+/g, " ")}`).toBe(false);
     }
+
+    // And the notes that DO exist are inside something full width.
+    expect(line).toContain('className="field po-line-note"');
   });
 });
 
@@ -114,7 +140,7 @@ describe("what receiving does with it", () => {
        fillBlankTaxonomy, so matching it alone passed with the creation
        one deleted. */
     expect(RECEIVE).toContain(
-      "result.productsCreated++;\n\n      // What kind of thing it is, and what it answers. Only for a product\n      // this receipt CREATED -- see applyTaxonomy.\n      await applyTaxonomy(productId, item);");
+      "result.productsCreated++;\n\n      // What kind of thing it is, and what it answers. Only for a product\n      // this receipt CREATED -- see applyTaxonomy.\n      await applyTaxonomy(productId, item, attrsOf);");
     expect(RECEIVE).toContain('.update({ product_type_id: typeId })');
     expect(RECEIVE).toContain('.from("product_attribute_values").insert(');
   });
@@ -124,7 +150,8 @@ describe("what receiving does with it", () => {
        retired from a product type in between. Re-reading the type is what
        stops a stale answer becoming a row nothing can explain. */
     expect(RECEIVE).toContain("attributesForType(typeId, { includeAdminOnly: true })");
-    expect(RECEIVE).toContain("validateAttributeValues(attrs, submittedFrom(item.attribute_values))");
+    expect(RECEIVE).toContain(
+      "validateAttributeValues(\n      shared, submittedFrom(item.attribute_values, shared.map((a) => a.id)));");
   });
 
   it("FILLS a blank type on an existing product and never replaces one", () => {
@@ -133,7 +160,8 @@ describe("what receiving does with it", () => {
        deletes the answers to the old ones. A shirt restocked from a
        supplier who files it differently would come back from the delivery
        with its whole specification gone. */
-    expect(RECEIVE).toContain("if (item.product_id && productId) await fillBlankTaxonomy(productId, item);");
+    expect(RECEIVE).toContain(
+      "if (item.product_id && productId) await fillBlankTaxonomy(productId, item, attrsOf);");
     expect(RECEIVE).toMatch(
       /async function fillBlankTaxonomy[\s\S]*?if \(\(data as \{ product_type_id\?: string \| null \}\)\.product_type_id\) return;/);
   });

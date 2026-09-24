@@ -80,6 +80,40 @@ describe("who gets it", () => {
   });
 });
 
+describe("the button the lift reveals", () => {
+  /* REPRODUCED IN A BROWSER. Hover card one, click its heart, move to card
+     two: both cards offered "Add to cart" at once, and card one went on
+     offering it with the pointer off the grid entirely. Clicking a button
+     focuses it, and the reveal was written as :focus-within, which a mouse
+     click satisfies just as well as a keyboard.
+
+     Measured before:  ["1","1","0"] with the pointer on card two.
+     Measured after:   ["0","1","0"], and ["0","0","0"] off the grid.
+  */
+  it("is not revealed by a mouse click inside the card", () => {
+    const reveal = /\.card:(hover|has\(:focus-visible\)|focus-within)[^{]*\{opacity:1\}/g;
+    const found = NO_COMMENTS.match(reveal) ?? [];
+    expect(found.length, "the reveal rules").toBeGreaterThan(0);
+    for (const rule of found) {
+      expect(rule, rule).not.toContain(":focus-within");
+    }
+  });
+
+  it("is still revealed by the keyboard", () => {
+    // A keyboard user cannot hover. Losing this would hide the button from
+    // them completely, which is worse than the bug it was fixing.
+    expect(NO_COMMENTS).toContain(".card:has(:focus-visible) .card-add{opacity:1}");
+  });
+
+  it("keeps the hover reveal in a rule of its own", () => {
+    /* A browser that does not understand :has() discards the whole rule
+       the selector appears in. Folded onto one line, an old browser would
+       lose the hover reveal too -- the one that matters most. */
+    expect(NO_COMMENTS).toContain(".card:hover .card-add{opacity:1}");
+    expect(NO_COMMENTS).not.toMatch(/\.card:hover \.card-add,[^{]*:has\(/);
+  });
+});
+
 describe("what the lift must not do", () => {
   it("draws no dark outline round the card", () => {
     /* A near-black border read as selected-and-disabled rather than as

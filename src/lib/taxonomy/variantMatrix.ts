@@ -78,6 +78,37 @@ export function buildMatrix(axes: readonly VariantAxis[]): GeneratedVariant[] {
   return out;
 }
 
+/** The answer sets one filled-in line becomes, one per combination.
+ *
+ * A purchase order line is one SKU -- one size, one colour, its own cost
+ * and its own price -- so an order for a shirt in three sizes is three
+ * lines that differ in one answer and agree about everything else. Typing
+ * that out three times is three chances to put the cost of the 41 on the
+ * 42, and nobody re-reads a purchase order line by line afterwards.
+ *
+ * So the buyer fills ONE line in and says "S, M, L" once. `base` is that
+ * line's answers; each returned map is `base` with the axes overwritten by
+ * one combination. Everything that is not an axis -- the composition, the
+ * brand, the neck type -- is carried across untouched, which is the whole
+ * point: those are properties of the product, not of the SKU.
+ *
+ * @throws TooManyVariants above MAX_VARIANTS, from buildMatrix.
+ */
+export function variantValueSets(
+  base: Readonly<Record<string, string[]>>,
+  axes: readonly VariantAxis[],
+): Record<string, string[]>[] {
+  const combos = buildMatrix(axes);
+  /* No usable axis is not an error and not one empty set either: it is
+     "nothing to split on", and the caller says so rather than silently
+     replacing the line with a copy of itself. */
+  if (!combos.length) return [];
+  return combos.map((c) => ({
+    ...base,
+    ...Object.fromEntries(c.values.map((v) => [v.attributeId, [v.value]])),
+  }));
+}
+
 /** Which of these combinations are new, given what the product already has.
  *
  * REGENERATING MUST NOT DESTROY. A shop that adds a fourth size to a shirt

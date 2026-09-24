@@ -7,6 +7,7 @@ import { normalizeAudience } from "@/lib/audience";
 import { submittedFrom } from "@/lib/taxonomy/lineTaxonomy";
 import { attributesForType } from "@/lib/data/taxonomy";
 import { validateAttributeValues } from "@/lib/taxonomy/validate";
+import type { FormAttribute } from "@/lib/taxonomy/types";
 import { isMissingColumnError } from "@/lib/missingColumn";
 import { slugify } from "@/lib/utils";
 import { revalidatePath, updateTag } from "next/cache";
@@ -119,6 +120,36 @@ export async function applyReceipt(
     received: 0, alreadyReceived: 0, skipped: 0, productsCreated: 0,
   };
 
+  /* SEVERAL LINES, ONE PRODUCT.
+   *
+   * A line is one SKU now -- one size, one colour, its own cost and its
+   * own price -- so an order for a shirt in S, M and L arrives here as
+   * three lines naming the same shirt. Creating a product per line would
+   * put three "Blue Shirt" listings in the shop, each holding a third of
+   * the stock, each with its own slug, and the shopper would find all
+   * three.
+   *
+   * Keyed by the name the buyer typed, folded for case and spacing,
+   * because that is what the buyer meant by "the same product" -- they
+   * typed it once and generated the rest. Only within THIS receipt: two
+   * orders months apart naming the same thing are a judgement this has no
+   * business making silently, and the line's own product_id is how a
+   * restock says "that one". */
+  const createdHere = new Map<string, string>();
+  const productKey = (name: string) =>
+    String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  /* An order for twelve SKUs names one product type twelve times, and it
+     asks the same questions every time. Read once. */
+  const attrCache = new Map<string, FormAttribute[]>();
+  const attrsOf = async (typeId: string): Promise<FormAttribute[]> => {
+    const got = attrCache.get(typeId);
+    if (got) return got;
+    const list = await attributesForType(typeId, { includeAdminOnly: true });
+    attrCache.set(typeId, list);
+    return list;
+  };
+
   for (const item of items) {
     if (!isResaleLine(item)) { result.skipped++; continue; }
 
@@ -129,7 +160,9 @@ export async function applyReceipt(
     const units = Math.floor(Number(item.qty) || 0);
     if (units < 1) { result.skipped++; continue; }
 
-    let productId = item.product_id;
+    let productId = item.product_id || createdHere.get(productKey(item.product_name)) || null;
+    const isFirstOfProduct = !item.product_id
+      && !createdHere.has(productKey(item.product_name));
 
     // Create the product now, not when the order was drafted: an order that
     // never arrives must not leave unbuyable products in the shop.
@@ -173,11 +206,12 @@ export async function applyReceipt(
         .single();
       if (createErr) throw createErr;
       productId = created.id as string;
+      createdHere.set(productKey(item.product_name), productId);
       result.productsCreated++;
 
       // What kind of thing it is, and what it answers. Only for a product
       // this receipt CREATED -- see applyTaxonomy.
-      await applyTaxonomy(productId, item);
+      await applyTaxonomy(productId, item, attrsOf);
 
       // Point the line at what it created, so a second receipt tops up this
       // product rather than creating a duplicate.
@@ -223,7 +257,7 @@ export async function applyReceipt(
        type never asked, and saveProductAttributes deletes those. A shirt
        restocked from a supplier who files it differently would come back
        from the delivery with its whole specification gone. */
-    if (item.product_id && productId) await fillBlankTaxonomy(productId, item);
+    if (item.product_id && productId) await fillBlankTaxonomy(productId, item, attrsOf);
 
     /* THE LEDGER ROWS -- one per size. The trigger on stock_movements
        moves products.qty, which stays the sum of all of them.
@@ -241,15 +275,54 @@ export async function applyReceipt(
        Inserted as ONE statement rather than a loop: all the sizes of a
        line arrive together or none do, so a receipt cannot half-land and
        leave the shop believing in stock that was never counted. */
+    /* THE VARIANT THIS LINE BUYS, created if the product has not got it.
+       This is where one line becomes one SKU: the answers the buyer gave
+       to the product type's variant axes -- Size S, Colour Black -- become
+       a row in product_variants carrying this line's own selling price,
+       and the movement below carries its id. A line with no axes answered
+       returns null and receives exactly as it always did. */
+    const lineVariant = await ensureVariant(
+      productId, item, attrsOf,
+      cost ? Number(cost.landedUnitCost.toFixed(4)) : null);
+
+    /* THE PRODUCT'S LIST OF SIZES, which is what the storefront's picker
+       draws from. Built up as the lines land rather than typed: the sizes
+       box that used to say "S, M, L" is gone, and the sizes are now
+       whatever the lines actually bought. */
+    if (lineVariant?.size) await addSize(productId, lineVariant.size);
+
+    /* THE PRICE ON THE CARD IS THE CHEAPEST ONE THAT IS TRUE.
+       A shirt bought in three sizes at three prices has three variant
+       prices and one product price, and the card, the grid and the search
+       results all show the product's. Taking the first line's would mean a
+       shopper who clicked a $45 card could find every size costs more,
+       which is the one direction a price must never be wrong in.
+
+       ONLY FOR A PRODUCT THIS RECEIPT CREATED. A restock must not reprice
+       a listing the shop has since set deliberately -- see createdHere,
+       which holds exactly the products made a moment ago. */
+    if (lineVariant && createdHere.get(productKey(item.product_name)) === productId
+        && item.sell_price != null) {
+      await lowerPriceTo(productId, Number(item.sell_price));
+    }
+
     /* WHICH SIZE EACH VARIANT IS, for the column that has not retired.
        Every movement still carries a size -- the per-size views and the
        reorder report read it -- and a variant receipt that left it empty
        would quietly move that stock into the "no size recorded" pool,
        which backs every size. Read once per line rather than once per
-       movement. */
-    const variantQty = normalizeVariantQty(item.variant_qty);
+       movement.
+
+       A line that names its own variant needs no lookup: it has just been
+       told what that variant is. variant_qty is the OLD shape -- an order
+       placed before a line was one SKU, buying several variants at once --
+       and is still honoured. */
+    const variantQty = lineVariant
+      ? { [lineVariant.id]: units }
+      : normalizeVariantQty(item.variant_qty);
     const sizeByVariant = new Map<string, string>();
-    const variantIds = Object.keys(variantQty);
+    if (lineVariant) sizeByVariant.set(lineVariant.id, lineVariant.size);
+    const variantIds = lineVariant ? [] : Object.keys(variantQty);
     if (variantIds.length) {
       const { data: rows } = await sb
         .from("variant_attribute_values")
@@ -337,14 +410,25 @@ type Item = PurchaseOrder["items"] extends (infer I)[] | undefined ? I : never;
  * delivery to reject. So this swallows its own errors, deliberately, and
  * says why here.
  */
-async function applyTaxonomy(productId: string, item: Item): Promise<void> {
+async function applyTaxonomy(
+  productId: string, item: Item, attrsOf: AttrsOf
+): Promise<void> {
   const typeId = (item.product_type_id || "").trim();
   if (!typeId) return;
 
   const sb = supabaseAdmin();
   try {
-    const attrs = await attributesForType(typeId, { includeAdminOnly: true });
-    const result = validateAttributeValues(attrs, submittedFrom(item.attribute_values));
+    const attrs = await attrsOf(typeId);
+    /* THE PRODUCT KEEPS WHAT IS TRUE OF ALL OF IT.
+       Size and Colour are variant axes: the line says S, but the product
+       is S, M and L, and writing "Size: S" onto the product would print
+       exactly that in the Specifications panel of a shirt sold in three
+       sizes. Those answers belong to the VARIANT the line creates -- see
+       ensureVariant -- and everything else, the composition and the
+       neck type and the brand, is true of the product and goes here. */
+    const shared = attrs.filter((a) => !a.is_variant);
+    const result = validateAttributeValues(
+      shared, submittedFrom(item.attribute_values, shared.map((a) => a.id)));
 
     /* The TYPE goes on even when the answers do not. A product that knows
        what kind of thing it is draws the right form the moment somebody
@@ -371,7 +455,9 @@ async function applyTaxonomy(productId: string, item: Item): Promise<void> {
 /** The same, for a product that already existed: only when it has no type
  * of its own. See the note at the call site -- replacing a type deletes
  * every answer under the old one. */
-async function fillBlankTaxonomy(productId: string, item: Item): Promise<void> {
+async function fillBlankTaxonomy(
+  productId: string, item: Item, attrsOf: AttrsOf
+): Promise<void> {
   if (!(item.product_type_id || "").trim()) return;
   try {
     const sb = supabaseAdmin();
@@ -379,8 +465,139 @@ async function fillBlankTaxonomy(productId: string, item: Item): Promise<void> {
       .from("products").select("product_type_id").eq("id", productId).maybeSingle();
     if (error || !data) return;
     if ((data as { product_type_id?: string | null }).product_type_id) return;
-    await applyTaxonomy(productId, item);
+    await applyTaxonomy(productId, item, attrsOf);
   } catch { /* migration window, as above */ }
+}
+
+type AttrsOf = (typeId: string) => Promise<FormAttribute[]>;
+
+/** Adds one size to a product's list, if it is not already there.
+ *
+ * Read-then-write rather than an array append in SQL, because the order
+ * matters -- S before M before L is a sequence somebody chose and sorting
+ * it would scramble it -- and because the comparison has to be the same
+ * one parseSizes makes, so "41,5" and "41.5" are not both added.
+ *
+ * Swallows its own errors: a product whose size list could not be extended
+ * still has the stock, and the size is on the ledger either way. */
+/** Drops a product's price to `price` when that is lower than what it has.
+ *
+ * Never raises it: the first line already set the price, and every later
+ * line of the same product is a second opinion that can only be allowed to
+ * make the card more honest, not less. */
+async function lowerPriceTo(productId: string, price: number): Promise<void> {
+  if (!Number.isFinite(price) || price <= 0) return;
+  try {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from("products").select("price").eq("id", productId).maybeSingle();
+    const now = Number((data as { price?: number } | null)?.price ?? 0);
+    if (now > 0 && now <= price) return;
+    await sb.from("products").update({ price }).eq("id", productId);
+  } catch { /* the variants carry their own prices regardless */ }
+}
+
+async function addSize(productId: string, size: string): Promise<void> {
+  try {
+    const sb = supabaseAdmin();
+    const { data } = await sb
+      .from("products").select("sizes").eq("id", productId).maybeSingle();
+    const have = ((data as { sizes?: string[] } | null)?.sizes ?? []).filter(Boolean);
+    const merged = parseSizes([...have, size].join(", "));
+    if (merged.length === have.length) return;
+    await sb.from("products").update({ sizes: merged }).eq("id", productId);
+  } catch { /* the size is on the ledger regardless */ }
+}
+
+/* ---------------------------------------------------------------------------
+ * The variant a line buys
+ * ------------------------------------------------------------------------ */
+
+export interface LineVariant {
+  id: string;
+  /** "S / Black" -- what the order line and the stock report show. */
+  label: string;
+  /** The line's answer to the attribute whose slug is `size`, or "".
+   *
+   * The ledger has carried a size column since supabase/size-stock.sql and
+   * the per-size views and the reorder report read it, so a variant
+   * receipt that left it empty would move that stock into the "no size
+   * recorded" pool, which backs every size. */
+  size: string;
+}
+
+/** The variant this line buys, created if the product does not have it yet.
+ *
+ * Returns null when the line names no variant axis at all -- a fridge, or a
+ * product type nobody has given one. Such a line receives exactly as it did
+ * before any of this existed.
+ *
+ * FOUND BY LABEL, not created blindly: `product_variants` is unique on
+ * (product_id, label), so a second purchase order buying more Black / M
+ * has to top up the row that already exists. Its price and cost are left
+ * alone on that path -- the shop may have set them deliberately, and a
+ * restock is not a repricing.
+ */
+async function ensureVariant(
+  productId: string, item: Item, attrsOf: AttrsOf, landedCost: number | null
+): Promise<LineVariant | null> {
+  const typeId = (item.product_type_id || "").trim();
+  if (!typeId) return null;
+
+  try {
+    const attrs = await attrsOf(typeId);
+    const stored = item.attribute_values ?? {};
+    /* The axes, in the product type's own order, and only the ones this
+       line actually answered. buildMatrix labels a combination the same
+       way -- "Black / M" -- so a variant generated here and one generated
+       by the product form's editor are the same row, not two. */
+    const axes = attrs
+      .filter((a) => a.is_variant)
+      .map((a) => ({ attr: a, value: (stored[a.id] ?? [])[0] ?? "" }))
+      .filter((a) => a.value !== "");
+    if (!axes.length) return null;
+
+    const label = axes.map((a) => a.value).join(" / ");
+    const size = axes.find((a) => a.attr.slug === "size")?.value ?? "";
+    const sb = supabaseAdmin();
+
+    const { data: found } = await sb
+      .from("product_variants").select("id")
+      .eq("product_id", productId).eq("label", label).maybeSingle();
+    if (found) return { id: (found as { id: string }).id, label, size };
+
+    const { data: made, error } = await sb
+      .from("product_variants")
+      .insert({
+        product_id: productId,
+        label,
+        /* THE LINE'S OWN SELLING PRICE. This is the whole reason a line is
+           one SKU: a 45 sells for more than a 38, and the product's single
+           price could not say so. Null when the buyer did not state one,
+           which means "as the product" -- see supabase/variants.sql. */
+        price: item.sell_price == null ? null : Number(item.sell_price),
+        cost_price: landedCost,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    const variantId = (made as { id: string }).id;
+
+    /* WHAT MAKES IT THAT COMBINATION. Without these rows the variant is a
+       label and the storefront's picker has nothing to filter on. */
+    await sb.from("variant_attribute_values").insert(
+      axes.map((a) => ({
+        variant_id: variantId, attribute_id: a.attr.id, value: a.value,
+      })));
+
+    return { id: variantId, label, size };
+  } catch {
+    /* No variant tables yet. The line still receives -- unvarianted, the
+       way it did before supabase/variants.sql -- which is the same
+       degradation every other read here takes. */
+    return null;
+  }
 }
 
 /** The purchase order number, for the caller's record of the act. */

@@ -24,8 +24,13 @@ import type { PurchaseOrder } from "@/lib/types";
 export interface LineSpec {
   /** What the product type is called, or "" when the line names none. */
   typeName: string;
-  /** The answers, in the order the product type asks. */
-  specs: { name: string; value: string }[];
+  /** The answers, in the order the product type asks.
+   *
+   * `variant` marks the ones that make this line the SKU it is -- Size,
+   * Colour -- as opposed to the ones that describe the product. A
+   * spreadsheet counting a delivery wants the first kind in its own
+   * column; the PDF prints both. */
+  specs: { name: string; value: string; variant: boolean }[];
 }
 
 /** itemId -> what that line says, for every line that says anything.
@@ -51,7 +56,7 @@ export async function purchaseOrderSpecs(
         ? sb.from("product_types").select("id,name").in("id", typeIds)
         : Promise.resolve({ data: [] }),
       attrIds.length
-        ? sb.from("attributes").select("id,name,unit").in("id", attrIds)
+        ? sb.from("attributes").select("id,name,unit,is_variant").in("id", attrIds)
         : Promise.resolve({ data: [] }),
       /* The order the product type asks in, so the sheet reads the way the
          form the buyer filled in read. Without it the answers come out in
@@ -68,7 +73,8 @@ export async function purchaseOrderSpecs(
     const typeName = new Map(((types.data ?? []) as { id: string; name: string }[])
       .map((t) => [t.id, t.name]));
     const attr = new Map(((attrs.data ?? []) as
-      { id: string; name: string; unit: string | null }[]).map((a) => [a.id, a]));
+      { id: string; name: string; unit: string | null; is_variant?: boolean }[])
+      .map((a) => [a.id, a]));
     const order = new Map(((links.data ?? []) as
       { product_type_id: string; attribute_id: string; display_order: number }[])
       .map((l) => [`${l.product_type_id}.${l.attribute_id}`, l.display_order]));
@@ -82,6 +88,7 @@ export async function purchaseOrderSpecs(
           id,
           name: attr.get(id)?.name ?? "",
           value: v.join(", ") + (attr.get(id)?.unit ? ` ${attr.get(id)!.unit}` : ""),
+          variant: Boolean(attr.get(id)?.is_variant),
         }))
         /* An attribute retired from the catalogue since the order was
            placed has no row left to name it. Dropped rather than printed
@@ -95,7 +102,7 @@ export async function purchaseOrderSpecs(
       if (!name && !answers.length) continue;
       out[item.id] = {
         typeName: name,
-        specs: answers.map(({ name: n, value }) => ({ name: n, value })),
+        specs: answers.map(({ name: n, value, variant }) => ({ name: n, value, variant })),
       };
     }
     return out;

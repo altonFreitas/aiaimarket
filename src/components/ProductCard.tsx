@@ -40,14 +40,39 @@ export default function ProductCard(
   const { toast } = useToast();
   const loved = lovesReady && has(p.id);
 
+  /* A PRODUCT SOLD IN SIZES CANNOT BE BOUGHT FROM A GRID.
+     This button used to add p.sizes[0] -- so a shoe listed in 40, 41 and
+     42 went into the basket as a 40 because that is the order somebody
+     typed the sizes in. The shopper chose nothing, the shop got an order
+     for a size nobody asked for, and the shelf could run out of 40 while
+     41 and 42 sat there.
+
+     The product page has always refused this -- it says "Choose a size"
+     and stops -- so the same product behaved differently depending on
+     which of the two buttons was pressed. The grid now sends them to the
+     page instead, which is where the sizes are. One size is not a choice,
+     so that one is still added from here. */
+  const needsSize = (p.sizes?.length ?? 0) > 1;
+
   // Adds the product straight to the list from the catalog grid - no need
   // to open the product page first. Stops the click from also following
   // the card's <Link> to the product page.
   function addToList(e: MouseEvent<HTMLButtonElement>) {
+    // Not prevented: the click falls through to the card's own link and
+    // opens the page, which is the whole point of the button in this
+    // state. Returning before preventDefault is what lets it.
+    if (needsSize) return;
     e.preventDefault();
     e.stopPropagation();
-    add({ id: p.id, name: p.name, size: p.sizes?.[0] || "", price: Number(p.discount_price || p.price), qty: 1,
+    add({ id: p.id, name: p.name, size: p.sizes?.[0] || "",
+      price: Number(p.discount_price || p.price), qty: 1,
       seller_id: p.seller_id, sellerName: sellerName || null,
+      /* WHAT IT WOULD HAVE COST, when it is on offer. The basket line
+         carries it so checkout can show what the shopper saved -- and
+         this was the one place that left it out, so the same product
+         added from a card showed no saving and added from its own page
+         showed one. Only when there IS a discount: see BasketLine. */
+      listPrice: p.discount_price != null ? Number(p.price) : undefined,
       image: p.images?.[0] || "", slug: p.slug });
     toast(`${p.name} → ${t("list", lang)}`);
   }
@@ -157,9 +182,12 @@ export default function ProductCard(
             <button type="button" className="btn btn-sm btn-amber card-add" onClick={addToList}>
               {/* The shop's own cart, the one in the header and the bottom
                   bar -- same component, so the button and the place the
-                  goods land are recognisably the same thing. */}
-              <CartIcon size={15} />
-              {t("addList", lang)}
+                  goods land are recognisably the same thing. Not shown
+                  when the button opens the page instead: a cart on a
+                  button that adds nothing to the cart is a promise it does
+                  not keep. */}
+              {!needsSize && <CartIcon size={15} />}
+              {t(needsSize ? "chooseSize" : "addList", lang)}
             </button>
           )}
         </div>
