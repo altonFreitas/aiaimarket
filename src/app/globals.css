@@ -3188,11 +3188,9 @@ tr.is-ended{opacity:.55}
    photograph and the card under it when they stack. */
 .pdp{display:flex;flex-direction:column;gap:var(--sp-3)}
 
-/* THE RAIL: a narrow column of buttons for the things you do ABOUT a
-   product rather than to buy it. Under the picture on a phone, where a
-   64px column would cost a sixth of the screen. */
-.pdp-media-in{display:flex;flex-direction:column;gap:var(--sp-2)}
-.pdp-rail{display:flex;gap:var(--sp-2)}
+/* The rail of text buttons beside the picture is gone: the heart and
+   the share button sit ON the photograph now, which is where the
+   reference puts them. See .gal-acts below. */
 
 /* TWO COLUMNS from 768: the photograph and the summary stacked on the
    left, the price card pinned on the right. Three is too many at 800px
@@ -3205,15 +3203,16 @@ tr.is-ended{opacity:.55}
 @media(min-width:768px){
   .pdp{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,340px);
     gap:22px;align-items:start}
-  /* PLACED EXPLICITLY. The buy card comes SECOND in the document, ahead
-     of the summary, so that a phone reaches the price without scrolling
-     past the description. Left to auto-place, three children in two
-     columns fall as (1,1) (1,2) (2,1) -- which would put the price card
-     in the middle of the left column and the summary alone in a short
-     one on the right. */
+  /* PLACED EXPLICITLY, all four of them. The document order is the
+     PHONE's order -- picture, name and price, the panel you press, then
+     the prose -- and auto-placement would carry that order into the
+     grid, where it is the wrong one. A 2x2 instead: the picture with its
+     description underneath on the left, the price and the panel that
+     buys it stacked on the right. */
   .pdp-media{grid-column:1;grid-row:1}
-  .pdp-buy{grid-column:2;grid-row:1/span 2}
-  .pdp-info{grid-column:1;grid-row:2}
+  .pdp-about{grid-column:1;grid-row:2}
+  .pdp-info{grid-column:2;grid-row:1}
+  .pdp-buy{grid-column:2;grid-row:2}
   /* PINNED, so the thing you buy with never scrolls away while you
      read. Below the header, which is itself sticky -- --chrome-h is
      that whole stack added up, so this cannot drift out of step with
@@ -3223,10 +3222,6 @@ tr.is-ended{opacity:.55}
   .pdp-buy{position:sticky;top:calc(var(--chrome-h) + var(--sp-3));
     max-height:calc(100vh - var(--chrome-h) - var(--sp-5));
     overflow-y:auto;overscroll-behavior:contain}
-  /* The rail goes beside the picture once there is room for it. */
-  .pdp-media-in{flex-direction:row;align-items:flex-start}
-  .pdp-media-in .gal{flex:1;min-width:0}
-  .pdp-rail{flex-direction:column;flex:0 0 auto}
 }
 
 /* THREE COLUMNS, which is the FNAC shape and needs the width to be one:
@@ -3247,39 +3242,238 @@ tr.is-ended{opacity:.55}
 }
 
 @media(min-width:1180px){
-  .pdp{grid-template-columns:minmax(0,1.15fr) minmax(260px,0.85fr) minmax(320px,360px)}
-  /* The summary sits BESIDE the photograph, not under it -- which means
-     undoing the two-column placement above, not merely adding a third
-     column to it. */
-  .pdp-media{grid-column:1;grid-row:1}
+  /* The reference's proportions: the picture and its rail on the left,
+     the widest column in the middle for the title, the price and the
+     description, and a fixed-width panel on the right. The middle is the
+     widest because it is the only one carrying prose. */
+  .pdp{grid-template-columns:minmax(0,1fr) minmax(300px,1.1fr) minmax(300px,340px)}
+  /* THREE COLUMNS, which means undoing the 2x2 above rather than merely
+     adding a column to it. The picture spans both rows on the left, the
+     name, price and description take the middle, and the panel spans
+     both rows on the right so a tall one has somewhere to go. */
+  .pdp-media{grid-column:1;grid-row:1/span 2}
   .pdp-info{grid-column:2;grid-row:1;margin-top:0}
-  .pdp-buy{grid-column:3;grid-row:1}
+  .pdp-about{grid-column:2;grid-row:2}
+  .pdp-buy{grid-column:3;grid-row:1/span 2}
 }
 
-.pdp-sec{margin:0}
-.pdp-sec+.pdp-sec{margin-top:var(--sp-3)}
-.pdp-sec>h2{margin:0 0 var(--sp-3);font-size:var(--fs-h4);letter-spacing:.06em}
-
-/* The name over the photograph, which is where FNAC puts it. */
-.pdp-nm{margin:0 0 var(--sp-2);font-size:var(--fs-h2);line-height:1.2}
-.pdp-rate{display:inline-flex;align-items:center;gap:var(--sp-2);
-  font-size:var(--fs-body-sm);color:var(--muted);text-decoration:none;
-  margin:0 0 var(--sp-3)}
-.pdp-rate b{color:var(--ink)}
-.pdp-rate:hover{text-decoration:underline}
-
-/* THE RAIL'S OWN BUTTONS. Where it SITS -- under the picture on a
-   phone, beside it above 768 -- is set with the rest of the layout
-   above, because that half is a cascade order problem. */
-.rail-btn{display:flex;flex-direction:column;align-items:center;gap:4px;
-  width:64px;padding:var(--sp-2) 0;cursor:pointer;
-  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
-  color:var(--ink-3);font-size:var(--fs-caption);line-height:1.1;text-align:center}
-.rail-btn:hover{border-color:var(--ink-3);color:var(--ink)}
-.rail-btn.is-on{color:var(--red);border-color:var(--red)}
-.rail-btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+/* .pdp-sec, .pdp-nm, .pdp-rate and .rail-btn stood here. The panels the
+   first three dressed are gone -- the summary is no longer a bordered
+   card in the middle column, and the specification table moved into a
+   tab -- and .pdp-nm and .pdp-rate are redefined below with the rest of
+   the reference's furniture. .rail-btn styled a column of text buttons
+   beside the picture that the heart and share button on the photograph
+   replaced. All four removed rather than left to style nothing: a rule
+   with no markup behind it is the next person's wild goose chase. */
 
 .pdp-scroll{max-height:260px;overflow-y:auto;overscroll-behavior:contain}
+
+/* ================= THE PRODUCT PAGE, THE REFERENCE'S FURNITURE =========
+
+   THE GALLERY. A vertical strip of thumbnails beside the picture on a
+   wide screen, under it on a phone -- a 64px column costs a sixth of a
+   390px screen, and the dots inside the frame answer "is there more?"
+   there instead. */
+.gal{position:relative}
+.gal .main{position:relative}
+/* The rail goes on the LEFT of the picture, which is the reference and
+   is also where a left-to-right reader's eye starts. order, not source
+   order: the thumbnails come after the picture in the document because
+   the picture is the content and they are navigation for it. */
+@media(min-width:768px){
+  .gal{display:flex;gap:10px;align-items:flex-start}
+  .gal .main{order:2;flex:1;min-width:0}
+  .thumbs{order:1;flex-direction:column;flex:0 0 auto;padding:0}
+  .thumbs button{width:58px;height:58px}
+}
+
+/* The ribbon and the round buttons, over the corners of the picture. */
+.gal-badge{position:absolute;top:10px;left:10px;z-index:2}
+.gal-tag{display:inline-block;background:var(--ink);color:#fff;font-size:var(--fs-caption);
+  font-weight:700;letter-spacing:.04em;padding:4px 10px;border-radius:var(--r-pill)}
+.gal-acts{position:absolute;top:10px;right:10px;z-index:2;display:flex;flex-direction:column;gap:8px}
+/* A WHITE DISC UNDER EACH, because a photograph can be any colour and an
+   outline alone disappears against half of them. */
+.gal-act{width:34px;height:34px;padding:0;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;border-radius:var(--r-pill);
+  background:rgba(255,255,255,.94);border:1px solid var(--line);color:var(--ink-3);
+  box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.gal-act:hover{color:var(--ink);transform:scale(1.06)}
+.gal-act.is-on{color:var(--red)}
+.gal-act:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* The arrows. Hidden until the pointer is over the picture on a device
+   that has a pointer -- on a phone they would cover the photograph, and
+   a swipe or a thumbnail is the gesture there. */
+.gal-arw{position:absolute;top:50%;transform:translateY(-50%);z-index:2;
+  width:34px;height:34px;padding:0;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;border-radius:var(--r-pill);
+  background:rgba(255,255,255,.94);border:1px solid var(--line);color:var(--ink);
+  box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.gal-arw-l{left:10px}
+.gal-arw-r{right:10px}
+@media (hover:hover) and (pointer:fine){
+  .gal-arw{opacity:0;transition:opacity .14s var(--ease)}
+  .gal .main:hover .gal-arw{opacity:1}
+}
+.gal-dots{position:absolute;left:0;right:0;bottom:10px;z-index:2;
+  display:flex;justify-content:center;gap:6px}
+.gal-dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.6);
+  box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+.gal-dots span.is-on{background:#fff;width:18px;border-radius:3px}
+
+/* ---- the middle column ---- */
+.pdp-nm{margin:0 0 var(--sp-2);font-size:var(--fs-h2);line-height:1.22;text-transform:none}
+/* THE RATING AND THE STOCK ON ONE LINE, which is where the reference
+   puts them: "is it any good" and "can I have it" are asked in the same
+   breath, and the stock pill three rows down answered the second one
+   after the price had already been read. */
+.pdp-meta{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2) var(--sp-3);
+  margin:0 0 var(--sp-3)}
+.pdp-rate{display:inline-flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-body-sm);color:var(--muted);text-decoration:none;margin:0}
+.pdp-rate b{color:var(--ink)}
+.pdp-rate:hover{text-decoration:underline}
+.pdp-stock{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-body-sm);font-weight:600}
+.pdp-stock i{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.pdp-stock.stock-in{color:var(--green)}
+.pdp-stock.stock-low{color:var(--amber-ink)}
+.pdp-stock.stock-out{color:var(--red)}
+
+/* THREE FACTS, AS TILES. auto-fit rather than three fixed columns: a
+   product that answers two of them gets two tiles the full width rather
+   than two tiles and a hole. */
+.pdp-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:var(--sp-2);margin:var(--sp-3) 0}
+.pdp-tile{background:var(--line-2);border:1px solid var(--line);border-radius:var(--r-s);
+  padding:var(--sp-2) var(--sp-3);min-width:0}
+.pdp-tile b{display:block;font-size:var(--fs-body-sm);color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pdp-tile span{font-size:var(--fs-caption);color:var(--muted)}
+
+/* THE DESCRIPTION AND THE TICKS, on a card.
+   The reference's whole page is white, so its description sits on the
+   page itself. This shop's background is a tais pattern, and the scroll
+   box underneath needs a solid colour for its shaded edges to work
+   against -- so a white box appeared over the weave and read as
+   something that had failed to be styled. A card is what this page
+   already uses to say "this is a block of content". */
+.pdp-about{background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r);padding:var(--sp-3);margin-top:var(--sp-3)}
+.pdp-about:empty{display:none}
+.pdp-desc{margin:0}
+.pdp-desc h2{margin:0 0 var(--sp-2);font-size:var(--fs-h4);letter-spacing:.04em}
+/* Inside the card it needs no background of its own -- the shaded edges
+   below already paint var(--card), which is now what is behind them. */
+
+/* THE TICKED ONE-LINERS, two columns on a wide screen. They are short by
+   construction -- 120 characters, enforced in the database -- so two fit
+   side by side without either wrapping into the other's row. */
+.pdp-ticks{list-style:none;margin:var(--sp-3) 0 0;padding:0;
+  display:grid;grid-template-columns:1fr;gap:var(--sp-2) var(--sp-4)}
+.pdp-ticks li{display:flex;align-items:flex-start;gap:var(--sp-2);
+  font-size:var(--fs-body-sm);color:var(--ink-3);min-width:0}
+.pdp-ticks li svg{flex:0 0 auto;margin-top:1px;color:var(--green)}
+@media(min-width:560px){.pdp-ticks{grid-template-columns:1fr 1fr}}
+
+/* ---- the buy panel ---- */
+.buybox-lbl b{color:var(--ink)}
+/* THE COLOUR SWATCHES. A ring OUTSIDE the circle marks the chosen one,
+   so that a white swatch and a chosen white swatch are still different
+   -- an inner border would vanish into a pale colour. */
+.swatches{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-2)}
+.swatch{width:30px;height:30px;padding:2px;cursor:pointer;border-radius:50%;
+  background:transparent;border:2px solid transparent;
+  display:inline-flex;align-items:center;justify-content:center}
+.swatch span{width:100%;height:100%;border-radius:50%;display:inline-flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  color:var(--ink-3);background:var(--line-2);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)}
+.swatch.is-on{border-color:var(--ink)}
+.swatch:hover:not(:disabled){border-color:var(--ink-3)}
+/* One colour is a label, not a choice: no pointer, no dimming -- it is
+   not unavailable, it is simply the answer. */
+.swatch:disabled{cursor:default}
+.swatch:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* WHAT THE SHOP PROMISES. A tinted block under the buttons, each line
+   with the drawing that means it rather than four identical ticks. */
+.buybox-promise{list-style:none;margin:var(--sp-3) 0 0;padding:var(--sp-3);
+  background:var(--line-2);border-radius:var(--r-s);
+  display:grid;gap:var(--sp-2)}
+.buybox-promise li{display:flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-body-sm);color:var(--ink-3);min-width:0}
+.buybox-promise li svg{flex:0 0 auto;color:var(--ink)}
+
+.buybox-sku{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3);
+  margin:var(--sp-3) 0 0;padding-top:var(--sp-3);border-top:1px solid var(--line);
+  font-size:var(--fs-caption);color:var(--muted)}
+.buybox-sku b{color:var(--ink-3);font-weight:600}
+.buybox-sku a{color:var(--ink-3)}
+
+/* ---- the tabs under the fold ---- */
+.ptabs{margin:var(--sp-5) 0 0}
+.ptabs-hd{display:flex;gap:var(--sp-1);overflow-x:auto;border-bottom:1px solid var(--line)}
+.ptabs-hd::-webkit-scrollbar{height:0}
+.ptab{padding:var(--sp-3) var(--sp-3);cursor:pointer;white-space:nowrap;
+  background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--muted);font-size:var(--fs-body);font-weight:600;font-family:inherit}
+.ptab:hover{color:var(--ink)}
+.ptab.is-on{color:var(--ink);border-bottom-color:var(--ink)}
+.ptab:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.ptabs-body{margin-top:var(--sp-3)}
+
+/* THE SPECIFICATION TABLE, IN COLUMNS. A sofa answers eighteen
+   questions: down one column that is eighteen rows to scroll past, and
+   across three it is six.
+   THREE AT MOST, and counted rather than left to auto-fit. auto-fit with
+   a 240px minimum gave FIVE columns on a 1440px screen, which put a
+   label and its answer eight pixels apart in one column and a hand's
+   width apart in the next -- measured, and it read as five unrelated
+   lists rather than one table. */
+.spec-cols{display:grid;grid-template-columns:1fr;gap:0 var(--sp-5);margin:0}
+@media(min-width:620px){.spec-cols{grid-template-columns:1fr 1fr}}
+@media(min-width:1024px){.spec-cols{grid-template-columns:1fr 1fr 1fr}}
+/* The shipping panel's little tables are already inside a column of the
+   grid above them, so they stay single-file however wide the page is. */
+.ship-zones{grid-template-columns:1fr}
+@media(min-width:620px){.ship-zones{grid-template-columns:1fr}}
+@media(min-width:1024px){.ship-zones{grid-template-columns:1fr}}
+/* THE ANSWER BESIDE THE QUESTION, not at the far end of the row.
+   space-between put "Gender" at one edge of a 460px column and "Men" at
+   the other, so the eye had to travel the width of a hand to pair them
+   -- and each column paired them at a different distance. A grid instead:
+   the answer starts at the same offset in every column, close enough to
+   read as one fact. */
+.spec-cols .spec-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+  align-items:baseline;gap:var(--sp-3);padding:var(--sp-2) 0;
+  border-bottom:1px solid var(--line);min-width:0}
+.spec-cols dt{color:var(--muted);font-size:var(--fs-sm);min-width:0;overflow-wrap:anywhere}
+.spec-cols dd{margin:0;min-width:0;overflow-wrap:anywhere;font-weight:600}
+
+.ship-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:var(--sp-4)}
+.ship-grid h3{margin:0 0 var(--sp-2);font-size:var(--fs-body-sm);font-family:var(--mono);
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ship-zones .spec-row{border-bottom:1px solid var(--line)}
+.ship-ticks{list-style:none;margin:0;padding:0;display:grid;gap:var(--sp-2)}
+.ship-ticks li{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-body-sm)}
+.ship-ticks li svg{flex:0 0 auto;color:var(--green)}
+
+/* ---- the About and Contact pages ---- */
+.prose-page{max-width:70ch}
+.prose-page .lede{font-size:var(--fs-h4);color:var(--ink);margin:0 0 var(--sp-3)}
+.about-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:var(--sp-3);margin:var(--sp-4) 0}
+.about-grid .panel{margin:0}
+.about-grid h3{margin:0 0 var(--sp-2)}
+.about-grid p{margin:0 0 var(--sp-1)}
+
+/* ---- the saved list ---- */
+.empty-loves{text-align:center;padding:var(--sp-5) var(--sp-3);color:var(--muted)}
+.empty-loves svg{color:var(--line)}
+.empty-loves p{margin:var(--sp-3) 0 0}
+.empty-loves .btn{margin-top:var(--sp-3)}
 .pdp-scroll:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
 /* A CUT LINE OF TEXT IS NOT AN AFFORDANCE.

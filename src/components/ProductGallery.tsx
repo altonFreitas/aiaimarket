@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { placeholder } from "@/lib/placeholder";
 import {
@@ -20,9 +20,21 @@ import type { Lang } from "@/lib/types";
  * the frame it already occupied, so nothing on the page moves when it is
  * used, and it works the same on a phone, where the drag is a finger.
  */
-export default function ProductGallery(
-  { images, name, lang = "tet" }: { images: string[]; name: string; lang?: Lang }
-) {
+export default function ProductGallery({
+  images, name, lang = "tet", badge, actions,
+}: {
+  images: string[];
+  name: string;
+  lang?: Lang;
+  /** A ribbon over the top-left corner -- "Best seller" and the like.
+   * Passed in rather than decided here: what makes a product worth a
+   * ribbon is the catalogue's business, not the picture frame's. */
+  badge?: ReactNode;
+  /** The round buttons over the top-right corner. The heart lives on the
+   * photograph in the reference, and sharing goes beside it -- both are
+   * things you do ABOUT the product rather than to buy it. */
+  actions?: ReactNode;
+}) {
   const list = images?.length ? images : [placeholder(name)];
   const [i, setI] = useState(0);
   const [scale, setScale] = useState<number>(MIN_ZOOM);
@@ -87,6 +99,10 @@ export default function ProductGallery(
 
   const src = list[i] || list[0];
   const zoomed = scale > MIN_ZOOM;
+  /* Wrapping on purpose: a carousel whose arrows go dead at the ends
+     makes a shopper think it has broken, and there are never more than a
+     handful of photographs to get lost among. */
+  const step = (d: number) => selectImage((i + d + list.length) % list.length);
 
   return (
     <div className="gal">
@@ -116,6 +132,33 @@ export default function ProductGallery(
             transition: dragging ? "none" : "transform .18s ease-out",
           }}
         />
+
+        {badge && <div className="gal-badge">{badge}</div>}
+        {actions && <div className="gal-acts">{actions}</div>}
+
+        {/* ARROWS ONLY WHEN THERE IS SOMEWHERE TO GO. One photograph and
+            they are two controls that do nothing.
+            Hidden from a screen reader: the thumbnails below are the same
+            navigation, already labelled, and announcing both makes one
+            gallery sound like two. */}
+        {list.length > 1 && !zoomed && (
+          <>
+            <button type="button" className="gal-arw gal-arw-l" aria-hidden="true"
+              tabIndex={-1} onClick={() => step(-1)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <button type="button" className="gal-arw gal-arw-r" aria-hidden="true"
+              tabIndex={-1} onClick={() => step(1)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </>
+        )}
 
         <div className="zoom-ctl">
           <button
@@ -148,12 +191,29 @@ export default function ProductGallery(
             </svg>
           </button>
         </div>
+
+        {/* WHICH OF HOW MANY, for a phone. The thumbnail rail is the
+            desktop's answer and it is beside the picture there; stacked
+            under a 366px photograph it would be a second row of
+            furniture. Dots are the smallest thing that answers "is there
+            more?" -- and they are not buttons, because the thumbnails
+            already are and two sets of controls for one gallery is one
+            set too many. */}
+        {list.length > 1 && (
+          <div className="gal-dots" aria-hidden="true">
+            {list.map((_, ix) => (
+              <span key={ix} className={ix === i ? "is-on" : undefined} />
+            ))}
+          </div>
+        )}
       </div>
 
       {list.length > 1 && (
         <div className="thumbs">
           {list.map((s, ix) => (
-            <button key={ix} type="button" aria-current={ix === i} onClick={() => selectImage(ix)}>
+            <button key={ix} type="button" aria-current={ix === i}
+              aria-label={`${name} ${ix + 1}/${list.length}`}
+              onClick={() => selectImage(ix)}>
               <Image
                 src={s}
                 alt=""

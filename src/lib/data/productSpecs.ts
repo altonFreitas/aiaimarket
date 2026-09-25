@@ -21,6 +21,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
  */
 
 export interface ProductSpec {
+  /** The attribute's stable name -- `material`, `fit`, `gender`. The
+   * product page picks its three highlight tiles BY MEANING rather than
+   * by position, and `name` is the shop's own wording in whichever
+   * language it was typed, so it cannot be matched against. */
+  slug: string;
   /** The question, as the catalogue words it. */
   name: string;
   /** The answer, already joined for a multi-value attribute. */
@@ -37,14 +42,14 @@ export async function productSpecs(productId: string): Promise<ProductSpec[]> {
     const { data, error } = await sb
       .from("product_attribute_values")
       .select(`value,
-               attributes!inner (id, name, unit, field_type, admin_only)`)
+               attributes!inner (id, slug, name, unit, field_type, admin_only)`)
       .eq("product_id", productId);
     if (error || !data) return [];
 
     type Row = {
       value: string;
       attributes: {
-        id: string; name: string; unit: string | null;
+        id: string; slug: string; name: string; unit: string | null;
         field_type: string; admin_only: boolean;
       };
     };
@@ -79,7 +84,7 @@ export async function productSpecs(productId: string): Promise<ProductSpec[]> {
       const got = byAttr.get(a.id);
       if (got) { got.values.push(r.value); continue; }
       byAttr.set(a.id, {
-        spec: { name: a.name, value: "", unit: a.unit, fieldType: a.field_type },
+        spec: { slug: a.slug, name: a.name, value: "", unit: a.unit, fieldType: a.field_type },
         values: [r.value],
       });
     }

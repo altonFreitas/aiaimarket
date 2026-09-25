@@ -1,16 +1,18 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { headers } from "next/headers";
 import ProductInteractive from "@/components/ProductInteractive";
 import { oneSizeStock } from "@/lib/data/sizeStock";
 import { sizePricesOf } from "@/lib/data/sizePrices";
 import ProductGallery from "@/components/ProductGallery";
 import ProductActions from "@/components/ProductActions";
+import ProductTabs from "@/components/ProductTabs";
+import Crumb from "@/components/Crumb";
 import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
 import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
 import { productSpecs } from "@/lib/data/productSpecs";
-import SpecValue from "@/components/SpecValue";
+import { productColors } from "@/lib/data/productColors";
+import { deliveryPromises, bestZoneFee } from "@/lib/deliveryPromise";
 import { ratingAverage } from "@/lib/utils";
 import { getLang } from "@/lib/lang";
 import { localeMetadata, localePath } from "@/lib/locale";
@@ -56,7 +58,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [related, reviews, specs, sizePrices] = await Promise.all([
+  const [related, reviews, specs, sizePrices, colors] = await Promise.all([
     getRelatedProducts(p.category_id, p.id), getProductReviews(p.id),
     // Only what this product actually answers -- see lib/data/productSpecs.
     productSpecs(p.id),
@@ -65,7 +67,30 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
        fridge, and then the page quotes the product's own price for
        everything, exactly as it always did. */
     sizePricesOf(p.id),
+    /* Which colours it is sold in. Variants when there are any, the
+       product's own colour answer when there are not -- see
+       lib/data/productColors.ts. */
+    productColors(p.id),
   ]);
+
+  /* THE THREE TILES over the description, picked BY MEANING rather than
+     by position. Material, Fit and Gender are what the reference lifts
+     out, and taking "the first three specs" instead would show a sofa's
+     Width, Depth and Height -- true, and not what a shopper scans for.
+     Falls through to whatever the product does answer, so a product type
+     with none of the three still gets a strip rather than a gap. */
+  const TILE_ORDER = ["material", "fit", "gender", "style", "pattern", "brand"];
+  const tiles = [...specs]
+    .filter((sp) => sp.fieldType !== "color" && sp.value.trim())
+    .sort((a, b) => {
+      const ia = TILE_ORDER.indexOf(a.slug);
+      const ib = TILE_ORDER.indexOf(b.slug);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    })
+    .slice(0, 3)
+    .map((sp) => ({ label: sp.name, value: sp.value }));
+
+  const brand = specs.find((sp) => sp.slug === "brand")?.value ?? null;
 
   /* THE SIZES THIS IS ACTUALLY SOLD IN.
    *
@@ -150,125 +175,67 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumb) }}
         />
       )}
-      <p className="crumb">
-        <Link href="/">{t("catalog", lang)}</Link>
-        {trail.map((c) => (
-          <span key={c.id}> / <Link href={`/c/${c.slug}`}>{c.name}</Link></span>
-        ))}
-        {" / "}
-        <span className="mono">{p.ref}</span>
-      </p>
+      <Crumb homeLabel={t("catalog", lang)} steps={[
+        ...trail.map((c) => ({ label: c.name, href: `/c/${c.slug}` })),
+        { label: p.name },
+      ]} />
 
-      {/* THREE COLUMNS, THE WAY FNAC LAYS A PRODUCT OUT.
-          The photograph and what the thing IS on the left, what it is
-          LIKE in the middle, and what it COSTS pinned on the right. The
-          two-column version put the description under the image, which
-          meant scrolling past a 500px photograph to read a sentence --
-          and left the middle of a wide screen empty. */}
+      {/* THE REFERENCE'S SHAPE. The photograph on the left with its
+          thumbnails beside it, what the thing IS and COSTS in the middle,
+          and what you choose and press on the right.
+
+          The price sits in the MIDDLE column here, not in the buy panel.
+          That is the reference, and it is why ProductInteractive renders
+          both of those columns out of one component: this shop's prices
+          follow the size, so picking Large on the right has to change the
+          number in the middle, and two components could not share that. */}
       <div className="pdp">
         <div className="pdp-media">
-          {/* Over the photograph, where FNAC puts it. It was inside the
-              price card, which made the price the second thing read. */}
-          <h1 className="pdp-nm">{p.name}</h1>
-          {average != null && (
-            <a className="pdp-rate" href="#reviews">
-              <span className="stars" aria-hidden="true">
-                {"★★★★★".slice(0, Math.round(average))}
-                <span className="stars-off">{"★★★★★".slice(Math.round(average))}</span>
-              </span>
-              <b>{average.toFixed(1)}</b>
-              <span>({Number(p.rating_count) || 0})</span>
-            </a>
-          )}
-          <div className="pdp-media-in">
-            <ProductGallery images={p.images} name={p.name} lang={lang} />
-            {/* Things you do ABOUT the product rather than to buy it, so
-                they sit beside the picture and not in the price card. */}
-            <ProductActions p={p} lang={lang} siteOrigin={siteOrigin}
-              waNumber={settings.wa_number} />
-          </div>
+          <ProductGallery images={p.images} name={p.name} lang={lang}
+            /* Things you do ABOUT the product rather than to buy it, on
+               the picture itself -- which is where the reference puts the
+               heart and where a shopper is already looking. */
+            actions={
+              <ProductActions p={p} lang={lang} siteOrigin={siteOrigin}
+                waNumber={settings.wa_number} />
+            }
+            /* A ribbon only when it is EARNED. "Best seller" on a product
+               nobody has bought is the kind of claim that costs a shop
+               its credibility -- so it is drawn off the same rating the
+               stars come from, and only when there are enough reviews
+               behind it to mean anything. */
+            badge={average != null && average >= 4.5 && (Number(p.rating_count) || 0) >= 5
+              ? <span className="gal-tag">{t("bestSeller", lang)}</span>
+              : null}
+          />
         </div>
 
-        {/* WHAT IT COSTS. Pinned beside the page on a wide screen, so
-            the thing a shopper buys with never scrolls away while they
-            read the description -- which is why both of the shops this
-            borrows from pin it.
-
-            SECOND IN THE DOCUMENT, ahead of the summary, although the
-            three-column grid draws it third. Stacked on a phone the
-            document order is the only order there is, and having it last
-            put the price and the Add to cart button below four hundred
-            words of a supplier's description -- measured at 390px, a
-            full screen of scrolling to reach the one control the page
-            exists for. The grid below places all three columns
-            explicitly, so moving it here moves nothing on a wide
-            screen, and it puts the buy card ahead of the description
-            for a keyboard too. */}
-        <div className="pdp-buy">
-          <ProductInteractive p={{ ...p, sizes }} settings={settings} lang={lang}
-            siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
-            /* A plain object, not the Map: this crosses the server ->
-               client boundary and a Map does not survive it. */
-            sizePrices={Object.fromEntries(sizePrices)} />
-        </div>
-        {/* WHAT IT IS LIKE. Open panels, not folds: FNAC's Resumo and
-            Características are simply there, and a summary worth writing
-            is worth showing. They kept their own scroll -- a supplier's
-            four hundred words still must not become the page. */}
-        <div className="pdp-info">
-          {/* CAPPED, AND SCROLLED WHEN IT NEEDS TO BE.
-              A seller who pastes a supplier's four hundred words pushes
-              the specification, the reviews and the related products off
-              the bottom of the screen, and the one thing a shopper is
-              looking for -- the price, which is beside this -- ends up
-              alone in a tall empty column. tabIndex, because a region
-              that scrolls has to be reachable by keyboard. */}
-          {/* OPEN, AND FOLDABLE. Both of the shops this borrows from put
-              the long text behind a row you expand, and both leave the
-              first one open -- so the page is readable at a glance and
-              still collapsible once you have read it.
-
-              <details> rather than a component: it needs no JavaScript,
-              it is keyboard-operable and screen-reader-announced for
-              free, and the browser's own find-in-page opens it. */}
-          {p.description?.trim() && (
-            <section className="panel pdp-sec">
-              <h2>{t("description", lang)}</h2>
-              <div className="pdp-scroll" tabIndex={0}
-                style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
-            </section>
-          )}
-
-          {/* WHAT THIS PARTICULAR PRODUCT IS.
-              Drawn from the product type's own attributes, and only the
-              ones with an answer: eighteen questions with seven dashes
-              beside them is seven rows of nothing to read past, and it
-              makes a well-filled listing look like a neglected one. The
-              whole block disappears when nothing has been answered, which
-              is every product created before the taxonomy existed. */}
-          {specs.length > 0 && (
-            <section className="panel pdp-sec">
-              <h2>{t("specifications", lang)}</h2>
-              {/* A sofa answers eighteen questions. Five rows is the
-                  height at which this stops being a list and starts being
-                  the page, so past that it scrolls in place. */}
-              <dl className={"specs" + (specs.length > 5 ? " specs-scroll" : "")}
-                tabIndex={specs.length > 5 ? 0 : undefined}>
-                {specs.map((s) => (
-                  <div key={s.name} className="spec-row">
-                    <dt>{s.name}</dt>
-                    <dd><SpecValue spec={s} /></dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          )}
-        </div>
+        {/* TWO COLUMNS OUT OF ONE COMPONENT -- the summary and the buy
+            panel. It returns a fragment, so both land as direct children
+            of this grid. */}
+        <ProductInteractive p={{ ...p, sizes }} settings={settings} lang={lang}
+          siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
+          /* A plain object, not the Map: this crosses the server ->
+             client boundary and a Map does not survive it. */
+          sizePrices={Object.fromEntries(sizePrices)}
+          colors={colors} tiles={tiles} brand={brand}
+          average={average} ratingCount={Number(p.rating_count) || 0}
+          promises={deliveryPromises(settings)} deliveryFee={bestZoneFee(settings)} />
       </div>
 
-      {/* The anchor the rating above jumps to. */}
+      {/* SPECIFICATIONS, REVIEWS AND SHIPPING, as tabs across the full
+          width. All three are consulted after the decision to be
+          interested; stacked open they pushed the related products off
+          the bottom of a phone. The reviews panel is handed in rather
+          than rebuilt -- it is a server component with its own data and
+          its own form. */}
       <div id="reviews">
-        <ProductReviews p={p} reviews={reviews} lang={lang} />
+        <ProductTabs
+          specs={specs} lang={lang} settings={settings}
+          pay={{ cod: p.pay_cod, cop: p.pay_cop, bank: p.pay_bank, wallet: p.pay_wallet }}
+          reviewCount={Number(p.rating_count) || 0}
+          reviews={<ProductReviews p={p} reviews={reviews} lang={lang} />}
+        />
       </div>
 
       {related.length > 0 && (

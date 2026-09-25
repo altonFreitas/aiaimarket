@@ -9,7 +9,6 @@ const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const FORM = read("src/components/admin/ProductForm.tsx");
 const ATTRS = read("src/lib/actions/product-attributes.ts");
 const EDITOR = read("src/components/admin/VariantEditor.tsx");
-const PAGE = read("src/app/p/[slug]/page.tsx");
 const PICKER = read("src/components/admin/TaxonomyPicker.tsx");
 const SELLER = read("src/components/seller/SellerProcurement.tsx");
 const CSS = read("src/app/globals.css");
@@ -92,19 +91,37 @@ describe("the combinations come from the answers", () => {
 });
 
 describe("the product page", () => {
-  it("scrolls the details past five rows", () => {
-    expect(PAGE).toContain('"specs" + (specs.length > 5 ? " specs-scroll" : "")');
-    expect(PAGE).toContain("tabIndex={specs.length > 5 ? 0 : undefined}");
-    expect(CSS).toMatch(/\.specs-scroll\{max-height:\d+px;overflow-y:auto/);
+  /* All three of these moved when the page was rebuilt on the reference.
+     The specification table is in a TAB now (ProductTabs) and the
+     description is in the component that owns the price
+     (ProductInteractive), because on that layout the price has to react
+     to the size picker beside it. The RULES are unchanged and are
+     asserted against the files that now carry them -- a test that was
+     left pointing at the old file would have gone green the moment the
+     markup it checks stopped existing. */
+  const TABS = read("src/components/ProductTabs.tsx");
+  const BUY = read("src/components/ProductInteractive.tsx");
+
+  it("keeps a long specification list from becoming the page", () => {
+    /* It used to cap the list at five rows and scroll the rest. Columns
+       instead: eighteen answers down one column is eighteen rows to
+       scroll past, and across three it is six -- same problem, and the
+       answer that does not hide anything.
+       Counted rather than auto-fit: auto-fit with a 240px minimum drew
+       FIVE columns on a 1440px screen, which read as five unrelated
+       lists. Measured. */
+    expect(TABS).toContain('<dl className="spec-cols">');
+    expect(CSS).toContain(".spec-cols{display:grid;grid-template-columns:1fr");
+    expect(CSS).toMatch(/@media\(min-width:1024px\)\{\.spec-cols\{grid-template-columns:1fr 1fr 1fr\}/);
   });
 
   it("scrolls a description somebody pasted a page into", () => {
-    expect(PAGE).toContain('className="pdp-scroll" tabIndex={0}');
+    expect(BUY).toContain('className="pdp-scroll" tabIndex={0}');
     expect(CSS).toMatch(/\.pdp-scroll\{max-height:\d+px;overflow-y:auto/);
   });
 
   it("shows a colour as a colour", () => {
-    expect(PAGE).toContain("<SpecValue spec={s} />");
+    expect(TABS).toContain("<SpecValue spec={sp} />");
     expect(read("src/components/SpecValue.tsx")).toContain('spec.fieldType !== "color"');
   });
 });

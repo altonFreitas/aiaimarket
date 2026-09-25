@@ -13,21 +13,23 @@ import type { Lang, Product } from "@/lib/types";
    only thing here that reads it. */
 const STOCK_KEY = { in: "stockIn", low: "stockLow", out: "stockOut" } as const;
 
-/* THE RAIL BESIDE THE PHOTOGRAPH.
+/* THE BUTTONS OVER THE PHOTOGRAPH.
  *
- * FNAC runs a narrow column of round icon buttons down the side of the
- * product image -- Wishlists, Compare, Share -- and it is a good place
- * for them: they are things you do ABOUT the product rather than things
- * you do to buy it, so they do not belong in the price card, and a row of
- * text buttons under the image would compete with the description.
+ * The reference puts a heart in the top-right corner OF THE PICTURE, and
+ * that is where it belongs: it is a thing you do about the product, not a
+ * field in the price card, and there it is where a shopper's eye already
+ * is. Sharing goes beside it for the same reason.
  *
- * TWO OF THEM, NOT THREE. Comparing needs a comparison screen to compare
- * on, and a button that opens nothing is worse than no button.
+ * TWO OF THEM, NOT THREE. The FNAC rail this replaces had room for
+ * Compare as well, and comparing needs a comparison screen to compare on.
+ * A button that opens nothing is worse than no button.
  *
- * Its own component because both of these are client-side: the heart is
- * this browser's own list (localStorage, see useLoves) and sharing is a
- * browser API. The gallery beside it is a server component and should
- * stay one.
+ * ROUND, ON A WHITE DISC, because they sit on a photograph and a
+ * photograph can be any colour underneath them.
+ *
+ * Its own component because both are client-side: the heart is this
+ * browser's own list (localStorage, see useLoves) and sharing is a
+ * browser API.
  */
 export default function ProductActions({
   p, lang, siteOrigin, waNumber,
@@ -79,26 +81,25 @@ export default function ProductActions({
   }
 
   return (
-    <div className="pdp-rail">
-      <button type="button" className={"rail-btn" + (loved ? " is-on" : "")}
+    <>
+      <button type="button" className={"gal-act" + (loved ? " is-on" : "")}
         onClick={toggleLove} aria-pressed={loved}
-        aria-label={`${t(loved ? "unlove" : "love", lang)} — ${p.name}`}>
-        {/* No rim: this one sits on a panel, not over a photograph, and
-            the dark outline that makes it readable on a boot reads as a
-            smudge on paper. See HeartIcon. */}
-        <HeartIcon size={20} filled={loved} />
-        <span>{t(loved ? "unlove" : "love", lang)}</span>
+        aria-label={`${t(loved ? "unlove" : "love", lang)} — ${p.name}`}
+        title={t(loved ? "unlove" : "love", lang)}>
+        {/* No rim on the heart itself: the disc under it is what makes it
+            readable over a photograph, and a second dark outline inside
+            that would read as a smudge. See HeartIcon. */}
+        <HeartIcon size={18} filled={loved} />
       </button>
 
-      <button type="button" className="rail-btn" onClick={share}
-        aria-label={`${t("share", lang)} — ${p.name}`}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+      <button type="button" className="gal-act" onClick={share}
+        aria-label={`${t("share", lang)} — ${p.name}`} title={t("share", lang)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round"
           strokeLinejoin="round" aria-hidden="true">
           <path d="M12 16V4M8 8l4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
         </svg>
-        <span>{t("share", lang)}</span>
       </button>
-    </div>
+    </>
   );
 }
