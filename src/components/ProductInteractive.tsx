@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import { bumpWaClickAction } from "@/lib/actions/track";
-import {money,waLink, waProductMsg, discountPercent} from "@/lib/utils";
+import { money, waLink, waProductMsg, discountPercent, ratingAverage } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { availableInSize, type SizedStock } from "@/lib/sizeStock";
 import type { Lang, Product, Settings } from "@/lib/types";
@@ -59,6 +59,12 @@ export default function ProductInteractive({
    * product is on offer at this number"; a per-size price is what the
    * size costs normally. Honouring the size's price over a live discount
    * would silently cancel the offer for anyone who picked a size. */
+  /* What shoppers have said, when any have. Read from the product row
+     the page already loaded rather than passed in separately -- the
+     reviews list below the card reads the same two columns. */
+  const rating = ratingAverage(p);
+  const ratingCount = Number(p.rating_count) || 0;
+
   const sizePrice = size != null ? sizePrices?.[size] : undefined;
   const basePrice = sizePrice != null && Number.isFinite(sizePrice)
     ? Number(sizePrice) : Number(p.price);
@@ -81,12 +87,17 @@ export default function ProductInteractive({
    * headline into a "from". Two prices that happen to be equal are not a
    * range and do not get the word. */
   const priceVaries = useMemo(() => {
+    /* NOT WHILE A DISCOUNT IS ON. discount_price is one number the shop
+       has put on the whole product, so every size costs it -- and the
+       page was saying "From $12.00" over a price that was $12.00 for all
+       four sizes. A range that is not a range. */
+    if (p.discount_price != null && p.discount_price > 0) return false;
     const vals = (p.sizes || [])
       .map((s) => sizePrices?.[s])
       .filter((v): v is number => v != null && Number.isFinite(v));
     if (vals.length < 2) return false;
     return Math.min(...vals) !== Math.max(...vals);
-  }, [p.sizes, sizePrices]);
+  }, [p.sizes, p.discount_price, sizePrices]);
 
   const siteUrl = (path: string) => `${siteOrigin}${path}`;
   const waDigits = settings.wa_number.replace(/[^\d]/g, "");
@@ -196,120 +207,121 @@ export default function ProductInteractive({
   }
 
   return (
-    <>
-      {/* D3 — the four repeated questions, answered above the fold */}
-      <section className="aab" aria-label={t("answers", lang)}>
-        <div className="aab-hd">
-          <span className="dot" />
-          {t("answers", lang)}
-        </div>
+    /* THE BUY CARD.
+     *
+     * This was a label-and-value table headed "ALL ANSWERS, HERE" --
+     * PRICE, SIZE, AVAILABLE down the left, answers down the right --
+     * with the buttons stacked underneath it and the product's name
+     * somewhere above, outside. It answered the right questions in the
+     * wrong shape: a table is for comparing rows, and nobody compares the
+     * price of a thing with its size.
+     *
+     * It reads top to bottom now, the way every shop this one competes
+     * with reads: what it is, what it costs, which one you want, how many,
+     * and the button. The card is sticky on a desktop (see .pdp-buy in
+     * globals.css) so it stays beside the photographs and the description
+     * however far down the page somebody scrolls -- the whole point of a
+     * long product page is that the thing you buy with never leaves.
+     */
+    <div className="buybox">
+      <h1 className="buybox-nm">{p.name}</h1>
 
-        <div className="aab-row aab-row-price">
-          <div className="aab-q">{t("qPrice", lang)}</div>
-          <div className="aab-a">
-            {pct != null ? (
-              <>
-                <span className="aab-price aab-price-discount">{money(p.discount_price!)}</span>
-                {/* Struck through: what this SIZE would have cost, not
-                    what the product row says. On a shirt whose Large is
-                    dearer, crossing out the product's price would show
-                    the shopper a saving they are not getting. */}
-                <span className="aab-price-original">{money(basePrice)}</span>
-                <span className="aab-price-pct">-{pct}%</span>
-              </>
-            ) : (
-              <>
-                {/* "From" until a size is chosen, when the sizes are not
-                    all one price. A single number over three prices is
-                    the one number that is wrong for two of them. */}
-                {priceVaries && size == null && (
-                  <span className="aab-price-from">{t("priceFrom", lang)}</span>
-                )}
-                <span className="aab-price">{money(headlinePrice)}</span>
-              </>
-            )}
-            {/* USD, and it says so. Timor-Leste uses the dollar, and a bare
-                "$" is ambiguous across a dozen of them. */}
-            <em style={{ fontStyle: "normal", fontSize: 12, color: "var(--muted)", marginLeft: 6 }}>USD</em>
-          </div>
-        </div>
-
-        <div className="aab-row">
-          <div className="aab-q">{t("qSize", lang)}</div>
-          <div className="aab-a">
-            {p.sizes?.length ? (
-              /* HOW MANY OF EACH, on the button for it.
-                 Offering Large on a product with none left in Large is the
-                 thing this whole feature exists to stop. A size with
-                 nothing behind it is shown struck through and cannot be
-                 picked -- shown rather than hidden, because "they do not
-                 stock my size" and "they are out of my size" are different
-                 answers and only one of them means come back later. */
-              <div className={"sizes" + (tracked ? " has-counts" : "")}>
-                {p.sizes.map((s) => {
-                  const left = tracked ? availableInSize(stock!, s) : null;
-                  const gone = left === 0;
-                  return (
-                    <button key={s} type="button" disabled={gone}
-                      className={gone ? "is-gone" : ""}
-                      aria-pressed={size === s}
-                      aria-label={left == null ? s
-                        : gone ? `${s} — ${t("sizeSoldOut", lang)}`
-                        : `${s} — ${left} ${t("unitsLeft", lang)}`}
-                      onClick={() => {
-                        setSize(s);
-                        setCapHit(false);
-                        /* A QUANTITY THAT NO LONGER FITS IS NOT KEPT.
-                           Choosing 5 of a size with 8 on the shelf and then
-                           switching to one with 3 left the 5 standing, so
-                           the page offered an order it knew would be
-                           refused. */
-                        const left = tracked ? availableInSize(stock!, s) : null;
-                        if (!canPreorder && left != null && left > 0) {
-                          setQty((q) => Math.min(q, left));
-                        }
-                      }}>
-                      {s}
-                      {left != null && <em>{gone ? "0" : left}</em>}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <span>—</span>
-            )}
-          </div>
-        </div>
-
-        <div className="aab-row">
-          <div className={"aab-q" + (p.stock_status === "out" ? " aab-q-out" : "")}>
-            {p.stock_status === "out" ? t("qNotAvailable", lang) : t("qStock", lang)}
-          </div>
-          <div className="aab-a">
-            <span className={"stock-pill " + STOCK_CLS[p.stock_status]}>
-              {t(STOCK_KEY[p.stock_status], lang)}
-            </span>
-            {p.stock_status !== "out" && p.qty ? (
-              <small>{p.qty} {t("unitsLeft", lang)}</small>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      {seller && (
-        <div className="panel sold-by-panel">
-          <span className="aab-q" style={{ display: "block", marginBottom: 4 }}>{t("soldBy", lang)}</span>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <b>{seller.store_name}</b>
-            <Link className="btn btn-sm btn-ghost" href={`/store/${seller.slug}`}>{t("visitStore", lang)}</Link>
-          </div>
+      {/* Rating before price, as both of the shops this borrows from do:
+          it is the reassurance that makes the number readable. Absent
+          until somebody has actually rated it -- no empty stars. */}
+      {rating != null && (
+        <div className="buybox-rate">
+          <span className="stars" aria-hidden="true">
+            {"★★★★★".slice(0, Math.round(rating))}
+            <span className="stars-off">{"★★★★★".slice(Math.round(rating))}</span>
+          </span>
+          <b>{rating.toFixed(1)}</b>
+          <span>({ratingCount})</span>
         </div>
       )}
 
-      {/* When it can be pre-ordered, say when it is expected before asking
+      <div className="buybox-price">
+        {/* "From" until a size is chosen, when the sizes are not all one
+            price. A single number over three prices is the one number
+            that is wrong for two of them. */}
+        {priceVaries && size == null && (
+          <span className="buybox-from">{t("priceFrom", lang)}</span>
+        )}
+        <span className="buybox-now">{money(pct != null ? p.discount_price! : headlinePrice)}</span>
+        {pct != null && (
+          <>
+            {/* Struck through: what this SIZE would have cost, not what
+                the product row says. On a shirt whose Large is dearer,
+                crossing out the product's price would show a saving the
+                shopper is not getting. */}
+            <s className="buybox-was">{money(basePrice)}</s>
+            <span className="buybox-off">-{pct}%</span>
+          </>
+        )}
+        {/* USD, and it says so. Timor-Leste uses the dollar and a bare
+            "$" is ambiguous across a dozen of them. */}
+        <em className="buybox-cur">USD</em>
+      </div>
+
+      {seller && (
+        <div className="buybox-seller">
+          <span>{t("soldBy", lang)}</span>
+          <Link href={`/store/${seller.slug}`}>{seller.store_name}</Link>
+        </div>
+      )}
+
+      {p.sizes?.length ? (
+        <div className="buybox-opt">
+          <span className="buybox-lbl">{t("qSize", lang)}</span>
+          {/* HOW MANY OF EACH, on the button for it.
+              Offering Large on a product with none left in Large is the
+              thing this exists to stop. A size with nothing behind it is
+              shown struck through and cannot be picked -- shown rather
+              than hidden, because "they do not stock my size" and "they
+              are out of my size" are different answers and only one of
+              them means come back later. */}
+          <div className={"sizes" + (tracked ? " has-counts" : "")}>
+            {p.sizes.map((s) => {
+              const left = tracked ? availableInSize(stock!, s) : null;
+              const gone = left === 0;
+              return (
+                <button key={s} type="button" disabled={gone}
+                  className={gone ? "is-gone" : ""}
+                  aria-pressed={size === s}
+                  aria-label={left == null ? s
+                    : gone ? `${s} — ${t("sizeSoldOut", lang)}`
+                    : `${s} — ${left} ${t("unitsLeft", lang)}`}
+                  onClick={() => {
+                    setSize(s);
+                    setCapHit(false);
+                    /* A QUANTITY THAT NO LONGER FITS IS NOT KEPT.
+                       Choosing 5 of a size with 8 on the shelf and then
+                       switching to one with 3 left the 5 standing, so the
+                       page offered an order it knew would be refused. */
+                    const n = tracked ? availableInSize(stock!, s) : null;
+                    if (!canPreorder && n != null && n > 0) setQty((q) => Math.min(q, n));
+                  }}>
+                  {s}
+                  {left != null && <em>{gone ? "0" : left}</em>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="buybox-stock">
+        <span className={"stock-pill " + STOCK_CLS[p.stock_status]}>
+          {t(STOCK_KEY[p.stock_status], lang)}
+        </span>
+        {p.stock_status !== "out" && p.qty ? (
+          <small>{p.qty} {t("unitsLeft", lang)}</small>
+        ) : null}
+      </div>
+
+      {/* When it can be pre-ordered, say when it is expected BEFORE asking
           for the order. A buyer committing to a wait deserves to know how
-          long, and "we do not know yet" is a fair answer that beats an
-          invented date that will be missed. */}
+          long, and "we do not know yet" beats an invented date. */}
       {canPreorder && (
         <div className="note info preorder-note">
           <b>{t("preorderTitle", lang)}</b>
@@ -321,56 +333,22 @@ export default function ProductInteractive({
         </div>
       )}
 
-      <div className="btn-row">
-        {canPreorder ? (
-          <button className="btn btn-amber" type="button" onClick={buyNow}>
-            {t("preorderNow", lang)}
-          </button>
-        ) : isOut ? (
-          <button className="btn" disabled>{t("stockOut", lang)}</button>
-        ) : (
-          <button className="btn btn-amber" type="button" onClick={buyNow}>
-            {t("buyNow", lang)}
-          </button>
-        )}
-      </div>
-
-      <div className="btn-row">
-        {isOut && !canPreorder ? null : (
-          <>
-            <a
-              className="btn btn-wa"
-              href={href}
-              target="_blank"
-              rel="noopener"
-              onClick={() => { void bumpWaClickAction(p.id); }}
-            >
-              <WaIcon />
-              {canPreorder ? t("preorderWa", lang) : t("orderWa", lang)}
-            </a>
-            <button className="btn btn-ghost" type="button" onClick={addToList}>
-              {t("addList", lang)}
-            </button>
-          </>
-        )}
-      </div>
-
-      <div className="btn-row" style={{ flexDirection: "row", gap: 8 }}>
+      {/* The quantity and the main action on ONE row, which is the shape
+          both of the shops this borrows from use: the number you are
+          buying belongs against the button that buys it, not three rows
+          away under a separate heading. */}
+      <div className="buybox-buy">
         <div className="qty" role="group" aria-label={t("qty", lang)}>
           <button type="button" aria-label="-"
             onClick={() => { setCapHit(false); setQty((q) => Math.max(1, q - 1)); }}>−</button>
           <span>{qty}</span>
           {/* STILL CLICKABLE AT THE CEILING, ON PURPOSE.
-              The first version of this disabled the button -- which meant
-              the click handler never ran, so the red line explaining WHY
-              was unreachable and the button just stopped responding. A
-              control that goes dead without a word is the thing being fixed
-              here, not the fix.
-
-              So it stays live, refuses to count past what is on the shelf,
-              and says what is there and what was asked for. aria-disabled
-              tells a screen reader it will not act, without taking the
-              click -- and the answer -- away. */}
+              The first version disabled this -- so the click handler never
+              ran, the red line explaining why was unreachable, and the
+              button simply stopped responding. A control that goes dead
+              without a word is the thing being fixed here, not the fix.
+              aria-disabled tells a screen reader it will not act without
+              taking the click, and the answer, away. */}
           <button type="button" aria-label="+" aria-disabled={atCap}
             className={atCap ? "is-capped" : undefined}
             onClick={() => {
@@ -379,19 +357,21 @@ export default function ProductInteractive({
               setQty((q) => Math.min(maxQty, q + 1));
             }}>+</button>
         </div>
-        <button className="btn btn-ghost" type="button" onClick={share} style={{ flex: 1 }}>
-          {t("share", lang)}
-        </button>
+        {isOut && !canPreorder ? (
+          <button className="btn btn-lg" disabled>{t("stockOut", lang)}</button>
+        ) : (
+          <button className="btn btn-amber btn-lg" type="button" onClick={addToList}>
+            {t("addList", lang)}
+          </button>
+        )}
       </div>
 
       {/* WHAT IS THERE, AND WHAT WAS ASKED FOR, both named.
           "Not enough stock" leaves the shopper to guess how many to take,
-          and guessing means pressing + again. role="alert" because it
-          appears in response to something they just did and is the answer
-          to it -- a screen reader that waits for a gap would announce it
-          after they had already pressed + twice more. */}
+          and guessing means pressing + again. role="alert" because it is
+          the answer to something they just did. */}
       {capHit && Number.isFinite(maxQty) && (
-        <div className="note bad" role="alert" style={{ marginTop: 8 }}>
+        <div className="note bad" role="alert">
           {(size
             ? t("stockCapSize", lang).replace("{s}", size)
             : t("stockCapNoSize", lang))
@@ -400,17 +380,32 @@ export default function ProductInteractive({
         </div>
       )}
 
-      <div className="panel">
-        <h3>{t("payAccepted", lang)}</h3>
-        <div className="rows">
-          {payList.filter(([on]) => on).map(([, key]) => (
-            <div className="kv" key={key}>
-              <span>{t(key, lang)}</span>
-              <span className="pill ok">✓</span>
-            </div>
-          ))}
+      {(!isOut || canPreorder) && (
+        <div className="buybox-alt">
+          <button className="btn" type="button" onClick={buyNow}>
+            {canPreorder ? t("preorderNow", lang) : t("buyNow", lang)}
+          </button>
+          <a className="btn btn-wa" href={href} target="_blank" rel="noopener"
+            onClick={() => { void bumpWaClickAction(p.id); }}>
+            <WaIcon />
+            {canPreorder ? t("preorderWa", lang) : t("orderWa", lang)}
+          </a>
         </div>
-      </div>
-    </>
+      )}
+
+      {/* HOW YOU CAN PAY, as one line of chips rather than a panel of
+          rows. It is reassurance, not a decision -- nothing here is
+          chosen, and a bordered box with a heading gave four facts the
+          same weight as the price. */}
+      <ul className="buybox-pay">
+        {payList.filter(([on]) => on).map(([, key]) => (
+          <li key={key}>{t(key, lang)}</li>
+        ))}
+      </ul>
+
+      <button className="buybox-share" type="button" onClick={share}>
+        {t("share", lang)}
+      </button>
+    </div>
   );
 }

@@ -165,7 +165,8 @@ describe("the price follows the size", () => {
   it("strikes through what THIS size would have cost", () => {
     // Crossing out the product's price on a size that costs more would
     // show a saving the shopper is not getting.
-    expect(INTERACTIVE).toContain('<span className="aab-price-original">{money(basePrice)}</span>');
+    // The element changed with the card's rebuild; the rule did not.
+    expect(INTERACTIVE).toContain('<s className="buybox-was">{money(basePrice)}</s>');
   });
 
   it("crosses the server boundary as an object, not a Map", () => {

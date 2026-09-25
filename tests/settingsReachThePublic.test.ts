@@ -186,6 +186,10 @@ describe("the quantity picker will not ask for more than the shelf holds", () =>
   it("drops a quantity that no longer fits when the size changes", () => {
     // Choosing 5 of a size with 8 left and then switching to one with 3
     // would otherwise offer an order the shop is bound to refuse.
-    expect(PI).toMatch(/setQty\(\(q\) => Math\.min\(q, left\)\)/);
+    /* The local is `n` rather than `left` now -- the rebuilt buy card
+       computes `left` once for the button's label and again inside the
+       click, and two bindings of one name in one scope is how a shadow
+       becomes a bug. The rule is what matters and it is unchanged. */
+    expect(PI).toMatch(/setQty\(\(q\) => Math\.min\(q, n\)\)/);
   });
 });

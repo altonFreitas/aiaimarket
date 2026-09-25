@@ -1211,7 +1211,13 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
   .btn-row{flex-direction:row;flex-wrap:wrap}
   .btn-row .btn{width:auto;flex:1;min-width:200px}
   .aab-row{grid-template-columns:132px 1fr;padding:11px 14px}
-  .gal .main{aspect-ratio:1/1;max-height:none}
+  /* Square, but not unbounded: on a 1280 window the left column is
+     800px wide and an uncapped 1/1 made the photograph 800px TALL --
+     taller than the card beside it, taller than the fold, and the
+     description pushed off the screen by a picture of one shoe. Capped
+     at a little over half the viewport, which is the proportion both of
+     the shops this borrows from use. */
+  .gal .main{aspect-ratio:1/1;max-height:58vh}
   /* The FORM keeps the content width so its left edge lines up with the
      logo, the navigation bar and the product rows; the INPUT is what stops
      at 620px. Capping the form instead pinned the search box to the window
@@ -1221,7 +1227,23 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
   .stat{grid-template-columns:repeat(4,1fr)}
   .sheet{border-radius:12px;margin:auto;max-height:84vh}
   .scrim{align-items:center}
-  .pdp{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  /* Wider on the left than the right, which is what both references do:
+     the photographs and the description are what takes the room, and the
+     card only needs enough for a price and a button.
+     minmax(0,...) on the left, or a long unbroken word in a description
+     would push the grid wider than the page. */
+  .pdp{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,0.7fr);
+    gap:22px;align-items:start}
+  /* PINNED, so the thing you buy with never scrolls away while you read.
+     Below the header, which is itself sticky -- --chrome-h is that whole
+     stack added up, so this cannot drift out of step with it.
+     max-height plus overflow, because a card taller than the window
+     cannot be pinned at all: it would scroll its own bottom off and the
+     button with it. */
+  .pdp-buy{position:sticky;top:calc(var(--chrome-h) + var(--sp-3));
+    max-height:calc(100vh - var(--chrome-h) - var(--sp-5));
+    overflow-y:auto;overscroll-behavior:contain}
+  .buybox-alt{grid-template-columns:1fr 1fr}
 
   .home .hero{flex-direction:row;align-items:center;padding:52px var(--bleed-pad);gap:40px}
   .home .hero-copy{flex:1}
@@ -2977,6 +2999,93 @@ tr.is-ended{opacity:.55}
 .specs-scroll{max-height:236px;overflow-y:auto;overscroll-behavior:contain}
 .specs-scroll:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 /* The same for a description somebody pasted four hundred words into. */
+/* ============================================================
+   THE PRODUCT PAGE
+   ============================================================
+   Photographs and the long text down the left, the thing you buy with
+   down the right and pinned there. The shape every shop this one competes
+   with uses, and it is not fashion: the decision and the evidence for it
+   have to be on screen at the same time, and a description worth reading
+   is longer than a screen. */
+
+/* The buy card. One column, top to bottom: what it is, what it costs,
+   which one, how many, the button. It replaced a label-and-value table
+   headed "ALL ANSWERS, HERE" -- the right questions in the wrong shape,
+   because a table is for comparing rows and nobody compares the price of
+   a thing with its size. */
+.buybox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
+.buybox-nm{margin:0;font-size:var(--fs-h2);line-height:1.2}
+.buybox-rate{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-body-sm);
+  color:var(--muted);margin:calc(var(--sp-2) * -1) 0 0}
+.buybox-rate b{color:var(--ink)}
+.stars{color:var(--amber);letter-spacing:1px}
+.stars-off{color:var(--line)}
+
+/* The price, as one line that reads left to right: what you pay, what it
+   was, how much off. Baseline-aligned, so the small parts sit ON the big
+   number's line rather than floating beside it. */
+.buybox-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-2);
+  margin:calc(var(--sp-2) * -1) 0 0}
+.buybox-now{font-family:var(--mono);font-size:var(--fs-h1);font-weight:700;
+  line-height:1;color:var(--ink)}
+.buybox-was{font-family:var(--mono);font-size:var(--fs-body);color:var(--muted)}
+.buybox-off{font-size:var(--fs-sm);font-weight:700;background:var(--red);color:#fff;
+  padding:2px var(--sp-2);border-radius:var(--r-s)}
+/* Small and muted: it qualifies the number, it is not part of it. */
+.buybox-from{font-size:var(--fs-sm);color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;font-weight:600}
+.buybox-cur{font-style:normal;font-size:var(--fs-sm);color:var(--muted)}
+
+.buybox-seller{display:flex;gap:var(--sp-2);font-size:var(--fs-body-sm);color:var(--muted)}
+.buybox-seller a{color:var(--ink);font-weight:600}
+
+.buybox-opt{display:flex;flex-direction:column;gap:var(--sp-2)}
+.buybox-lbl{font-size:var(--fs-sm);font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted)}
+
+.buybox-stock{display:flex;align-items:center;gap:var(--sp-2)}
+.buybox-stock small{color:var(--muted);font-size:var(--fs-sm)}
+
+/* The count belongs against the button that buys it, not three rows away
+   under a heading of its own. */
+.buybox-buy{display:flex;gap:var(--sp-2);align-items:stretch}
+.buybox-buy .qty{flex:0 0 auto}
+.buybox-buy .btn{flex:1;min-width:0}
+/* The one control this page exists for, sized to say so. */
+.btn-lg{height:46px;font-size:var(--fs-body);font-weight:700}
+
+.buybox-alt{display:grid;grid-template-columns:1fr;gap:var(--sp-2)}
+
+/* Reassurance, not a decision: nothing here is chosen, and a bordered
+   panel with a heading gave four facts the same weight as the price. */
+.buybox-pay{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--sp-1)}
+.buybox-pay li{font-size:var(--fs-caption);color:var(--muted);background:var(--line-2);
+  border-radius:var(--r-s);padding:3px var(--sp-2)}
+
+.buybox-share{align-self:flex-start;background:none;border:0;padding:0;cursor:pointer;
+  font-size:var(--fs-body-sm);color:var(--muted);text-decoration:underline}
+.buybox-share:hover{color:var(--ink)}
+
+/* A foldable section under the photographs. <details> rather than a
+   component: no JavaScript, keyboard-operable and announced for free, and
+   the browser's own find-in-page opens it. */
+.pdp-fold{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  margin-top:var(--sp-3);padding:0 var(--sp-4) 0}
+.pdp-fold>summary{cursor:pointer;list-style:none;padding:var(--sp-3) 0;
+  font-size:var(--fs-h4);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  display:flex;align-items:center;justify-content:space-between}
+.pdp-fold>summary::-webkit-details-marker{display:none}
+/* The affordance both references use, and it flips rather than swapping
+   glyphs -- one character, no reflow. */
+.pdp-fold>summary::after{content:"+";font-size:var(--fs-h3);font-weight:400;
+  color:var(--muted);line-height:1}
+.pdp-fold[open]>summary::after{content:"−"}
+.pdp-fold>summary:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.pdp-fold[open]>summary{border-bottom:1px solid var(--line-2)}
+.pdp-fold>*:not(summary){padding-bottom:var(--sp-4)}
+.pdp-fold .specs,.pdp-fold .pdp-scroll{margin-top:var(--sp-3)}
+
 .pdp-scroll{max-height:260px;overflow-y:auto;overscroll-behavior:contain}
 .pdp-scroll:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 /* A colour, as a colour. The swatch carries a hairline so white shows up

@@ -159,7 +159,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       </p>
 
       <div className="pdp">
-        <div>
+        <div className="pdp-main">
           <ProductGallery images={p.images} name={p.name} lang={lang} />
           {/* CAPPED, AND SCROLLED WHEN IT NEEDS TO BE.
               A seller who pastes a supplier's four hundred words pushes
@@ -168,11 +168,21 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               looking for -- the price, which is beside this -- ends up
               alone in a tall empty column. tabIndex, because a region
               that scrolls has to be reachable by keyboard. */}
-          <div className="panel" style={{ marginTop: 12 }}>
-            <h3>{t("description", lang)}</h3>
-            <div className="pdp-scroll" tabIndex={0}
-              style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
-          </div>
+          {/* OPEN, AND FOLDABLE. Both of the shops this borrows from put
+              the long text behind a row you expand, and both leave the
+              first one open -- so the page is readable at a glance and
+              still collapsible once you have read it.
+
+              <details> rather than a component: it needs no JavaScript,
+              it is keyboard-operable and screen-reader-announced for
+              free, and the browser's own find-in-page opens it. */}
+          {p.description?.trim() && (
+            <details className="pdp-fold" open>
+              <summary>{t("description", lang)}</summary>
+              <div className="pdp-scroll" tabIndex={0}
+                style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
+            </details>
+          )}
 
           {/* WHAT THIS PARTICULAR PRODUCT IS.
               Drawn from the product type's own attributes, and only the
@@ -182,8 +192,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               whole block disappears when nothing has been answered, which
               is every product created before the taxonomy existed. */}
           {specs.length > 0 && (
-            <div className="panel" style={{ marginTop: 12 }}>
-              <h3>{t("specifications", lang)}</h3>
+            <details className="pdp-fold" open>
+              <summary>{t("specifications", lang)}</summary>
               {/* A sofa answers eighteen questions. Five rows is the
                   height at which this stops being a list and starts being
                   the page, so past that it scrolls in place. */}
@@ -196,14 +206,17 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                   </div>
                 ))}
               </dl>
-            </div>
+            </details>
           )}
         </div>
-        <div>
-          <h1>{p.name}</h1>
-          {/* The unioned list, not the stored column -- so the picker, the
-              quantity cap, the basket line and the WhatsApp message all
-              read the same set of sizes. */}
+        {/* STICKY BESIDE THE PAGE, not stacked above it.
+            The thing a shopper buys with should not scroll away while
+            they read the description -- which is why both of the shops
+            this borrows from pin it. The product's NAME lives inside the
+            card now rather than above this column: it is the first line
+            of what you are buying, and having it outside left the card
+            starting mid-sentence. */}
+        <div className="pdp-buy">
           <ProductInteractive p={{ ...p, sizes }} settings={settings} lang={lang}
             siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
             /* A plain object, not the Map: this crosses the server ->
