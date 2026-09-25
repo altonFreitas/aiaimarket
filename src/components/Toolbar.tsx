@@ -10,9 +10,14 @@ import type { Lang } from "@/lib/types";
  * a filter while on page 5 lands the shopper on an empty page and looks like
  * the site lost their results. */
 export default function Toolbar({
-  count, lang, showRelevance = false,
+  count, countCapped = false, lang, showRelevance = false,
 }: {
   count: number;
+  /** True when more matched than were counted -- see SEARCH_TOTAL_CAP.
+   * The "+" is the whole point: the catalog stopped counting at a thousand
+   * so the page could load, and printing 1,000 flat would be a number the
+   * shop does not have. */
+  countCapped?: boolean;
   lang: Lang;
   /** Relevance only means something when there is a search term to be
    * relevant to, so /shop and /c/[slug] don't offer it. */
@@ -86,7 +91,7 @@ export default function Toolbar({
       )}
 
       <span className="count">
-        {count} {t("results", lang)}
+        {count}{countCapped ? "+" : ""} {t("results", lang)}
       </span>
     </div>
   );

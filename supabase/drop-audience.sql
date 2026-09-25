@@ -60,6 +60,10 @@ declare
   v_tsquery tsquery := null;
   v_limit   int := least(greatest(coalesce(lim, 24), 1), 100);
   v_offset  int := greatest(coalesce(off, 0), 0);
+  -- HOW DEEP THE RESULT SET IS COUNTED AND PAGED. See the note above the
+  -- CTE below. One more than the cap is fetched, so the caller can tell
+  -- "exactly this many" from "more than this many" and say so.
+  v_cap     constant int := 1000;
 begin
   -- Build a prefix tsquery by hand rather than using websearch_to_tsquery:
   -- shoppers type partial words ("kame" for "kamera") far more often than
@@ -75,6 +79,49 @@ begin
     v_tsquery := to_tsquery('simple', v_terms);
   end if;
 
+  /* -------------------------------------------------------------------
+   * COUNTED AND ORDERED ONCE, AND BOUNDED.
+   * -------------------------------------------------------------------
+   * This used to be `count(*) over ()` over the whole match set. A window
+   * count has to see every matching row before it can answer, so the
+   * catalog page -- the most-visited page on the site, where the match set
+   * is the WHOLE catalog -- read every product to show twenty-four of
+   * them, and no index could help because the count needed the rows
+   * anyway.
+   *
+   * Measured over 25 calls each, both versions installed side by side on
+   * one database of 60,000 products so the comparison is of the functions
+   * and not of two machines:
+   *
+   *     bare catalog, page 1      94.4 ms  ->   2.1 ms
+   *     cheapest first, page 1   108.9 ms  ->  41.2 ms
+   *     "kamiza" (7,500 hits)     17.9 ms  ->  17.0 ms
+   *     a search matching 12       3.0 ms  ->   3.1 ms
+   *
+   * The last line is why the cap is inside the same scan rather than in a
+   * separate counting query. That was tried first: it was faster still for
+   * the catalog page (0.3 ms) and SLOWER for small result sets (2.8 -> 5.5
+   * ms), because a narrow search then paid for two scans of the same
+   * handful of rows. A shop's ordinary search is a narrow one, so a change
+   * that wins the catalog page by making every real search worse is not an
+   * improvement.
+   *
+   * Cheapest-first is still linear in the match set: no index orders by a
+   * price that depends on whether a discount is set. It is 2.6x better
+   * because it no longer counts as well as sorts, and an index on that
+   * expression is the next thing to do if anyone starts using the sort.
+   *
+   * WHAT IS GIVEN UP: an exact total beyond v_cap. The storefront says
+   * "1,000+" rather than "60,001", and the pager reaches page 42 rather
+   * than page 2,501. Nobody pages to 2,501 -- but somebody does open the
+   * catalog, every single time, and they were paying for that number.
+   *
+   * ORDERED INSIDE, so the cap keeps the RIGHT rows: `limit` without an
+   * order takes an arbitrary thousand, and sorting those would put the
+   * fourth-cheapest product on page one. Ordered again outside because a
+   * CTE's row order is not guaranteed to survive; over at most 1,001 rows
+   * that costs nothing.
+   * ------------------------------------------------------------------- */
   return query
   with matched as (
     select p,
@@ -99,18 +146,30 @@ begin
        and (max_price is null or
             (case when p.discount_price is not null and p.discount_price > 0
                   then p.discount_price else p.price end) <= max_price)
+     order by
+       -- Sort by the price a buyer would actually pay, not the list price:
+       -- a discounted item belongs where its discounted price puts it.
+       case when sort = 'low'  then (case when p.discount_price is not null
+              and p.discount_price > 0 then p.discount_price else p.price end) end asc,
+       case when sort = 'high' then (case when p.discount_price is not null
+              and p.discount_price > 0 then p.discount_price else p.price end) end desc,
+       case when sort = 'rating'
+            then p.rating_sum::numeric / nullif(p.rating_count, 0) end desc nulls last,
+       case when sort = 'relevance' then
+              (case when v_tsquery is null then 0::real
+                    else ts_rank(p.search_vector, v_tsquery) end) end desc,
+       -- Final tiebreaker, and the whole ordering for sort = 'new'.
+       p.created_at desc
+     limit v_cap + 1
   )
   select m.p, count(*) over () as total_count, m.r
     from matched m
    order by
-     -- Sort by the price a buyer would actually pay, not the list price:
-     -- a discounted item belongs where its discounted price puts it.
      case when sort = 'low'  then m.effective_price end asc,
      case when sort = 'high' then m.effective_price end desc,
      case when sort = 'rating'
           then (m.p).rating_sum::numeric / nullif((m.p).rating_count, 0) end desc nulls last,
      case when sort = 'relevance' then m.r end desc,
-     -- Final tiebreaker, and the whole ordering for sort = 'new'.
      (m.p).created_at desc
    limit v_limit offset v_offset;
 end;

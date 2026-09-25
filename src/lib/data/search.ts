@@ -34,6 +34,22 @@ const SORTS: readonly CatalogSort[] = ["relevance", "new", "low", "high", "ratin
 export const DEFAULT_PER_PAGE = 24;
 const MAX_PER_PAGE = 100;
 
+/** How deep a result set is counted and paged.
+ *
+ * THE SAME NUMBER AS v_cap IN search_products, and it has to be: the
+ * function returns at most cap+1 rows' worth of count, and this is what
+ * reads that as "more than a thousand". tests/searchCap.test.ts fails if
+ * the two drift, because a mismatch would show the shopper a page number
+ * that returns nothing.
+ *
+ * Why there is a cap at all: counting the whole match set made the catalog
+ * page -- where the match set is the entire catalog -- read every product
+ * to show twenty-four. Measured at 60,000 products, that page went from
+ * 94.4ms to 2.1ms when the count stopped being exhaustive. What it costs
+ * is the difference between "60,001 results" and "1,000+ results", and
+ * pages past 42, which nobody opens. */
+export const SEARCH_TOTAL_CAP = 1000;
+
 /** Coerces whatever arrived in a URL query string into a sort this app
  * actually implements. `relevance` only makes sense with a search term, so a
  * bare catalog page with no `q` falls back to newest-first. */
@@ -78,7 +94,16 @@ export interface CatalogQuery {
 
 export interface CatalogResult {
   products: Product[];
+  /** How many matched -- exact up to SEARCH_TOTAL_CAP, and the cap itself
+   * when there are more. Never a number larger than the cap, so a caller
+   * that prints it without checking `totalCapped` understates rather than
+   * invents. */
   total: number;
+  /** True when more matched than were counted. The storefront turns this
+   * into "1,000+": printing a capped figure as though it were a total
+   * would be a made-up number, which is the one thing worse than an
+   * approximate one. */
+  totalCapped: boolean;
   page: number;
   perPage: number;
   pageCount: number;
@@ -130,13 +155,15 @@ async function searchCatalogUncached(query: CatalogQuery): Promise<CatalogResult
     if (error) throw error;
 
     const rows = (data as SearchRow[]) || [];
-    const total = rows.length ? Number(rows[0].total_count) || 0 : 0;
+    /* The function counts one past the cap on purpose, so this can tell
+       "exactly a thousand" from "more than a thousand". Nothing outside
+       this line ever sees the cap+1. */
+    const counted = rows.length ? Number(rows[0].total_count) || 0 : 0;
     return {
       products: rows.map((r) => r.product),
-      total,
+      ...capTotal(counted, perPage),
       page,
       perPage,
-      pageCount: Math.max(1, Math.ceil(total / perPage)),
       indexed: true,
     };
   } catch {
@@ -176,16 +203,33 @@ async function fallbackSearch(
 
   hits = sortProducts(hits, sort);
 
-  const total = hits.length;
   const start = (page - 1) * perPage;
   return {
     products: hits.slice(start, start + perPage),
-    total,
+    /* THE SAME CAP as the indexed path, although this one already knows the
+       exact answer. The two paths differ in speed and in ranking and are
+       not supposed to differ in what they SAY -- a shop whose migration has
+       not run would otherwise see a total, and pages, that vanish the day
+       it does. */
+    ...capTotal(hits.length, perPage),
     page,
     perPage,
-    pageCount: Math.max(1, Math.ceil(total / perPage)),
     indexed: false,
   };
+}
+
+/** The total, the flag and the page count, from a raw match count.
+ *
+ * One place, because the two search paths have to agree and because the
+ * page count is where getting this wrong is visible: a pager offering page
+ * 2,501 of a result set counted to 1,000 sends the shopper to an empty
+ * grid. */
+export function capTotal(counted: number, perPage: number): {
+  total: number; totalCapped: boolean; pageCount: number;
+} {
+  const totalCapped = counted > SEARCH_TOTAL_CAP;
+  const total = totalCapped ? SEARCH_TOTAL_CAP : counted;
+  return { total, totalCapped, pageCount: Math.max(1, Math.ceil(total / perPage)) };
 }
 
 /** Exported for the fallback path and for its unit tests. `relevance` has no

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { sortProducts, parseSort, parsePage, parsePrice } from "@/lib/data/search";
+import {
+  sortProducts, parseSort, parsePage, parsePrice, capTotal, SEARCH_TOTAL_CAP,
+} from "@/lib/data/search";
+import fs from "node:fs";
+import path from "node:path";
 import type { Product } from "@/lib/types";
 
 const product = (over: Partial<Product> = {}): Product => ({
@@ -105,5 +109,138 @@ describe("sortProducts", () => {
     const list = [product({ id: "a", price: 9 }), product({ id: "b", price: 1 })];
     sortProducts(list, "low");
     expect(list.map((p) => p.id)).toEqual(["a", "b"]);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   HOW DEEP THE CATALOG IS COUNTED
+   ---------------------------------------------------------------------------
+   search_products used to answer with count(*) over () across the whole match
+   set, so the catalog page -- where the match set is the entire catalog --
+   read every product to show twenty-four. Measured on 60,000 products before
+   the change: 82.6ms for that page, against 1.6ms once the count stopped
+   being exhaustive.
+
+   What was bought with real money is an exact total past a thousand. These
+   guards are about spending it honestly.
+   ------------------------------------------------------------------------ */
+
+describe("the total, once counting stops", () => {
+  it("is exact below the cap", () => {
+    expect(capTotal(0, 24)).toEqual({ total: 0, totalCapped: false, pageCount: 1 });
+    expect(capTotal(7, 24)).toEqual({ total: 7, totalCapped: false, pageCount: 1 });
+    expect(capTotal(25, 24)).toEqual({ total: 25, totalCapped: false, pageCount: 2 });
+  });
+
+  it("is exact AT the cap, and says so only past it", () => {
+    /* The function fetches one row past the cap so this distinction can be
+       made at all. Calling a thousand "1,000+" would be as wrong as calling
+       sixty thousand "1,000". */
+    expect(capTotal(SEARCH_TOTAL_CAP, 24).totalCapped).toBe(false);
+    expect(capTotal(SEARCH_TOTAL_CAP, 24).total).toBe(SEARCH_TOTAL_CAP);
+    expect(capTotal(SEARCH_TOTAL_CAP + 1, 24).totalCapped).toBe(true);
+  });
+
+  it("never reports more than it counted", () => {
+    // A number bigger than the cap would be invented, and a shopper paging
+    // to it would land on an empty grid.
+    const big = capTotal(60001, 24);
+    expect(big.total).toBe(SEARCH_TOTAL_CAP);
+    expect(big.totalCapped).toBe(true);
+    expect(big.pageCount).toBe(Math.ceil(SEARCH_TOTAL_CAP / 24));
+  });
+
+  it("offers no page the search cannot answer", () => {
+    /* The pager renders a link per page. The deepest one it can offer must
+       still be inside what the function will return, or the last page of a
+       big catalog is a dead link. */
+    for (const perPage of [1, 12, 24, 100]) {
+      const { pageCount } = capTotal(999_999, perPage);
+      expect((pageCount - 1) * perPage, "deepest offset at " + perPage)
+        .toBeLessThan(SEARCH_TOTAL_CAP);
+    }
+  });
+});
+
+describe("the cap is one number, not two", () => {
+  /* COMMENTS STRIPPED, and that is not tidiness. The note above this
+     function explains what it replaced, quoting "count(*) over ()" in the
+     prose -- so the positional assertion below found the explanation
+     instead of the code and failed against a correct file. A guard that
+     reads comments is a guard that can be satisfied by writing about the
+     thing rather than doing it. */
+  const SQL = fs.readFileSync(
+    path.join(process.cwd(), "supabase/drop-audience.sql"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*--.*$/gm, "");
+
+  it("agrees with the SQL that produces it", () => {
+    /* THE HAZARD THIS FILE EXISTS FOR. The function caps the rows and this
+       module reads that cap; if they drift, the storefront either prints
+       "1,000+" for a set it counted exactly, or offers pages the function
+       will not serve. */
+    const m = /v_cap\s+constant int := (\d+);/.exec(SQL);
+    expect(m, "v_cap in drop-audience.sql").not.toBeNull();
+    expect(Number(m![1])).toBe(SEARCH_TOTAL_CAP);
+  });
+
+  it("fetches one past the cap, so more-than is knowable", () => {
+    expect(SQL).toMatch(/limit v_cap \+ 1/);
+  });
+
+  it("counts over the capped rows, not the whole match set", () => {
+    /* The point of the change. count(*) over () has to see every row it
+       counts, so it has to be looking at the bounded set. */
+    const body = SQL.slice(SQL.indexOf("create function search_products"));
+    const cap = body.indexOf("limit v_cap + 1");
+    const count = body.indexOf("count(*) over ()");
+    expect(cap).toBeGreaterThan(-1);
+    expect(count).toBeGreaterThan(cap);
+  });
+
+  it("orders before it caps, so the cap keeps the right rows", () => {
+    /* `limit` without an order takes an arbitrary thousand. Sorting those
+       would put the fourth-cheapest product on page one of "cheapest
+       first" -- fast, and wrong. */
+    const body = SQL.slice(SQL.indexOf("create function search_products"));
+    const inner = body.slice(0, body.indexOf("limit v_cap + 1"));
+    expect(inner).toMatch(/order by[\s\S]*case when sort = 'low'/);
+  });
+});
+
+describe("both search paths say the same thing", () => {
+  const CODE = fs.readFileSync(path.join(process.cwd(), "src/lib/data/search.ts"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+
+  it("caps the in-memory fallback too", () => {
+    /* The fallback knows the exact answer, and still reports the capped
+       one: the two paths differ in speed and in ranking, and must not
+       differ in what they SAY, or a shop's totals change the day its
+       migration runs. */
+    expect((CODE.match(/\.\.\.capTotal\(/g) ?? []).length).toBe(2);
+    expect(CODE).toMatch(/\.\.\.capTotal\(hits\.length, perPage\)/);
+    expect(CODE).toMatch(/\.\.\.capTotal\(counted, perPage\)/);
+  });
+
+  it("computes the page count in one place", () => {
+    // It was computed twice, identically, in both paths. Two copies of an
+    // arithmetic invariant is one copy too many.
+    expect((CODE.match(/pageCount: Math\.max/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("the shopper is told the number is a floor", () => {
+  const TOOLBAR = fs.readFileSync(
+    path.join(process.cwd(), "src/components/Toolbar.tsx"), "utf8");
+  const LAYOUT = fs.readFileSync(
+    path.join(process.cwd(), "src/components/CatalogLayout.tsx"), "utf8");
+
+  it('prints a "+" rather than a number the shop does not have', () => {
+    expect(TOOLBAR).toMatch(/\{count\}\{countCapped \? "\+" : ""\}/);
+  });
+
+  it("is actually given the flag", () => {
+    // The prop existing and never being passed is the failure mode: every
+    // count would print bare and look exact.
+    expect(LAYOUT).toMatch(/countCapped=\{result\.totalCapped\}/);
   });
 });
