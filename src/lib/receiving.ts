@@ -59,7 +59,8 @@ export interface ReceiptResult {
   alreadyReceived: number;
   /** Non-resale lines, which never touch stock. */
   skipped: number;
-  /** Catalog products created by this receipt. */
+  /** Catalog products created by this receipt. Each one is waiting to be
+   * finished and put on sale -- see the status above. */
   productsCreated: number;
 }
 
@@ -203,7 +204,19 @@ export async function applyReceipt(
           price: Number(item.sell_price ?? 0),
           qty: 0,               // the movement below is what adds the stock
           stock_status: "out",
-          status: "approved",
+          /* NOT ON SALE YET, AND THAT IS THE POINT.
+             A receipt used to create the listing approved, which put it
+             straight onto the homepage: no photograph, the supplier's
+             name for it, whatever description was typed on the order, and
+             a price nobody had looked at since the goods were ordered.
+             The shop found out it was live by seeing it there.
+
+             Landing as "pending" makes the delivery the START of a
+             listing rather than the whole of it. The stock is real and
+             counted either way -- this decides only whether a shopper can
+             see it -- and the product form has a box to tick when it is
+             ready. /admin/products shows the badge and the count. */
+          status: "pending",
           archived: false,
           // Both come from the purchase order, which is where the buyer
           // already knew them. Without this the new listing showed

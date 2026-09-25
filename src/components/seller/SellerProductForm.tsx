@@ -29,8 +29,18 @@ const STOCK_PILL: Record<StockStatus, string> = {
  * only picks from what already exists), and no pickup-location override
  * (that's tied to the platform owner's own storefront address; a real
  * per-seller location is a later piece, alongside the public seller
- * store page). Everything a seller creates starts status="pending" —
- * enforced server-side in saveSellerProduct(), not just assumed here. */
+ * store page).
+ *
+ * WHAT THIS USED TO SAY was that everything a seller creates starts
+ * status="pending", enforced server-side. It does not and has not for a
+ * while: saveSellerProduct() inserts status="approved" and says why --
+ * an approved seller does not need admin sign-off per product, only the
+ * one-time seller approval. The comment was describing a rule the code
+ * had stopped following, which is worse than no comment.
+ *
+ * The status still matters, and now there is a box for it: a product a
+ * purchase order receipt created lands not-on-sale, and this is where
+ * the seller finishes the listing and offers it. */
 export default function SellerProductForm({
   lang, cats, product,
 }: { lang: Lang; cats: Category[]; product: Product | null }) {
@@ -39,6 +49,12 @@ export default function SellerProductForm({
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [images, setImages] = useState<string[]>(product?.images || []);
+  /* As on the owner's form: a delivery creates the listing but does not
+     offer it, and this is the box that does. Ticked by default for a
+     product being typed in here, which is somebody making a listing on
+     purpose. */
+  const [onSale, setOnSale] = useState(
+    product ? product.status === "approved" : true);
 
   const [f, setF] = useState({
     name: product?.name || "",
@@ -152,6 +168,7 @@ export default function SellerProductForm({
         images,
         pay_cod: pay.cod, pay_cop: pay.cop, pay_bank: pay.bank,
         pay_wallet: pay.wallet, pay_fiar: pay.fiar,
+        onSale,
       });
       toast(t("saved", lang));
       router.push("/seller/products");
@@ -285,6 +302,17 @@ export default function SellerProductForm({
               </label>
             ))}
           </div>
+        </div>
+
+        <div className={"panel on-sale" + (onSale ? " is-on" : "")}>
+          <label className="check" data-on={onSale}>
+            <input type="checkbox" checked={onSale}
+              onChange={(e) => setOnSale(e.target.checked)} />
+            <span>
+              <b>{t("onSale", lang)}</b>
+              <em>{t("onSaleHint", lang)}</em>
+            </span>
+          </label>
         </div>
 
         <div className="btn-row">

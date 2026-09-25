@@ -113,6 +113,23 @@ export default function ProductForm({
   const [typeAttrs, setTypeAttrs] = useState<FormAttribute[]>([]);
   const [images, setImages] = useState<string[]>(product?.images || []);
 
+  /* WHETHER SHOPPERS CAN SEE IT.
+   *
+   * A product created by a purchase order receipt lands as "pending" --
+   * the stock is real and counted, but the listing is a supplier's name
+   * and no photograph, and it used to go straight onto the homepage
+   * looking like that. This is the box that ends that: finish the
+   * listing, tick it, save.
+   *
+   * A product typed in here starts ticked, because somebody filling in
+   * this form is making a listing on purpose.
+   *
+   * "rejected" reads as not on sale and ticking sets it to approved,
+   * which is the honest mapping of a checkbox onto three states -- the
+   * third only ever arrives through Reject on /admin/products. */
+  const [onSale, setOnSale] = useState(
+    product ? product.status === "approved" : true);
+
   /* THE PRODUCT THIS FORM HAS ALREADY CREATED.
    *
    * THE BUG THIS FIXES made two products out of one. Saving a NEW product
@@ -291,6 +308,7 @@ export default function ProductForm({
         pay_cod: pay.cod, pay_cop: pay.cop, pay_bank: pay.bank,
         pay_wallet: pay.wallet, pay_fiar: pay.fiar,
         municipality: f.municipality, post: f.post, suku: f.suku, landmark: f.landmark,
+        onSale,
       });
       // Before anything below can fail: whatever happens next, this form
       // is now editing a product that exists.
@@ -588,6 +606,25 @@ export default function ProductForm({
           </div>
         </div>
 
+        {/* IMMEDIATELY ABOVE SAVE, because it is part of the same
+            decision. A delivery creates the listing but does not offer
+            it; this is where somebody looks at what they have written,
+            decides it is ready, and says so. Putting it in a panel
+            further up would make publishing a thing you do somewhere
+            else and then forget. */}
+        <WriteOnly>
+          <div className={"panel on-sale" + (onSale ? " is-on" : "")}>
+            <label className="check" data-on={onSale}>
+              <input type="checkbox" checked={onSale}
+                onChange={(e) => setOnSale(e.target.checked)} />
+              <span>
+                <b>{t("onSale", lang)}</b>
+                <em>{t("onSaleHint", lang)}</em>
+              </span>
+            </label>
+          </div>
+        </WriteOnly>
+
         <div className="btn-row">
           <WriteOnly>
             <button className="btn btn-amber" type="submit" disabled={busy}>
@@ -599,7 +636,11 @@ export default function ProductForm({
           <Link className="btn btn-ghost" href="/admin/products">
             {t(canWrite ? "cancel" : "back", lang)}
           </Link>
-          {product && (
+          {/* Only while it IS on sale. The storefront serves approved
+              products only, so this link on an unpublished one is a
+              button that opens a 404 -- which reads as a broken shop
+              rather than as "you have not put it on sale yet". */}
+          {product && onSale && (
             <Link className="btn btn-ghost" href={`/p/${product.slug}`} target="_blank">
               {t("catalog", lang)} ↗
             </Link>

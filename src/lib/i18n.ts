@@ -348,7 +348,11 @@ export const STR: Record<string, [string,string,string]> = {
   sellerShippingHint:["Ida ne'e seidauk uza iha checkout — sei uza hela zona jerál husi loja.","Isto ainda não é usado no checkout — que ainda usa as zonas gerais da loja.","Not used at checkout yet — that still uses the store's general delivery zones."],
   deliveryArea:["Área entrega","Área de entrega","Delivery area"],
   sellerNoProducts:["Seidauk iha produtu. Aumenta ida hodi hahú fa'an.","Ainda não tem produtos. Adicione um para começar a vender.","No products yet. Add one to start selling."],
-  productStatus_pending:["Hein revizaun","Pendente","Pending review"],
+  /* "Pending review" was moderation language, from when this only ever
+     meant a seller's listing waiting on the marketplace. It is mostly a
+     delivery waiting to be finished now, and the shop is the one who
+     finishes it -- so it says what it is. */
+  productStatus_pending:["Seidauk iha venda","Ainda não à venda","Not on sale yet"],
   productStatus_approved:["Aprova","Aprovado","Approved"],
   productStatus_rejected:["La aprova","Rejeitado","Rejected"],
   saveSettings:["Rai konfigurasaun","Guardar definições","Save settings"],
@@ -1460,7 +1464,10 @@ export const STR: Record<string, [string,string,string]> = {
   moveOrderOn:["Book ba oin","Avançar a encomenda","Move this order on"],
   quickStatusHint:["Muda kedas bainhira ita hanehan. Estadu iha formuláriu okos muda deit bainhira ita rai.","Muda logo ao carregar. O estado no formulário abaixo só muda ao guardar.","Changes the moment you press it. The status in the form below changes only when you save."],
   purchaseStatusHint:["Rai hamutuk ho formuláriu ne'e. Hili \"Simu ona\" atu tau sasán ba prateleira.","Guardado com o resto do formulário. Escolha \"Recebida\" para colocar a mercadoria na prateleira.","Saved with the rest of the form. Choose \"Received\" to put the goods on the shelf."],
-  savedAndReceived:["Rai ona. Sasán iha prateleira ona.","Guardado. A mercadoria está na prateleira.","Saved. The goods are on the shelf."],
+  savedAndReceived:["Rai ona. Sasán iha prateleira ona. Produtu foun hein atu tau ba venda.","Guardado. A mercadoria está na prateleira. Produtos novos aguardam para ser colocados à venda.","Saved. The goods are on the shelf. Any new products are waiting to be put on sale."],
+  onSale:["Iha venda","À venda","On sale"],
+  onSaleHint:["Hili ne'e atu hatudu produtu ne'e ba sosa-na'in. Produtu foun husi entrega ida hein iha ne'e too ita hili.","Marque para mostrar este produto aos compradores. Um produto novo vindo de uma entrega espera aqui até o marcar.","Tick this to show the product to shoppers. A product that arrived on a delivery waits here until you do."],
+  notOnSaleYet:["Seidauk iha venda","Ainda não à venda","Not on sale yet"],
   stockBySize:["Stok tuir tamañu","Stock por tamanho","Stock per size"],
   unsized:["La iha tamañu","Sem tamanho","No size"],
   unsizedHint:["Sasán ne'ebé sura molok sistema ne'e, ka sasán ne'ebé la iha tamañu. Bele fa'an ba tamañu saida deit.","Stock contado antes disto existir, ou artigos sem tamanho. Pode ser vendido em qualquer tamanho.","Stock counted before this existed, or goods that have no size. It can be sold as any size."],

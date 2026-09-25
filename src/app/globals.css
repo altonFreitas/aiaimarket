@@ -1094,6 +1094,15 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .aab-price-from{font-size:var(--fs-sm);color:var(--muted);margin-right:var(--sp-1);
   text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 
+/* ---------- admin: the box that puts a product on sale ---------- */
+/* Amber while it is OFF, because off is the state worth noticing: a
+   product sitting unpublished is stock nobody can buy, and the panel
+   should say so rather than blend into the form above it. Quiet once it
+   is on, which is the ordinary state. */
+.on-sale{border-color:var(--amber);background:var(--amber-soft)}
+.on-sale.is-on{border-color:var(--line);background:var(--card)}
+.on-sale .check{margin:0}
+
 /* ---------- admin: a row that opens onto its SKUs ---------- */
 /* The chevron. A button rather than a span, because it is one -- and sized
    so it does not push the product name off its own baseline. */

@@ -39,6 +39,10 @@ export default function ProductList({
   const [stock, setStock] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [stale, setStale] = useState(initialStale);
+  /* Products a delivery created and nobody has put on sale yet. Stock on
+     the shelf that no shopper can see, which is the one kind of invisible
+     that costs money. */
+  const [waiting, setWaiting] = useState(false);
   const staleSet = useMemo(() => new Set(staleIds), [staleIds]);
   const canWrite = useCanWrite();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -52,10 +56,12 @@ export default function ProductList({
     if (catId) a = a.filter((p) => p.category_id === catId);
     if (stock) a = a.filter((p) => p.stock_status === stock);
     if (stale) a = a.filter((p) => staleSet.has(p.id));
+    if (waiting) a = a.filter((p) => p.status === "pending");
     return a;
-  }, [products, q, catId, stock, showArchived, stale, staleSet]);
+  }, [products, q, catId, stock, showArchived, stale, staleSet, waiting]);
 
   const live = products.filter((p) => !p.archived);
+  const waitingCount = live.filter((p) => p.status === "pending").length;
   const outCount = live.filter((p) => p.stock_status === "out").length;
   const clicks = live.reduce((a, p) => a + (p.wa_clicks || 0), 0);
 
@@ -136,6 +142,16 @@ export default function ProductList({
             can only ever return nothing is a control that teaches people
             the screen is broken. The count rides in the label, because
             the number IS the reason to press it. */}
+        {/* Same rule as the one below it: offered only when there is
+            something behind it, with the count in the label because the
+            number is the reason to press it. */}
+        {waitingCount > 0 && (
+          <label className="toggle">
+            <input type="checkbox" checked={waiting}
+              onChange={(e) => setWaiting(e.target.checked)} />{" "}
+            {t("notOnSaleYet", lang)} ({waitingCount})
+          </label>
+        )}
         {staleIds.length > 0 && (
           <label className="toggle" title={`${staleDays}d`}>
             <input type="checkbox" checked={stale}

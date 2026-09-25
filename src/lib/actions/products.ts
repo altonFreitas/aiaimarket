@@ -66,6 +66,17 @@ export interface ProductFormInput {
   qty: number;
   preorder_enabled?: boolean;
   preorder_eta?: string | null;
+  /** Whether shoppers may see it.
+   *
+   * true -> "approved", false -> "pending", which is the storefront's own
+   * gate (see getLiveProducts). A product created by a purchase order
+   * receipt lands pending, because a delivery is the start of a listing
+   * and not the whole of it -- the stock is real, the photograph and the
+   * words are not there yet.
+   *
+   * Absent leaves the status ALONE on an edit, so a caller that does not
+   * know about this cannot silently publish or unpublish anything. */
+  onSale?: boolean;
   description: string;
   category_id: string;
   sizes: string[];
@@ -182,6 +193,11 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
       },
       (extra) => sb.from("products").update({
         name: input.name, slug, price, seller_id: sellerId,
+        /* Only when the caller said. Spreading nothing leaves whatever
+           the product had, which is what keeps a caller that does not
+           know about this from publishing something by accident. */
+        ...(input.onSale === undefined
+          ? {} : { status: input.onSale ? "approved" : "pending" }),
         discount_price: discount,
         description: input.description,
         category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
@@ -242,6 +258,10 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
       },
       (extra) => sb.from("products").insert({
         ref, name: input.name, slug, price, qty: 0, seller_id: sellerId,
+        /* Approved unless told otherwise: somebody filling in this form
+           is making a listing on purpose. A receipt is the other door and
+           it sets pending itself -- see lib/receiving.ts. */
+        status: input.onSale === false ? "pending" : "approved",
         discount_price: discount,
         stock_status: "out", description: input.description,
         category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,

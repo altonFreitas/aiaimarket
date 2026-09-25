@@ -76,6 +76,12 @@ export interface SellerProductFormInput {
   tags: string[];
   images: string[];
   pay_cod: boolean; pay_cop: boolean; pay_bank: boolean; pay_wallet: boolean; pay_fiar: boolean;
+  /** Whether shoppers may see it -- the same field the owner's
+   * saveProduct() takes. A seller's product created by a purchase order
+   * receipt lands not-on-sale, and this is how it gets offered once the
+   * listing is finished. Absent leaves the status alone on an edit, so
+   * an older caller cannot publish anything by omission. */
+  onSale?: boolean;
 }
 
 /** Same shape as the admin saveProduct(), but seller-scoped: the seller
@@ -109,6 +115,10 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
        drop. */
     const { error } = await sb.from("products").update({
       name: input.name, slug, price: input.price,
+      // Only when the caller said, so an older caller cannot publish or
+      // unpublish anything by omission.
+      ...(input.onSale === undefined
+        ? {} : { status: input.onSale ? "approved" : "pending" }),
       discount_price: input.discount_price,
       description: input.description,
       category_id: input.category_id || null, sizes: input.sizes, tags: input.tags,
@@ -142,7 +152,10 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
       seller_id: seller.id,
-      status: "approved",
+      // Approved unless the seller says otherwise, which is the decision
+      // documented above: an approved seller does not need sign-off per
+      // product. A receipt is the other door and sets pending itself.
+      status: input.onSale === false ? "pending" : "approved",
     }).select("id").single();
     if (error) throw error;
     // The insert asked for the id back, so a success without one means the
