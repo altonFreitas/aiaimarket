@@ -78,6 +78,10 @@ export interface ProductFormInput {
    * know about this cannot silently publish or unpublish anything. */
   onSale?: boolean;
   description: string;
+  /** The ticked one-liners, already split. Optional: a caller that does
+   * not know about them (a purchase-order receipt) leaves the ones a
+   * listing already has alone rather than clearing them. */
+  highlights?: string[];
   category_id: string;
   sizes: string[];
   tags: string[];
@@ -190,6 +194,12 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
         // lacks the column drops them and keeps the save.
         preorder_enabled: input.preorder_enabled ?? true,
         preorder_eta: input.preorder_eta || null,
+        /* From supabase/product-highlights.sql, and the same bargain:
+           named out here so a database without the column drops it and
+           keeps the save. Only when the caller sent some -- spreading
+           nothing leaves what the listing already had, so a receipt
+           cannot wipe the words somebody wrote. */
+        ...(input.highlights === undefined ? {} : { highlights: input.highlights }),
       },
       (extra) => sb.from("products").update({
         name: input.name, slug, price, seller_id: sellerId,
@@ -255,6 +265,8 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
         // them, and naming one the database lacks fails the whole insert.
         preorder_enabled: input.preorder_enabled ?? true,
         preorder_eta: input.preorder_eta || null,
+        // As above, from supabase/product-highlights.sql.
+        ...(input.highlights === undefined ? {} : { highlights: input.highlights }),
       },
       (extra) => sb.from("products").insert({
         ref, name: input.name, slug, price, qty: 0, seller_id: sellerId,

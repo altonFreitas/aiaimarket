@@ -9,6 +9,8 @@ import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
 import { parseSizes } from "@/lib/procurement";
 import { t } from "@/lib/i18n";
+import { parseHighlights, highlightsText, highlightsWarning,
+  MAX_HIGHLIGHTS, MAX_HIGHLIGHT_LEN } from "@/lib/highlights";
 import type { Category, Lang, Product, StockStatus } from "@/lib/types";
 
 function rootIdOf(id: string, cats: Category[]): string {
@@ -61,6 +63,7 @@ export default function SellerProductForm({
     price: product ? String(product.price) : "",
     qty: product ? String(product.qty) : "1",
     description: product?.description || "",
+    highlights: highlightsText(product?.highlights),
     category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
     sizes: (product?.sizes || []).join(", "),
     tags: (product?.tags || []).join(", "),
@@ -158,6 +161,7 @@ export default function SellerProductForm({
         discount_price: discountPrice.trim() && Number(discountPrice) > 0 ? Number(discountPrice) : null,
         qty: Number(f.qty) || 0,
         description: f.description,
+        highlights: parseHighlights(f.highlights),
         category_id: f.category_id,
         /* THE SAME PARSER THE PURCHASE ORDER USES, not a second split on
            every comma. That one turned "41,5" into a size 41 and a size 5
@@ -235,6 +239,25 @@ export default function SellerProductForm({
             <label htmlFor="description">{t("description", lang)}</label>
             <textarea id="description" value={f.description}
               onChange={(e) => set("description", e.target.value)} />
+          </div>
+          {/* The same box the owner's form has: a seller writing their own
+              listing needs the same words on it. See lib/highlights.ts. */}
+          <div className="field">
+            <label htmlFor="highlights">{t("highlights", lang)}</label>
+            <textarea id="highlights" value={f.highlights} rows={5}
+              placeholder={t("highlightsPlaceholder", lang)}
+              onChange={(e) => set("highlights", e.target.value)} />
+            <p className="hint">{t("highlightsHint", lang)}</p>
+            {highlightsWarning(f.highlights) === "many" && (
+              <p className="hint bad">
+                {t("highlightsTooMany", lang).replace("{n}", String(MAX_HIGHLIGHTS))}
+              </p>
+            )}
+            {highlightsWarning(f.highlights) === "long" && (
+              <p className="hint bad">
+                {t("highlightsTooLong", lang).replace("{n}", String(MAX_HIGHLIGHT_LEN))}
+              </p>
+            )}
           </div>
         </div>
 

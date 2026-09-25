@@ -11,6 +11,8 @@ import { compressImage } from "@/lib/compressImage";
 import { discountPercent } from "@/lib/utils";
 import { statusForQty } from "@/lib/stockReport";
 import { parseNum } from "@/lib/numberInput";
+import { parseHighlights, highlightsText, highlightsWarning,
+  MAX_HIGHLIGHTS, MAX_HIGHLIGHT_LEN } from "@/lib/highlights";
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
 import { pathOf } from "@/lib/categoryTree";
@@ -153,6 +155,7 @@ export default function ProductForm({
     preorder_enabled: product?.preorder_enabled !== false,
     preorder_eta: product?.preorder_eta || "",
     description: product?.description || "",
+    highlights: highlightsText(product?.highlights),
     category_id: product?.category_id || cats.find((c) => !c.parent_id)?.id || "",
     // Empty means the marketplace's own catalogue. A product already filed
     // under a store that is no longer approved reads as the shop's own
@@ -300,6 +303,7 @@ export default function ProductForm({
         preorder_enabled: f.preorder_enabled,
         preorder_eta: f.preorder_eta || null,
         description: f.description,
+        highlights: parseHighlights(f.highlights),
         category_id: f.category_id,
         sizes: keptSizes,
         seller_id: f.seller_id || null,
@@ -421,6 +425,31 @@ export default function ProductForm({
             <label htmlFor="description">{t("description", lang)}</label>
             <textarea id="description" value={f.description}
               onChange={(e) => set("description", e.target.value)} />
+          </div>
+          {/* THE TICKED ONE-LINERS, one per line.
+              A textarea rather than a repeater with an "add another"
+              button: six words each, and a row of inputs to manage is
+              more machinery than the thing deserves.
+              The warning is shown rather than the text being silently
+              cut -- the database refuses more than twelve or longer than
+              120 (products_highlights_sane), and a save that fails a
+              check constraint is a 500 and a lost form. */}
+          <div className="field">
+            <label htmlFor="highlights">{t("highlights", lang)}</label>
+            <textarea id="highlights" value={f.highlights} rows={5}
+              placeholder={t("highlightsPlaceholder", lang)}
+              onChange={(e) => set("highlights", e.target.value)} />
+            <p className="hint">{t("highlightsHint", lang)}</p>
+            {highlightsWarning(f.highlights) === "many" && (
+              <p className="hint bad">
+                {t("highlightsTooMany", lang).replace("{n}", String(MAX_HIGHLIGHTS))}
+              </p>
+            )}
+            {highlightsWarning(f.highlights) === "long" && (
+              <p className="hint bad">
+                {t("highlightsTooLong", lang).replace("{n}", String(MAX_HIGHLIGHT_LEN))}
+              </p>
+            )}
           </div>
         </div>
 

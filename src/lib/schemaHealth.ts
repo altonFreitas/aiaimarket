@@ -155,6 +155,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "video_url"]],
   },
   {
+    file: "product-highlights.sql", labelKey: "featHighlights",
+    columns: [["products", "highlights"]],
+  },
+  {
     file: "loves.sql", labelKey: "featLoves",
     columns: [["products", "loves"]],
     routines: ["increment_loves", "decrement_loves"],
@@ -594,6 +598,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   // AFTER taxonomy-seed.sql and clothing-taxonomy.sql, both of which build
   // the tree this one replaces. It reads what they left and moves it.
   "focus-taxonomy.sql",
+  // Anywhere after schema.sql: it adds one column to products and reads
+  // nothing. Kept beside the other product-column files.
+  "product-highlights.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 

@@ -1,5 +1,6 @@
 "use server";
 import { requireApprovedSeller } from "./guard";
+import { writeTolerating } from "@/lib/missingColumn";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils";
 import { decodeImageDataUrl, safeFileStem } from "@/lib/uploadGuard";
@@ -71,6 +72,10 @@ export interface SellerProductFormInput {
    * the database derives and nobody types. */
   qty: number;
   description: string;
+  /** The ticked one-liners, already split. Optional for the same reason
+   * as on the owner's form: a caller that does not know about them
+   * leaves the ones a listing already has alone. */
+  highlights?: string[];
   category_id: string;
   sizes: string[];
   tags: string[];
@@ -108,12 +113,19 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
     // from the quantity by the database. Writing either here would put the
     // balance and its history out of step -- which is what this form used
     // to do every time it was saved.
-    /* A plain write, not a writeTolerating one. The only column this form
-       sent that every database might not have was `audience`, and that
-       column is gone (supabase/drop-audience.sql) -- every field below has
-       existed since schema.sql, so there is nothing left for a retry to
-       drop. */
-    const { error } = await sb.from("products").update({
+    /* writeTolerating, and it did not used to need to be. Every field
+       below existed since schema.sql once `audience` was dropped
+       (supabase/drop-audience.sql), so the note here said there was
+       nothing left for a retry to drop. `highlights` is new
+       (supabase/product-highlights.sql) and a shop that has this code
+       and not that file would otherwise be unable to save a product at
+       all -- the whole form lost over one optional box. Named out here,
+       where a database without the column drops it and keeps the save. */
+    const { error } = await writeTolerating(
+      {
+        ...(input.highlights === undefined ? {} : { highlights: input.highlights }),
+      },
+      (extra) => sb.from("products").update({
       name: input.name, slug, price: input.price,
       // Only when the caller said, so an older caller cannot publish or
       // unpublish anything by omission.
@@ -125,7 +137,9 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
       images: input.images,
       pay_cod: input.pay_cod, pay_cop: input.pay_cop, pay_bank: input.pay_bank,
       pay_wallet: input.pay_wallet, pay_fiar: input.pay_fiar,
-    }).eq("id", input.id);
+      ...extra,
+      }).eq("id", input.id)
+    );
     if (error) throw error;
 
     // A counted shelf, recorded as what it is: an adjustment, with a
@@ -142,8 +156,12 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
     // Created empty and stocked by a movement, so a product's history
     // starts at its first unit rather than at some number that was already
     // there when the ledger began.
-    // Plain, for the same reason as the update above.
-    const { data: made, error } = await sb.from("products").insert({
+    // Tolerating, for the same reason as the update above.
+    const { data: made, error } = await writeTolerating<{ id: string }>(
+      {
+        ...(input.highlights === undefined ? {} : { highlights: input.highlights }),
+      },
+      (extra) => sb.from("products").insert({
       ref, name: input.name, slug, price: input.price, qty: 0,
       discount_price: input.discount_price,
       stock_status: "out", description: input.description,
@@ -156,7 +174,9 @@ export async function saveSellerProduct(input: SellerProductFormInput) {
       // documented above: an approved seller does not need sign-off per
       // product. A receipt is the other door and sets pending itself.
       status: input.onSale === false ? "pending" : "approved",
-    }).select("id").single();
+      ...extra,
+      }).select("id").single()
+    );
     if (error) throw error;
     // The insert asked for the id back, so a success without one means the
     // row is not there and stocking it would write against nothing.

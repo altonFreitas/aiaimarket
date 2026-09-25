@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { taglineOf } from "@/lib/tagline";
 import Link from "next/link";
 import { t } from "@/lib/i18n";
 import type { HeroSlide, Lang, Settings } from "@/lib/types";
@@ -64,7 +65,7 @@ function HeroArt() {
 /** Default hero: no slides configured yet in /admin/hero. Same layout
  * this project shipped with before the carousel existed. */
 function DefaultHero({ lang, settings }: { lang: Lang; settings: Settings }) {
-  const tagline = lang === "pt" ? settings.tagline_pt : lang === "en" ? settings.tagline_en : settings.tagline_tet;
+  const tagline = taglineOf(settings, lang);
   return (
     <section className="hero">
       <div className="hero-copy">
@@ -128,7 +129,7 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
 
   const active = slides[Math.min(i, slides.length - 1)];
   const src = videoSrc(active);
-  const tagline = lang === "pt" ? settings.tagline_pt : lang === "en" ? settings.tagline_en : settings.tagline_tet;
+  const tagline = taglineOf(settings, lang);
   const srTitle = settings.store_name + (tagline ? " — " + tagline : "");
 
   const next = useCallback(() => setI((cur) => (cur + 1) % slides.length), [slides.length]);

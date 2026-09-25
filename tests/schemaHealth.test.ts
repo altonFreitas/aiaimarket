@@ -120,6 +120,8 @@ const EVERYTHING = snap([
   "purchase_order_items.variant_qty",
   "purchase_order_items.product_type_id", "purchase_order_items.attribute_values",
   "settings.stale_days",
+  // product-highlights.sql -- the ticked selling points.
+  "products.highlights",
 ]);
 
 describe("checkSchema", () => {

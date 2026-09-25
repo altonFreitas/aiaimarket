@@ -122,6 +122,14 @@ export interface Product {
   status: ProductStatus;
   views: number;
   wa_clicks: number;
+  /** The short ticked selling points the product page lists beside the
+   * description -- "100% breathable cotton", "Machine washable". The
+   * shop's own words, not an attribute's answer and not a slice of the
+   * description; see supabase/product-highlights.sql for why neither of
+   * those could supply them.
+   * Optional: a database without that file has no column, and absent
+   * reads as none, which draws no block at all. */
+  highlights?: string[] | null;
   /** How many times the heart on this product has been tapped. A
    * popularity signal, not a per-person vote -- see supabase/loves.sql.
    * Optional: a database without that file has no column, and absent
