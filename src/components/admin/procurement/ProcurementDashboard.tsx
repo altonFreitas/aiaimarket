@@ -7,7 +7,8 @@ import { money } from "@/lib/utils";
 import {
   buildAlerts, computeKpis, deliveryState, filterPurchaseOrders, growth, isOpen,
   poDaysRemaining, poDelayDays, poQty, poTotal, spendByCategory,
-  spendByCountry, spendByMonth, spendByProduct, spendBySupplier, statusBreakdown,
+  spendByCountry, spendByMonth, spendByProduct, spendByShopCategory,
+  spendBySupplier, statusBreakdown,
   supplierPerformance, todayIso, PO_STATUSES,
   type ProcurementFilter,
 } from "@/lib/procurement";
@@ -43,8 +44,13 @@ function delta(n: number | null): { text: string; up: boolean } | null {
 }
 
 export default function ProcurementDashboard({
-  lang, suppliers, purchaseOrders,
-}: { lang: Lang; suppliers: Supplier[]; purchaseOrders: PurchaseOrder[] }) {
+  lang, suppliers, purchaseOrders, categories = [],
+}: {
+  lang: Lang; suppliers: Supplier[]; purchaseOrders: PurchaseOrder[];
+  /** The shop's own categories, for telling "where does this land in the
+   * shop" apart from "which budget did it come out of". */
+  categories?: Array<{ id: string; name: string }>;
+}) {
   const today = todayIso();
   const thisYear = Number(today.slice(0, 4));
 
@@ -88,8 +94,13 @@ export default function ProcurementDashboard({
   const byCountry = useMemo(
     () => spendByCountry(rows, suppliers, countryName), [rows, suppliers]
   );
+  const categoryNames = useMemo(
+    () => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const byCategory = useMemo(() => spendByCategory(rows), [rows]);
-  const byProduct = useMemo(() => spendByProduct(rows, suppliers), [rows, suppliers]);
+  const byShopCategory = useMemo(
+    () => spendByShopCategory(rows, categoryNames), [rows, categoryNames]);
+  const byProduct = useMemo(
+    () => spendByProduct(rows, suppliers, categoryNames), [rows, suppliers, categoryNames]);
   const perf = useMemo(() => supplierPerformance(rows, suppliers, today), [rows, suppliers, today]);
   const statuses = useMemo(() => statusBreakdown(rows), [rows]);
   const alerts = useMemo(() => buildAlerts(rows, suppliers, today), [rows, suppliers, today]);
@@ -270,7 +281,10 @@ export default function ProcurementDashboard({
           />
         </div>
         <div className="panel">
-          <h3>{t("quantityByCategory", lang)}</h3>
+          {/* "Quantity by category" was whichever of the two categories
+              you assumed it meant. This is the SPEND one -- the budget the
+              money came out of -- and it says so now. */}
+          <h3>{t("quantityBySpendCategory", lang)}</h3>
           <RankedBars
             rows={byCategory.map((r) => ({
               key: r.category, label: t("cat_" + r.category, lang), value: r.qty,
@@ -281,6 +295,26 @@ export default function ProcurementDashboard({
             onSelect={(key) => set({ category: key as PoCategory })}
           />
         </div>
+      </div>
+
+      {/* ---- and the other category: where the goods land in the shop ----
+              A different question from the one above, and the shop asked
+              both: "how much went on goods for resale rather than
+              packaging" is the spend category, "how much of it was
+              clothing" is this one. Not clickable, unlike the chart above:
+              the filter this dashboard carries is on the SPEND category,
+              and a bar that looked the same and filtered something else
+              would be worse than one that does nothing. */}
+      <div className="panel">
+        <h3>{t("quantityByShopCategory", lang)}</h3>
+        <RankedBars
+          rows={byShopCategory.map((r) => ({
+            key: r.category, label: r.category, value: r.qty,
+            share: r.share, meta: money(r.value),
+          }))}
+          emptyLabel={t("noShopCategoryYet", lang)}
+          format={(n) => n.toLocaleString("en-US")}
+        />
       </div>
 
       {/* ---- row 4: upcoming arrivals | delayed ---- */}
@@ -398,7 +432,8 @@ export default function ProcurementDashboard({
           <table className="tbl">
             <thead><tr>
               <th>{t("product", lang)}</th>
-              <th>{t("category", lang)}</th>
+              <th>{t("shopCategory", lang)}</th>
+              <th>{t("spendCategory", lang)}</th>
               <th className="num">{t("quantity", lang)}</th>
               <th className="num">{t("value", lang)}</th>
               <th className="num">{t("avgUnitPrice", lang)}</th>
@@ -410,6 +445,9 @@ export default function ProcurementDashboard({
               {byProduct.slice(0, 25).map((p) => (
                 <tr key={p.name}>
                   <td><b>{p.name}</b></td>
+                  {/* An em dash, not a blank cell: most non-resale lines
+                      name no shop category, and packaging has no aisle. */}
+                  <td>{p.shopCategory || "—"}</td>
                   <td>{t("cat_" + p.category, lang)}</td>
                   <td className="num">{p.qty.toLocaleString("en-US")}</td>
                   <td className="num">{money(p.value)}</td>
@@ -420,7 +458,7 @@ export default function ProcurementDashboard({
                 </tr>
               ))}
               {!byProduct.length && (
-                <tr><td colSpan={8}><p className="hint" style={{ margin: 0 }}>{t("noDataYet", lang)}</p></td></tr>
+                <tr><td colSpan={9}><p className="hint" style={{ margin: 0 }}>{t("noDataYet", lang)}</p></td></tr>
               )}
             </tbody>
           </table>

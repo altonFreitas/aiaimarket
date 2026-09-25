@@ -13,7 +13,7 @@
  * six hundred names would return "Medium Violet Red", which is worse than
  * useless in a shop where the label has to mean something to a buyer in
  * Dili. Seventeen names that anybody would recognise, nearest match, and
- * the hex is still shown underneath for whoever wants the exact value.
+ * the swatch beside the word carrying whatever the word left out.
  *
  * THE LIST WAS TUNED AGAINST ACTUAL COLOURS, not chosen and hoped for.
  * #db146b -- the colour on the shop's own test product -- first came out
@@ -25,8 +25,9 @@
  * them, so a future edit to this list has to keep them landing there.
  *
  * AND THE SWATCH IS THE REAL ANSWER. The name is an approximation over a
- * short list; the square beside it is the exact colour, and the hex under
- * it is the exact value. Nobody has to trust the word.
+ * short list; the square beside it is the exact colour, so nobody has to
+ * trust the word. The hex itself is deliberately NOT printed on the
+ * product page -- see components/SpecValue.tsx.
  */
 
 export interface NamedColor {
@@ -37,8 +38,14 @@ export interface NamedColor {
    * this can draw -- then there is no swatch, rather than a black square
    * that means "we did not understand". */
   swatch: string | null;
-  /** The exact value as stored, when it is a hex and so worth keeping
-   * beside the name. Null for a value that was already a word. */
+  /** The exact value as stored, when it is a hex. Null for a value that
+   * was already a word.
+   *
+   * NOT PRINTED on the product page -- a shopper cannot use a hex, and a
+   * swatch with a number after it reads as a swatch that failed. It is
+   * kept because it is the honest way to say "this came from a hex, and
+   * here is the one it came from", which the admin side reads when it
+   * needs to tell a typed word from a picked colour. */
   exact: string | null;
 }
 

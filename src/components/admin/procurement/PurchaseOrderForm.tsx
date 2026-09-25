@@ -13,6 +13,7 @@ import {
   todayIso,
 } from "@/lib/procurement";
 import { t } from "@/lib/i18n";
+import DownloadMenu from "../DownloadMenu";
 import TaxonomyPicker from "../TaxonomyPicker";
 import AttributeField from "../AttributeField";
 import type { FormAttribute } from "@/lib/taxonomy/types";
@@ -487,15 +488,16 @@ export default function PurchaseOrderForm({
         {/* Only for a saved order: there is nothing to print from a form
             that has not been written down yet. */}
         {po && (
-          <>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={downloadPdf}>
-              {t("downloadPdf", lang)}
-            </button>
-            <button type="button" className="btn btn-sm btn-ghost"
-              disabled={busy} onClick={downloadExcel}>
-              {t("exportExcel", lang)}
-            </button>
-          </>
+          /* ONE BUTTON, TWO FORMATS. These were two ghost buttons at
+             opposite ends of this row reading "Download PDF" and
+             "Download Excel" -- one thing to do, and a format to pick
+             while doing it, drawn as two different things to do. */
+          <DownloadMenu label={t("download", lang)} disabled={busy} formats={[
+            { key: "pdf", label: t("formatPdf", lang), note: t("formatPdfNote", lang),
+              run: downloadPdf },
+            { key: "xlsx", label: t("formatExcel", lang), note: t("formatExcelNote", lang),
+              run: downloadExcel },
+          ]} />
         )}
       </div>
 

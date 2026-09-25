@@ -20,8 +20,25 @@ export default function CategoriesAdmin({
   const [renameVal, setRenameVal] = useState("");
   const [merging, setMerging] = useState<Category | null>(null);
   const [mergeTo, setMergeTo] = useState("");
+  const [q, setQ] = useState("");
 
   const roots = cats.filter((c) => !c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
+
+  /* THE SEARCH KEEPS A MATCHING CHILD'S PARENT, and keeps a matching
+     parent's children. A flat list of hits would strip the one thing this
+     screen is for -- showing what sits inside what -- so "shoes" shows
+     Clothing with Shoes under it, and "clothing" shows Clothing with
+     everything it holds. Matching on the slug as well as the name because
+     the slug is on screen and is what a URL complaint will quote. */
+  const needle = q.trim().toLowerCase();
+  const hit = (c: Category) =>
+    !needle || c.name.toLowerCase().includes(needle) || c.slug.toLowerCase().includes(needle);
+  const kidsOf = (id: string) =>
+    cats.filter((k) => k.parent_id === id).sort((a, b) => a.sort_order - b.sort_order);
+  const shown = roots
+    .map((c) => ({ c, kids: kidsOf(c.id) }))
+    .map(({ c, kids }) => ({ c, kids: hit(c) ? kids : kids.filter(hit) }))
+    .filter(({ c, kids }) => hit(c) || kids.length > 0);
   const count = (id: string) => {
     const ids = [id, ...cats.filter((c) => c.parent_id === id).map((c) => c.id)];
     return products.filter((p) => ids.includes(p.category_id || "")).length;
@@ -153,15 +170,33 @@ export default function CategoriesAdmin({
         </div>
       )}
 
+      {/* Above the list, because it is what the list is filtered by. A
+          shop with twenty-five categories and a subcategory under each has
+          fifty rows here, and finding one meant scrolling past the rest. */}
+      <div className="cat-find">
+        <input type="search" value={q} onChange={(e) => setQ(e.target.value)}
+          aria-label={t("searchCategories", lang)}
+          placeholder={t("searchCategories", lang)} />
+        {needle !== "" && (
+          <span className="hint">
+            {shown.reduce((a, s) => a + (hit(s.c) ? 1 : 0) + s.kids.length, 0)} {t("results", lang)}
+          </span>
+        )}
+      </div>
+
       <div className="list">
-        {roots.map((c) => (
+        {shown.map(({ c, kids }) => (
           <div key={c.id} style={{ display: "contents" }}>
             <Row c={c} depth={0} />
-            {cats.filter((k) => k.parent_id === c.id).sort((a, b) => a.sort_order - b.sort_order)
-              .map((k) => <Row key={k.id} c={k} depth={1} />)}
+            {kids.map((k) => <Row key={k.id} c={k} depth={1} />)}
           </div>
         ))}
       </div>
+      {/* Said plainly. An empty list under a box you have just typed in
+          reads as a broken screen rather than as an answer. */}
+      {needle !== "" && shown.length === 0 && (
+        <div className="empty"><p>{t("noResults", lang)}</p></div>
+      )}
     </>
   );
 }

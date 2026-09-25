@@ -110,6 +110,13 @@ export default function ReviewsAdmin({
         {reviews.length === 0 ? (
           <p className="sub">{t("noReviewsYet", lang)}</p>
         ) : (
+          /* Two entries, then it scrolls itself. A shop with sixty
+             reviews had sixty of them between this heading and the store
+             ratings below, so the second list was only ever reached by
+             scrolling past the first. tabIndex because the box scrolls
+             and a keyboard needs a way into it. */
+          <div className={reviews.length > 2 ? "rows-cap rows-cap-review" : undefined}
+            tabIndex={reviews.length > 2 ? 0 : undefined}>
           <ul className="mod-list">
             {reviews.map((r) => row(
               "review", r.id, r.rating, r.comment, r.created_at,
@@ -118,6 +125,7 @@ export default function ReviewsAdmin({
               r.buyer_name || null,
             ))}
           </ul>
+          </div>
         )}
       </div>
 
@@ -127,6 +135,9 @@ export default function ReviewsAdmin({
           {ratings.length === 0 ? (
             <p className="sub">{t("noReviewsYet", lang)}</p>
           ) : (
+            // Same rule, same reason.
+            <div className={ratings.length > 2 ? "rows-cap rows-cap-review" : undefined}
+              tabIndex={ratings.length > 2 ? 0 : undefined}>
             <ul className="mod-list">
               {ratings.map((r) => row(
                 "rating", r.id, r.rating, r.comment, r.created_at,
@@ -134,6 +145,7 @@ export default function ReviewsAdmin({
                 null, null,
               ))}
             </ul>
+            </div>
           )}
         </div>
       )}

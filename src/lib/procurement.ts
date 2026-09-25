@@ -573,7 +573,14 @@ export function spendByCategory(pos: PurchaseOrder[]): CategorySpend[] {
 
 export interface ProductSpend {
   name: string;
+  /** The SPEND category: the accounting bucket a line is filed under --
+   * goods for resale, packaging, freight. Nothing to do with where the
+   * product sits in the shop. */
   category: PoCategory;
+  /** The SHOP category: where the goods land in the catalogue, from the
+   * line's catalog_category_id. Empty when the line never named one --
+   * which is most non-resale lines, since freight is not sold. */
+  shopCategory: string;
   qty: number;
   value: number;
   avgUnitPrice: number;
@@ -582,10 +589,17 @@ export interface ProductSpend {
   lastPurchase: string | null;
 }
 
-export function spendByProduct(pos: PurchaseOrder[], suppliers: Supplier[]): ProductSpend[] {
+export function spendByProduct(
+  pos: PurchaseOrder[], suppliers: Supplier[],
+  /** id -> name for the shop's own categories. Absent on a screen that
+   * has not loaded them, and then the shop category simply reads blank
+   * rather than printing a uuid at somebody. */
+  categoryNames?: ReadonlyMap<string, string>
+): ProductSpend[] {
   const byId = new Map(suppliers.map((s) => [s.id, s]));
   const acc = new Map<string, {
-    name: string; category: PoCategory; qty: number; value: number;
+    name: string; category: PoCategory; shopCategory: string;
+    qty: number; value: number;
     orders: Set<string>; bySupplier: Map<string, number>; last: string | null;
   }>();
 
@@ -599,9 +613,19 @@ export function spendByProduct(pos: PurchaseOrder[], suppliers: Supplier[]): Pro
       const key = item.product_name.trim().toLowerCase();
       if (!key) continue;
       const cur = acc.get(key) || {
-        name: item.product_name.trim(), category: item.category, qty: 0, value: 0,
+        name: item.product_name.trim(), category: item.category, shopCategory: "",
+        qty: 0, value: 0,
         orders: new Set<string>(), bySupplier: new Map<string, number>(), last: null,
       };
+      /* FIRST ANSWER WINS, and it is only ever asked once. The same
+         product bought twice is one row here, and a shop that refiled it
+         between the two orders would otherwise have the row flicker
+         between categories depending on which line was read last. The
+         earliest line that named one is as good an answer as any and is
+         at least stable. */
+      if (!cur.shopCategory && item.catalog_category_id) {
+        cur.shopCategory = categoryNames?.get(item.catalog_category_id) || "";
+      }
       const lineValue = Number(item.qty) * Number(item.unit_price) * rate;
       cur.qty += Number(item.qty);
       cur.value += lineValue;
@@ -617,6 +641,7 @@ export function spendByProduct(pos: PurchaseOrder[], suppliers: Supplier[]): Pro
     return {
       name: c.name,
       category: c.category,
+      shopCategory: c.shopCategory,
       qty: c.qty,
       value: c.value,
       avgUnitPrice: c.qty ? c.value / c.qty : 0,
@@ -625,6 +650,56 @@ export function spendByProduct(pos: PurchaseOrder[], suppliers: Supplier[]): Pro
       lastPurchase: c.last,
     };
   }).sort((a, b) => b.value - a.value);
+}
+
+export interface ShopCategorySpend {
+  /** The category's name, or "" for lines that named none. */
+  category: string;
+  value: number;
+  qty: number;
+  orders: number;
+  share: number;
+}
+
+/** What was bought, grouped by where it lands in the SHOP -- as opposed to
+ * spendByCategory above, which groups by the accounting bucket.
+ *
+ * These answer different questions and the dashboard now shows both: "how
+ * much of my money went on goods for resale rather than freight" is the
+ * spend category, and "how much of it was clothing" is this one. They were
+ * one chart called "Quantity by category", which was whichever of the two
+ * you assumed it meant.
+ *
+ * Lines that name no shop category are left out rather than bundled into
+ * an "(none)" bar: packaging and bank charges are not an aisle, and a bar
+ * for them would usually be the tallest one on the chart. */
+export function spendByShopCategory(
+  pos: PurchaseOrder[], categoryNames: ReadonlyMap<string, string>
+): ShopCategorySpend[] {
+  const live = pos.filter((p) => !isCancelled(p));
+  const acc = new Map<string, { value: number; qty: number; orders: Set<string> }>();
+
+  for (const po of live) {
+    const rate = Number(po.fx_rate || 1);
+    for (const item of po.items || []) {
+      const name = item.catalog_category_id
+        ? categoryNames.get(item.catalog_category_id) : undefined;
+      if (!name) continue;
+      const cur = acc.get(name) || { value: 0, qty: 0, orders: new Set<string>() };
+      cur.value += Number(item.qty) * Number(item.unit_price) * rate;
+      cur.qty += Number(item.qty);
+      cur.orders.add(po.id);
+      acc.set(name, cur);
+    }
+  }
+
+  const total = [...acc.values()].reduce((a, c) => a + c.value, 0);
+  return [...acc.entries()]
+    .map(([category, c]) => ({
+      category, value: c.value, qty: c.qty, orders: c.orders.size,
+      share: total ? c.value / total : 0,
+    }))
+    .sort((a, b) => b.value - a.value);
 }
 
 export interface StatusBucket { status: PoStatus; count: number; value: number }

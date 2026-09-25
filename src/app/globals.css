@@ -1060,6 +1060,66 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .promo h2{font-size:19px;margin:0 0 4px;color:var(--ink)}
 .promo p{color:var(--amber-ink);font-size:13.5px;margin:0}
 
+/* ---------- a long list, bounded ---------- */
+/* EIGHT ROWS, THEN IT SCROLLS ITSELF.
+   The attribute list is 546 rows on a seeded shop and the product types
+   are 267: screens whose own content pushes everything under them --
+   including the form that adds another one -- several pages down. Bounding
+   the list keeps the page a page.
+
+   --rows is how many are visible and is set per use, so "eight" is stated
+   once in the markup rather than converted into a pixel height by hand.
+   --row-h is a generous estimate of one row; over-estimating shows a
+   little more than asked, under-estimating cuts a row in half. */
+.rows-cap{--row-h:44px;--rows:8;max-height:calc(var(--rows) * var(--row-h));
+  overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+  border:1px solid var(--line);border-radius:var(--r-s)}
+/* The heading stays put while its rows move under it. A scrolled table
+   whose header leaves is a grid of unlabelled numbers.
+   The background is not optional: a sticky cell is transparent by default
+   and the rows would be read through it. */
+.rows-cap .table thead th{position:sticky;top:0;z-index:1;background:var(--card)}
+/* A card list rather than a table -- the cards bring their own borders, so
+   the wrapper does not add a second one around them. */
+.rows-cap-cards{--row-h:104px;border:0}
+.rows-cap-cards>*:last-child{margin-bottom:0}
+/* A moderation list: two entries, each carrying a rating, a comment of
+   unknown length, a date, what it is about and two buttons. Taller than a
+   table row by a long way, and the count is what the shop asked for. */
+.rows-cap-review{--row-h:124px;--rows:2}
+
+/* ---------- admin: one download button, two formats ---------- */
+/* Same shape as .lang in the header and for the same reason: a control
+   whose alternatives are worth a click rather than a permanent row of
+   buttons. Positioned relative so the list hangs off it. */
+.dlmenu{position:relative;display:inline-flex}
+.dlmenu .btn{display:inline-flex;align-items:center;gap:var(--sp-1)}
+.dlmenu-caret{font-size:var(--fs-caption);line-height:1;opacity:.7}
+/* right:0, so a menu opened by a button near the right edge of a page
+   head opens inwards instead of off the screen. */
+.dlmenu-list{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:210px;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  box-shadow:var(--sh);padding:var(--sp-1);display:flex;flex-direction:column}
+.dlmenu-list button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+  width:100%;padding:var(--sp-2);border:0;background:transparent;cursor:pointer;
+  text-align:left;border-radius:var(--r-s);color:var(--ink)}
+.dlmenu-list button:hover:not(:disabled){background:var(--line-2)}
+.dlmenu-list button:disabled{opacity:.5;cursor:default}
+.dlmenu-list b{font-size:var(--fs-body-sm);font-weight:600}
+.dlmenu-list em{font-style:normal;font-size:var(--fs-caption);color:var(--muted)}
+
+/* ---------- admin: a find box with an action beside it ---------- */
+/* THE BUTTON SITS ON THE BOX'S BASELINE, not above it. This was a .two
+   grid with `justifyContent:flex-end` inline on the button's .field --
+   which does nothing at all, because .field is a block and that is a flex
+   property. The button hung from the top of the cell while the input sat
+   below a label, so the two never lined up. flex-end on a real flex row
+   is the fix, and it is the same rule .po-line uses for the same reason. */
+.admin-find{display:flex;gap:var(--sp-3);align-items:flex-end;flex-wrap:wrap;
+  margin:0 0 var(--sp-3)}
+.admin-find .field{flex:1 1 220px;min-width:0;margin:0}
+.admin-find .btn{flex:0 0 auto}
+
 /* ---------- offline / degradation ---------- */
 .offline{background:var(--red);color:#fff;text-align:center;font-size:12px;padding:4px}
 
@@ -2888,7 +2948,6 @@ tr.is-ended{opacity:.55}
 .spec-color{display:inline-flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .spec-swatch{width:16px;height:16px;border-radius:4px;flex:0 0 auto;
   border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
-.spec-hex{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted)}
 .spec-row dt{margin:0;color:var(--muted);font-size:var(--fs-sm)}
 .spec-row dd{margin:0}
 @media(max-width:480px){

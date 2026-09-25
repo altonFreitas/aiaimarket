@@ -129,12 +129,23 @@ describe("naming a colour", () => {
     }
   });
 
-  it("keeps the exact value beside the name", () => {
-    // The name is an approximation over a short list; the swatch and the
-    // hex are the exact answer, so nobody has to trust the word.
+  it("keeps the swatch and the value it came from", () => {
+    // The name is an approximation over a short list; the swatch is the
+    // exact answer, so nobody has to trust the word.
     expect(describeColor("#db146b")).toMatchObject({
       swatch: "#db146b", exact: "#db146b",
     });
+  });
+
+  it("does not print the hex on the product page", () => {
+    /* It used to sit beside the name in small type, for a shop matching a
+       supplier's code. Wrong audience: a buyer cannot use a hex, and a
+       swatch with a number after it reads as one that failed to resolve. */
+    const SPEC = read("src/components/SpecValue.tsx");
+    expect(SPEC).toContain("{c.name}");
+    expect(SPEC).not.toContain("c.exact");
+    expect(SPEC).not.toContain("spec-hex");
+    expect(CSS).not.toContain(".spec-hex");
   });
 
   it("reads the short form too", () => {

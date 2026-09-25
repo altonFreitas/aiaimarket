@@ -128,6 +128,12 @@ export default function ProductTypesAdmin({
         </div>
       </WriteOnly>
 
+      {/* Bounded past eight, like the attribute table. These are cards
+          rather than rows and each opens to show its attributes, so the
+          height allowed per card is larger -- but the rule is the same one
+          and it is stated the same way. */}
+      <div className={shown.length > 8 ? "rows-cap rows-cap-cards" : undefined}
+        tabIndex={shown.length > 8 ? 0 : undefined}>
       {shown.map((t) => (
         <div key={t.id} className="panel pt-row">
           <div className="pt-head">
@@ -237,6 +243,7 @@ export default function ProductTypesAdmin({
           )}
         </div>
       ))}
+      </div>
 
       {shown.length === 0 && <p className="hint">Nothing matches “{q}”.</p>}
     </div>

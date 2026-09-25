@@ -138,22 +138,6 @@ export default function DemandAdmin({
         </div>
       )}
 
-      {/* ---- signal tiles, each one a filter on the table below ---- */}
-      <div className="status-tiles">
-        {SIGNAL_ORDER.map((s) => {
-          const hits = signalsOf(findings, s);
-          return (
-            <button key={s} type="button"
-              className={"status-tile" + (signalFilter === s ? " is-on" : "")}
-              onClick={() => setSignalFilter(signalFilter === s ? "" : s)}>
-              <b>{hits.length}</b>
-              <span>{t("signal_" + s, lang)}</span>
-              <em>{t("signalHint_" + s, lang)}</em>
-            </button>
-          );
-        })}
-      </div>
-
       <div className="two-col">
         {/* ---- where attention goes ---- */}
         <div className="panel">
@@ -201,6 +185,32 @@ export default function DemandAdmin({
           <div><b>{health.noImage}</b><span>{t("noImage", lang)}</span></div>
           <div><b>{health.uncategorised}</b><span>{t("uncategorised", lang)}</span></div>
         </div>
+      </div>
+
+      {/* ---- signal tiles, each one a filter on the table DIRECTLY BELOW.
+              They used to sit four panels up, above the category chart and
+              the loved list. Clicking one filtered a table far enough down
+              the page that the filtering was invisible -- the numbers
+              changed somewhere nobody was looking, and the tile's only
+              feedback was its own highlight. Next to what they filter,
+              they read as the control they always were. ---- */}
+      <div className="status-tiles">
+        {SIGNAL_ORDER.map((s) => {
+          const hits = signalsOf(findings, s);
+          return (
+            <button key={s} type="button"
+              /* aria-pressed, not just a class: a toggle that only looks
+                 different is a toggle a screen reader cannot report the
+                 state of. */
+              aria-pressed={signalFilter === s}
+              className={"status-tile" + (signalFilter === s ? " is-on" : "")}
+              onClick={() => setSignalFilter(signalFilter === s ? "" : s)}>
+              <b>{hits.length}</b>
+              <span>{t("signal_" + s, lang)}</span>
+              <em>{t("signalHint_" + s, lang)}</em>
+            </button>
+          );
+        })}
       </div>
 
       {/* ---- every product, most-looked-at first ---- */}

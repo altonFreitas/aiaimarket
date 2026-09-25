@@ -112,7 +112,7 @@ export default function AttributesAdmin({ attributes }: { attributes: AttributeR
         product type that uses it.
       </p>
 
-      <div className="two">
+      <div className="admin-find">
         <div className="field">
           <label htmlFor="attr-search">Find</label>
           <input id="attr-search" type="search" value={q}
@@ -120,12 +120,10 @@ export default function AttributesAdmin({ attributes }: { attributes: AttributeR
             onChange={(e) => setQ(e.target.value)} />
         </div>
         <WriteOnly>
-          <div className="field" style={{ justifyContent: "flex-end" }}>
-            <button type="button" className="btn btn-amber" disabled={busy}
-              onClick={() => { setCreating(true); setEditing(null); }}>
-              New attribute
-            </button>
-          </div>
+          <button type="button" className="btn btn-amber" disabled={busy}
+            onClick={() => { setCreating(true); setEditing(null); }}>
+            New attribute
+          </button>
         </WriteOnly>
       </div>
 
@@ -145,6 +143,12 @@ export default function AttributesAdmin({ attributes }: { attributes: AttributeR
         />
       )}
 
+      {/* Bounded past eight rows, and only then: a wrapper with a border
+          and a scrollbar around four rows is chrome around nothing.
+          tabIndex, because a scrolling box whose only focusable contents
+          are past the fold cannot be reached from a keyboard otherwise. */}
+      <div className={shown.length > 8 ? "rows-cap" : undefined}
+        tabIndex={shown.length > 8 ? 0 : undefined}>
       <table className="table">
         <thead>
           <tr>
@@ -255,6 +259,7 @@ export default function AttributesAdmin({ attributes }: { attributes: AttributeR
           ))}
         </tbody>
       </table>
+      </div>
 
       {shown.length === 0 && (
         <p className="hint">Nothing matches “{q}”.</p>
