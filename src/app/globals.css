@@ -1921,8 +1921,9 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
 @media(min-width:1000px){ .grid{grid-template-columns:repeat(4,1fr)} }
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
-/* body::before too: an invoice printed on a customer's receipt is not the
-   place to spend their toner on background cloth. */
+/* The chrome comes off a printed page: an invoice on a customer's
+   receipt is not the place to spend their toner on navigation. (The
+   background cloth used to be hidden here too; there is no cloth now.) */
 @media print{.hd,.nav,.btn-row,.adm-nav{display:none}}
 
 /* ============================================================
