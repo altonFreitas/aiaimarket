@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import TopBar from "@/components/TopBar";
 import Header from "@/components/Header";
+import Incentives from "@/components/Incentives";
 import Footer from "@/components/Footer";
 import BottomNav from "@/components/BottomNav";
 import CookieNotice from "@/components/CookieNotice";
@@ -28,6 +30,34 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 export const viewport: Viewport = { themeColor: "#152341", colorScheme: "light" };
 
+/* THE HEADING FACE.
+ *
+ * HEADINGS ONLY, and that is the whole of the decision. This shop is
+ * built for mobile data in Timor-Leste and every comment in the
+ * stylesheet about page weight means it; body text stays on the system
+ * stack, which costs nothing and is already the face the reader's own
+ * phone renders best. One variable file, latin subset, and it is spent
+ * where it shows -- the h1 on a product page, the row headings on the
+ * homepage.
+ *
+ * display:"swap", so the words are readable in the fallback from the
+ * first paint and re-render in Jakarta when it lands. A heading that is
+ * invisible for 300ms on a slow connection is worse than a heading in
+ * Helvetica.
+ *
+ * Self-hosted by next/font: Google is never asked for anything at run
+ * time, so no third-party request, no extra DNS round trip, and nothing
+ * for the cookie notice to have to mention.
+ */
+const display = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+  // The three the headings actually use. A variable font ships one file
+  // either way, but naming them keeps the CSS honest about its range.
+  weight: ["600", "700", "800"],
+});
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
   const settings = await getSettings();
@@ -50,7 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   });
 
   return (
-    <html lang={lang}>
+    <html lang={lang} className={display.variable}>
       <body>
         {site && (
           <script
@@ -79,6 +109,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <a className="skip" href="#view">{t("skipToContent", lang)}</a>
           <TopBar lang={lang} settings={settings} />
           <Header settings={settings} />
+          {/* UNDER THE HEADER, ABOVE EVERYTHING ELSE. Not inside <main>:
+              it is the same on every page and repeating it inside the
+              page's landmark would make every page's content start with
+              the same eight sentences. */}
+          <Incentives settings={settings} lang={lang} />
           {/* tabIndex -1 so the skip link actually MOVES focus here. An anchor
               to a non-focusable element scrolls in every browser and moves
               focus in only some, which makes the link look like it worked

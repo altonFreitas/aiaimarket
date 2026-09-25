@@ -88,6 +88,108 @@ describe("buttons that look like buttons", () => {
   });
 });
 
+describe("the strip under the header", () => {
+  const INC = fs.readFileSync(path.join(root, "src/lib/incentives.ts"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+  const CMP = fs.readFileSync(path.join(root, "src/components/Incentives.tsx"), "utf8");
+
+  it("promises nothing the settings do not support", () => {
+    /* Every marquee of this kind says Free Shipping, and most of the
+       shops running it have not checked whether it is true of them. Free
+       appears here only where a zone's fee is genuinely zero; every other
+       line hangs off the setting that makes it true. */
+    expect(INC).toMatch(/Number\(best\.fee\) === 0[\s\S]{0,60}incFreeT/);
+    expect(INC).toContain("if (settings.pickup)");
+    expect(INC).toContain("settings.legal_return_days");
+    expect(INC).toContain("if (settings.wa_number)");
+  });
+
+  it("draws nothing at all when barely anything is true", () => {
+    // Two items sliding past is not a marquee, it is two items that will
+    // not keep still.
+    expect(CMP).toContain("if (items.length < MIN_INCENTIVES) return null;");
+    expect(INC).toMatch(/MIN_INCENTIVES = [3-9]/);
+  });
+
+  it("loops by translating exactly one copy's width", () => {
+    /* The list is rendered twice and the track moves -50%, so the second
+       copy arrives precisely where the first began. Any other number
+       shows a jump once per loop. */
+    expect(NO_COMMENTS).toContain("@keyframes incScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}");
+    expect((CMP.match(/\{row\(\d\)\}/g) ?? []).length).toBe(2);
+  });
+
+  it("hides the second copy from a screen reader", () => {
+    // It exists to make the loop seamless. Read aloud, it tells somebody
+    // the shop delivers to Dili twice.
+    expect(CMP).toContain('<div className="inc-row" aria-hidden="true">');
+  });
+
+  it("pauses under a pointer, and for a keyboard", () => {
+    expect(NO_COMMENTS).toContain(".inc:hover .inc-track,\n.inc:focus-within .inc-track{animation-play-state:paused}");
+  });
+
+  it("fades at both edges rather than cutting", () => {
+    /* BOTH SPELLINGS, counted. The rule carries -webkit-mask-image and
+       mask-image, and a regex for "mask-image:" is satisfied by the
+       prefixed one alone -- a mutation removing the real one passed. */
+    const inc = /(?:^|\})\s*\.inc\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(inc, "the .inc rule").not.toBeNull();
+    expect((inc![1].match(/mask-image:linear-gradient\(90deg,transparent/g) ?? []).length)
+      .toBe(2);
+  });
+
+  it("stops dead for anybody who asked motion to stop", () => {
+    /* Something moving forever at the top of every page is exactly what
+       that setting is for -- and the duplicate row goes with it, or a
+       list you can now actually read is a list said twice. */
+    const rm = NO_COMMENTS.slice(NO_COMMENTS.indexOf("@media(prefers-reduced-motion:reduce){\n  .inc{"));
+    expect(rm, "a reduced-motion block for the strip").not.toBe("");
+    expect(rm).toContain(".inc-track{animation:none}");
+    expect(rm).toContain('.inc-row[aria-hidden="true"]{display:none}');
+  });
+
+  it("ships no JavaScript to do it", () => {
+    // A component that only slides does not need a runtime to slide.
+    expect(CMP).not.toContain('"use client"');
+    expect(CMP).not.toMatch(/useState|useEffect/);
+  });
+});
+
+describe("the heading face", () => {
+  const LAYOUT = fs.readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
+
+  it("is self-hosted by next/font, not fetched from Google at run time", () => {
+    /* No third-party request, no extra DNS round trip, and nothing for
+       the cookie notice to have to mention. */
+    expect(LAYOUT).toContain('from "next/font/google"');
+    expect(LAYOUT).toContain('variable: "--font-display"');
+    expect(LAYOUT).toContain('display: "swap"');
+    expect(NO_COMMENTS).not.toMatch(/fonts\.googleapis/);
+  });
+
+  it("dresses the headings and leaves the body alone", () => {
+    /* This shop is built for mobile data in Timor-Leste. One file, spent
+       where it shows; body text stays on the face the reader's own phone
+       renders best, which costs nothing at all. */
+    expect(NO_COMMENTS).toMatch(/h1,h2,h3[^{]*\{font-family:var\(--display\)\}/);
+    /* THE BODY RULE ITSELF, not "somewhere near a body{". The looser
+       version passed with the body switched to the display face, because
+       the stylesheet has more than one rule beginning "body{" and the
+       window reached a var(--sans) belonging to another one. */
+    const body = /(?:^|\})\s*body\{([^}]*font-family[^}]*)\}/.exec(NO_COMMENTS);
+    expect(body, "the body rule that sets a font").not.toBeNull();
+    expect(body![1]).toContain("font-family:var(--sans)");
+    expect(body![1]).not.toContain("var(--display)");
+  });
+
+  it("falls back to the system stack while the file is in flight", () => {
+    // A heading invisible for 300ms on a slow connection is worse than a
+    // heading in Helvetica.
+    expect(NO_COMMENTS).toMatch(/--display:var\(--font-display\),-apple-system/);
+  });
+});
+
 describe("which nav item says you are here", () => {
   const NAV = fs.readFileSync(path.join(root, "src/components/HeaderNav.tsx"), "utf8");
 
@@ -255,13 +357,18 @@ describe("the section headings", () => {
     expect(i18n).not.toMatch(/newArrivals:\["[^"]*NEW ARRIVALS/);
   });
 
-  it("gives capitals the tracking they need", () => {
-    /* The negative letter-spacing these carried was chosen for mixed case;
-       on capitals it closes them into a block. Both the base rule and the
-       homepage rows, which set their own. */
+  it("gives the display face the tracking it needs", () => {
+    /* THIS TEST HAS BEEN RIGHT TWICE, in opposite directions, and both
+       times for the same reason: tracking follows the case and the face.
+       It asked for POSITIVE tracking while these were capitals, where a
+       negative value closes them into a block. They are title case now
+       and set in Plus Jakarta Sans, which draws wider than the system
+       stack at the same size -- so left alone a headline reads as a row
+       of letters rather than as a word, and it wants pulling in.
+       Both the base rule and the homepage rows, which set their own. */
     const h2 = /(?:^|\})\s*h2\{([^}]*)\}/.exec(NO_COMMENTS)![1];
-    expect(Number(/letter-spacing:(-?[\d.]+)em/.exec(h2)?.[1] ?? -1)).toBeGreaterThan(0);
+    expect(Number(/letter-spacing:(-?[\d.]+)em/.exec(h2)?.[1] ?? 1)).toBeLessThan(0);
     const row = rule(".home-section-hd h2");
-    expect(Number(/letter-spacing:(-?[\d.]+)em/.exec(row)?.[1] ?? -1)).toBeGreaterThan(0);
+    expect(Number(/letter-spacing:(-?[\d.]+)em/.exec(row)?.[1] ?? 1)).toBeLessThan(0);
   });
 });

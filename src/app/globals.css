@@ -47,6 +47,12 @@
   --red:#bb3a2a; --red-soft:#fbe4e0;
   --wa:#198845; --wa-dark:#126334;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  /* The heading face -- Plus Jakarta Sans, loaded in layout.tsx and used
+     ONLY on headings. --font-display is what next/font binds; the same
+     system stack follows it, so a heading is set in the system face
+     rather than in nothing while the file is in flight, and reads
+     correctly if it never arrives at all. */
+  --display:var(--font-display),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --r:10px; --r-s:6px;
   /* Was 1180px. That capped out well short of a typical desktop monitor,
@@ -387,7 +393,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* Where you are: the one step that is not a link, and the only one in
    the shop's ink. */
 .crumbs [aria-current=page]{color:var(--ink);font-weight:600;padding:2px 4px}
-h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.01em}
+/* The display face, and the tighter tracking that goes with it: Jakarta
+   sets wider than the system stack at the same size, so the headline
+   needs pulling in to read as one word rather than as a row of letters. */
+h1,h2,h3,.pdp-nm,.home-section-hd h2,.infopage h1{font-family:var(--display)}
+h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.02em;font-weight:800}
 /* EVERY h2 IN CAPITALS. A section heading is a signpost, not a sentence,
    and setting them all one way stops the page reading as a dozen small
    decisions -- the homepage rows, the panels on a product page and the
@@ -408,7 +418,7 @@ h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.01em}
    it. The words in the DOM never changed either way (text-transform, not
    retyping), so nothing a screen reader, a translator or the search
    index sees is different. */
-h2{font-size:15px;margin:22px 0 10px;letter-spacing:.01em}
+h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
 
 /* ---------- category rail / sidebar (C2,C3,C5) ---------- */
@@ -1143,7 +1153,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:.01em}
    sub-pixel line-box rounding, and as close to nothing as this gets. */
 .home-section-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:9px}
 .home-section-hd h2{font-size:25px;line-height:var(--lh-tight);margin:0 0 2px;
-  letter-spacing:.02em;color:var(--ink)}
+  letter-spacing:-.02em;color:var(--ink)}
 .home-section-sub{color:var(--muted);font-size:13px;margin:0}
 .home-section-more{display:none;font-size:13px;font-weight:600;color:var(--ink-3);text-decoration:none;white-space:nowrap}
 .home-section-more-mobile{display:flex;margin-top:12px}
@@ -3504,6 +3514,58 @@ tr.is-ended{opacity:.55}
 .ship-ticks{list-style:none;margin:0;padding:0;display:grid;gap:var(--sp-2)}
 .ship-ticks li{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-body-sm)}
 .ship-ticks li svg{flex:0 0 auto;color:var(--green)}
+
+/* ================= THE INCENTIVE STRIP =================
+   A row of reassurances under the header that slides by, pauses under a
+   pointer, and fades out at both edges.
+
+   NO JAVASCRIPT. The list is rendered twice and the track is translated
+   by exactly -50%, which is the width of one copy -- so the moment the
+   animation restarts, the second copy is standing precisely where the
+   first began and the seam is invisible. Anything other than -50% shows
+   a jump once per loop.
+
+   THE SPEED FOLLOWS THE COUNT. --inc-n is how many reassurances this shop
+   actually has (see lib/incentives.ts, where a line with no setting
+   behind it is not drawn). A fixed duration would run a shop with eight
+   of them at twice the speed of one with four. */
+.inc{position:relative;overflow:hidden;background:var(--card);
+  border-bottom:1px solid var(--line);
+  /* The fade at both ends. The mask is what makes items arrive and leave
+     rather than appear and vanish at a hard edge. */
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+.inc-track{display:flex;width:max-content;
+  animation:incScroll calc(var(--inc-n, 6) * 7s) linear infinite}
+/* Pausing on hover is the whole of "pauses on hover": no state, no
+   listener, and it resumes exactly where it stopped. */
+.inc:hover .inc-track,
+.inc:focus-within .inc-track{animation-play-state:paused}
+.inc-row{display:flex;flex:0 0 auto}
+.inc-item{display:flex;align-items:center;gap:var(--sp-3);flex:0 0 auto;
+  padding:var(--sp-3) var(--sp-5);min-width:0}
+.inc-ic{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:34px;height:34px;border-radius:var(--r-pill);
+  background:var(--line-2);color:var(--ink-3)}
+.inc-text{display:flex;flex-direction:column;min-width:0}
+.inc-text b{font-family:var(--display);font-size:var(--fs-body-sm);
+  font-weight:700;letter-spacing:-.005em;white-space:nowrap}
+.inc-text small{font-size:var(--fs-caption);color:var(--muted);white-space:nowrap}
+
+@keyframes incScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* SOMETHING MOVING FOREVER AT THE TOP OF EVERY PAGE is exactly what this
+   setting is for. Stopped dead, and the strip becomes an ordinary row
+   that scrolls with a finger -- the second copy goes with it, because
+   two identical halves of a list you can actually read is a list said
+   twice. */
+@media(prefers-reduced-motion:reduce){
+  .inc{overflow-x:auto;scrollbar-width:none;
+    -webkit-mask-image:none;mask-image:none}
+  .inc::-webkit-scrollbar{height:0}
+  .inc-track{animation:none}
+  .inc-row[aria-hidden="true"]{display:none}
+}
 
 /* ---------- the About and Contact pages ----------
    One panel each, on the reference's shape: the words on the left, the
