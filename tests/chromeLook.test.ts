@@ -88,6 +88,59 @@ describe("buttons that look like buttons", () => {
   });
 });
 
+describe("which nav item says you are here", () => {
+  const NAV = fs.readFileSync(path.join(root, "src/components/HeaderNav.tsx"), "utf8");
+
+  it("compares a path segment, not a string prefix", () => {
+    /* THE BUG, reported from the live shop: opening /contact lit
+       Categories as well. Categories marks itself for the category pages,
+       which live under /c/, and startsWith("/c") is true of "/contact" --
+       and of /checkout, and of any route beginning with c this shop ever
+       adds. */
+    expect(NAV).not.toMatch(/pathname\.startsWith\(href\)/);
+    expect(NAV).toContain('pathname.startsWith(href + "/")');
+  });
+
+  it("does not light the home link on every page", () => {
+    // "/" is a prefix of everything.
+    expect(NAV).toContain('if (href === "/") return false;');
+  });
+
+  it("marks the page you are on in the admin header's ink, not in amber", () => {
+    /* Amber is this shop's call-to-action colour -- Search, Shop now, Add
+       to cart -- and on a nav item it read as a fourth button in a row of
+       links. */
+    const rule = /\.hd-nav-a\.is-here::after\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(rule, "the active-item rule").not.toBeNull();
+    expect(rule![1]).toContain("background:var(--ink-2)");
+    expect(rule![1]).not.toContain("var(--amber)");
+  });
+});
+
+describe("the paper the shop is printed on", () => {
+  it("is the near-white the shop asked for", () => {
+    /* #f8fafc. It was #eceff3, chosen to sit under a woven background
+       that is no longer there, and next to white cards on plain ground it
+       read as grey. */
+    expect(NO_COMMENTS).toMatch(/--paper:#f8fafc/);
+  });
+
+  it("keeps a map link's underline in the stylesheet, not inline on the component", () => {
+    /* An inline style is the one thing a stylesheet cannot answer, so a
+       caller that wanted the pin without the rule -- a fact card whose
+       whole surface is already the link -- had no way to ask. */
+    /* THE CODE, NOT THE FILE. The note left in that component quotes the
+       inline style it replaced, to explain why it is gone -- so searching
+       the whole file for it fails on the explanation of its own absence.
+       Third time this repo has hit that; read past the comments. */
+    const map = fs.readFileSync(path.join(root, "src/components/MapLink.tsx"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    expect(map).not.toMatch(/textDecoration:\s*"underline"/);
+    expect(map).toContain('className="maplink"');
+    expect(NO_COMMENTS).toMatch(/\.maplink\{[^}]*text-decoration:underline/);
+  });
+});
+
 describe("the hero runs edge to edge", () => {
   /* IT WAS BOXED IN ONCE, and the shop asked for it back. The reasoning
      for boxing it was that everything else on plain paper is a
@@ -178,17 +231,25 @@ describe("the way to order tracking", () => {
 });
 
 describe("the section headings", () => {
-  it("are set in capitals", () => {
+  it("are set in title case", () => {
+    /* THEY WERE CAPITALS, and this test asserted that. The shop asked
+       for capitals once and has since asked for them back in title case
+       to match the reference design. Both are legitimate and neither is
+       a bug, so the guard follows the shop rather than freezing the
+       older answer -- what it protects is the MECHANISM below, which is
+       the part that would actually break something. */
     const h2 = /(?:^|\})\s*h2\{([^}]*)\}/.exec(NO_COMMENTS);
     expect(h2, "the h2 rule").not.toBeNull();
-    expect(h2![1]).toMatch(/text-transform:uppercase/);
+    expect(h2![1]).not.toMatch(/text-transform:uppercase/);
   });
 
-  it("is done in CSS, not by retyping the words", () => {
-    /* text-transform keeps "New Arrivals" in the DOM, so a screen reader
-       says it rather than spelling out an acronym, the page title and the
-       search index keep real words, and a translator still receives a
-       normal sentence. */
+  it("is decided in CSS, not by retyping the words", () => {
+    /* The words in the DOM never changed while the case did, and that is
+       the thing worth protecting: a screen reader says "New Arrivals"
+       rather than spelling out an acronym, the page title and the search
+       index keep real words, and a translator receives a normal
+       sentence. Shouting in the stylesheet is reversible; shouting in the
+       string table is not. */
     const i18n = fs.readFileSync(path.join(root, "src/lib/i18n.ts"), "utf8");
     expect(i18n).toMatch(/newArrivals:\[/);
     expect(i18n).not.toMatch(/newArrivals:\["[^"]*NEW ARRIVALS/);

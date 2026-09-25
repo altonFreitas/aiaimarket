@@ -54,8 +54,13 @@ export default function MapLink({
 }) {
   if (!hasPlace(parts)) return null;
   return (
-    <a href={mapsUrl(parts)} target="_blank" rel="noopener" title={title}
-      style={{ color: "inherit", textDecoration: "underline", textUnderlineOffset: 2 }}>
+    /* A CLASS, NOT AN INLINE STYLE. This carried
+       style={{textDecoration:"underline"}}, and an inline style is the
+       one thing a stylesheet cannot answer -- so a caller that wanted
+       the pin without the rule (a fact card on the Contact page, where
+       the whole card is already the link) had no way to ask. Same look
+       by default; see .maplink in globals.css. */
+    <a className="maplink" href={mapsUrl(parts)} target="_blank" rel="noopener" title={title}>
       <LocationIcon />
       {label}
     </a>

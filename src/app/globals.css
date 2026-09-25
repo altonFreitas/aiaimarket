@@ -27,7 +27,11 @@
        --green    4.49:1 on --line-2, which is the ground under a hovered
                   sidebar row and behind a product photo while it loads. */
   --ink:#152341; --ink-2:#0b1424; --ink-3:#243356;
-  --paper:#eceff3; --card:#fff; --line:#d7dbe3; --line-2:#e8ebf0;
+  /* #f8fafc, the value the shop asked for: a very light cool grey, half
+     a step off white. It was #eceff3, which was chosen to sit under a
+     woven background that is no longer there and reads as grey next to
+     the white cards on it. */
+  --paper:#f8fafc; --card:#fff; --line:#e3e8ef; --line-2:#eef2f6;
   --muted:#4b5463; --muted-2:#5d687a;
   --amber:#f2b705; --amber-soft:#fff3cf; --amber-ink:#654900;
   /* THE SECONDARY BUTTON'S SURFACE. "Add to cart" and "Share" were
@@ -251,8 +255,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* The page you are on, underlined the way the reference marks it -- and
    inside the button rather than as a border, so it sits under the word
    instead of under the 34px hit area. */
+/* THE MARK UNDER THE PAGE YOU ARE ON, in the admin header's ink rather
+   than amber. Amber is this shop's call-to-action colour -- Search, Shop
+   now, Add to cart -- and on a nav item it read as a fourth button in a
+   row of links. --ink-2 is what the admin's own nav bar is painted in. */
 .hd-nav-a.is-here::after{content:"";position:absolute;left:11px;right:11px;bottom:4px;
-  height:2px;background:var(--amber);border-radius:2px}
+  height:2px;background:var(--ink-2);border-radius:2px}
 .hd-nav-a{position:relative}
 .hd-drop{position:relative}
 .hd-menu{position:absolute;left:0;top:100%;z-index:50;min-width:210px;
@@ -365,6 +373,10 @@ button,input,select,textarea{font:inherit;color:inherit}
    admin screens use that one for small captions that are not trails at
    all ("TOP PRODUCTS", "REVENUE"), and changing it would have re-dressed
    every one of them. */
+/* The pin and its words. This was an inline style on the component,
+   which nothing downstream could override -- see MapLink. */
+.maplink{color:inherit;text-decoration:underline;text-underline-offset:2px}
+
 .crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:2px;
   font-size:var(--fs-body-sm);color:var(--muted);margin:0 0 var(--sp-3)}
 .crumbs a{color:var(--muted);text-decoration:none;padding:2px 4px;border-radius:4px}
@@ -390,7 +402,13 @@ h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.01em}
    below was chosen for mixed case and closes capitals up into a block --
    so the letter-spacing goes positive here and everywhere else an h2 sets
    its own. */
-h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04em}
+/* TITLE CASE, at the shop's request and matching the reference.
+   These were set in capitals for a while -- "NEW ARRIVALS", "PRODUCT
+   DESCRIPTION" -- which is a strong voice and the reference does not use
+   it. The words in the DOM never changed either way (text-transform, not
+   retyping), so nothing a screen reader, a translator or the search
+   index sees is different. */
+h2{font-size:15px;margin:22px 0 10px;letter-spacing:.01em}
 .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
 
 /* ---------- category rail / sidebar (C2,C3,C5) ---------- */
@@ -3487,14 +3505,120 @@ tr.is-ended{opacity:.55}
 .ship-ticks li{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-body-sm)}
 .ship-ticks li svg{flex:0 0 auto;color:var(--green)}
 
-/* ---- the About and Contact pages ---- */
-.prose-page{max-width:70ch}
-.prose-page .lede{font-size:var(--fs-h4);color:var(--ink);margin:0 0 var(--sp-3)}
-.about-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
-  gap:var(--sp-3);margin:var(--sp-4) 0}
-.about-grid .panel{margin:0}
-.about-grid h3{margin:0 0 var(--sp-2)}
-.about-grid p{margin:0 0 var(--sp-1)}
+/* ---------- the About and Contact pages ----------
+   One panel each, on the reference's shape: the words on the left, the
+   facts as cards, and the shop's mark filling the right-hand third. The
+   tint is a wash rather than a colour -- these are the two quietest pages
+   on the site and a saturated panel would be the loudest thing on them. */
+.infopage{position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#f2f7ff 0%,var(--card) 52%,#f5fbff 100%);
+  border-radius:var(--r);box-shadow:var(--sh-2);
+  padding:var(--sp-4);display:grid;gap:var(--sp-4);margin:var(--sp-3) 0}
+.infopage-copy{min-width:0}
+
+/* The pill over the heading: it names the section without competing with
+   the h1 under it. */
+.eyebrow{display:inline-flex;align-items:center;gap:6px;margin:0 0 var(--sp-3);
+  padding:5px 11px;border-radius:var(--r-pill);
+  background:var(--line-2);color:var(--ink-3);
+  font-size:var(--fs-caption);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.eyebrow svg{flex:0 0 auto}
+
+.infopage h1{font-size:var(--fs-h1);line-height:1.1;margin:0 0 4px;letter-spacing:-.02em}
+.infopage-store{margin:0 0 var(--sp-3);color:var(--ink-3);
+  font-size:var(--fs-body-sm);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.infopage-lead{margin:0 0 var(--sp-4);max-width:56ch;color:var(--ink-3)}
+.infopage-tag{margin:calc(var(--sp-3) * -1) 0 var(--sp-4);
+  max-width:56ch;color:var(--muted);font-style:italic}
+
+/* THE FACT CARDS. A link when there is somewhere to go and a plain block
+   when there is not -- the arrow is drawn only on the ones that lead
+   somewhere, so it is a promise rather than decoration. */
+.infocards{display:grid;grid-template-columns:1fr;gap:var(--sp-3);margin:0 0 var(--sp-4)}
+@media(min-width:680px){.infocards{grid-template-columns:repeat(3,1fr)}}
+.infocard{position:relative;display:block;min-width:0;
+  background:var(--card);border-radius:var(--r-s);box-shadow:var(--sh-1);
+  padding:var(--sp-3);text-decoration:none;color:var(--ink)}
+a.infocard:hover{box-shadow:var(--sh-2)}
+a.infocard:hover .infocard-arw{transform:translateX(3px)}
+.infocard-ic{display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:var(--r-pill);margin:0 0 var(--sp-2);color:#fff}
+.infocard-ic.is-wa,.infocard-ic.is-green{background:var(--green)}
+.infocard-ic.is-blue{background:var(--ink-3)}
+.infocard-hd{display:block;font-size:var(--fs-caption);font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.infocard p{margin:0;font-weight:600}
+/* A MAP LINK INSIDE A FACT CARD is the fact, not a call to action. The
+   whole card already reads as something you can press, and an underlined
+   three-line address inside it was the heaviest thing on the panel. */
+.infocard a:not(.infocard-go),.infotile a{color:inherit;text-decoration:none}
+.infocard a:hover,.infotile a:hover{text-decoration:underline}
+.infocard .maplink,.infotile .maplink{text-decoration:none}
+.infocard .maplink:hover,.infotile .maplink:hover{text-decoration:underline}
+.infocard small{display:block;margin-top:6px;color:var(--muted);font-size:var(--fs-caption)}
+.infocard-go{display:inline-block;background:var(--green);color:#fff;
+  border-radius:var(--r-s);padding:6px 12px;font-weight:700;font-family:var(--mono)}
+.infocard-arw{position:absolute;top:var(--sp-3);right:var(--sp-3);color:var(--muted);
+  transition:transform var(--t-fast) var(--ease)}
+
+.infopage-cta{display:inline-flex;align-items:center;gap:var(--sp-2);
+  padding-left:var(--sp-4);padding-right:var(--sp-4)}
+.btn-ink{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn-ink:hover{background:var(--ink-2);border-color:var(--ink-2);color:#fff}
+
+/* THE THREE ASSURANCES on the About page: a mark, a claim and a line of
+   detail. Small on purpose -- they are reassurance, not the story. */
+.feats{display:grid;grid-template-columns:1fr;gap:var(--sp-3);margin:0 0 var(--sp-3)}
+@media(min-width:560px){.feats{grid-template-columns:repeat(3,1fr)}}
+.feat{display:flex;align-items:center;gap:var(--sp-2);min-width:0}
+.feat-ic{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:34px;height:34px;border-radius:var(--r-pill);
+  background:#e8eefb;color:var(--ink-3)}
+.feat b{display:block;font-size:var(--fs-body-sm)}
+.feat span{display:block;font-size:var(--fs-caption);color:var(--muted)}
+
+.infopage-more a{display:inline-flex;align-items:center;gap:6px;
+  font-weight:600;text-decoration:none}
+.infopage-more a:hover{text-decoration:underline}
+
+.infopage-aside{display:grid;gap:var(--sp-3);align-content:start;min-width:0}
+/* The two tinted facts beside the story. A wash of the icon's own colour,
+   so the tile and its mark read as one thing. */
+.infotile{display:flex;gap:var(--sp-3);padding:var(--sp-3);border-radius:var(--r-s);min-width:0}
+.infotile.is-blue{background:#eef3fb}
+.infotile.is-green{background:var(--green-soft)}
+.infotile > div{min-width:0}
+.infotile .infocard-ic{margin:0}
+.infotile p{margin:0;font-weight:600}
+.infotile small{display:block;margin-top:4px;color:var(--muted);font-size:var(--fs-caption)}
+
+.infopage-legal{max-width:70ch}
+.infopage-legal p{margin:0 0 var(--sp-1)}
+
+/* THE SHOP'S MARK, where the reference has a photograph. Drawn rather
+   than fetched: no request, no layout shift, and it follows the theme. */
+.storemark{position:relative;display:flex;align-items:center;justify-content:center;
+  min-height:190px;border-radius:var(--r-s);overflow:hidden;
+  background:linear-gradient(140deg,#e9f0fa,#f7fbff)}
+/* Two soft washes rather than shapes: at this opacity they read as light
+   on the panel, which is what the reference's photograph does. Any
+   heavier and a circle behind a logo is a circle behind a logo. */
+.storemark-blob{position:absolute;width:210px;height:210px;border-radius:50%;
+  background:rgba(36,51,86,.055);top:-62px;right:-52px}
+.storemark-blob-2{width:140px;height:140px;background:rgba(242,183,5,.10);
+  top:auto;right:auto;bottom:-42px;left:-32px}
+.storemark-in{position:relative;display:flex;flex-direction:column;align-items:center;
+  gap:var(--sp-2);text-align:center;padding:var(--sp-4)}
+.storemark-in b{font-size:var(--fs-caption);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-3)}
+
+/* TWO COLUMNS once there is room. Below this the mark goes under the
+   words rather than beside them -- a 190px panel in a 390px column would
+   spend a third of the screen on decoration. */
+@media(min-width:900px){
+  .infopage{grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);
+    padding:var(--sp-5);gap:var(--sp-5)}
+}
 
 /* ---- the saved list ---- */
 .empty-loves{text-align:center;padding:var(--sp-5) var(--sp-3);color:var(--muted)}

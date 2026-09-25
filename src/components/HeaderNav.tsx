@@ -90,8 +90,22 @@ export default function HeaderNav({
     };
   }, [open]);
 
-  const here = (href: string) =>
-    pathname === href || (href !== "/" && pathname.startsWith(href));
+  /* WHICH NAV ITEM IS THE PAGE YOU ARE ON.
+   *
+   * THE BUG THIS FIXES, reported from the live shop: opening /contact lit
+   * Categories as well. Categories marks itself active for the category
+   * pages, which live under /c/, and `startsWith("/c")` is true of
+   * "/contact" -- and of /checkout, and of any route this shop ever adds
+   * beginning with c.
+   *
+   * Compared a SEGMENT at a time instead. "/c" matches "/c" and "/c/..."
+   * and nothing else, which is what a path prefix has always meant to
+   * everybody except String.startsWith. */
+  const here = (href: string) => {
+    if (pathname === href) return true;
+    if (href === "/") return false;
+    return pathname.startsWith(href + "/");
+  };
 
   /* Real states of /shop, every one of them something its toolbar can
      already produce -- see components/Toolbar.tsx. A menu entry that
