@@ -28,9 +28,17 @@ update settings set
             {"id":"other_municipality","fee":0,"quote":true}]'
 where id = 1;
 
-insert into categories (name, slug, sort_order) values
-  ('Sapatu','sapatu',1), ('Roupa','roupa',2), ('Telemóvel & asesóriu','telemovel',3)
-on conflict (seller_id, slug) do nothing;
+-- NO CATEGORIES OF ITS OWN ANY MORE.
+--
+-- This file used to create Sapatu, Roupa and Telemóvel & asesóriu. They were
+-- sample aisles from before the shop had a real taxonomy, and once
+-- focus-taxonomy.sql existed they were worse than redundant: that file
+-- clears away the aisles this shop does not stock, this one runs AFTER it
+-- in run-all.sql, and the three came straight back on every single run.
+-- A category list that regrows what you just removed is one nobody can
+-- curate.
+--
+-- The sample product files itself under the real tree instead.
 
 -- THE SAMPLE PRODUCT ARRIVES THROUGH THE LEDGER, like every real one.
 --
@@ -51,7 +59,9 @@ insert into products (ref, name, slug, category_id, price, sizes, tags, stock_st
   pay_cod, pay_cop, pay_bank)
 select
   'PRD-0001', 'Nike Air Max 90', 'nike-air-max-90',
-  (select id from categories where slug = 'sapatu'),
+  -- Sports Shoes, under Shoes & Footwear -- a real aisle in the real
+  -- tree, so the demo product is filed where a demo shoe belongs.
+  (select id from categories where slug = 'sports_shoes'),
   45.00, array['40','41','42','43'], array['viajen','servisu'],
   'out', 0, 'Sapatu importadu, kualidade orijinál. Sola konfortavel ba la''o dook.',
   true, true, true

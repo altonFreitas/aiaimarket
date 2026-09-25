@@ -591,6 +591,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   // creates variants. It only ever ADDS to products.sizes, so running it
   // before a later receipt simply means that receipt has less to catch up.
   "backfill-sizes.sql",
+  // AFTER taxonomy-seed.sql and clothing-taxonomy.sql, both of which build
+  // the tree this one replaces. It reads what they left and moves it.
+  "focus-taxonomy.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
@@ -610,6 +613,9 @@ export const NOT_SCHEMA_FILES: readonly string[] = [
   // A DATA fix, not a schema one: it fills products.sizes from the
   // variants, creating no table, column, view or function of its own.
   "backfill-sizes.sql",
+  // The same: it rewrites the CONTENTS of `categories`, which schema.sql
+  // created, so there is no object the health panel could probe for it.
+  "focus-taxonomy.sql",
   // A DATA fix, not a schema one, exactly like zone-cleanup.sql below: it
   // moves rows between categories that taxonomy.sql already created, and
   // creates no table, column, view or function of its own. The only

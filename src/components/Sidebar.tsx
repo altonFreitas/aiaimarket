@@ -5,6 +5,7 @@ import Image from "next/image";
 import { placeholder } from "@/lib/placeholder";
 import {money,discountPercent} from "@/lib/utils";
 import { t } from "@/lib/i18n";
+import { descendantIds } from "@/lib/categoryTree";
 import type { Category, Lang, Product } from "@/lib/types";
 
 /** How long the panel stays open after the pointer leaves. Without this
@@ -14,12 +15,13 @@ import type { Category, Lang, Product } from "@/lib/types";
 const CLOSE_DELAY_MS = 180;
 const PREVIEW_COUNT = 4;
 
-function idsFor(cats: Category[], id: string): string[] {
-  return [id, ...cats.filter((c) => c.parent_id === id).map((c) => c.id)];
-}
+/* Counted over the WHOLE subtree, not just the direct children -- the
+   tree is three deep now (Fitness & Wellness -> Sports Nutrition ->
+   Protein) and a count that stopped at one level was missing most of
+   what the aisle holds. See lib/categoryTree.ts. */
 function count(cats: Category[], products: Product[], id: string): number {
-  const ids = idsFor(cats, id);
-  return products.filter((p) => ids.includes(p.category_id || "")).length;
+  const ids = new Set(descendantIds(cats, id));
+  return products.filter((p) => ids.has(p.category_id || "")).length;
 }
 
 export default function Sidebar({
@@ -58,7 +60,7 @@ export default function Sidebar({
 
   const kids = openCat ? kidsOf(openCat) : [];
   const preview = openCat
-    ? products.filter((p) => idsFor(cats, openCat.id).includes(p.category_id || "")).slice(0, PREVIEW_COUNT)
+    ? products.filter((p) => descendantIds(cats, openCat.id).includes(p.category_id || "")).slice(0, PREVIEW_COUNT)
     : [];
 
   return (
@@ -104,15 +106,39 @@ export default function Sidebar({
             <span className="side-mega-n">{count(cats, products, openCat.id)}</span>
           </div>
 
+          {/* TWO LEVELS IN THE PANEL, not one.
+              The tree is three deep now -- Fitness & Wellness Lifestyle ->
+              Sports Nutrition -> Protein -- and a panel that stopped at
+              the first level left Protein reachable only by landing on
+              Sports Nutrition and looking again. The grandchildren are
+              the specific thing a shopper came for; the child above them
+              is the heading they scan to find it. */}
           {kids.length > 0 && (
             <ul className="side-mega-cols">
-              {kids.map((k) => (
-                <li key={k.id}>
-                  <Link href={`/c/${k.slug}`} onClick={() => setOpenCat(null)}>
-                    {k.name} <span className="n">{count(cats, products, k.id)}</span>
-                  </Link>
-                </li>
-              ))}
+              {kids.map((k) => {
+                const grand = cats
+                  .filter((g) => g.parent_id === k.id)
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .filter((g) => count(cats, products, g.id) > 0);
+                return (
+                  <li key={k.id}>
+                    <Link href={`/c/${k.slug}`} onClick={() => setOpenCat(null)}>
+                      {k.name} <span className="n">{count(cats, products, k.id)}</span>
+                    </Link>
+                    {grand.length > 0 && (
+                      <ul className="side-mega-sub">
+                        {grand.map((g) => (
+                          <li key={g.id}>
+                            <Link href={`/c/${g.slug}`} onClick={() => setOpenCat(null)}>
+                              {g.name} <span className="n">{count(cats, products, g.id)}</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

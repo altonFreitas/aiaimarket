@@ -1921,6 +1921,14 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .side-mega-cols a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;
   font-size:13.5px;color:var(--ink-3);padding:3px 0}
 .side-mega-cols a:hover{color:var(--ink);text-decoration:underline}
+/* The third level, under the second. Indented and quieter, so the child
+   still reads as the heading of the group rather than as one more sibling
+   in a flat list of twenty. break-inside on the parent li already keeps a
+   group from being split across two columns. */
+.side-mega-sub{list-style:none;margin:2px 0 8px;padding:0 0 0 10px;
+  border-left:1px solid var(--line)}
+.side-mega-sub a{font-size:var(--fs-sm);color:var(--muted)}
+.side-mega-sub a:hover{color:var(--ink)}
 .side-mega-cols .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
 
 .side-mega-prev{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}

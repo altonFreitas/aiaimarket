@@ -24,11 +24,38 @@ const CSS = read("src/app/globals.css");
  */
 
 describe("one category question, asked once", () => {
-  it("has exactly one Category control and one Subcategory control", () => {
-    expect(FORM.match(/<select id="category_id"/g) ?? []).toHaveLength(1);
-    expect(FORM.match(/<select id="subcategory_id"/g) ?? []).toHaveLength(1);
-    // And the picker contributes none of its own.
+  it("draws one chain of category controls, and the picker adds none", () => {
+    /* The pair of fixed boxes -- Category and Subcategory -- became one
+       chain built from the tree, because the tree is three deep now and
+       two boxes cannot reach the third level: a tub of protein could be
+       filed under Sports Nutrition and no closer. One <select> in the
+       source, rendered once per level. */
+    expect(FORM.match(/<select id=\{`category-l\$\{depth\}`\}/g) ?? []).toHaveLength(1);
+    expect(FORM).toContain("{levels.map((level, depth) => (");
+    // The old fixed pair is gone, not left beside the new chain.
+    expect(FORM).not.toMatch(/<select id="category_id"/);
+    expect(FORM).not.toMatch(/<select id="subcategory_id"/);
+    // And the picker still contributes none of its own.
     expect(PICKER).not.toMatch(/<select id="tx-(cat|sub)"/);
+  });
+
+  it("offers a box per level of the path, plus one for the level below", () => {
+    /* A two-deep tree draws exactly two boxes, so a shop that has not
+       grown a third level sees no change at all. */
+    expect(FORM).toContain("levels.push({ options: kidsOf(parent), selected: step.id });");
+    expect(FORM).toContain("if (deeper.length) levels.push({ options: deeper, selected: \"\" });");
+  });
+
+  it("files on the level above when a level is cleared", () => {
+    // Emptying "Protein" leaves the tub under Sports Nutrition, not
+    // uncategorised.
+    expect(FORM).toContain('e.target.value || levels[depth - 1]?.selected || ""');
+  });
+
+  it("will not let the top box be emptied", () => {
+    // A product has to be filed somewhere; every box below the first
+    // offers a blank, because filing on the parent is a real answer.
+    expect(FORM).toContain('{depth > 0 && <option value="">{t("none", lang)}</option>}');
   });
 
   it("feeds the picker the category the form settled on", () => {
@@ -43,8 +70,11 @@ describe("one category question, asked once", () => {
        the old branch plus answers to questions the new one never asked. */
     expect(FORM).toMatch(
       /function refile\(categoryId: string\) \{[\s\S]*?setTax\(\{ productTypeId: "", values: \{\} \}\)/);
-    // Both dropdowns go through it. Either one bypassing it is the bug.
-    expect(FORM.match(/refile\(/g) ?? []).toHaveLength(3);
+    /* Every box goes through it -- there is one onChange now, shared by
+       every level, which is what makes that true by construction rather
+       than by remembering. Twice in the source: the definition and the
+       single call. */
+    expect(FORM.match(/refile\(/g) ?? []).toHaveLength(2);
     expect(FORM).not.toMatch(/onChange=\{\(e\) => set\("category_id"/);
   });
 

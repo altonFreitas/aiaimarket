@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { t } from "@/lib/i18n";
-import type { CategoryOption } from "@/lib/nav";
 import type { Lang } from "@/lib/types";
 
 /** Catalog controls: sort, in-stock toggle, price range.
@@ -11,32 +10,19 @@ import type { Lang } from "@/lib/types";
  * a filter while on page 5 lands the shopper on an empty page and looks like
  * the site lost their results. */
 export default function Toolbar({
-  count, lang, showRelevance = false, categories,
+  count, lang, showRelevance = false,
 }: {
   count: number;
   lang: Lang;
   /** Relevance only means something when there is a search term to be
    * relevant to, so /shop and /c/[slug] don't offer it. */
   showRelevance?: boolean;
-  /** The shop's categories, for the aisle filter.
-   *
-   * ONLY /shop PASSES THESE. On /c/[slug] the category IS the page -- a
-   * box in the toolbar saying "Clothing" over a page headed Clothing is
-   * the same fact twice, and changing it would be navigation dressed as a
-   * filter. On /search the results span the whole shop by design. */
-  categories?: CategoryOption[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const sort = params.get("sort") || (showRelevance ? "relevance" : "new");
   const inStock = params.get("in") === "1";
-  /* The slug as typed in the URL. Checked against the real list below
-     rather than trusted: a stale bookmark naming a category the shop has
-     since renamed must fall back to "all", not leave the box showing a
-     selection the results do not have. */
-  const catParam = params.get("cat") || "";
-  const cat = categories?.some((c) => c.slug === catParam) ? catParam : "";
   const urlMin = params.get("min") || "";
   const urlMax = params.get("max") || "";
 
@@ -48,7 +34,7 @@ export default function Toolbar({
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
-  const hasFilters = inStock || urlMin !== "" || urlMax !== "" || cat !== "";
+  const hasFilters = inStock || urlMin !== "" || urlMax !== "";
 
   return (
     <div className="bar">
@@ -64,33 +50,12 @@ export default function Toolbar({
         <option value="rating">{t("sortRating", lang)}</option>
       </select>
 
-      {/* WHAT THE SHOP SELLS, NOT WHO IT IS FOR.
-          This was Anyone / Men / Women, filtering on products.audience. It
-          suited a clothing shop and not this one -- a fridge is nobody's
-          clothing, and the shop now files Men's clothing and Women's
-          clothing as subcategories of Clothing, where a shopper looking
-          for either will actually look. Filtering in place rather than
-          linking to /c/<slug> is the point of having it here: it keeps the
-          price range, the sort and the in-stock toggle, which following a
-          category link throws away. */}
-      {categories && categories.length > 0 && (
-        <select
-          aria-label={t("categoryLabel", lang)}
-          value={cat}
-          onChange={(e) => update({ cat: e.target.value || null })}
-        >
-          <option value="">{t("categoryAll", lang)}</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.slug}>
-              {/* Two non-breaking spaces, because a <select> collapses
-                  ordinary leading whitespace and every subcategory would
-                  sit flush against its parent. */}
-              {(c.depth ? "\u00a0\u00a0" : "") + c.name} ({c.count})
-            </option>
-          ))}
-        </select>
-      )}
-
+      {/* A category dropdown stood here. It was the aisle filter that
+          replaced Anyone / Men / Women, and it was the same list as the
+          sidebar two inches to its left -- which lists the whole tree,
+          with counts, and shows where each category sits. One of the two
+          had to go and it was not going to be the one that shows the
+          shape of the catalogue. */}
       <label className="toggle">
         <input
           type="checkbox"
@@ -114,7 +79,7 @@ export default function Toolbar({
       {hasFilters && (
         <button
           className="btn btn-sm btn-ghost" type="button"
-          onClick={() => update({ in: null, min: null, max: null, cat: null })}
+          onClick={() => update({ in: null, min: null, max: null })}
         >
           {t("clearFilters", lang)}
         </button>

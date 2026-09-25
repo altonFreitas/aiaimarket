@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import { createCategory, deleteCategory, mergeCategory, moveCategory, renameCategory } from "@/lib/actions/categories";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
+import { descendantIds } from "@/lib/categoryTree";
 import type { Category, Lang, Product } from "@/lib/types";
 
 export default function CategoriesAdmin({
@@ -40,7 +41,7 @@ export default function CategoriesAdmin({
     .map(({ c, kids }) => ({ c, kids: hit(c) ? kids : kids.filter(hit) }))
     .filter(({ c, kids }) => hit(c) || kids.length > 0);
   const count = (id: string) => {
-    const ids = [id, ...cats.filter((c) => c.parent_id === id).map((c) => c.id)];
+    const ids = descendantIds(cats, id);
     return products.filter((p) => ids.includes(p.category_id || "")).length;
   };
   const refresh = () => startTransition(() => router.refresh());

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { t } from "@/lib/i18n";
+import { descendantIds } from "@/lib/categoryTree";
 import type { Category, Lang, Product } from "@/lib/types";
 
 function count(cats: Category[], products: Product[], id: string): number {
-  const ids = [id, ...cats.filter((c) => c.parent_id === id).map((c) => c.id)];
+  const ids = descendantIds(cats, id);
   return products.filter((p) => ids.includes(p.category_id || "")).length;
 }
 

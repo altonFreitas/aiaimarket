@@ -1,7 +1,7 @@
 import CatalogLayout from "@/components/CatalogLayout";
 import { getCategories, getLiveProducts, getSettings } from "@/lib/data/public";
 import { searchCatalog, parseSort, parsePage, parsePrice } from "@/lib/data/search";
-import { categoryOptions, categoryFilterIds } from "@/lib/nav";
+import { categoryFilterIds } from "@/lib/nav";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import { listingMetadata } from "@/lib/listingMeta";
@@ -78,7 +78,6 @@ export default async function ShopPage({
       basePath="/shop"
       attributeFilters={attributeFilters}
       activeFilters={active}
-      categories={categoryOptions(cats, allProducts)}
       params={{
         sort: one(sp.sort), in: one(sp.in), min: one(sp.min),
         max: one(sp.max), cat: one(sp.cat),

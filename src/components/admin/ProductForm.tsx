@@ -13,6 +13,7 @@ import { statusForQty } from "@/lib/stockReport";
 import { parseNum } from "@/lib/numberInput";
 import { t } from "@/lib/i18n";
 import WriteOnly, { useCanWrite } from "./Access";
+import { pathOf } from "@/lib/categoryTree";
 import type { Category, Lang, Product, Settings, StockStatus } from "@/lib/types";
 import type { FormAttribute } from "@/lib/taxonomy/types";
 
@@ -21,9 +22,49 @@ import type { FormAttribute } from "@/lib/taxonomy/types";
  * this is a client component. */
 export interface SellerOption { id: string; store_name: string }
 
-function rootIdOf(id: string, cats: Category[]): string {
-  const c = cats.find((x) => x.id === id);
-  return c?.parent_id || id;
+/* THE CHAIN OF SELECTS THAT FILES A PRODUCT.
+ *
+ * There were two boxes, Category and Subcategory, which was right while
+ * the tree was two deep. It is three now -- Fitness & Wellness Lifestyle
+ * -> Sports Nutrition -> Protein -- and a fixed pair of boxes cannot
+ * reach the third level at all: a tub of protein could be filed under
+ * Sports Nutrition and no closer.
+ *
+ * So the boxes are built from the tree rather than counted out in
+ * advance. One per level of the path to what is currently chosen, plus
+ * one more offering that level's children when it has any. A two-deep
+ * tree still draws exactly two boxes, so nothing changes for a shop that
+ * has not grown a third level.
+ *
+ * Each returns the ids to offer and the one selected; the caller renders
+ * them and refiles on change. */
+function categoryLevels(
+  categoryId: string, cats: Category[]
+): Array<{ options: Category[]; selected: string }> {
+  const byOrder = (a: Category, b: Category) => a.sort_order - b.sort_order;
+  const kidsOf = (id: string | null) =>
+    cats.filter((c) => (c.parent_id ?? null) === id).sort(byOrder);
+
+  /* The trail down to what is chosen. pathOf walks up from the category
+     and reverses, so a product in Protein yields
+     [Fitness & Wellness, Sports Nutrition, Protein]. */
+  const trail = categoryId ? pathOf(cats, categoryId) : [];
+  const levels: Array<{ options: Category[]; selected: string }> = [];
+
+  let parent: string | null = null;
+  for (const step of trail) {
+    levels.push({ options: kidsOf(parent), selected: step.id });
+    parent = step.id;
+  }
+  /* And one empty box for the level below, when there is one to offer.
+     Optional -- a product may live on a category that has children, like
+     a general pair of shoes under Shoes & Footwear. */
+  const deeper = kidsOf(parent);
+  if (deeper.length) levels.push({ options: deeper, selected: "" });
+
+  // Nothing chosen yet: offer the roots.
+  if (!levels.length) levels.push({ options: kidsOf(null), selected: "" });
+  return levels;
 }
 
 const STOCK_LABEL: Record<StockStatus, string> = {
@@ -210,10 +251,7 @@ export default function ProductForm({
     if (categoryId !== f.category_id) setTax({ productTypeId: "", values: {} });
   }
 
-  const selectedRootId = rootIdOf(f.category_id, cats) || cats.find((c) => !c.parent_id)?.id || "";
-  const rootCats = cats.filter((c) => !c.parent_id).sort((a, b) => a.sort_order - b.sort_order);
-  const subCats = cats.filter((c) => c.parent_id === selectedRootId).sort((a, b) => a.sort_order - b.sort_order);
-  const selectedSubId = cats.find((c) => c.id === f.category_id)?.parent_id ? f.category_id : "";
+  const levels = categoryLevels(f.category_id, cats);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -380,26 +418,33 @@ export default function ProductForm({
         <div className="panel">
           <h3>{t("catPanelTitle", lang)}</h3>
           <p className="hint">{t("catPanelHint", lang)}</p>
-          <div className={"field" + (errors.category_id ? " err" : "")}>
-            <label htmlFor="category_id">{t("category", lang)}</label>
-            <select id="category_id" value={selectedRootId} disabled={!canWrite}
-              onChange={(e) => refile(e.target.value)}>
-              {rootCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <p className="hint">{t("categoryHint", lang)}</p>
-            <p className="msg">{errors.category_id}</p>
-          </div>
-          {subCats.length > 0 && (
-            <div className="field">
-              <label htmlFor="subcategory_id">{t("subcategory", lang)}</label>
-              <select id="subcategory_id" value={selectedSubId} disabled={!canWrite}
-                onChange={(e) => refile(e.target.value || selectedRootId)}>
-                <option value="">{t("none", lang)}</option>
-                {subCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {levels.map((level, depth) => (
+            <div key={depth}
+              className={"field" + (depth === 0 && errors.category_id ? " err" : "")}>
+              <label htmlFor={`category-l${depth}`}>
+                {depth === 0 ? t("category", lang) : t("subcategory", lang)}
+              </label>
+              <select id={`category-l${depth}`} value={level.selected} disabled={!canWrite}
+                onChange={(e) => refile(
+                  /* Clearing a level files the product on the level ABOVE
+                     it, which is the category still chosen in the box
+                     before this one -- not nothing. Emptying "Protein"
+                     leaves the tub under Sports Nutrition. */
+                  e.target.value || levels[depth - 1]?.selected || "")}>
+                {/* The first box has no blank: a product has to be filed
+                    somewhere. Every box below it does, because filing on
+                    the parent is a real answer. */}
+                {depth > 0 && <option value="">{t("none", lang)}</option>}
+                {level.options.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
-              <p className="hint">{t("subcategoryHint", lang)}</p>
+              <p className="hint">
+                {depth === 0 ? t("categoryHint", lang) : t("subcategoryHint", lang)}
+              </p>
+              {depth === 0 && <p className="msg">{errors.category_id}</p>}
             </div>
-          )}
+          ))}
           {/* THE PRODUCT TYPE, AND THE FIELDS THAT COME WITH IT.
               The category above -> product type -> that type's own
               attributes, all read from the database. There is no branch

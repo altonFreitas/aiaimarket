@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildNav, categoryOptions, categoryFilterIds, isNavFree } from "@/lib/nav";
+import { buildNav, categoryFilterIds, isNavFree } from "@/lib/nav";
 import type { Category, Product } from "@/lib/types";
 
 /* Only the fields the navigation actually reads. The rest of a product row
@@ -116,31 +116,6 @@ describe("buildNav", () => {
     const nav = buildNav(CATS, PRODUCTS, "en");
     const hrefs = nav.flatMap((r) => [r.href, ...r.groups.flatMap((g) => [g.href, ...g.children.map((c) => c.href)])]);
     for (const h of hrefs) expect([h, h.includes("?")]).toEqual([h, false]);
-  });
-});
-
-describe("categoryOptions", () => {
-  it("flattens the tree in its own order, with the depth to indent by", () => {
-    const opts = categoryOptions(CATS, PRODUCTS);
-    expect(opts.map((o) => [o.slug, o.depth])).toEqual([
-      ["clothing", 0], ["mens", 1], ["womens", 1],
-      ["appliances", 0], ["fridges", 1],
-      ["empty", 0],
-    ]);
-  });
-
-  it("counts a category with its subcategories, like everything else here", () => {
-    const opts = categoryOptions(CATS, PRODUCTS);
-    expect(opts.find((o) => o.slug === "clothing")!.count).toBe(3);
-    expect(opts.find((o) => o.slug === "mens")!.count).toBe(1);
-  });
-
-  it("keeps an empty category, unlike the menu", () => {
-    /* This is a FILTER. A category that vanishes from the list leaves the
-       shop wondering where it went; "(0)" is an answer. */
-    const empty = categoryOptions(CATS, PRODUCTS).find((o) => o.slug === "empty");
-    expect(empty).toBeTruthy();
-    expect(empty!.count).toBe(0);
   });
 });
 

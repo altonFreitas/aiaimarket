@@ -24,6 +24,7 @@
  * Everything here is derived, nothing is stored, and no counts are
  * invented: every number is a length of a real list.
  */
+import { descendantIds } from "./categoryTree";
 import type { Category, Lang, Product } from "./types";
 
 /** Where the shop's aisles are not what is being navigated.
@@ -99,11 +100,11 @@ function childrenOf(cats: Category[], id: string): Category[] {
   return cats.filter((c) => c.parent_id === id).sort(byOrder);
 }
 
-/** A category and its subcategories, the same "browsing Clothing must not
- * look empty because everything is filed under Men's clothing" rule the
- * category page itself uses. */
+/** A category and everything under it, however deep -- the same "browsing
+ * Fitness & Wellness must not look empty because everything is filed under
+ * Protein" rule the category page itself uses. See lib/categoryTree.ts. */
 function idsFor(cats: Category[], id: string): string[] {
-  return [id, ...childrenOf(cats, id).map((c) => c.id)];
+  return descendantIds(cats, id);
 }
 
 function inCategory(products: Product[], cats: Category[], id: string): Product[] {
@@ -162,48 +163,6 @@ export function buildNav(cats: Category[], products: Product[], _lang: Lang): Na
   return topLevel(cats)
     .map((c) => buildRoot(c, cats, products))
     .filter((r) => r.count > 0);
-}
-
-/** One entry per category, flattened for a <select>.
- *
- * WHY A FLAT LIST WITH A DEPTH RATHER THAN A TREE. This feeds the
- * catalogue toolbar's category filter, and a <select> has no nesting --
- * <optgroup> comes close but its labels are not selectable, and "Clothing"
- * has to be choosable in its own right. So the shape of the tree is
- * carried as a number the caller indents with, and the order is the tree's
- * own: each top-level category followed by its children.
- *
- * The count is the category WITH its subcategories, the same rule the
- * sidebar and the menu use -- picking Clothing must not report fewer
- * products than picking Men's clothing inside it.
- *
- * Empty categories are kept here, unlike in the menu: this is a filter, and
- * a filter that silently omits a category leaves the shop wondering where
- * it went. It shows "(0)" and returns nothing, which is an answer. */
-export interface CategoryOption {
-  id: string;
-  slug: string;
-  name: string;
-  /** 0 for a top-level category, 1 for a subcategory. */
-  depth: number;
-  count: number;
-}
-
-export function categoryOptions(cats: Category[], products: Product[]): CategoryOption[] {
-  const out: CategoryOption[] = [];
-  for (const top of topLevel(cats)) {
-    out.push({
-      id: top.id, slug: top.slug, name: top.name, depth: 0,
-      count: inCategory(products, cats, top.id).length,
-    });
-    for (const kid of childrenOf(cats, top.id)) {
-      out.push({
-        id: kid.id, slug: kid.slug, name: kid.name, depth: 1,
-        count: inCategory(products, cats, kid.id).length,
-      });
-    }
-  }
-  return out;
 }
 
 /** The ids a `?cat=` slug covers -- the category itself and its children.
