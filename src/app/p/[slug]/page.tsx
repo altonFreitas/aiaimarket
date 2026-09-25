@@ -55,11 +55,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [related, reviews, sizeStock, specs, sizePrices] = await Promise.all([
+  const [related, reviews, specs, sizePrices] = await Promise.all([
     getRelatedProducts(p.category_id, p.id), getProductReviews(p.id),
-    // Null until the shop counts a size in; the picker then reads exactly
-    // as it always did rather than showing a full shelf as sold out.
-    oneSizeStock(p.id, p.sizes || []),
     // Only what this product actually answers -- see lib/data/productSpecs.
     productSpecs(p.id),
     /* What each size sells for, when the purchase order set them
@@ -68,6 +65,34 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
        everything, exactly as it always did. */
     sizePricesOf(p.id),
   ]);
+
+  /* THE SIZES THIS IS ACTUALLY SOLD IN.
+   *
+   * products.sizes is what the picker has always drawn from, and the
+   * variants are the other account of the same fact. They are written by
+   * different code, and both writers swallow their errors on purpose --
+   * addSize() and syncSizes() each decide, correctly, that a size list
+   * which could not be extended must not fail a receipt or a save.
+   *
+   * So they can drift, and when they do the shopper is the one who finds
+   * out: a product with variants in S, M and L and an empty products.sizes
+   * shows no picker at all. Union here rather than trusting one of them,
+   * with the stored list first so an order somebody chose is kept.
+   * supabase/backfill-sizes.sql repairs the stored column itself, which is
+   * what the catalogue CARD needs -- it has only the product row. This is
+   * the same repair at render time, for the page that can see both. */
+  const sizes = [...(p.sizes || [])];
+  for (const s of sizePrices.keys()) {
+    if (!sizes.some((had) => had.toLowerCase() === s.toLowerCase())) sizes.push(s);
+  }
+
+  /* AFTER the union, not beside it: this reports a balance per size, and
+     asking it about the stored list would leave a size the product only
+     has a variant for reading as zero -- which the picker draws as sold
+     out on a full shelf, the one thing it exists to avoid.
+     Null until the shop counts a size in; the picker then reads exactly as
+     it always did. */
+  const sizeStock = await oneSizeStock(p.id, sizes);
 
   // Only emitted when reviews genuinely exist. Google treats a fabricated or
   // empty aggregateRating as a structured-data violation, and an honest
@@ -176,7 +201,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </div>
         <div>
           <h1>{p.name}</h1>
-          <ProductInteractive p={p} settings={settings} lang={lang}
+          {/* The unioned list, not the stored column -- so the picker, the
+              quantity cap, the basket line and the WhatsApp message all
+              read the same set of sizes. */}
+          <ProductInteractive p={{ ...p, sizes }} settings={settings} lang={lang}
             siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
             /* A plain object, not the Map: this crosses the server ->
                client boundary and a Map does not survive it. */

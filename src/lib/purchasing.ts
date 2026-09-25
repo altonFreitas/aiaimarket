@@ -65,6 +65,55 @@ function revalidateFor(scope: ProcurementScope): void {
   else revalidatePath("/admin/procurement", "layout");
 }
 
+/* COMPARING WHAT WAS STORED WITH WHAT WAS SUBMITTED.
+ *
+ * Used only on an order whose goods have already landed, to tell "the shop
+ * changed the payment status" from "the shop changed the price of the
+ * goods" -- see savePurchaseOrder. Getting this wrong in the lenient
+ * direction lets a received order be rewritten; getting it wrong in the
+ * strict direction brings back the bug this replaced, where saving a
+ * payment was refused because nothing at all could be saved.
+ *
+ * SO IT COMPARES VALUES, NOT SPELLINGS. Postgres hands numeric back as the
+ * string "2.0000" where the form sent the number 2, and a date column as
+ * "2026-09-24" where an empty box sent null. Neither is a change, and
+ * either would refuse a save nobody asked to be refused. */
+export function sameStoredValue(before: unknown, after: unknown): boolean {
+  // Null, undefined and "" all mean "not filled in" across this boundary.
+  const empty = (v: unknown) => v == null || v === "";
+  if (empty(before) && empty(after)) return true;
+  if (empty(before) || empty(after)) return false;
+
+  const a = Number(before);
+  const b = Number(after);
+  // Both numeric -- "2.0000" and 2 are the same amount of money.
+  if (Number.isFinite(a) && Number.isFinite(b)) return a === b;
+
+  return String(before).trim() === String(after).trim();
+}
+
+/** The fields of a line that a receipt has already consumed. Not every
+ * column: product_type_id and attribute_values are written separately and
+ * through writeTolerating, so a shop mid-migration would otherwise be told
+ * its lines had changed because the columns are not there to read. */
+export type StoredLine = Record<string, unknown>;
+const LINE_FIELDS = [
+  "product_id", "product_name", "category", "qty", "unit_price",
+  "catalog_category_id", "sell_price", "sizes", "description",
+] as const;
+
+/** Whether the submitted lines are the ones already stored.
+ *
+ * Order matters and is not sorted away: the lines of an order are a list
+ * somebody wrote in an order, and two lines swapped is an edit. Comparing
+ * as sets would also make "S, M" and "M, S" identical, which they are not
+ * once a receipt points at a specific line id. */
+export function sameLines(before: readonly StoredLine[], after: readonly StoredLine[]): boolean {
+  if (before.length !== after.length) return false;
+  return before.every((was, i) =>
+    LINE_FIELDS.every((k) => sameStoredValue(was[k], after[i]?.[k])));
+}
+
 const MAX_NAME = 160;
 const MAX_TEXT = 2000;
 const MAX_LINES = 200;
@@ -409,11 +458,90 @@ export async function savePurchaseOrderIn(
     const { data: receipts } = await sb
       .from("stock_movements").select("id")
       .eq("po_id", poId).eq("reason", "purchase_receipt").limit(1);
+
     if (receipts && receipts.length) {
-      throw new Error(
-        "This order has already been received, so its lines can no longer be " +
-        "changed. Record a stock adjustment instead."
-      );
+      /* RECEIVED, BUT NOT FINISHED WITH.
+       *
+       * This used to refuse the whole save, which was too much. Goods
+       * arriving and money leaving are separate events and trade runs on
+       * the gap between them: a shop that pays thirty days after delivery
+       * could not record having paid, because the order it was paying for
+       * had already landed. The Payment status box was there, it accepted
+       * the change, and Save answered "this order has already been
+       * received".
+       *
+       * So the rule is now about WHAT changed rather than about when. The
+       * fields that describe something happening AFTER the goods land stay
+       * open; everything the receipt already consumed is closed, and the
+       * refusal names which field is in the way instead of the whole
+       * order.
+       *
+       * WHAT IS CLOSED, AND WHY EACH ONE:
+       *   the lines        stock_movements points at a line id. Replacing
+       *                    the lines nulls that link, the idempotency
+       *                    guard goes with it, and the next move to
+       *                    "received" adds the stock a SECOND time.
+       *   supplier, dates  the order is the record of what arrived from
+       *                    whom and when. Editing it rewrites history.
+       *   money            currency, rate, tax, shipping and discount all
+       *                    feed the landed cost, which was written onto
+       *                    every movement and into product_costs at
+       *                    receipt. Changing them now would leave the
+       *                    recorded cost of the goods disagreeing with the
+       *                    order that bought them. */
+      const { data: was } = await sb
+        .from("purchase_orders")
+        .select("supplier_id,buyer,order_date,expected_arrival,currency,fx_rate,tax,shipping,discount")
+        .eq("id", poId)
+        .maybeSingle();
+
+      const locked: Array<[string, unknown, unknown]> = was ? [
+        ["Supplier", was.supplier_id, header.supplier_id],
+        ["Buyer", was.buyer, header.buyer],
+        ["Order date", was.order_date, header.order_date],
+        ["Expected arrival", was.expected_arrival, header.expected_arrival],
+        ["Currency", was.currency, header.currency],
+        ["Exchange rate", was.fx_rate, header.fx_rate],
+        ["Tax", was.tax, header.tax],
+        ["Shipping", was.shipping, header.shipping],
+        ["Discount", was.discount, header.discount],
+      ] : [];
+      const moved = locked
+        .filter(([, before, after]) => !sameStoredValue(before, after))
+        .map(([name]) => name);
+
+      /* The lines, compared rather than assumed unchanged. Silently
+         ignoring an edit would be worse than refusing it: the shop would
+         press Save, be told it worked, and find the line exactly as it
+         was. */
+      const { data: hadItems } = await sb
+        .from("purchase_order_items")
+        .select("product_id,product_name,category,qty,unit_price,catalog_category_id,sell_price,sizes,description")
+        .eq("po_id", poId);
+      if (!sameLines(hadItems ?? [], rows)) moved.unshift("Line items");
+
+      if (moved.length) {
+        throw new Error(
+          `This order has already been received, so ${moved.join(", ")} can no ` +
+          "longer be changed. Record a stock adjustment instead. Payment " +
+          "status, payment date, arrival date and notes can still be updated."
+        );
+      }
+
+      /* Only what happens after the goods land. The lines are deliberately
+         not touched at all -- not deleted and rewritten identically, which
+         would null every stock_movements.po_item_id for no reason. */
+      const { error: payErr } = await sb.from("purchase_orders").update({
+        status: header.status,
+        payment_status: header.payment_status,
+        payment_date: header.payment_date,
+        actual_arrival: header.actual_arrival,
+        notes: header.notes,
+      }).eq("id", poId);
+      if (payErr) throw payErr;
+
+      revalidateFor(scope);
+      return poId;
     }
 
     const { error } = await sb.from("purchase_orders").update(header).eq("id", poId);

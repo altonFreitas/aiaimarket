@@ -587,6 +587,10 @@ export const SCHEMA_ORDER: readonly string[] = [
   // that file put there, so on a shop that has never pasted the seed it
   // finds nothing and does nothing.
   "clothing-taxonomy.sql",
+  // AFTER variants.sql, whose tables it reads, and after anything that
+  // creates variants. It only ever ADDS to products.sizes, so running it
+  // before a later receipt simply means that receipt has less to catch up.
+  "backfill-sizes.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
@@ -603,6 +607,9 @@ export const NOT_SCHEMA_FILES: readonly string[] = [
   // there is no object it could be probed by. An empty taxonomy is a shop
   // that has not pasted it yet, not a broken schema.
   "taxonomy-seed.sql",
+  // A DATA fix, not a schema one: it fills products.sizes from the
+  // variants, creating no table, column, view or function of its own.
+  "backfill-sizes.sql",
   // A DATA fix, not a schema one, exactly like zone-cleanup.sql below: it
   // moves rows between categories that taxonomy.sql already created, and
   // creates no table, column, view or function of its own. The only
