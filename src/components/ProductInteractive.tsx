@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
+import CartIcon from "./CartIcon";
 import { bumpWaClickAction } from "@/lib/actions/track";
-import { money, waLink, waProductMsg, discountPercent, ratingAverage } from "@/lib/utils";
+import { money, waLink, waProductMsg, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import { availableInSize, type SizedStock } from "@/lib/sizeStock";
 import type { Lang, Product, Settings } from "@/lib/types";
@@ -59,12 +60,6 @@ export default function ProductInteractive({
    * product is on offer at this number"; a per-size price is what the
    * size costs normally. Honouring the size's price over a live discount
    * would silently cancel the offer for anyone who picked a size. */
-  /* What shoppers have said, when any have. Read from the product row
-     the page already loaded rather than passed in separately -- the
-     reviews list below the card reads the same two columns. */
-  const rating = ratingAverage(p);
-  const ratingCount = Number(p.rating_count) || 0;
-
   const sizePrice = size != null ? sizePrices?.[size] : undefined;
   const basePrice = sizePrice != null && Number.isFinite(sizePrice)
     ? Number(sizePrice) : Number(p.price);
@@ -188,23 +183,7 @@ export default function ProductInteractive({
     router.push("/checkout");
   }
 
-  async function share() {
-    const caption =
-      `${p.name} — ${money(p.price)}\n` +
-      `${t("qStock", lang)} ${t(STOCK_KEY[p.stock_status], lang)}\n` +
-      `${t("qHow", lang)} WhatsApp ${settings.wa_number}\n` +
-      siteUrl(`/p/${p.slug}`);
-    if (navigator.share) {
-      try { await navigator.share({ title: p.name, text: caption, url: siteUrl(`/p/${p.slug}`) }); } catch {}
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(caption);
-      toast(t("copied", lang));
-    } catch {
-      toast(t("copied", lang));
-    }
-  }
+
 
   return (
     /* THE BUY CARD.
@@ -224,22 +203,10 @@ export default function ProductInteractive({
      * long product page is that the thing you buy with never leaves.
      */
     <div className="buybox">
-      <h1 className="buybox-nm">{p.name}</h1>
-
-      {/* Rating before price, as both of the shops this borrows from do:
-          it is the reassurance that makes the number readable. Absent
-          until somebody has actually rated it -- no empty stars. */}
-      {rating != null && (
-        <div className="buybox-rate">
-          <span className="stars" aria-hidden="true">
-            {"★★★★★".slice(0, Math.round(rating))}
-            <span className="stars-off">{"★★★★★".slice(Math.round(rating))}</span>
-          </span>
-          <b>{rating.toFixed(1)}</b>
-          <span>({ratingCount})</span>
-        </div>
-      )}
-
+      {/* THE NAME IS NOT IN HERE. It sits over the photograph, which is
+          where FNAC puts it and where it belongs: the card is the price
+          and the decision, and a heading inside it made the price the
+          second thing you read. */}
       <div className="buybox-price">
         {/* "From" until a size is chosen, when the sizes are not all one
             price. A single number over three prices is the one number
@@ -247,7 +214,17 @@ export default function ProductInteractive({
         {priceVaries && size == null && (
           <span className="buybox-from">{t("priceFrom", lang)}</span>
         )}
-        <span className="buybox-now">{money(pct != null ? p.discount_price! : headlinePrice)}</span>
+        {/* RED WHEN IT IS A DISCOUNT, ink when it is just the price.
+            Colour carrying meaning rather than decoration: a red number
+            beside a struck-through one says "this is less than it was"
+            without a word, which is the whole of what FNAC's price block
+            does. */}
+        <span className={"buybox-now" + (pct != null ? " is-off" : "")}>
+          {money(pct != null ? p.discount_price! : headlinePrice)}
+        </span>
+        {/* USD, and it says so. Timor-Leste uses the dollar and a bare
+            "$" is ambiguous across a dozen of them. */}
+        <em className="buybox-cur">USD</em>
         {pct != null && (
           <>
             {/* Struck through: what this SIZE would have cost, not what
@@ -258,10 +235,12 @@ export default function ProductInteractive({
             <span className="buybox-off">-{pct}%</span>
           </>
         )}
-        {/* USD, and it says so. Timor-Leste uses the dollar and a bare
-            "$" is ambiguous across a dozen of them. */}
-        <em className="buybox-cur">USD</em>
       </div>
+      {pct != null && (
+        <p className="buybox-save">
+          {t("youSave", lang)} <b>{money(basePrice - p.discount_price!)}</b>
+        </p>
+      )}
 
       {seller && (
         <div className="buybox-seller">
@@ -361,6 +340,10 @@ export default function ProductInteractive({
           <button className="btn btn-lg" disabled>{t("stockOut", lang)}</button>
         ) : (
           <button className="btn btn-amber btn-lg" type="button" onClick={addToList}>
+            {/* The shop's own cart -- the one in the header and on every
+                catalogue card. Same component, so the button and the
+                place the goods land are recognisably the same thing. */}
+            <CartIcon size={18} />
             {t("addList", lang)}
           </button>
         )}
@@ -393,19 +376,27 @@ export default function ProductInteractive({
         </div>
       )}
 
-      {/* HOW YOU CAN PAY, as one line of chips rather than a panel of
-          rows. It is reassurance, not a decision -- nothing here is
-          chosen, and a bordered box with a heading gave four facts the
-          same weight as the price. */}
-      <ul className="buybox-pay">
-        {payList.filter(([on]) => on).map(([, key]) => (
-          <li key={key}>{t(key, lang)}</li>
-        ))}
-      </ul>
-
-      <button className="buybox-share" type="button" onClick={share}>
-        {t("share", lang)}
-      </button>
+      {/* HOW YOU CAN PAY.
+          It was a panel of bordered rows, then a line of grey chips --
+          too loud, then too quiet. Reassurance is what it is: a small
+          heading, a tick against each way, and the shop's own green for
+          the ticks, so the block reads as a set of promises kept rather
+          than as four more facts competing with the price. */}
+      <div className="buybox-pay">
+        <span className="buybox-lbl">{t("payAccepted", lang)}</span>
+        <ul>
+          {payList.filter(([on]) => on).map(([, key]) => (
+            <li key={key}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+                strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 12.5l5.5 5.5L20 7" />
+              </svg>
+              {t(key, lang)}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

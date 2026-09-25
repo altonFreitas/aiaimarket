@@ -1532,6 +1532,7 @@ export const STR: Record<string, [string,string,string]> = {
   zoomIn:["Haree besik","Aproximar","Zoom in"],
   zoomOut:["Haree dook","Afastar","Zoom out"],
   priceFrom:["Husi","Desde","From"],
+  youSave:["Ita salva","Poupa","You save"],
   download:["Deskarga","Transferir","Download"],
   formatPdf:["PDF","PDF","PDF"],
   formatPdfNote:["Atu haruka ba fornesedór","Para enviar ao fornecedor","To send a supplier"],

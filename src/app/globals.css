@@ -1227,24 +1227,13 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
   .stat{grid-template-columns:repeat(4,1fr)}
   .sheet{border-radius:12px;margin:auto;max-height:84vh}
   .scrim{align-items:center}
-  /* Wider on the left than the right, which is what both references do:
-     the photographs and the description are what takes the room, and the
-     card only needs enough for a price and a button.
-     minmax(0,...) on the left, or a long unbroken word in a description
-     would push the grid wider than the page. */
-  .pdp{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,0.7fr);
-    gap:22px;align-items:start}
-  /* PINNED, so the thing you buy with never scrolls away while you read.
-     Below the header, which is itself sticky -- --chrome-h is that whole
-     stack added up, so this cannot drift out of step with it.
-     max-height plus overflow, because a card taller than the window
-     cannot be pinned at all: it would scroll its own bottom off and the
-     button with it. */
-  .pdp-buy{position:sticky;top:calc(var(--chrome-h) + var(--sp-3));
-    max-height:calc(100vh - var(--chrome-h) - var(--sp-5));
-    overflow-y:auto;overscroll-behavior:contain}
+  /* The product page's own grid is not here. Every rule it needs lives
+     together further down, under "THE PRODUCT PAGE LAYOUT" -- see the
+     note there for why. */
   .buybox-alt{grid-template-columns:1fr 1fr}
+}
 
+@media(min-width:1180px){
   .home .hero{flex-direction:row;align-items:center;padding:52px var(--bleed-pad);gap:40px}
   .home .hero-copy{flex:1}
   .home .hero-copy h1{font-size:34px}
@@ -3015,23 +3004,29 @@ tr.is-ended{opacity:.55}
    a thing with its size. */
 .buybox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
   padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
-.buybox-nm{margin:0;font-size:var(--fs-h2);line-height:1.2}
-.buybox-rate{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-body-sm);
-  color:var(--muted);margin:calc(var(--sp-2) * -1) 0 0}
-.buybox-rate b{color:var(--ink)}
+/* The name and the rating live over the photograph now, not in here --
+   see .pdp-nm. */
 .stars{color:var(--amber);letter-spacing:1px}
 .stars-off{color:var(--line)}
 
 /* The price, as one line that reads left to right: what you pay, what it
    was, how much off. Baseline-aligned, so the small parts sit ON the big
    number's line rather than floating beside it. */
-.buybox-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-2);
-  margin:calc(var(--sp-2) * -1) 0 0}
+.buybox-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-2)}
 .buybox-now{font-family:var(--mono);font-size:var(--fs-h1);font-weight:700;
   line-height:1;color:var(--ink)}
+/* RED WHEN IT IS A DISCOUNT, which is the whole of what FNAC's price
+   block does: a red number beside a struck-through one says "less than
+   it was" without a word. Ink otherwise, because a price that is just
+   the price should not shout. */
+.buybox-now.is-off{color:var(--red)}
 .buybox-was{font-family:var(--mono);font-size:var(--fs-body);color:var(--muted)}
 .buybox-off{font-size:var(--fs-sm);font-weight:700;background:var(--red);color:#fff;
   padding:2px var(--sp-2);border-radius:var(--r-s)}
+/* The saving in money, under the row. A percentage is a ratio and this is
+   a shop: "-36%" is arithmetic, "$8.00" is the thing you keep. */
+.buybox-save{margin:0;font-size:var(--fs-body-sm);color:var(--green-ink,var(--ink-3))}
+.buybox-save b{color:var(--red)}
 /* Small and muted: it qualifies the number, it is not part of it. */
 .buybox-from{font-size:var(--fs-sm);color:var(--muted);text-transform:uppercase;
   letter-spacing:.06em;font-weight:600}
@@ -3057,37 +3052,143 @@ tr.is-ended{opacity:.55}
 
 .buybox-alt{display:grid;grid-template-columns:1fr;gap:var(--sp-2)}
 
-/* Reassurance, not a decision: nothing here is chosen, and a bordered
-   panel with a heading gave four facts the same weight as the price. */
-.buybox-pay{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--sp-1)}
-.buybox-pay li{font-size:var(--fs-caption);color:var(--muted);background:var(--line-2);
-  border-radius:var(--r-s);padding:3px var(--sp-2)}
+/* HOW YOU CAN PAY.
+   A panel of bordered rows first, then a line of grey chips -- too loud,
+   then too quiet. It is reassurance: a small heading, a green tick
+   against each way, sitting on its own tinted strip so it reads as a set
+   of promises rather than four more facts competing with the price. */
+.buybox-pay{background:var(--line-2);border-radius:var(--r-s);
+  padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)}
+.buybox-pay ul{list-style:none;margin:0;padding:0;display:grid;gap:var(--sp-1)}
+.buybox-pay li{display:flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-body-sm);color:var(--ink-3)}
+.buybox-pay li svg{flex:0 0 auto;color:var(--ok, var(--green, #1f8a4c))}
 
-.buybox-share{align-self:flex-start;background:none;border:0;padding:0;cursor:pointer;
-  font-size:var(--fs-body-sm);color:var(--muted);text-decoration:underline}
-.buybox-share:hover{color:var(--ink)}
+/* THE MIDDLE COLUMN. FNAC's Resumo and Características are simply there,
+   open, beside the photograph -- not folded, because a summary worth
+   writing is worth showing, and not below the image, because that means
+   scrolling past 500px of photograph to read a sentence. */
+/* ================= THE PRODUCT PAGE LAYOUT =================
+   ALL OF IT, base and breakpoints together, and deliberately not up in
+   the shared @media blocks with the rest of the responsive rules.
+   A media query adds NOTHING to specificity, so a `.pdp` inside one at
+   line 1200 loses to a plain `.pdp` at line 3100 -- later source order
+   wins and the wide-screen grid silently never applies. That happened
+   twice while this was being built: once to the rail, which sat under
+   the photograph at every width, and once to the grid itself, which
+   collapsed all three columns into one. Both were invisible in the
+   source and obvious the moment a browser was asked to measure them.
+   Kept in one place, in narrow-to-wide order, so the cascade reads the
+   way it runs.
 
-/* A foldable section under the photographs. <details> rather than a
-   component: no JavaScript, keyboard-operable and announced for free, and
-   the browser's own find-in-page opens it. */
-.pdp-fold{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  margin-top:var(--sp-3);padding:0 var(--sp-4) 0}
-.pdp-fold>summary{cursor:pointer;list-style:none;padding:var(--sp-3) 0;
-  font-size:var(--fs-h4);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-  display:flex;align-items:center;justify-content:space-between}
-.pdp-fold>summary::-webkit-details-marker{display:none}
-/* The affordance both references use, and it flips rather than swapping
-   glyphs -- one character, no reflow. */
-.pdp-fold>summary::after{content:"+";font-size:var(--fs-h3);font-weight:400;
-  color:var(--muted);line-height:1}
-.pdp-fold[open]>summary::after{content:"−"}
-.pdp-fold>summary:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.pdp-fold[open]>summary{border-bottom:1px solid var(--line-2)}
-.pdp-fold>*:not(summary){padding-bottom:var(--sp-4)}
-.pdp-fold .specs,.pdp-fold .pdp-scroll{margin-top:var(--sp-3)}
+   ONE COLUMN, the phone. The gap is this container's job: .pdp-sec
+   zeroes the margin .panel carries, so that the three columns start
+   flush at the top of the grid -- which leaves nothing between the
+   photograph and the card under it when they stack. */
+.pdp{display:flex;flex-direction:column;gap:var(--sp-3)}
+
+/* THE RAIL: a narrow column of buttons for the things you do ABOUT a
+   product rather than to buy it. Under the picture on a phone, where a
+   64px column would cost a sixth of the screen. */
+.pdp-media-in{display:flex;flex-direction:column;gap:var(--sp-2)}
+.pdp-rail{display:flex;gap:var(--sp-2)}
+
+/* TWO COLUMNS from 768: the photograph and the summary stacked on the
+   left, the price card pinned on the right. Three is too many at 800px
+   -- the middle one would be a column of broken words.
+   Wider on the left than the right, which is what both references do:
+   the photographs and the description are what take the room, and the
+   card only needs enough for a price and a button. minmax(0,...) on the
+   left, or a long unbroken word in a description would push the grid
+   wider than the page. */
+@media(min-width:768px){
+  .pdp{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,340px);
+    gap:22px;align-items:start}
+  /* PLACED EXPLICITLY. The buy card comes SECOND in the document, ahead
+     of the summary, so that a phone reaches the price without scrolling
+     past the description. Left to auto-place, three children in two
+     columns fall as (1,1) (1,2) (2,1) -- which would put the price card
+     in the middle of the left column and the summary alone in a short
+     one on the right. */
+  .pdp-media{grid-column:1;grid-row:1}
+  .pdp-buy{grid-column:2;grid-row:1/span 2}
+  .pdp-info{grid-column:1;grid-row:2}
+  /* PINNED, so the thing you buy with never scrolls away while you
+     read. Below the header, which is itself sticky -- --chrome-h is
+     that whole stack added up, so this cannot drift out of step with
+     it. max-height plus overflow, because a card taller than the window
+     cannot be pinned at all: it would scroll its own bottom off and the
+     button with it. */
+  .pdp-buy{position:sticky;top:calc(var(--chrome-h) + var(--sp-3));
+    max-height:calc(100vh - var(--chrome-h) - var(--sp-5));
+    overflow-y:auto;overscroll-behavior:contain}
+  /* The rail goes beside the picture once there is room for it. */
+  .pdp-media-in{flex-direction:row;align-items:flex-start}
+  .pdp-media-in .gal{flex:1;min-width:0}
+  .pdp-rail{flex-direction:column;flex:0 0 auto}
+}
+
+/* THREE COLUMNS, which is the FNAC shape and needs the width to be one:
+   what the thing IS on the left, what it is LIKE in the middle, what it
+   COSTS on the right. Below this the middle column is narrower than a
+   readable line, so the summary stays under the photograph instead.
+   1180 is where a 340px card, a 300px middle and a 400px image all fit
+   inside the content width with the gaps. */
+@media(min-width:1180px){
+  .pdp{grid-template-columns:minmax(0,1.15fr) minmax(260px,0.85fr) minmax(320px,360px)}
+  /* The summary sits BESIDE the photograph, not under it -- which means
+     undoing the two-column placement above, not merely adding a third
+     column to it. */
+  .pdp-media{grid-column:1;grid-row:1}
+  .pdp-info{grid-column:2;grid-row:1;margin-top:0}
+  .pdp-buy{grid-column:3;grid-row:1}
+}
+
+.pdp-sec{margin:0}
+.pdp-sec+.pdp-sec{margin-top:var(--sp-3)}
+.pdp-sec>h2{margin:0 0 var(--sp-3);font-size:var(--fs-h4);letter-spacing:.06em}
+
+/* The name over the photograph, which is where FNAC puts it. */
+.pdp-nm{margin:0 0 var(--sp-2);font-size:var(--fs-h2);line-height:1.2}
+.pdp-rate{display:inline-flex;align-items:center;gap:var(--sp-2);
+  font-size:var(--fs-body-sm);color:var(--muted);text-decoration:none;
+  margin:0 0 var(--sp-3)}
+.pdp-rate b{color:var(--ink)}
+.pdp-rate:hover{text-decoration:underline}
+
+/* THE RAIL'S OWN BUTTONS. Where it SITS -- under the picture on a
+   phone, beside it above 768 -- is set with the rest of the layout
+   above, because that half is a cascade order problem. */
+.rail-btn{display:flex;flex-direction:column;align-items:center;gap:4px;
+  width:64px;padding:var(--sp-2) 0;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  color:var(--ink-3);font-size:var(--fs-caption);line-height:1.1;text-align:center}
+.rail-btn:hover{border-color:var(--ink-3);color:var(--ink)}
+.rail-btn.is-on{color:var(--red);border-color:var(--red)}
+.rail-btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
 .pdp-scroll{max-height:260px;overflow-y:auto;overscroll-behavior:contain}
 .pdp-scroll:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* A CUT LINE OF TEXT IS NOT AN AFFORDANCE.
+   Both of these boxes cap their height and scroll, and both were cutting
+   a sentence in half at the bottom edge with nothing to say there was
+   more underneath -- which reads as a rendering fault rather than as an
+   invitation to scroll.
+   Four background layers, the trick that has no JavaScript in it: the
+   two `local` covers scroll WITH the content, the two `scroll` shadows
+   stay pinned to the box. At the top of the box the cover sits over the
+   shadow and hides it; scroll down and the cover slides away and the
+   shadow appears. So the shading is there exactly when there is more to
+   see, at exactly the edge there is more beyond -- and it costs nothing
+   on a box short enough not to scroll at all. */
+.pdp-scroll, .specs-scroll{
+  background:
+    linear-gradient(var(--card) 40%, rgba(0,0,0,0)) top / 100% 26px no-repeat local,
+    linear-gradient(rgba(0,0,0,0), var(--card) 60%) bottom / 100% 26px no-repeat local,
+    linear-gradient(rgba(0,0,0,.13), rgba(0,0,0,0)) top / 100% 13px no-repeat scroll,
+    linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.13)) bottom / 100% 13px no-repeat scroll;
+  background-color:var(--card)}
 /* A colour, as a colour. The swatch carries a hairline so white shows up
    against the card. */
 .spec-color{display:inline-flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}

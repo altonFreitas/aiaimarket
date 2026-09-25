@@ -8,6 +8,7 @@ import CartIcon from "./CartIcon";
 import { t } from "@/lib/i18n";
 import { useBasket } from "@/lib/useBasket";
 import { useLoves } from "@/lib/useLoves";
+import HeartIcon from "./HeartIcon";
 import { toggleLoveAction } from "@/lib/actions/loves";
 import { useToast } from "@/components/Toast";
 import type { Product } from "@/lib/types";
@@ -15,12 +16,6 @@ import type { Lang } from "@/lib/types";
 
 const BADGE = { in: ["b-in", "stockIn"], low: ["b-low", "stockLow"], out: ["b-out", "stockOut"] } as const;
 
-/* The heart, as a square turned on its point with a lobe on each shoulder:
- * the tip at (12, 21.23), the notch at (12, 5.67), and the two extremes at
- * x=3.16 and x=20.84 -- 8.84 either side of the centre line, so it is
- * symmetrical. The one before it was drawn by hand, leaned right, and at
- * this size read as a smudge rather than a heart. */
-const HEART = "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z";
 
 export default function ProductCard(
   { p, lang, sellerName, flag }:
@@ -103,19 +98,9 @@ export default function ProductCard(
           <button type="button" className={"card-love" + (loved ? " is-on" : "")}
             onClick={toggleLove} aria-pressed={loved}
             aria-label={`${t(loved ? "unlove" : "love", lang)} — ${p.name}`}>
-            <svg width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"
-              fill="none" strokeLinecap="round" strokeLinejoin="round">
-              {/* THE SAME HEART, DRAWN TWICE. The mark has no plate behind
-                  it any more, so it has to hold its own over a
-                  photograph of any colour: a dark rim first and wider,
-                  then the mark itself on top. White on a dark boot, and
-                  a white heart with a dark outline on a sandal shot
-                  against a white wall -- which a single colour cannot do,
-                  and which a blurred shadow only smudges. */}
-              <path d={HEART} stroke="rgba(0,0,0,.5)" strokeWidth="4.5" />
-              <path d={HEART} stroke="currentColor" strokeWidth="2"
-                fill={loved ? "currentColor" : "none"} />
-            </svg>
+            {/* Rimmed, because this one sits over the photograph -- see
+                HeartIcon for why that is a prop rather than the default. */}
+            <HeartIcon size={19} filled={loved} rimmed />
           </button>
         </div>
         {/* THE TOP-RIGHT FLAGS, IN ONE COLUMN.

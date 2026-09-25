@@ -5,6 +5,7 @@ import ProductInteractive from "@/components/ProductInteractive";
 import { oneSizeStock } from "@/lib/data/sizeStock";
 import { sizePricesOf } from "@/lib/data/sizePrices";
 import ProductGallery from "@/components/ProductGallery";
+import ProductActions from "@/components/ProductActions";
 import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
 import { getCategories, getProductBySlug, getProductReviews, getRelatedProducts, getSettings, bumpView, getApprovedSellersById } from "@/lib/data/public";
@@ -158,9 +159,63 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <span className="mono">{p.ref}</span>
       </p>
 
+      {/* THREE COLUMNS, THE WAY FNAC LAYS A PRODUCT OUT.
+          The photograph and what the thing IS on the left, what it is
+          LIKE in the middle, and what it COSTS pinned on the right. The
+          two-column version put the description under the image, which
+          meant scrolling past a 500px photograph to read a sentence --
+          and left the middle of a wide screen empty. */}
       <div className="pdp">
-        <div className="pdp-main">
-          <ProductGallery images={p.images} name={p.name} lang={lang} />
+        <div className="pdp-media">
+          {/* Over the photograph, where FNAC puts it. It was inside the
+              price card, which made the price the second thing read. */}
+          <h1 className="pdp-nm">{p.name}</h1>
+          {average != null && (
+            <a className="pdp-rate" href="#reviews">
+              <span className="stars" aria-hidden="true">
+                {"★★★★★".slice(0, Math.round(average))}
+                <span className="stars-off">{"★★★★★".slice(Math.round(average))}</span>
+              </span>
+              <b>{average.toFixed(1)}</b>
+              <span>({Number(p.rating_count) || 0})</span>
+            </a>
+          )}
+          <div className="pdp-media-in">
+            <ProductGallery images={p.images} name={p.name} lang={lang} />
+            {/* Things you do ABOUT the product rather than to buy it, so
+                they sit beside the picture and not in the price card. */}
+            <ProductActions p={p} lang={lang} siteOrigin={siteOrigin}
+              waNumber={settings.wa_number} />
+          </div>
+        </div>
+
+        {/* WHAT IT COSTS. Pinned beside the page on a wide screen, so
+            the thing a shopper buys with never scrolls away while they
+            read the description -- which is why both of the shops this
+            borrows from pin it.
+
+            SECOND IN THE DOCUMENT, ahead of the summary, although the
+            three-column grid draws it third. Stacked on a phone the
+            document order is the only order there is, and having it last
+            put the price and the Add to cart button below four hundred
+            words of a supplier's description -- measured at 390px, a
+            full screen of scrolling to reach the one control the page
+            exists for. The grid below places all three columns
+            explicitly, so moving it here moves nothing on a wide
+            screen, and it puts the buy card ahead of the description
+            for a keyboard too. */}
+        <div className="pdp-buy">
+          <ProductInteractive p={{ ...p, sizes }} settings={settings} lang={lang}
+            siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
+            /* A plain object, not the Map: this crosses the server ->
+               client boundary and a Map does not survive it. */
+            sizePrices={Object.fromEntries(sizePrices)} />
+        </div>
+        {/* WHAT IT IS LIKE. Open panels, not folds: FNAC's Resumo and
+            Características are simply there, and a summary worth writing
+            is worth showing. They kept their own scroll -- a supplier's
+            four hundred words still must not become the page. */}
+        <div className="pdp-info">
           {/* CAPPED, AND SCROLLED WHEN IT NEEDS TO BE.
               A seller who pastes a supplier's four hundred words pushes
               the specification, the reviews and the related products off
@@ -177,11 +232,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               it is keyboard-operable and screen-reader-announced for
               free, and the browser's own find-in-page opens it. */}
           {p.description?.trim() && (
-            <details className="pdp-fold" open>
-              <summary>{t("description", lang)}</summary>
+            <section className="panel pdp-sec">
+              <h2>{t("description", lang)}</h2>
               <div className="pdp-scroll" tabIndex={0}
                 style={{ whiteSpace: "pre-wrap" }}>{p.description}</div>
-            </details>
+            </section>
           )}
 
           {/* WHAT THIS PARTICULAR PRODUCT IS.
@@ -192,8 +247,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
               whole block disappears when nothing has been answered, which
               is every product created before the taxonomy existed. */}
           {specs.length > 0 && (
-            <details className="pdp-fold" open>
-              <summary>{t("specifications", lang)}</summary>
+            <section className="panel pdp-sec">
+              <h2>{t("specifications", lang)}</h2>
               {/* A sofa answers eighteen questions. Five rows is the
                   height at which this stops being a list and starts being
                   the page, so past that it scrolls in place. */}
@@ -206,26 +261,15 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                   </div>
                 ))}
               </dl>
-            </details>
+            </section>
           )}
-        </div>
-        {/* STICKY BESIDE THE PAGE, not stacked above it.
-            The thing a shopper buys with should not scroll away while
-            they read the description -- which is why both of the shops
-            this borrows from pin it. The product's NAME lives inside the
-            card now rather than above this column: it is the first line
-            of what you are buying, and having it outside left the card
-            starting mid-sentence. */}
-        <div className="pdp-buy">
-          <ProductInteractive p={{ ...p, sizes }} settings={settings} lang={lang}
-            siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
-            /* A plain object, not the Map: this crosses the server ->
-               client boundary and a Map does not survive it. */
-            sizePrices={Object.fromEntries(sizePrices)} />
         </div>
       </div>
 
-      <ProductReviews p={p} reviews={reviews} lang={lang} />
+      {/* The anchor the rating above jumps to. */}
+      <div id="reviews">
+        <ProductReviews p={p} reviews={reviews} lang={lang} />
+      </div>
 
       {related.length > 0 && (
         <>
