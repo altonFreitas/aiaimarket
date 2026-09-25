@@ -6,6 +6,9 @@ import BasketBadge from "./BasketBadge";
 import SearchBar from "./SearchBar";
 import TrackIcon from "./TrackIcon";
 import MobileNav from "./MobileNav";
+import HeaderNav from "./HeaderNav";
+import HeartIcon from "./HeartIcon";
+import LovesBadge from "./LovesBadge";
 import { getCategories, getHeroSlides, getLiveProducts } from "@/lib/data/public";
 import { buildNav } from "@/lib/nav";
 import { getLang } from "@/lib/lang";
@@ -51,34 +54,20 @@ export default async function Header({ settings }: { settings: Settings }) {
             <Image src="/logo-mark.webp" alt="" width={280} height={115} priority style={{ height: 18, width: "auto" }} />
             <b>{settings.store_name}</b>
           </Link>
+
+          {/* THE AISLES, ACROSS THE MIDDLE.
+              A single "Shop all" icon stood here, which was itself what
+              replaced a bar of category buttons under the header. The
+              reference puts a real nav back -- Home, Shop, Categories,
+              About, Contact -- and the two dropdowns carry what the icon
+              could only point at. Desktop only: below 1024 MobileNav's
+              sheet has the same links with room to spell them out. */}
+          {/* A spacer each side, so the nav sits centred in what the logo
+              and the controls leave rather than pinned against the logo. */}
+          <span className="hd-sp" />
+          <HeaderNav roots={navRoots} lang={lang} />
           <span className="hd-sp" />
 
-          {/* THE AISLES, IN ONE ICON.
-              A row of category buttons used to sit under this header --
-              Women, Men, two or three categories, Shop all. It was built
-              for a clothing shop; this one sells fridges and cookware and
-              cloth as well, and a bar wide enough to name every aisle is
-              not a bar. /shop has the whole tree down its left side with
-              live counts, so the door to it goes here, next to the search
-              box it sits beside in every other shop on earth.
-
-              Desktop only, both of them: this is a 52px row with four
-              controls in it already, and a text field does not fit beside
-              them on a phone. The phone gets the same search and the same
-              categories inside MobileNav's sheet. */}
-          <Link className="icon-btn hd-shop" href="/shop" aria-label={t("navShopAll", lang)}>
-            {/* Four squares: the shape every storefront uses for "all of
-                it", and the one thing a bag or a tag would be confused
-                with here -- the cart is three icons to the right. */}
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
-            </svg>
-            {t("navShopAll", lang)}
-          </Link>
           <div className="site-search hd-search">
             <SearchBar lang={lang} />
           </div>
@@ -86,9 +75,12 @@ export default async function Header({ settings }: { settings: Settings }) {
           {/* Desktop only — the mobile bottom nav already has this tab,
               but that nav is hidden at desktop widths, so without this
               link there's no way to reach order tracking on desktop. */}
-          <Link className="icon-btn hd-track" href="/track">
+          <Link className="icon-btn hd-track" href="/track"
+            aria-label={t("navTrack", lang)}>
             <TrackIcon />
-            {t("navTrack", lang)}
+            {/* In a span so the breakpoint can drop the word and keep the
+                icon -- five controls stand in this row now. */}
+            <span>{t("navTrack", lang)}</span>
           </Link>
 
           <LangSwitch current={lang} />
@@ -113,6 +105,15 @@ export default async function Header({ settings }: { settings: Settings }) {
                 <path d="M4 21c0-4 4-7 8-7s8 3 8 7" />
               </svg>
             )}
+          </Link>
+          {/* THE HEART, WITH SOMEWHERE TO GO.
+              Hearts have been on every card since loves.sql and the
+              count has never been clickable. /loves is the page it
+              opens; the number is this browser's own, so it is drawn on
+              the client -- see LovesBadge. */}
+          <Link className="icon-btn hd-loves" href="/loves" aria-label={t("navLoves", lang)}>
+            <HeartIcon size={17} />
+            <LovesBadge />
           </Link>
           <Link className="icon-btn hd-cart" href="/list" aria-label={t("navList", lang)}>
             <CartIcon size={17} />

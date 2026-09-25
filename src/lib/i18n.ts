@@ -1655,6 +1655,7 @@ export const STR: Record<string, [string,string,string]> = {
   lovesTitle:["Ita nia gosta","Os seus favoritos","Your saved items"],
   lovesEmpty:["Seidauk rai buat ida.","Ainda não guardou nada.","You have not saved anything yet."],
   lovesEmptyHint:["Klik iha korasaun iha produtu ruma atu rai ba iha ne'e.","Toque no coração de um produto para o guardar aqui.","Tap the heart on any product to keep it here."],
+  navShop:["Loja","Loja","Shop"],
   navAbout:["Kona-ba ami","Sobre","About"],
   navContact:["Kontaktu","Contacto","Contact"],
   navHome:["Uma","Início","Home"],

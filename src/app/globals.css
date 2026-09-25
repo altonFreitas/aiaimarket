@@ -237,27 +237,84 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ---------- header ---------- */
-.hd{position:sticky;top:0;z-index:40;background:var(--ink);color:#fff}
+/* A WHITE HEADER, which is the reference's and a change of kind rather
+   than of colour: on ink, the controls were outlined in translucent
+   white and the logo was inverted with a filter. Everything in here that
+   used rgba(255,255,255,...) had to become a real border on a real
+   background, and the logo had to stop being inverted. */
+.hd{position:sticky;top:0;z-index:40;background:var(--card);color:var(--ink);
+  border-bottom:1px solid var(--line)}
 .hd-in{position:relative;display:flex;align-items:center;gap:10px;height:var(--hd);padding:0 12px;max-width:var(--content-w);margin:0 auto}
-.hd-logo{position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;text-decoration:none;flex:0 0 auto}
-.hd-logo img{height:18px;width:auto;filter:brightness(0) invert(1)}
-.hd-logo b{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;opacity:.85;display:none}
+/* ON THE LEFT, not centred. It was absolutely positioned at 50% because
+   there was nothing else in the middle of the bar; the nav is there now,
+   and two things centred on the same point is one thing on top of the
+   other. */
+.hd-logo{display:flex;align-items:center;gap:8px;text-decoration:none;flex:0 0 auto;color:var(--ink)}
+.hd-logo img{height:18px;width:auto}
+.hd-logo b{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;display:none}
 .hd-sp{flex:1}
-.icon-btn{background:transparent;border:1px solid rgba(255,255,255,.22);color:#fff;height:34px;min-width:34px;
-  border-radius:var(--r-s);display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 8px;cursor:pointer;font-size:13px}
-.icon-btn:hover{background:rgba(255,255,255,.1)}
-.icon-btn .cnt{font-family:var(--mono);font-size:11px;background:var(--amber);color:#3a2b00;border-radius:20px;padding:0 5px;font-weight:700}
+.icon-btn{background:transparent;border:1px solid var(--line);color:var(--ink);height:34px;min-width:34px;
+  border-radius:var(--r-s);display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 8px;cursor:pointer;font-size:13px;
+  position:relative}
+.icon-btn:hover{background:var(--line-2);border-color:var(--ink-3)}
+/* The count rides the corner of its icon, the way a notification badge
+   does, rather than sitting beside it and widening the button -- five
+   controls in this row and each one growing when it has a number is a
+   row that reflows as you shop. */
+.icon-btn .cnt{position:absolute;top:-6px;right:-6px;font-family:var(--mono);font-size:10px;
+  background:var(--amber);color:#3a2b00;border-radius:20px;min-width:16px;height:16px;
+  display:inline-flex;align-items:center;justify-content:center;padding:0 4px;font-weight:700;
+  border:1px solid var(--card)}
+
+/* ---- the nav across the middle ---- */
+.hd-nav{display:none;align-items:center;gap:2px;flex:0 0 auto}
+.hd-nav-a{display:inline-flex;align-items:center;gap:4px;height:34px;padding:0 11px;
+  background:transparent;border:0;cursor:pointer;border-radius:var(--r-s);
+  color:var(--ink-3);font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap;
+  font-family:inherit}
+.hd-nav-a:hover{background:var(--line-2);color:var(--ink)}
+.hd-nav-a.is-here{color:var(--ink)}
+/* The page you are on, underlined the way the reference marks it -- and
+   inside the button rather than as a border, so it sits under the word
+   instead of under the 34px hit area. */
+.hd-nav-a.is-here::after{content:"";position:absolute;left:11px;right:11px;bottom:4px;
+  height:2px;background:var(--amber);border-radius:2px}
+.hd-nav-a{position:relative}
+.hd-drop{position:relative}
+.hd-menu{position:absolute;left:0;top:100%;z-index:50;min-width:210px;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  box-shadow:var(--sh);padding:6px;display:flex;flex-direction:column;
+  animation:megaDown .12s ease-out}
+/* The tree is wider than a list and wants columns. A max-width so a shop
+   with eight roots does not draw a menu wider than the page. */
+.hd-menu-wide{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  gap:2px 14px;min-width:min(620px,88vw);max-width:88vw;padding:12px}
+.hd-menu a{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 10px;border-radius:var(--r-s);text-decoration:none;color:var(--ink-3);font-size:14px}
+.hd-menu a:hover{background:var(--line-2);color:var(--ink)}
+.hd-menu-col{display:flex;flex-direction:column;min-width:0}
+.hd-menu-head{font-weight:700;color:var(--ink)}
+.hd-menu-head em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--muted)}
+/* The gap between the button and the panel is where a pointer crosses
+   nothing, which closes the menu on the way to it. Bridged rather than
+   removed, so the panel still sits clear of the header's rule. */
+.hd-drop::after{content:"";position:absolute;left:0;right:0;top:100%;height:8px}
 .hd-track{display:none;text-decoration:none;font-weight:600;white-space:nowrap}
-/* The door to the whole catalogue, where the bar of category buttons used
-   to be. Desktop only and hidden the same way .hd-track is: a phone
-   reaches the aisles through MobileNav's sheet, which already lists them
-   with counts, and a second way in would be the same list twice. */
-.hd-shop{display:none;text-decoration:none;font-weight:600;white-space:nowrap}
+/* .hd-shop stood here: one icon that was the whole door to the catalogue,
+   itself the replacement for a bar of category buttons. .hd-nav is that
+   door now and says more than an icon could, so the rule went with the
+   markup rather than being left to style nothing. */
 /* Mobile has this exact tab in the bottom nav (.nav) already -- showing
    it in the header too would just duplicate it. Revealed at the same
    desktop breakpoint where .nav itself is hidden, same pattern as
    .hd-track just above. */
 .hd-cart{display:none}
+/* THE HEART STAYS ON A PHONE, and the cart does not, which looks
+   inconsistent and is not. The bottom nav carries Catalog, Cart and
+   Track; it does not carry Saved. So the header is the only way to
+   reach the saved list on a phone, and hiding it here would leave the
+   page with no route to itself. */
+.hd-loves{display:inline-flex}
 /* ONE BUTTON, NOT THREE. TET|PT|EN cost about 90px of a header that also
    holds a logo, a search box, an account button and a basket -- and two of
    the three were always the wrong answer, sitting there being ignored. This
@@ -265,10 +322,10 @@ button,input,select,textarea{font:inherit;color:inherit}
    phone's header as well as the desktop's. */
 .lang{position:relative;flex:0 0 auto}
 .lang-btn{display:inline-flex;align-items:center;gap:5px;height:34px;padding:0 9px;cursor:pointer;
-  background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);color:#fff}
-.lang-btn:hover{background:rgba(255,255,255,.1)}
+  background:transparent;border:1px solid var(--line);border-radius:var(--r-s);color:var(--ink)}
+.lang-btn:hover{background:var(--line-2);border-color:var(--ink-3)}
 .lang-btn b{font-family:var(--mono);font-size:11px;letter-spacing:.06em;font-weight:700}
-.lang-btn[aria-expanded=true]{background:rgba(255,255,255,.14)}
+.lang-btn[aria-expanded=true]{background:var(--line-2);border-color:var(--ink-3)}
 .lang-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:168px;
   background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--r-s);
   box-shadow:var(--sh);overflow:hidden;animation:megaDown .12s ease-out}
@@ -281,11 +338,24 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* The search box, wherever it is standing. Two copies exist -- one in the
    header for a desktop, one under the categories for a phone -- and CSS
    shows exactly one of them, so this styles both. */
-.site-search form{display:flex;gap:6px}
-.site-search input{flex:1;min-width:0;height:38px;border-radius:var(--r-s);border:1px solid var(--ink-3);
-  background:#fff;color:var(--ink);padding:0 12px}
-.site-search button{flex:0 0 auto;height:38px;border:0;border-radius:var(--r-s);background:var(--amber);
-  color:#3a2b00;font-weight:700;padding:0 14px;cursor:pointer}
+/* ONE FIELD WITH THE MAGNIFIER IN IT. The button used to sit beside the
+   input as a filled amber block; the form is a relative box now and the
+   button is placed inside the field's right end, which is what the
+   reference draws and what every other shop's header does. */
+.site-search form{display:flex;gap:6px;position:relative;align-items:center}
+.site-search input{flex:1;min-width:0;height:38px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--line-2);color:var(--ink);padding:0 14px}
+.site-search input:focus{background:var(--card);border-color:var(--ink-3);outline:none}
+.site-search button{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  flex:0 0 auto;width:30px;height:30px;padding:0;border:0;border-radius:var(--r-pill);
+  background:transparent;color:var(--muted);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center}
+.site-search button:hover{background:var(--line);color:var(--ink)}
+.site-search button:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+/* Room for the button, so a long query does not run under the magnifier. */
+.site-search input{padding-right:38px}
+/* The browser's own clear cross would sit on top of the button. */
+.site-search input::-webkit-search-cancel-button{display:none}
 /* In the header it stands beside .icon-btn, which is 34px. A 38px field
    next to them would sit proud of the row. */
 /* The phone's menu and search. Same size and border as .icon-btn on the
@@ -294,11 +364,11 @@ button,input,select,textarea{font:inherit;color:inherit}
    search box its own place beside Track order. */
 .hd-mob{display:inline-flex;align-items:center;justify-content:center;
   width:34px;height:34px;flex:0 0 auto;padding:0;cursor:pointer;
-  background:transparent;border:1px solid rgba(255,255,255,.22);border-radius:var(--r-s);color:#fff}
-.hd-mob:hover{background:rgba(255,255,255,.1)}
+  background:transparent;border:1px solid var(--line);border-radius:var(--r-s);color:var(--ink)}
+.hd-mob:hover{background:var(--line-2);border-color:var(--ink-3)}
 .hd-search{display:none;flex:0 1 auto;min-width:0}
-.hd-search input,.hd-search button{height:34px}
-.hd-search button{padding:0 12px;font-size:13px}
+.hd-search input{height:34px}
+.hd-search button{width:26px;height:26px}
 
 /* ---------- shell ---------- */
 /* width:100% is load-bearing, not decoration. <body> is a column flex
@@ -316,6 +386,21 @@ button,input,select,textarea{font:inherit;color:inherit}
 .crumb{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 .crumb a{text-decoration:none}
 .crumb a:hover{text-decoration:underline}
+
+/* THE STOREFRONT TRAIL. Its own class, not a restyle of .crumb: a dozen
+   admin screens use that one for small captions that are not trails at
+   all ("TOP PRODUCTS", "REVENUE"), and changing it would have re-dressed
+   every one of them. */
+.crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:2px;
+  font-size:var(--fs-body-sm);color:var(--muted);margin:0 0 var(--sp-3)}
+.crumbs a{color:var(--muted);text-decoration:none;padding:2px 4px;border-radius:4px}
+.crumbs a:hover{color:var(--ink);background:var(--line-2)}
+.crumbs-home{display:inline-flex;align-items:center}
+.crumbs-step{display:inline-flex;align-items:center;gap:2px;min-width:0}
+.crumbs-sep{flex:0 0 auto;opacity:.5}
+/* Where you are: the one step that is not a link, and the only one in
+   the shop's ink. */
+.crumbs [aria-current=page]{color:var(--ink);font-weight:600;padding:2px 4px}
 h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.01em}
 /* EVERY h2 IN CAPITALS. A section heading is a signpost, not a sentence,
    and setting them all one way stops the page reading as a dozen small
@@ -1202,9 +1287,15 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
   .nav{display:none}
   .ft{padding-bottom:16px}
   .hd-mob{display:none}
-  .hd-search{display:block;width:min(340px, 26vw)}
+  /* The shop's name beside its mark, which is what the reference shows
+     and what a white bar has room for. */
+  .hd-logo b{display:inline}
+  .hd-search{display:block;width:min(300px, 22vw)}
+  /* An icon, no label: five controls stand in this row now and Track is
+     the one of them a shopper uses once an order exists, not while they
+     are shopping. */
   .hd-track{display:inline-flex}
-  .hd-shop{display:inline-flex}
+  .hd-track span{display:none}
   .hd-cart{display:inline-flex}
   .wrap{padding-bottom:30px}
   h1{font-size:25px}
@@ -1853,8 +1944,18 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .topbar{background:var(--ink-2);color:rgba(255,255,255,.72);font-size:12px;display:none;
   position:relative;z-index:41}
 .topbar-in{max-width:var(--content-w);margin:0 auto;padding:6px 12px;display:flex;align-items:center;gap:14px}
-.topbar-note{white-space:nowrap}
-.topbar-hours{color:rgba(255,255,255,.5)}
+/* Icon and words on one baseline. inline-flex rather than an inline
+   SVG floating in text: at 12px a 13px glyph sitting on the text baseline
+   rides two pixels low, which reads as a misaligned icon rather than as a
+   small one. */
+.topbar-note{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.topbar-note svg{flex:0 0 auto;opacity:.8}
+.topbar-hours{color:rgba(255,255,255,.55)}
+/* The place is a real maps link, so it carries a link's affordance --
+   but quietly: it is a 12px utility strip, not a call to action. */
+.topbar-place a{display:inline-flex;align-items:center;gap:6px;
+  color:rgba(255,255,255,.72);text-decoration:none}
+.topbar-place a:hover{color:#fff;text-decoration:underline}
 .topbar-sp{flex:1}
 .topbar-link{color:#fff;text-decoration:none;font-weight:600;white-space:nowrap}
 .topbar-link:hover{text-decoration:underline}
@@ -3134,6 +3235,17 @@ tr.is-ended{opacity:.55}
    readable line, so the summary stays under the photograph instead.
    1180 is where a 340px card, a 300px middle and a 400px image all fit
    inside the content width with the gaps. */
+/* THE NAV ROW NEEDS ROOM, and 768 is not it. The logo, five nav items, a
+   search field and five controls come to about 960px before any of them
+   can breathe; squeezed into 768 the nav wrapped onto a second line and
+   took the header's height with it. Below this the hamburger carries the
+   same links in MobileNav's sheet, which is where a phone was already
+   going to look. Measured, not guessed -- see the note in
+   tests/chromeLayout.test.ts. */
+@media(min-width:1024px){
+  .hd-nav{display:flex}
+}
+
 @media(min-width:1180px){
   .pdp{grid-template-columns:minmax(0,1.15fr) minmax(260px,0.85fr) minmax(320px,360px)}
   /* The summary sits BESIDE the photograph, not under it -- which means

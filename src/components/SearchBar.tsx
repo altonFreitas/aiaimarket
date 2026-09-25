@@ -78,7 +78,18 @@ export default function SearchBar({
         autoComplete="off"
         autoFocus={autoFocus}
       />
-      <button type="submit">{t("searchGo", lang)}</button>
+      {/* A MAGNIFIER INSIDE THE FIELD, not a filled button beside it.
+          The amber button was the second loudest thing in the header
+          after the cart, for an action a shopper reaches by pressing
+          Enter anyway. It stays a real submit button -- it is how the
+          form is sent without a keyboard -- and keeps its accessible
+          name; only the label is now the icon. */}
+      <button type="submit" aria-label={t("searchGo", lang)}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.6-3.6" />
+        </svg>
+      </button>
     </form>
   );
 }
