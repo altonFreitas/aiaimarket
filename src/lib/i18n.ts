@@ -1466,6 +1466,7 @@ export const STR: Record<string, [string,string,string]> = {
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
   featOrderDiscount:["Diskontu iha enkomenda","Desconto na encomenda","The discount on an order"],
   featCustomerAlerts:["Avizu ba kliente","Avisos para clientes","Alerts for customers"],
+  featSalesRollup:["Rezumu venda loron-loron ba dashboard","Resumo diário de vendas para o painel","Daily sales rollup for the dashboard"],
   featMessageQueue:["Fila mensajen ne'ebé haruka automatikamente","Fila de mensagens enviada automaticamente","Message queue drained automatically"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */

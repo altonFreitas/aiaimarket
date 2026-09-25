@@ -24,6 +24,8 @@ const KINDS = {
     "variant_available",
     // attribute-filters.sql
     "products_with_attribute",
+    // sales-rollup.sql -- the function the analytics cron calls.
+    "refresh_sales_daily",
   ],
   indexes: [
     ["public.products", "idx_products_live"],
@@ -285,6 +287,8 @@ describe("an old schema_inventory() that can only see tables", () => {
     const out = checkSchema(oldShape);
     const unchecked = uncheckedFiles(out);
     expect(unchecked).toEqual([
+      // A function alone, which an old inventory cannot report at all.
+      "sales-rollup.sql",
       "loves.sql", "refund-settlement.sql", "rate-limits.sql",
       // Checked by a constraint alone, which the old function cannot report.
       "admin-subsections.sql",
