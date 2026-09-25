@@ -107,7 +107,13 @@ const SETTINGS_CORE =
 const SETTINGS_PUBLIC_EXTRAS =
   ", legal_address, legal_registration, legal_retention_years, " +
   "legal_return_days, legal_refund_days, display_currency, tax_rate, " +
-  "tax_label, tax_included";
+  "tax_label, tax_included" +
+  /* From supabase/site-chrome.sql. Named here for the same reason the
+     nine above are: a column the storefront asks for and is refused
+     fails the WHOLE select, so the fallback to SETTINGS_CORE is what
+     keeps a shop that has not run the file yet from losing its name and
+     its bank details over a font. */
+  ", heading_font, incentives_off, incentive_text";
 
 /** Never throws: a missing or unreachable settings row must not take the
  * whole site down. Callers check `settings.id === 0` to show the setup
@@ -485,6 +491,78 @@ export async function getSellerRatings(sellerId: string): Promise<{
  * it comes from the denormalised rating_sum/rating_count columns already on
  * the product row, so a grid of 24 cards costs zero extra queries. This is
  * only for the review list on a product page. */
+/** WHAT SHOPPERS HAVE ACTUALLY SAID, for the homepage.
+ *
+ * NOT WRITTEN. Every testimonial strip on the internet is three
+ * paragraphs somebody made up over three stock portraits, and a shopper
+ * in Dili who recognises none of the names learns only that the shop will
+ * say anything. These are rows out of product_reviews -- left by buyers
+ * against orders they placed -- joined to the product they are about, so
+ * each one is a claim with a receipt behind it and a link to the thing
+ * being praised.
+ *
+ * FOUR STARS AND UP, WITH WORDS IN IT. A three-star review is feedback
+ * and belongs on the product page where it already is; the homepage strip
+ * is the shop showing its best, which every shop does and which is honest
+ * as long as the words are real. A rating with no comment has nothing to
+ * quote.
+ *
+ * Empty until somebody writes one, and the section draws nothing at all
+ * while it is -- the same rule every other homepage row follows.
+ */
+export interface Testimonial {
+  id: string;
+  buyer_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  product: { name: string; slug: string; image: string } | null;
+}
+
+export async function getTestimonials(limit = 9): Promise<Testimonial[]> {
+  try {
+    const sb = supabaseAnon();
+    /* Bounded, and newest first: a testimonial from two years ago is a
+       testimonial about a shop that has since changed. The extra rows
+       over `limit` are the ones filtered out below for having no words
+       in them, so the strip still fills up when half the ratings are
+       silent. */
+    const { data, error } = await sb
+      .from("product_reviews")
+      .select("id, buyer_name, rating, comment, created_at, products(name, slug, images, status)")
+      .gte("rating", 4)
+      .order("created_at", { ascending: false })
+      .limit(limit * 6);
+    if (error || !data) return [];
+
+    type Row = {
+      id: string; buyer_name: string; rating: number; comment: string; created_at: string;
+      products: { name: string; slug: string; images: string[] | null; status: string } | null;
+    };
+
+    return (data as unknown as Row[])
+      .filter((r) => (r.comment ?? "").trim().length > 0)
+      /* A review of a product that is no longer on sale would link to a
+         404. Dropped rather than drawn without a link: the product is
+         what makes it a testimonial rather than an opinion. */
+      .filter((r) => r.products && r.products.status === "approved")
+      .slice(0, limit)
+      .map((r) => ({
+        id: r.id,
+        buyer_name: r.buyer_name,
+        rating: Number(r.rating) || 0,
+        comment: r.comment.trim(),
+        created_at: r.created_at,
+        product: r.products
+          ? { name: r.products.name, slug: r.products.slug,
+              image: r.products.images?.[0] || "" }
+          : null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getProductReviews(productId: string, limit = 20): Promise<ProductReview[]> {
   try {
     const sb = supabaseAnon();

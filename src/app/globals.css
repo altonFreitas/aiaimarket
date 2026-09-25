@@ -47,12 +47,15 @@
   --red:#bb3a2a; --red-soft:#fbe4e0;
   --wa:#198845; --wa-dark:#126334;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  /* The heading face -- Plus Jakarta Sans, loaded in layout.tsx and used
-     ONLY on headings. --font-display is what next/font binds; the same
-     system stack follows it, so a heading is set in the system face
-     rather than in nothing while the file is in flight, and reads
-     correctly if it never arrives at all. */
-  --display:var(--font-display),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  /* The heading face, used ONLY on headings. The shop picks it in
+     Settings; layout.tsx loads all four and puts the choice on <html> as
+     data-face, and the rules under :root[data-face=...] below rebind this
+     variable. Jakarta is the default, so this line is what an unset shop
+     and a database without the column both get.
+     The system stack follows it either way, so a heading is set in the
+     system face rather than in nothing while the file is in flight -- and
+     reads correctly if it never arrives at all. */
+  --display:var(--font-jakarta),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
   --r:10px; --r-s:6px;
   /* Was 1180px. That capped out well short of a typical desktop monitor,
@@ -393,11 +396,20 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* Where you are: the one step that is not a link, and the only one in
    the shop's ink. */
 .crumbs [aria-current=page]{color:var(--ink);font-weight:600;padding:2px 4px}
+/* THE FOUR FACES THE SHOP CAN PICK. One rule each, rebinding --display;
+   everything that sets a heading reads that one variable, so a new face
+   is a line here and a line in layout.tsx and nothing else.
+   "system" is a real choice, not a fallback: a shop on a slow connection
+   may prefer no font file at all, and this is how it says so. */
+:root[data-face=inter]{--display:var(--font-inter),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+:root[data-face=grotesk]{--display:var(--font-grotesk),-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+:root[data-face=system]{--display:var(--sans)}
+
 /* The display face, and the tighter tracking that goes with it: Jakarta
    sets wider than the system stack at the same size, so the headline
    needs pulling in to read as one word rather than as a row of letters. */
 h1,h2,h3,.pdp-nm,.home-section-hd h2,.infopage h1{font-family:var(--display)}
-h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.02em;font-weight:800}
+h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.02em;font-weight:700}
 /* EVERY h2 IN CAPITALS. A section heading is a signpost, not a sentence,
    and setting them all one way stops the page reading as a dozen small
    decisions -- the homepage rows, the panels on a product page and the
@@ -3514,6 +3526,85 @@ tr.is-ended{opacity:.55}
 .ship-ticks{list-style:none;margin:0;padding:0;display:grid;gap:var(--sp-2)}
 .ship-ticks li{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-body-sm)}
 .ship-ticks li svg{flex:0 0 auto;color:var(--green)}
+
+/* ---------- the appearance panel in Settings ---------- */
+/* The sample is set in the face being chosen, so the choice is visible
+   before it is saved rather than only after a reload. */
+.font-sample{font-family:var(--display);font-size:var(--fs-body);color:var(--ink)}
+.font-sample[data-face=inter]{font-family:var(--font-inter),var(--sans)}
+.font-sample[data-face=grotesk]{font-family:var(--font-grotesk),var(--sans)}
+.font-sample[data-face=system]{font-family:var(--sans)}
+.font-sample[data-face=jakarta]{font-family:var(--font-jakarta),var(--sans)}
+
+.inc-admin{display:grid;gap:var(--sp-2);margin-top:var(--sp-2)}
+.inc-admin-row{display:grid;gap:var(--sp-2);padding:var(--sp-2);
+  border-radius:var(--r-s);background:var(--line-2)}
+@media(min-width:760px){
+  .inc-admin-row{grid-template-columns:minmax(150px,1fr) minmax(0,2fr);align-items:center}
+}
+.inc-admin-on{margin:0}
+.inc-admin-own{display:grid;gap:var(--sp-2);min-width:0}
+@media(min-width:520px){.inc-admin-own{grid-template-columns:1fr 1fr}}
+.inc-admin-own input{min-width:0}
+/* A line the settings do not support: shown, explained, and not tickable.
+   "You have not set this up yet" is more use than an absence. */
+.inc-admin-row.is-unearned{opacity:.66}
+.inc-admin-why{margin:0}
+
+/* ---------- what shoppers said ----------
+   A grid rather than a carousel: these are real reviews, so there may be
+   one of them or nine, and a carousel needs three to look like anything.
+   auto-fit means one review is one full-width card and nine are three
+   rows of three, with nothing to configure between. */
+.tmls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));
+  gap:var(--sp-3)}
+.tml{margin:0;display:flex;flex-direction:column;gap:var(--sp-2);
+  background:var(--card);border-radius:var(--r);box-shadow:var(--sh-1);
+  padding:var(--sp-4);min-width:0}
+.tml-stars{color:var(--amber);letter-spacing:1px;font-size:var(--fs-body-sm)}
+.tml-stars .stars-off{color:var(--line)}
+/* CAPPED BY LINES, NOT BY CHARACTERS. Trimming the text in the component
+   would be the shop editing a review; clamping it draws the cut visibly,
+   and the whole thing is still on the product page where it was left. */
+.tml-q{margin:0;quotes:none;color:var(--ink-3);min-width:0;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.tml-by{display:flex;flex-direction:column;gap:var(--sp-2);margin-top:auto;
+  padding-top:var(--sp-2);border-top:1px solid var(--line);min-width:0}
+.tml-by b{font-size:var(--fs-body-sm)}
+/* The product it is about, as a link. A quote with a receipt beside it is
+   checkable; a quote on its own is a sentence in quotation marks. */
+.tml-p{display:flex;align-items:center;gap:var(--sp-2);min-width:0;
+  text-decoration:none;color:var(--muted);font-size:var(--fs-caption)}
+.tml-p img{width:36px;height:36px;border-radius:var(--r-s);object-fit:cover;flex:0 0 auto}
+.tml-p span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tml-p:hover{color:var(--ink)}
+
+/* ---------- the phone's page menu ----------
+   The menu button used to open the same aisles the search button opens.
+   It carries the PAGES now, as rows big enough to hit with a thumb: an
+   icon, the word, and a chevron that says the row goes somewhere. */
+.mpages{display:flex;flex-direction:column;gap:var(--sp-2);padding:var(--sp-2) 0}
+.mpage{display:flex;align-items:center;gap:var(--sp-3);
+  padding:var(--sp-3);border-radius:var(--r-s);background:var(--card);
+  box-shadow:var(--sh-1);text-decoration:none;color:var(--ink);
+  min-height:58px}
+.mpage:active{background:var(--line-2)}
+.mpage-ic{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:40px;height:40px;border-radius:var(--r-pill);
+  background:#e8eefb;color:var(--ink-3)}
+.mpage-t{flex:1;min-width:0;font-family:var(--display);font-weight:700;
+  font-size:var(--fs-body);letter-spacing:-.005em}
+.mpage-arw{flex:0 0 auto;color:var(--muted)}
+/* Where you already are: marked, and not offered as somewhere to go. */
+.mpage[aria-current=page]{background:var(--line-2)}
+.mpage[aria-current=page] .mpage-ic{background:var(--ink);color:#fff}
+.mpage[aria-current=page] .mpage-arw{display:none}
+/* The second group is quieter: somewhere you go once you have already
+   done something, rather than while you are still looking. */
+.mpages-more{border-top:1px solid var(--line);margin-top:var(--sp-2);padding-top:var(--sp-3)}
+.mpages-more .mpage{box-shadow:none;background:transparent;min-height:50px}
+.mpages-more .mpage-ic{width:34px;height:34px;background:var(--line-2)}
+.mpages-more .mpage-t{font-size:var(--fs-body-sm)}
 
 /* ================= THE INCENTIVE STRIP =================
    A row of reassurances under the header that slides by, pauses under a

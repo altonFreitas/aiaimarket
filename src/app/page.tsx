@@ -1,7 +1,8 @@
 import Hero from "@/components/home/Hero";
 import ProductSection from "@/components/home/ProductSection";
 import PromoStrip from "@/components/home/PromoStrip";
-import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides, getPromotions, getApprovedSellersById } from "@/lib/data/public";
+import Testimonials from "@/components/home/Testimonials";
+import { getCategories, getLiveProducts, getSettings, getBestSellingProducts, getHeroSlides, getPromotions, getApprovedSellersById, getTestimonials } from "@/lib/data/public";
 import { mostLoved } from "@/lib/loves";
 import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
@@ -52,8 +53,11 @@ function productsInCategory(cat: Category, cats: Category[], products: Product[]
  * orders. Nothing here invents a section to fill space, which is why each
  * one renders nothing at all when it has nothing to show. */
 export default async function HomePage() {
-  const [lang, settings, cats, products, bestSellers, heroSlides, promotions, sellersById] = await Promise.all([
+  const [lang, settings, cats, products, bestSellers, heroSlides, promotions, sellersById, testimonials] = await Promise.all([
     getLang(), getSettings(), getCategories(), getLiveProducts(), getBestSellingProducts(SECTION_SIZE), getHeroSlides(), getPromotions(), getApprovedSellersById(),
+    /* Real reviews, not written ones -- see getTestimonials. Empty until
+       somebody writes one, and the section draws nothing while it is. */
+    getTestimonials(),
   ]);
 
   const newArrivals = products.slice(0, SECTION_SIZE); // getLiveProducts() is already newest-first
@@ -126,6 +130,12 @@ export default async function HomePage() {
             sellersById={sellersById}
           />
         ))}
+
+        {/* AFTER the aisles and before the best sellers: somebody who has
+            scrolled this far has seen what is for sale and is deciding
+            whether to trust the shop, which is the moment a review is
+            worth reading. */}
+        <Testimonials items={testimonials} lang={lang} />
 
         <ProductSection
           title={t("bestSellers", lang)}

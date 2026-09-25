@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Inter, Space_Grotesk } from "next/font/google";
+import { headingFontAttr } from "@/lib/headingFont";
 import { headers } from "next/headers";
 import "./globals.css";
 import TopBar from "@/components/TopBar";
@@ -49,19 +50,41 @@ export const viewport: Viewport = { themeColor: "#152341", colorScheme: "light" 
  * time, so no third-party request, no extra DNS round trip, and nothing
  * for the cookie notice to have to mention.
  */
-const display = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-display",
-  // The three the headings actually use. A variable font ships one file
-  // either way, but naming them keeps the CSS honest about its range.
-  weight: ["600", "700", "800"],
+/* EACH CALL WRITTEN OUT IN FULL, and it has to be: next/font reads its
+   arguments at build time from the source, so a shared options object
+   spread into three calls fails the build with "Unexpected spread". The
+   duplication is the API's, not a choice.
+
+   THE WEIGHTS ARE 600 AND 700, the two every one of these faces has.
+   800 was in the list until Space Grotesk refused it -- that face's
+   variable range stops at 700, so the browser would have synthesised an
+   800 and drawn it heavier and wider than the real thing.
+
+   preload:false on the three the shop has not chosen. Without it
+   next/font puts a <link rel=preload> on every page for faces nothing
+   renders: four fonts fetched to draw one. The @font-face still exists,
+   so the moment the shop picks one it is fetched on the first paint of a
+   heading and display:swap covers the gap. */
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"], display: "swap", weight: ["600", "700"],
+  variable: "--font-jakarta",
+});
+const inter = Inter({
+  subsets: ["latin"], display: "swap", weight: ["600", "700"],
+  variable: "--font-inter", preload: false,
+});
+const grotesk = Space_Grotesk({
+  subsets: ["latin"], display: "swap", weight: ["600", "700"],
+  variable: "--font-grotesk", preload: false,
 });
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
   const settings = await getSettings();
   const needsSetup = settings.id === 0;
+  /* Which face the shop picked. Tolerates a database without the column
+     and a name this build no longer loads -- see lib/headingFont.ts. */
+  const face = headingFontAttr((settings as { heading_font?: string }).heading_font);
 
   /* The shop's own identity, emitted once for the whole site rather than
      per page. Built from the settings row the admin filled in, so it says
@@ -80,7 +103,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   });
 
   return (
-    <html lang={lang} className={display.variable}>
+    <html lang={lang} data-face={face}
+      /* All three variables are declared; the stylesheet picks one by
+         data-face. Only the chosen face is ever fetched, because a font
+         is downloaded when something renders in it and nothing renders
+         in the other two. */
+      className={`${jakarta.variable} ${inter.variable} ${grotesk.variable}`}>
       <body>
         {site && (
           <script

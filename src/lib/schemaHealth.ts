@@ -155,6 +155,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "video_url"]],
   },
   {
+    file: "site-chrome.sql", labelKey: "featSiteChrome",
+    columns: [["settings", "heading_font"], ["settings", "incentives_off"]],
+  },
+  {
     file: "product-highlights.sql", labelKey: "featHighlights",
     columns: [["products", "highlights"]],
   },
@@ -601,6 +605,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   // Anywhere after schema.sql: it adds one column to products and reads
   // nothing. Kept beside the other product-column files.
   "product-highlights.sql",
+  // AFTER legal-currency-tax.sql, whose column-by-column grant pattern on
+  // settings it follows and extends.
+  "site-chrome.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 

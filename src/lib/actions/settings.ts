@@ -1,4 +1,6 @@
 "use server";
+import { headingFontOf } from "@/lib/headingFont";
+import { INCENTIVE_KEYS, MAX_INCENTIVE_LEN } from "@/lib/incentives";
 import { requireAdmin } from "./guard";
 import { normalizeRestockPct } from "@/lib/restock";
 import { normalizeStaleDays } from "@/lib/stale";
@@ -40,6 +42,11 @@ export async function saveSettings(input: {
   legal_refund_days?: number | null;
   display_currency?: string;
   tax_rate?: number; tax_label?: string; tax_included?: boolean;
+  /* The site's own appearance, from supabase/site-chrome.sql. Optional
+     for the same reason as everything above it. */
+  heading_font?: string;
+  incentives_off?: string[];
+  incentive_text?: Record<string, { title?: string; body?: string }>;
 }) {
   await requireAdmin();
   const sb = supabaseAdmin();
@@ -49,7 +56,8 @@ export async function saveSettings(input: {
   const {
     legal_address, legal_registration, legal_retention_years,
     legal_return_days, legal_refund_days, display_currency,
-    tax_rate, tax_label, tax_included, stale_days, ...core
+    tax_rate, tax_label, tax_included, stale_days,
+    heading_font, incentives_off, incentive_text, ...core
   } = input;
 
   /* THE COLUMNS EVERY SHOP HAS, and the ones it may not.
@@ -75,6 +83,16 @@ export async function saveSettings(input: {
     tax_rate: normalizeTaxRate(tax_rate),
     tax_label, tax_included,
     stale_days: normalizeStaleDays(stale_days),
+    /* A face this build does not load would leave the headings in the
+       fallback with nothing to say it had failed, and the column's check
+       constraint would refuse it anyway -- refusing here turns that into
+       the default rather than into a failed save of everything else on
+       the form. */
+    heading_font: headingFontOf(heading_font),
+    /* Only keys that are real incentives: a stale key left behind by a
+       rename would sit in the column for ever, hiding nothing. */
+    incentives_off: (incentives_off ?? []).filter((k) => INCENTIVE_KEYS.has(k)),
+    incentive_text: cleanIncentiveText(incentive_text),
   };
 
   const { error } = await writeTolerating(optional, (extra) =>
@@ -121,4 +139,32 @@ export async function saveZones(zones: Zone[]) {
   if (error) throw error;
   revalidatePath("/", "layout");
   updateTag(CACHE_TAGS.settings);
+}
+
+/** WHAT ACTUALLY GETS STORED as the shop's own wording.
+ *
+ * Trimmed, capped, and emptied entries dropped entirely. An override that
+ * is the empty string is not an override -- it is a box the shop cleared,
+ * and leaving `{title:""}` in the column would print a blank line where
+ * the translated default belongs.
+ *
+ * The cap is the same idea as products.highlights: this is a text box and
+ * a text box gets pasted into. The column's own constraint bounds the
+ * number of keys; this bounds each line, so one paste cannot make the
+ * strip a wall of text. */
+function cleanIncentiveText(
+  input?: Record<string, { title?: string; body?: string }>
+): Record<string, { title?: string; body?: string }> {
+  const out: Record<string, { title?: string; body?: string }> = {};
+  for (const [key, v] of Object.entries(input ?? {})) {
+    if (!INCENTIVE_KEYS.has(key)) continue;
+    const title = (v?.title ?? "").trim().slice(0, MAX_INCENTIVE_LEN);
+    const body = (v?.body ?? "").trim().slice(0, MAX_INCENTIVE_LEN);
+    if (!title && !body) continue;
+    out[key] = {
+      ...(title ? { title } : {}),
+      ...(body ? { body } : {}),
+    };
+  }
+  return out;
 }

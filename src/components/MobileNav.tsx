@@ -13,6 +13,69 @@ import type { HeroSlide, Lang } from "@/lib/types";
 
 type View = "menu" | "search";
 
+type PageIconName = "home" | "info" | "chat" | "heart" | "track";
+interface PageRow { href: string; key: string; icon: PageIconName }
+
+/** The pages, in the order somebody would look for them. Shop and
+ *  Categories are deliberately absent -- they are behind the search icon
+ *  beside this one, and listing them twice is what made the two buttons
+ *  indistinguishable. */
+const PAGES: PageRow[] = [
+  { href: "/", key: "navHome", icon: "home" },
+  { href: "/about", key: "navAbout", icon: "info" },
+  { href: "/contact", key: "navContact", icon: "chat" },
+];
+
+/** Real destinations the three-tab bottom bar cannot fit. */
+const EXTRAS: PageRow[] = [
+  { href: "/loves", key: "navLoves", icon: "heart" },
+  { href: "/track", key: "navTrack", icon: "track" },
+];
+
+function PageIcon({ name }: { name: PageIconName }) {
+  const p = {
+    width: 20, height: 20, viewBox: "0 0 24 24", fill: "none",
+    stroke: "currentColor", strokeWidth: 1.9,
+    strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  switch (name) {
+    case "home":
+      return <svg {...p}><path d="M3 11l9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" /></svg>;
+    case "info":
+      return <svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>;
+    case "chat":
+      return <svg {...p}><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z" /></svg>;
+    case "heart":
+      return <svg {...p}><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z" /></svg>;
+    default:
+      return <svg {...p}><path d="M21 8 12 3 3 8v8l9 5 9-5z" /><path d="M3 8l9 5 9-5M12 13v8" /></svg>;
+  }
+}
+
+/** ONE ROW, drawn once.
+ *
+ * The two lists below the rule and above it are the same row with
+ * different contents, and they were written out twice -- which is how a
+ * row loses its icon, or stops marking the page you are on, in one list
+ * only. Nothing in a test can see that: a guard looking for the markup
+ * finds the surviving copy and passes. Drawn once, it cannot happen. */
+function PageLink(
+  { row, lang, here, onGo }:
+  { row: PageRow; lang: Lang; here: boolean; onGo: () => void }
+) {
+  return (
+    <Link href={row.href} className="mpage"
+      aria-current={here ? "page" : undefined} onClick={onGo}>
+      <span className="mpage-ic"><PageIcon name={row.icon} /></span>
+      <span className="mpage-t">{t(row.key, lang)}</span>
+      <svg className="mpage-arw" width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+        strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+    </Link>
+  );
+}
+
 /** How many products either screen shows. Four is two rows of two on a
  * phone -- enough to be worth scrolling to, few enough not to bury the
  * navigation above it. */
@@ -73,10 +136,19 @@ function Showcase({ items, onPick }: { items: NavProduct[]; onPick: () => void }
  * search field. Two lines of chrome, one of them a guessing game.
  *
  * A menu button and a search button cost one line between them and hide
- * nothing: everything is on the screen that opens. This is what every
- * storefront of this kind does on a phone, and it is what the desktop bar
- * (MegaNav) already does with hover, expressed for a device that has no
- * hover to give.
+ * nothing: everything is on the screen that opens.
+ *
+ * THE TWO SCREENS USED TO BE THE SAME SCREEN. Both opened on the aisles,
+ * the banners and a showcase of stock -- two buttons, one answer, and the
+ * shop noticed. The search button keeps all of that, because "what is in
+ * here" is exactly what somebody about to type is asking. The menu button
+ * now carries what nothing else on a phone reaches: the pages. Home,
+ * About, Contact, and the two destinations the bottom bar has no room
+ * for.
+ *
+ * NOT SHOP OR CATEGORIES. They are one tap away behind the search icon,
+ * and a phone menu that lists the same aisles twice is how this pair of
+ * buttons became indistinguishable in the first place.
  *
  * BOTH SCREENS ARE PORTALS. The buttons live inside the header, which is a
  * stacking context at z-index 40, and the bottom navigation sits at 50 --
@@ -89,9 +161,12 @@ export default function MobileNav({
 }: { roots: NavRoot[]; slides: HeroSlide[]; lang: Lang }) {
   const pathname = usePathname();
   const [view, setView] = useState<View | null>(null);
-  const [tab, setTab] = useState<string | null>(null);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [shownFor, setShownFor] = useState(pathname);
+  /* `tab` and `openGroup` lived here to remember which aisle the MENU had
+     open and which of its groups was expanded. The menu carries the pages
+     now and the search screen lists the roots flat, so there is nothing
+     left to remember -- and state nothing reads is state that goes
+     quietly wrong. */
 
   // Navigating closes whatever is open, including on the back button. Done
   // during render rather than in an effect, so the panel never paints over
@@ -100,8 +175,6 @@ export default function MobileNav({
     setShownFor(pathname);
     setView(null);
   }
-
-  const active = roots.find((r) => r.id === tab) || roots[0] || null;
 
   /* The search screen has no chosen aisle to draw from, so it takes one
    * product from each in turn -- a spread of the shop rather than four of
@@ -135,16 +208,10 @@ export default function MobileNav({
 
   if (isNavFree(pathname)) return null;
 
-  function openMenu() {
-    setTab((cur) => cur ?? roots[0]?.id ?? null);
-    setOpenGroup(null);
-    setView("menu");
-  }
-
   return (
     <>
       <button type="button" className="hd-mob" aria-label={t("navMenu", lang)}
-        aria-expanded={view === "menu"} onClick={openMenu}>
+        aria-expanded={view === "menu"} onClick={() => setView("menu")}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" aria-hidden="true">
           <path d="M4 7h16M4 12h16M4 17h16" />
@@ -171,80 +238,27 @@ export default function MobileNav({
             </button>
           </div>
 
-          {roots.length > 1 && (
-            <div className="msheet-tabs" role="tablist" aria-label={t("categories", lang)}>
-              {roots.map((r) => (
-                <button key={r.id} type="button" role="tab" aria-selected={active?.id === r.id}
-                  className={"msheet-tab" + (active?.id === r.id ? " is-on" : "")}
-                  onClick={() => { setTab(r.id); setOpenGroup(null); }}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="msheet-body">
-            {active && (
-              <>
-                <Link className="msheet-all" href={active.href} onClick={() => setView(null)}>
-                  {t("navShopAllOf", lang)} {active.label}
-                  <span aria-hidden="true"> →</span>
-                </Link>
-                <ul className="msheet-list">
-                  {active.groups.map((g) => (
-                    <li key={g.id}>
-                      <div className="msheet-row">
-                        <Link href={g.href} onClick={() => setView(null)}>
-                          <span>{g.label}</span>
-                          <span className="n">{g.count}</span>
-                        </Link>
-                        {g.children.length > 0 && (
-                          // The chevron reveals; the row beside it navigates.
-                          // Two targets, two jobs, neither guessing which was
-                          // meant.
-                          <button type="button" className="msheet-exp"
-                            aria-expanded={openGroup === g.id} aria-label={g.label}
-                            onClick={() => setOpenGroup(openGroup === g.id ? null : g.id)}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                              stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                              <path d="m9 6 6 6-6 6" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                      {g.children.length > 0 && openGroup === g.id && (
-                        <ul className="msheet-kids">
-                          {g.children.map((k) => (
-                            <li key={k.href}>
-                              <Link href={k.href} onClick={() => setView(null)}>
-                                <span>{k.label}</span>
-                                <span className="n">{k.count}</span>
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+            {/* THE PAGES. Each row is a real destination with the drawing
+                that means it -- at this size an icon is read before the
+                word is, which is the whole reason to spend the space on
+                one. */}
+            <nav className="mpages" aria-label={t("navMenu", lang)}>
+              {PAGES.map((row) => (
+                <PageLink key={row.href} row={row} lang={lang}
+                  here={pathname === row.href} onGo={() => setView(null)} />
+              ))}
+            </nav>
 
-            <Link className="msheet-all msheet-all-shop" href="/shop" onClick={() => setView(null)}>
-              {t("navShopAll", lang)}<span aria-hidden="true"> →</span>
-            </Link>
-
-            {/* Everything below the aisles: the same banners as the
-                homepage hero, then real stock from the aisle that is open.
-                The screen used to end at "Shop all" with two thirds of a
-                phone left blank under it. */}
-            <SlideStrip slides={slides} onPick={() => setView(null)} />
-            {active && active.feature.length > 0 && (
-              <>
-                <p className="msheet-hd">{active.label}</p>
-                <Showcase items={active.feature} onPick={() => setView(null)} />
-              </>
-            )}
+            {/* Below the rule: the two the bottom bar has no room for.
+                Quieter, because they are somewhere you go once you have
+                already done something rather than while you are looking. */}
+            <nav className="mpages mpages-more" aria-label={t("navMore", lang)}>
+              {EXTRAS.map((row) => (
+                <PageLink key={row.href} row={row} lang={lang}
+                  here={pathname === row.href} onGo={() => setView(null)} />
+              ))}
+            </nav>
           </div>
         </div>,
         document.body

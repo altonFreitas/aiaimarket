@@ -411,6 +411,19 @@ export interface Settings {
   legal_return_days?: number | null;
   legal_refund_days?: number | null;
   display_currency?: string | null;
+  /* THE SITE'S OWN APPEARANCE, from supabase/site-chrome.sql. All
+     optional: a database without that file has none of these columns and
+     every reader treats absent as "the default", which is what it did
+     before the shop could choose. */
+  /** Which loaded face sets the headings -- see lib/headingFont.ts. */
+  heading_font?: string | null;
+  /** Incentive keys the shop has hidden. Empty means show every line the
+   * other settings make true; a key here can only ever REMOVE a line,
+   * never add one that is not earned. */
+  incentives_off?: string[] | null;
+  /** Per-incentive wording overrides, key -> {title, body}. Absent or
+   * blank falls back to the translated default. */
+  incentive_text?: Record<string, { title?: string; body?: string }> | null;
   /** A FRACTION, not a percentage: 0.025 is 2.5%. See lib/money.ts. */
   tax_rate?: number | null;
   tax_label?: string | null;

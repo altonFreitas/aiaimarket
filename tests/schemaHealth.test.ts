@@ -122,6 +122,8 @@ const EVERYTHING = snap([
   "settings.stale_days",
   // product-highlights.sql -- the ticked selling points.
   "products.highlights",
+  // site-chrome.sql -- the face and the strip the shop can choose.
+  "settings.heading_font", "settings.incentives_off",
 ]);
 
 describe("checkSchema", () => {

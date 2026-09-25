@@ -20,6 +20,15 @@ function rule(sel: string): string {
 const px = (body: string, prop: string) =>
   Number(new RegExp(prop + ":(-?[\\d.]+)px").exec(body)?.[1] ?? NaN);
 
+/** The code of a source file with its comments removed.
+ *
+ * Needed by every guard that asserts a string is ABSENT: the explanation
+ * above a rule usually quotes the very thing the guard forbids, so the
+ * comment satisfies the assertion and the rule can be deleted without a
+ * failure. It has happened three times in this file. */
+const strip = (src: string) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+
 describe("the homepage row headings", () => {
   it("is a third bigger than it was", () => {
     /* At 19px "New Arrivals" was barely louder than the product names
@@ -89,8 +98,7 @@ describe("buttons that look like buttons", () => {
 });
 
 describe("the strip under the header", () => {
-  const INC = fs.readFileSync(path.join(root, "src/lib/incentives.ts"), "utf8")
-    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+  const INC = strip(fs.readFileSync(path.join(root, "src/lib/incentives.ts"), "utf8"));
   const CMP = fs.readFileSync(path.join(root, "src/components/Incentives.tsx"), "utf8");
 
   it("promises nothing the settings do not support", () => {
@@ -156,6 +164,170 @@ describe("the strip under the header", () => {
   });
 });
 
+describe("what the shop can change for itself", () => {
+  const INC = strip(fs.readFileSync(path.join(root, "src/lib/incentives.ts"), "utf8"));
+  const SQL = fs.readFileSync(path.join(root, "supabase/site-chrome.sql"), "utf8");
+  const ACT = fs.readFileSync(path.join(root, "src/lib/actions/settings.ts"), "utf8");
+  const FONT = fs.readFileSync(path.join(root, "src/lib/headingFont.ts"), "utf8");
+  const ADMIN = fs.readFileSync(path.join(root, "src/components/admin/SettingsAdmin.tsx"), "utf8");
+  const LAYOUT = fs.readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
+
+  it("lets the checklist SUBTRACT only", () => {
+    /* THE WHOLE POINT. A shop must not be able to tick "free delivery"
+       while its zones charge for it -- that is a promise the checkout
+       then breaks, which is the bug the strip was written to avoid. The
+       column stores what is switched OFF, and the filter runs after every
+       line has already been earned. */
+    expect(INC).toContain("settings.incentives_off");
+    expect(INC).toContain(".filter((it) => !off.has(it.titleKey))");
+    expect(ADMIN).toContain("disabled={!isEarned}");
+  });
+
+  it("starts by showing everything, not nothing", () => {
+    /* Off rather than on, and the direction is the design: a list of what
+       to SHOW would have to be filled in before anything appeared, so a
+       shop that ran the migration and went to lunch would lose the strip.
+       Empty means "show every line that is true", which is what it did
+       the day before. */
+    expect(SQL).toContain("incentives_off text[] not null default '{}'");
+  });
+
+  it("only stores keys that are real incentives", () => {
+    // A stale key left behind by a rename would sit in the column for
+    // ever, hiding nothing.
+    expect(ACT).toContain("INCENTIVE_KEYS.has(k)");
+    expect(INC).toContain("export const INCENTIVE_KEYS");
+  });
+
+  it("treats a cleared box as no override, not as an empty line", () => {
+    // Leaving {title:""} in the column would print a blank where the
+    // translated default belongs.
+    expect(ACT).toContain("if (!title && !body) continue;");
+  });
+
+  it("refuses a face this build does not load", () => {
+    /* A free-text column would let somebody type "Comic Sans" and get the
+       fallback with nothing to say it had failed. The allowlist, the
+       check constraint and layout.tsx all have to agree. */
+    expect(FONT).toContain('export const HEADING_FONTS = ["jakarta", "inter", "grotesk", "system"]');
+    expect(SQL).toContain("check (heading_font in ('jakarta', 'inter', 'grotesk', 'system'))");
+    for (const v of ["--font-jakarta", "--font-inter", "--font-grotesk"]) {
+      expect(LAYOUT, v).toContain(v);
+    }
+    // "system" needs no file; the stylesheet binds it to the system stack.
+    expect(NO_COMMENTS).toContain(":root[data-face=system]{--display:var(--sans)}");
+  });
+
+  it("fetches only the face in use", () => {
+    /* Without preload:false, next/font puts a <link rel=preload> on every
+       page for faces nothing renders -- three fonts fetched to draw one,
+       on a shop built for mobile data. */
+    expect((LAYOUT.match(/preload: false/g) ?? []).length).toBe(2);
+  });
+
+  it("keeps the new columns readable by the storefront", () => {
+    /* settings is read with the anon key and granted column by column. A
+       column added without a grant is one the storefront asks for and is
+       refused -- which fails the WHOLE select, so the shop would lose its
+       name and its bank details over a font. */
+    expect(SQL).toContain("grant select (heading_font) on settings to anon");
+    expect(SQL).toContain("grant select (incentives_off, incentive_text)");
+    const PUB = fs.readFileSync(path.join(root, "src/lib/data/public.ts"), "utf8");
+    expect(PUB).toContain("heading_font, incentives_off, incentive_text");
+  });
+
+  it("bounds the wording through a function, not a subquery", () => {
+    /* A CHECK constraint may not contain a subquery, and counting a jsonb
+       object's keys needs one. Written inline it aborts run-all.sql at
+       that line and takes every migration after it down -- exactly what
+       product-highlights.sql did, and what this file did again before it
+       was applied to a real database. */
+    expect(SQL).toContain("create or replace function settings_incentive_text_ok");
+    expect(SQL).toContain("check (settings_incentive_text_ok(incentive_text))");
+  });
+});
+
+describe("what shoppers say", () => {
+  const PUB = strip(fs.readFileSync(path.join(root, "src/lib/data/public.ts"), "utf8"));
+  const TML = fs.readFileSync(path.join(root, "src/components/home/Testimonials.tsx"), "utf8");
+
+  it("quotes real reviews rather than written ones", () => {
+    /* Every testimonial strip on the internet is three paragraphs
+       somebody made up over three stock portraits, and a shopper who
+       recognises none of the names learns only that the shop will say
+       anything. These are rows left by buyers against orders. */
+    expect(PUB).toContain('.from("product_reviews")');
+    expect(PUB).toContain('.gte("rating", 4)');
+    expect(PUB).toContain('r.comment ?? ""');
+  });
+
+  it("drops a review whose product is no longer on sale", () => {
+    // The link is what makes it checkable; a testimonial pointing at a
+    // 404 is an opinion.
+    expect(PUB).toContain('r.products.status === "approved"');
+  });
+
+  it("draws nothing until somebody has written one", () => {
+    expect(TML).toContain("if (!items.length) return null;");
+  });
+
+  it("does not edit the words it quotes", () => {
+    /* Trimming the text in the component would be the shop editing a
+       review. It is clamped by line height instead, so a long one is cut
+       visibly and the whole of it is still on the product page. */
+    expect(TML).toContain("{r.comment}");
+    expect(TML).not.toContain("comment.slice(");
+    expect(NO_COMMENTS).toMatch(/\.tml-q\{[^}]*-webkit-line-clamp/);
+  });
+});
+
+describe("the phone's menu button", () => {
+  const NAV = fs.readFileSync(path.join(root, "src/components/MobileNav.tsx"), "utf8");
+
+  it("carries the pages, not the aisles the search button already has", () => {
+    /* Both buttons opened the same screen -- the aisles, the banners and
+       a showcase of stock -- so two buttons gave one answer, and the shop
+       noticed. */
+    const pages = /const PAGES: PageRow\[\] = \[([\s\S]*?)\];/.exec(NAV)?.[1] ?? "";
+    expect(pages, "the PAGES list").not.toBe("");
+    expect(pages).toContain('"/about"');
+    expect(pages).toContain('"/contact"');
+    expect(pages).not.toContain('"/shop"');
+    expect(pages).not.toContain('"/c/');
+  });
+
+  it("gives every row its own drawing", () => {
+    // At this size the icon is read before the word is.
+    expect(NAV).toContain("<PageIcon name={row.icon} />");
+    expect(NAV).toContain('case "home":');
+  });
+
+  it("draws a row in one place, so a list cannot lose its icon alone", () => {
+    /* WHY A COUNT AND NOT toContain. The two lists were written out
+       twice, identically. Deleting the icon from one of them left the
+       other for a guard to find, and the guard passed -- so the assertion
+       is that the markup exists ONCE and both lists go through it. */
+    const NAV_CODE = strip(NAV);
+    expect((NAV_CODE.match(/<PageIcon name=\{row\.icon\} \/>/g) ?? []).length).toBe(1);
+    expect((NAV_CODE.match(/className="mpage"/g) ?? []).length).toBe(1);
+    expect((NAV_CODE.match(/<PageLink key=\{row\.href\}/g) ?? []).length).toBe(2);
+  });
+
+  it("marks the page you are already on, and stops offering it", () => {
+    const NAV_CODE = strip(NAV);
+    expect(NAV_CODE).toContain('aria-current={here ? "page" : undefined}');
+    // Once, because the row is drawn once -- and every list passes it.
+    expect((NAV_CODE.match(/aria-current=/g) ?? []).length).toBe(1);
+    expect((NAV_CODE.match(/here=\{pathname === row\.href\}/g) ?? []).length).toBe(2);
+    expect(NO_COMMENTS).toContain(".mpage[aria-current=page] .mpage-arw{display:none}");
+  });
+
+  it("keeps the aisles on the search screen, where somebody typing wants them", () => {
+    const search = NAV.slice(NAV.indexOf('{view === "search" && createPortal('));
+    expect(search).toContain('t("categories", lang)');
+  });
+});
+
 describe("the heading face", () => {
   const LAYOUT = fs.readFileSync(path.join(root, "src/app/layout.tsx"), "utf8");
 
@@ -163,8 +335,12 @@ describe("the heading face", () => {
     /* No third-party request, no extra DNS round trip, and nothing for
        the cookie notice to have to mention. */
     expect(LAYOUT).toContain('from "next/font/google"');
-    expect(LAYOUT).toContain('variable: "--font-display"');
-    expect(LAYOUT).toContain('display: "swap"');
+    /* It was one face bound to --font-display. There are three now, each
+       with its own variable, because the shop picks between them -- so
+       the assertion is that every one of them declares a variable rather
+       than that a particular name exists. */
+    expect((LAYOUT.match(/variable: "--font-/g) ?? []).length).toBe(3);
+    expect((LAYOUT.match(/display: "swap"/g) ?? []).length).toBe(3);
     expect(NO_COMMENTS).not.toMatch(/fonts\.googleapis/);
   });
 
@@ -186,7 +362,11 @@ describe("the heading face", () => {
   it("falls back to the system stack while the file is in flight", () => {
     // A heading invisible for 300ms on a slow connection is worse than a
     // heading in Helvetica.
-    expect(NO_COMMENTS).toMatch(/--display:var\(--font-display\),-apple-system/);
+    /* The default binding, and the three the picker switches to. Every
+       one of them keeps the system stack behind it. */
+    expect(NO_COMMENTS).toMatch(/--display:var\(--font-jakarta\),-apple-system/);
+    expect(NO_COMMENTS).toMatch(/\[data-face=inter\]\{--display:var\(--font-inter\),-apple-system/);
+    expect(NO_COMMENTS).toMatch(/\[data-face=grotesk\]\{--display:var\(--font-grotesk\),-apple-system/);
   });
 });
 
@@ -235,8 +415,7 @@ describe("the paper the shop is printed on", () => {
        inline style it replaced, to explain why it is gone -- so searching
        the whole file for it fails on the explanation of its own absence.
        Third time this repo has hit that; read past the comments. */
-    const map = fs.readFileSync(path.join(root, "src/components/MapLink.tsx"), "utf8")
-      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+    const map = strip(fs.readFileSync(path.join(root, "src/components/MapLink.tsx"), "utf8"));
     expect(map).not.toMatch(/textDecoration:\s*"underline"/);
     expect(map).toContain('className="maplink"');
     expect(NO_COMMENTS).toMatch(/\.maplink\{[^}]*text-decoration:underline/);

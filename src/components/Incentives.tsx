@@ -30,17 +30,22 @@ export default function Incentives({ settings, lang }: { settings: Settings; lan
      that will not keep still. It draws nothing rather than a little. */
   if (items.length < MIN_INCENTIVES) return null;
 
-  const line = (key: string, n?: string, nIsKey?: boolean) =>
-    n === undefined ? t(key, lang)
-      : t(key, lang).replace("{n}", nIsKey ? t(n, lang) : n);
+  /* The shop's own words when it has written them, the translated
+     default when it has not -- and "{n}" is substituted either way, so a
+     shop can write "Back within {n} days" and still get its own
+     number. */
+  const line = (key: string, own?: string, n?: string, nIsKey?: boolean) => {
+    const text = own ?? t(key, lang);
+    return n === undefined ? text : text.replace("{n}", nIsKey ? t(n, lang) : n);
+  };
 
   const row = (copy: number) =>
     items.map((it, i) => (
       <div className="inc-item" key={`${copy}-${it.titleKey}-${i}`}>
         <span className="inc-ic"><Glyph icon={it.icon} /></span>
         <span className="inc-text">
-          <b>{line(it.titleKey, it.n, it.nIsKey)}</b>
-          <small>{line(it.bodyKey, it.n, it.nIsKey)}</small>
+          <b>{line(it.titleKey, it.titleText, it.n, it.nIsKey)}</b>
+          <small>{line(it.bodyKey, it.bodyText, it.n, it.nIsKey)}</small>
         </span>
       </div>
     ));

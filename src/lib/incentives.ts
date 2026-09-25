@@ -37,7 +37,25 @@ export interface Incentive {
   /** Whether `n` is itself a key to translate (a zone name) rather than a
    * value to print (a count of days). */
   nIsKey?: boolean;
+  /** The shop's own wording, when it has written some. Printed verbatim
+   * -- including its "{n}", which the caller still substitutes -- in
+   * place of the translated default. */
+  titleText?: string;
+  bodyText?: string;
 }
+
+/** Every title key the strip can produce -- what the admin checklist
+ *  lists, and what a stored "switched off" or "own wording" key is
+ *  checked against. A key that is not here is a rename somebody forgot to
+ *  carry through, and storing it would hide nothing for ever. */
+export const INCENTIVE_KEYS: ReadonlySet<string> = new Set([
+  "incWaT", "incFreeT", "incDelivT", "incPickT", "incRetT",
+  "incBankT", "incWalletT", "incStockT", "incLangT",
+]);
+
+/** One line of the shop's own wording. Long enough for a real sentence,
+ *  short enough that one paste cannot turn the strip into a wall. */
+export const MAX_INCENTIVE_LEN = 90;
 
 /** A marquee needs a few things to be a marquee. Below this the strip
  *  draws nothing at all: two items sliding past is not a marquee, it is
@@ -96,5 +114,30 @@ export function incentives(settings: Settings): Incentive[] {
   out.push({ icon: "stock", titleKey: "incStockT", bodyKey: "incStockB" });
   out.push({ icon: "globe", titleKey: "incLangT", bodyKey: "incLangB" });
 
-  return out;
+  /* WHAT THE SHOP HAS SWITCHED OFF, applied last and only ever
+     subtracting. A key here removes a line; there is deliberately no way
+     to ADD one from a checkbox, because a promise the settings do not
+     support is the exact bug this file exists to avoid -- a shop must not
+     be able to tick "free delivery" while its zones charge for it. */
+  const off = new Set(
+    Array.isArray(settings.incentives_off) ? settings.incentives_off : []
+  );
+
+  /* AND THE SHOP'S OWN WORDING, where it has written some. One line in
+     whichever language the shop trades in, rather than three boxes per
+     item that stay empty -- a reader in another language gets the shop's
+     own words instead of a blank. Blank or missing falls back to the
+     translated default. */
+  const over = (settings.incentive_text ?? {}) as
+    Record<string, { title?: string; body?: string } | undefined>;
+
+  return out
+    .filter((it) => !off.has(it.titleKey))
+    .map((it) => {
+      const o = over[it.titleKey];
+      const title = (o?.title ?? "").trim();
+      const body = (o?.body ?? "").trim();
+      if (!title && !body) return it;
+      return { ...it, titleText: title || undefined, bodyText: body || undefined };
+    });
 }

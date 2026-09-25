@@ -1,5 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
+import { HEADING_FONTS, headingFontOf } from "@/lib/headingFont";
+import { incentives, INCENTIVE_KEYS, MAX_INCENTIVE_LEN } from "@/lib/incentives";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { saveBanks, saveSettings, saveWallets, saveZones } from "@/lib/actions/settings";
@@ -63,6 +65,25 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
   // Normalised up front, so the rows the owner edits ARE what gets saved
   // and the junk from the seed is gone the first time they touch this.
   const [zones, setZones] = useState<Zone[]>(() => normalizeZones(settings.zones));
+  /* THE SITE'S OWN APPEARANCE. Held apart from `f` because none of it is
+     a text box: a face is a choice of four, the strip is a checklist, and
+     the wording is a map keyed by incentive. */
+  const [face, setFace] = useState<string>(
+    headingFontOf((settings as { heading_font?: string }).heading_font));
+  const [off, setOff] = useState<Set<string>>(
+    new Set((settings as { incentives_off?: string[] }).incentives_off ?? []));
+  const [text, setText] = useState<Record<string, { title?: string; body?: string }>>(
+    ((settings as { incentive_text?: Record<string, { title?: string; body?: string }> })
+      .incentive_text) ?? {});
+
+  /* WHICH LINES THE SHOP HAS EARNED, computed with the off-list cleared
+     so a line the shop switched off still appears in the checklist to be
+     switched back on. A line that is not earned is shown and disabled
+     rather than hidden -- "you have not set a pickup address" is a more
+     useful thing to read than an absence. */
+  const earned = new Set(
+    incentives({ ...settings, incentives_off: [] } as never).map((i) => i.titleKey));
+
   const [nb, setNb] = useState({ label: "", account: "", holder: "" });
   const [nw, setNw] = useState({ label: "", number: "" });
   /* What is currently being TYPED into a zone's fee box, by zone id. A
@@ -247,10 +268,84 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
                 ? null : Number(f.legal_return_days),
               legal_refund_days: f.legal_refund_days === ""
                 ? null : Number(f.legal_refund_days),
+              heading_font: face,
+              incentives_off: [...off],
+              incentive_text: text,
             }))}>
             {t("save", lang)}
           </button>
         </WriteOnly>
+      </div>
+
+      {/* ---------- THE SITE'S OWN APPEARANCE ----------
+          The heading face and the strip under the header were decisions
+          made in the code. Both are presentation, both are things the
+          shop has an opinion about, and neither was a reason to open an
+          editor. Saved with the panel above -- one Save for the whole
+          screen, rather than a second button that does half of it. */}
+      <div className="panel">
+        <h3>{t("appearance", lang)}</h3>
+
+        <div className="field">
+          <label htmlFor="heading_font">{t("headingFont", lang)}</label>
+          <select id="heading_font" value={face} onChange={(e) => setFace(e.target.value)}>
+            {HEADING_FONTS.map((k) => (
+              <option key={k} value={k}>{t("font_" + k, lang)}</option>
+            ))}
+          </select>
+          {/* Set in the face itself, so the choice is visible before it is
+              saved rather than only after a reload. */}
+          <p className="hint font-sample" data-face={face}>{t("headingFontHint", lang)}</p>
+        </div>
+
+        <p className="hint">{t("incentivesHint", lang)}</p>
+        <div className="inc-admin">
+          {[...INCENTIVE_KEYS].map((key) => {
+            const isEarned = earned.has(key);
+            const shown = isEarned && !off.has(key);
+            const own = text[key] ?? {};
+            const setOwn = (part: { title?: string; body?: string }) =>
+              setText((cur) => ({ ...cur, [key]: { ...(cur[key] ?? {}), ...part } }));
+            return (
+              <div key={key} className={"inc-admin-row" + (isEarned ? "" : " is-unearned")}>
+                <label className="toggle inc-admin-on">
+                  <input type="checkbox" checked={shown}
+                    /* A LINE THE SETTINGS DO NOT SUPPORT CANNOT BE
+                       TICKED ON. The checklist subtracts only: ticking
+                       "free delivery" while the zones charge for it would
+                       be a promise the checkout then breaks, which is the
+                       whole reason the strip reads out of settings in the
+                       first place. */
+                    disabled={!isEarned}
+                    onChange={(e) => setOff((cur) => {
+                      const next = new Set(cur);
+                      if (e.target.checked) next.delete(key); else next.add(key);
+                      return next;
+                    })} />{" "}
+                  <b>{t(key, lang)}</b>
+                </label>
+
+                {isEarned ? (
+                  <div className="inc-admin-own">
+                    <input value={own.title ?? ""} maxLength={MAX_INCENTIVE_LEN}
+                      placeholder={t(key, lang)}
+                      aria-label={`${t(key, lang)} — ${t("incOwnTitle", lang)}`}
+                      onChange={(e) => setOwn({ title: e.target.value })} />
+                    <input value={own.body ?? ""} maxLength={MAX_INCENTIVE_LEN}
+                      placeholder={t(key.replace(/T$/, "B"), lang)}
+                      aria-label={`${t(key, lang)} — ${t("incOwnBody", lang)}`}
+                      onChange={(e) => setOwn({ body: e.target.value })} />
+                  </div>
+                ) : (
+                  /* Shown and explained rather than hidden: "you have not
+                     set this up yet" is a more useful thing to read than
+                     an absence. */
+                  <p className="hint inc-admin-why">{t("incNotEarned", lang)}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="panel">
