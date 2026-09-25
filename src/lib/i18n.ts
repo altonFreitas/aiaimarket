@@ -54,6 +54,8 @@ export const STR: Record<string, [string,string,string]> = {
   unitsLeft:["restu","restantes","left"],
   /* product */
   size:["Tamañu","Tamanho","Size"],
+  color:["Kór","Cor","Colour"],
+  sku:["SKU","SKU","SKU"],
   chooseSize:["Hili tamañu","Escolha o tamanho","Choose a size"],
   qty:["Kuantidade","Quantidade","Quantity"],
   orderWa:["Enkomenda liu WhatsApp","Encomendar por WhatsApp","Order via WhatsApp"],
@@ -1522,6 +1524,7 @@ export const STR: Record<string, [string,string,string]> = {
   payWalletNote:["Apple Pay no Google Pay la'ós servisu selu seluk. Sira dalan atu selu ho kartaun ne'ebé ema rai ona iha telefone — osan la'o liu adkirente kartaun ne'ebé Ita uza ona, ho presu hanesan. Tanba ne'e sira presiza kartaun funsiona lai.","O Apple Pay e o Google Pay não são serviços de pagamento separados. São formas de pagar com um cartão já guardado no telemóvel — o dinheiro passa pelo mesmo adquirente de cartões que já usa, com o mesmo preço. Por isso precisam primeiro dos cartões a funcionar.","Apple Pay and Google Pay are not separate payment services. They are ways to pay with a card already saved on a phone -- the money moves through the same card acquirer you already use, at the same rate. That is why they need cards working first."],
   zoomIn:["Haree besik","Aproximar","Zoom in"],
   zoomOut:["Haree dook","Afastar","Zoom out"],
+  priceFrom:["Husi","Desde","From"],
   download:["Deskarga","Transferir","Download"],
   formatPdf:["PDF","PDF","PDF"],
   formatPdfNote:["Atu haruka ba fornesedór","Para enviar ao fornecedor","To send a supplier"],

@@ -363,6 +363,37 @@ export function parseSizes(raw: string | null | undefined): string[] {
   return out;
 }
 
+/** Everything a product is sold in, for one variant axis, as the form's
+ * box will show it.
+ *
+ * A purchase order buys a shirt on three rows -- XS, then S, then M -- and
+ * the PRODUCT is all three at once. This is the joining of them, and it is
+ * its own function rather than three lines inside receiving.ts because
+ * three separate rules meet here and every one of them is easy to get
+ * silently wrong:
+ *
+ *   MERGE, NEVER REPLACE. A restock buying one more size must not erase
+ *   the sizes the shop already had, and a size somebody typed by hand and
+ *   has never bought is still one they sell. `existing` comes first.
+ *
+ *   ORDER IS NOT SORTED. XS, S, M, L, XL is a sequence somebody chose and
+ *   sorting it alphabetically gives L, M, S, XL, XS -- which is not a size
+ *   run, it is an anagram of one. First seen, first shown.
+ *
+ *   ONE STRING, because Size draws as a free-text box: its values differ
+ *   per product (S/M/L against 38-45) so no options are seeded for it, and
+ *   a text field shows one value. parseSizes reads it back apart wherever
+ *   it matters.
+ *
+ * De-duplication is parseSizes' own, so "41,5" and "41.5" are one size and
+ * "s" does not join "S". */
+export function mergeAxisValues(
+  existing: readonly string[], incoming: Iterable<string>
+): string {
+  const seen = parseSizes([...existing, ...incoming].join(", "));
+  return seen.join(", ");
+}
+
 /** True when a line is goods bought to sell on, and so the only kind of line
  * that may ever touch stock or the catalog. An office chair is a real
  * purchase that must never appear in the shop. */

@@ -6,7 +6,9 @@ import { setProductCosts } from "@/lib/actions/sales";
 import { money } from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import WriteOnly from "../Access";
+import { describeColor } from "@/lib/colorName";
 import type { Category, Lang, Product, ProductCost } from "@/lib/types";
+import type { VariantCostRow } from "@/lib/data/variantCosts";
 
 /* Unit cost entry. This is the screen that turns every blank margin on the
  * sales dashboard into a number, so it is built for filling in a catalog in
@@ -17,10 +19,14 @@ import type { Category, Lang, Product, ProductCost } from "@/lib/types";
  * product from margin aggregates. */
 
 export default function CostsAdmin({
-  lang, products, categories, costs, ready,
+  lang, products, categories, costs, ready, variants = {},
 }: {
   lang: Lang; products: Product[]; categories: Category[];
   costs: ProductCost[]; ready: boolean;
+  /** product id -> its SKUs, with the cost and price the purchase order
+   * set for each. Empty on a database without the variant tables, and the
+   * screen then reads exactly as it did before: one row per product. */
+  variants?: Record<string, VariantCostRow[]>;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -29,6 +35,10 @@ export default function CostsAdmin({
   const [catId, setCatId] = useState("");
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [saving, setSaving] = useState(false);
+  /* Which products are showing their SKUs. Open by id, not by row
+     position: filtering the list would otherwise leave the chevron open
+     on whatever slid into that slot. */
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   const initial = useMemo(() => {
     const m: Record<string, string> = {};
@@ -137,13 +147,33 @@ export default function CostsAdmin({
             </tr>
           </thead>
           <tbody>
-            {list.length ? list.map((p) => {
+            {list.length ? list.flatMap((p) => {
               const price = p.discount_price != null && p.discount_price > 0 ? p.discount_price : p.price;
               const cost = draft[p.id] ? Number(draft[p.id]) : null;
               const m = marginFor(p);
-              return (
+              const skus = variants[p.id] ?? [];
+              const isOpen = !!open[p.id];
+              return [
                 <tr key={p.id}>
-                  <td>{p.name}</td>
+                  <td>
+                    {/* THE SKUs BEHIND THE AVERAGE.
+                        One row per product is one number for a shirt
+                        bought in three sizes at three prices -- an average
+                        of three facts the row does not show. The purchase
+                        order recorded each of them; this opens them.
+                        Only where there are any: a fridge is one thing and
+                        a chevron that reveals nothing is furniture. */}
+                    {skus.length > 0 && (
+                      <button type="button" className="row-exp"
+                        aria-expanded={isOpen}
+                        aria-label={`${p.name} — ${skus.length} SKU`}
+                        onClick={() => setOpen((o) => ({ ...o, [p.id]: !o[p.id] }))}>
+                        {isOpen ? "▾" : "▸"}
+                      </button>
+                    )}
+                    {p.name}
+                    {skus.length > 0 && <span className="hint"> · {skus.length} SKU</span>}
+                  </td>
                   <td className="mono">{p.ref}</td>
                   <td className="num">{money(price)}</td>
                   <td className="num">
@@ -159,8 +189,71 @@ export default function CostsAdmin({
                   <td className={"num " + (m != null && m < 0.1 ? "bad-text" : "")}>
                     {m == null ? "—" : `${(m * 100).toFixed(1)}%`}
                   </td>
-                </tr>
-              );
+                </tr>,
+                /* The breakdown, as one full-width row carrying a small
+                   table. Nested rather than interleaved into the outer
+                   one: the columns are different -- colour and size
+                   against product and ref -- and forcing them to share a
+                   grid would misalign both. */
+                ...(isOpen && skus.length ? [(
+                  <tr key={p.id + "-skus"} className="sku-row">
+                    <td colSpan={6}>
+                      <table className="tbl tbl-compact sku-tbl">
+                        <thead>
+                          <tr>
+                            <th>{t("color", lang)}</th>
+                            <th>{t("size", lang)}</th>
+                            <th>{t("sku", lang)}</th>
+                            <th className="num">{t("unitCost", lang)}</th>
+                            <th className="num">{t("sellingPrice", lang)}</th>
+                            <th className="num">{t("margin", lang)}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {skus.map((v) => {
+                            /* The variant's own price, or the product's
+                               when it has none -- null on a variant means
+                               "same as the product", which is what the
+                               storefront charges for it. */
+                            const sell = v.price ?? price;
+                            const c = describeColor(v.axes.color || "");
+                            const vm = v.costPrice != null && sell
+                              ? (sell - v.costPrice) / sell : null;
+                            return (
+                              <tr key={v.id}>
+                                <td>
+                                  {c ? (
+                                    <span className="spec-color">
+                                      {c.swatch && (
+                                        <span className="spec-swatch"
+                                          style={{ background: c.swatch }} aria-hidden="true" />
+                                      )}
+                                      {c.name}
+                                    </span>
+                                  ) : "—"}
+                                </td>
+                                {/* The label as the fallback: a variant
+                                    whose axes this cannot name still has
+                                    the generated "Black / XL" to show. */}
+                                <td>{v.axes.size || (c ? "—" : v.label)}</td>
+                                <td className="mono">{v.sku || "—"}</td>
+                                {/* An em dash, not 0: nothing has landed
+                                    for this SKU yet, which is a different
+                                    thing from costing nothing. */}
+                                <td className="num">{v.costPrice == null ? "—" : money(v.costPrice)}</td>
+                                <td className="num">{money(sell)}</td>
+                                <td className={"num " + (vm != null && vm < 0.1 ? "bad-text" : "")}>
+                                  {vm == null ? "—" : `${(vm * 100).toFixed(1)}%`}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )] : []),
+              ];
             }) : (
               <tr><td colSpan={6} className="hint">{t("noResults", lang)}</td></tr>
             )}

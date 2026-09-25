@@ -3,6 +3,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import ProductInteractive from "@/components/ProductInteractive";
 import { oneSizeStock } from "@/lib/data/sizeStock";
+import { sizePricesOf } from "@/lib/data/sizePrices";
 import ProductGallery from "@/components/ProductGallery";
 import ProductCard from "@/components/ProductCard";
 import ProductReviews from "@/components/ProductReviews";
@@ -54,13 +55,18 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const parent = cat?.parent_id ? cats.find((c) => c.id === cat.parent_id) : null;
   const trail = [parent, cat].filter(Boolean) as typeof cats;
 
-  const [related, reviews, sizeStock, specs] = await Promise.all([
+  const [related, reviews, sizeStock, specs, sizePrices] = await Promise.all([
     getRelatedProducts(p.category_id, p.id), getProductReviews(p.id),
     // Null until the shop counts a size in; the picker then reads exactly
     // as it always did rather than showing a full shelf as sold out.
     oneSizeStock(p.id, p.sizes || []),
     // Only what this product actually answers -- see lib/data/productSpecs.
     productSpecs(p.id),
+    /* What each size sells for, when the purchase order set them
+       separately. Empty for a product bought at one price and for a
+       fridge, and then the page quotes the product's own price for
+       everything, exactly as it always did. */
+    sizePricesOf(p.id),
   ]);
 
   // Only emitted when reviews genuinely exist. Google treats a fabricated or
@@ -171,7 +177,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div>
           <h1>{p.name}</h1>
           <ProductInteractive p={p} settings={settings} lang={lang}
-            siteOrigin={siteOrigin} seller={seller} stock={sizeStock} />
+            siteOrigin={siteOrigin} seller={seller} stock={sizeStock}
+            /* A plain object, not the Map: this crosses the server ->
+               client boundary and a Map does not survive it. */
+            sizePrices={Object.fromEntries(sizePrices)} />
         </div>
       </div>
 

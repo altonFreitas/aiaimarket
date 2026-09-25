@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { landedCosts, isResaleLine, parseSizes } from "@/lib/procurement";
+import { landedCosts, isResaleLine, parseSizes, mergeAxisValues } from "@/lib/procurement";
 import { normalizeSizeQty } from "@/lib/sizeStock";
 import { normalizeVariantQty, receiptMovementsFor } from "@/lib/variantStock";
 import { submittedFrom } from "@/lib/taxonomy/lineTaxonomy";
@@ -137,6 +137,23 @@ export async function applyReceipt(
   const createdHere = new Map<string, string>();
   const productKey = (name: string) =>
     String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+  /* WHAT THE PRODUCT IS SOLD IN, gathered across all of its lines.
+   *
+   * A line answers the variant axes for ITSELF: this one is the XS, that
+   * one is the S. The PRODUCT is all of them at once, and that is what
+   * the Size box on its form has to say -- "XS, S, M", not whichever line
+   * happened to be read last. So the answers are collected here as the
+   * lines are processed and written once at the end, per product and per
+   * axis, in the order they were bought.
+   *
+   *   product id -> attribute id -> the values, de-duplicated
+   *
+   * A Map of Maps of Sets rather than three passes over the items: the
+   * loop below already visits every line and already knows which product
+   * each belongs to, and a second pass would have to work that out again. */
+  const axisAnswers = new Map<string, Map<string, Set<string>>>();
+  const typeOfProduct = new Map<string, string>();
 
   /* An order for twelve SKUs names one product type twelve times, and it
      asks the same questions every time. Read once. */
@@ -278,6 +295,31 @@ export async function applyReceipt(
        whatever the lines actually bought. */
     if (lineVariant?.size) await addSize(productId, lineVariant.size);
 
+    /* And the same values as ANSWERS, so the product form shows them too.
+       Noted here and written after the loop -- see writeAxisAnswers. */
+    if ((item.product_type_id || "").trim()) {
+      typeOfProduct.set(productId, String(item.product_type_id).trim());
+      const answers = item.attribute_values as Record<string, unknown> | null;
+      if (answers) {
+        const forProduct = axisAnswers.get(productId) ?? new Map<string, Set<string>>();
+        const axes = (await attrsOf(String(item.product_type_id).trim()))
+          .filter((a) => a.is_variant);
+        for (const a of axes) {
+          const raw = answers[a.id];
+          const list = Array.isArray(raw) ? raw : raw == null ? [] : [raw];
+          for (const v of list) {
+            /* Split the way every other reading of this splits it, so a
+               row answering "S, M" counts as two and "41,5" stays one. */
+            for (const one of parseSizes(String(v))) {
+              if (!one) continue;
+              (forProduct.get(a.id) ?? forProduct.set(a.id, new Set()).get(a.id)!).add(one);
+            }
+          }
+        }
+        if (forProduct.size) axisAnswers.set(productId, forProduct);
+      }
+    }
+
     /* THE PRICE ON THE CARD IS THE CHEAPEST ONE THAT IS TRUE.
        A shirt bought in three sizes at three prices has three variant
        prices and one product price, and the card, the grid and the search
@@ -359,6 +401,15 @@ export async function applyReceipt(
     }
   }
 
+  /* THE VARIANT AXES, NOW THAT EVERY LINE HAS BEEN SEEN.
+     After the loop, because one product's sizes are spread across several
+     lines and the answer is the union -- writing it inside the loop would
+     save "XS", then "XS" again, then "XS", each line overwriting the last
+     with its own single value. */
+  for (const [productId, byAttr] of axisAnswers) {
+    await writeAxisAnswers(productId, typeOfProduct.get(productId) || "", byAttr);
+  }
+
   // The catalog changed, so the storefront's cached product lists must go.
   if (result.received > 0 || result.productsCreated > 0) {
     updateTag(CACHE_TAGS.products);
@@ -437,6 +488,69 @@ async function applyTaxonomy(
        finished by hand -- which is exactly where every product was before
        any of this. */
   }
+}
+
+/* WHAT THE PRODUCT IS SOLD IN, ON THE PRODUCT.
+ *
+ * applyTaxonomy above deliberately writes only the answers that are true
+ * of the whole product -- the composition, the neck type, the brand --
+ * and leaves the variant axes alone, because a line saying "Size: S" is
+ * true of that line and not of a shirt sold in three sizes.
+ *
+ * But the SHIRT is sold in S, M and L, and its form has to say so: open
+ * a product the shop has just received and the Size box should read
+ * "XS, S, M", not empty. That is what this writes, from the union of
+ * every line that bought it -- which is the same list the storefront's
+ * picker got from addSize, said in the place the admin reads.
+ *
+ * ADDS TO WHAT IS THERE, never replaces it. A restock buying one more
+ * size must not erase the sizes the shop already had, and a size the shop
+ * typed by hand and has never bought is still one it sells. Existing
+ * values are read first and merged.
+ *
+ * ONE ROW PER ATTRIBUTE, comma-joined. Size has no options seeded -- they
+ * differ per product, S/M/L against 38-45 -- so it draws as a free-text
+ * box, and a box shows one value. parseSizes reads it back apart again
+ * wherever it matters: the picker (syncSizes), the combinations
+ * (syncVariants) and here.
+ *
+ * Swallows its own errors, like everything else on this path: the goods
+ * are on the shelf and the stock is counted by the time this runs. A
+ * specification that did not save is a listing to finish. */
+async function writeAxisAnswers(
+  productId: string, typeId: string, byAttr: ReadonlyMap<string, Set<string>>
+): Promise<void> {
+  if (!productId || !typeId || !byAttr.size) return;
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("product_attribute_values")
+      .select("attribute_id,value")
+      .eq("product_id", productId)
+      .in("attribute_id", [...byAttr.keys()]);
+    if (error) throw error;
+
+    const rows: Array<{ product_id: string; attribute_id: string; value: string }> = [];
+    for (const [attributeId, values] of byAttr) {
+      /* Anything already written first, then what these lines bought --
+         see mergeAxisValues, which owns the three rules that meet here. */
+      const had = ((data ?? []) as Array<{ attribute_id: string; value: string }>)
+        .filter((r) => r.attribute_id === attributeId)
+        .flatMap((r) => parseSizes(r.value));
+      rows.push({
+        product_id: productId, attribute_id: attributeId,
+        value: mergeAxisValues(had, values),
+      });
+    }
+
+    /* Delete then insert, for the same reason saveProductAttributes does
+       it: an upsert would need a unique constraint this table does not
+       carry, and a product may already hold several rows for one
+       attribute from an older multi-value save. */
+    await sb.from("product_attribute_values")
+      .delete().eq("product_id", productId).in("attribute_id", [...byAttr.keys()]);
+    if (rows.length) await sb.from("product_attribute_values").insert(rows);
+  } catch { /* the stock is counted either way */ }
 }
 
 /** The same, for a product that already existed: only when it has no type

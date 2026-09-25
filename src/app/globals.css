@@ -1088,6 +1088,25 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    table row by a long way, and the count is what the shop asked for. */
 .rows-cap-review{--row-h:124px;--rows:2}
 
+/* "From $20.00", until a size is chosen on a product whose sizes are not
+   all one price. Small and muted: it qualifies the number, it is not part
+   of it. */
+.aab-price-from{font-size:var(--fs-sm);color:var(--muted);margin-right:var(--sp-1);
+  text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+
+/* ---------- admin: a row that opens onto its SKUs ---------- */
+/* The chevron. A button rather than a span, because it is one -- and sized
+   so it does not push the product name off its own baseline. */
+.row-exp{width:20px;height:20px;padding:0;margin-right:var(--sp-1);border:0;
+  background:transparent;color:var(--muted);cursor:pointer;font-size:var(--fs-sm);
+  line-height:1;border-radius:var(--r-s);vertical-align:baseline}
+.row-exp:hover{background:var(--line-2);color:var(--ink)}
+/* The breakdown row. Inset and tinted, so a nested table reads as belonging
+   to the row above rather than as more of the same list. */
+.sku-row>td{background:var(--line-2);padding:var(--sp-2) var(--sp-3)}
+.sku-tbl{margin:0;background:var(--card)}
+.sku-tbl th{font-size:var(--fs-caption);text-transform:uppercase;letter-spacing:.06em}
+
 /* ---------- admin: one download button, two formats ---------- */
 /* Same shape as .lang in the header and for the same reason: a control
    whose alternatives are worth a click rather than a permanent row of

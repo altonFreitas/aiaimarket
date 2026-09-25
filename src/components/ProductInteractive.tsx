@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
@@ -22,7 +22,7 @@ function WaIcon() {
 }
 
 export default function ProductInteractive({
-  p, settings, lang, siteOrigin, seller, stock,
+  p, settings, lang, siteOrigin, seller, stock, sizePrices,
 }: {
   p: Product; settings: Settings; lang: Lang; siteOrigin: string;
   seller?: { store_name: string; slug: string } | null;
@@ -30,6 +30,11 @@ export default function ProductInteractive({
    * not run supabase/size-stock.sql, and on a product nobody has counted
    * by size -- in both cases the picker behaves exactly as it always did. */
   stock?: SizedStock | null;
+  /** What each size sells for, when the purchase order set them apart --
+   * see lib/data/sizePrices.ts. A plain object rather than a Map, because
+   * this crosses the server -> client boundary. Empty for a product
+   * bought at one price, and for a fridge. */
+  sizePrices?: Record<string, number>;
 }) {
   const [size, setSize] = useState<string | null>(p.sizes?.length === 1 ? p.sizes[0] : null);
   /* Counts are shown only once the shop has actually counted a size. Until
@@ -39,8 +44,49 @@ export default function ProductInteractive({
   const [qty, setQty] = useState(1);
   const { add } = useBasket();
   const { toast } = useToast();
-  const pct = discountPercent(p.price, p.discount_price);
-  const effectivePrice = p.discount_price ?? p.price;
+  /* THE PRICE FOLLOWS THE SIZE.
+   *
+   * A purchase order buys a shirt in XS, S and M on three rows, each with
+   * its own selling price, and receiving writes each onto its variant.
+   * The page was quoting one number for all three -- whichever the
+   * product row happened to carry -- so a shopper picking the larger size
+   * saw the smaller size's price right up until the basket.
+   *
+   * Falls back to the product's own price for a size nobody priced
+   * separately, which is every size on a product bought at one price.
+   *
+   * A DISCOUNT STILL WINS. discount_price is the shop saying "this
+   * product is on offer at this number"; a per-size price is what the
+   * size costs normally. Honouring the size's price over a live discount
+   * would silently cancel the offer for anyone who picked a size. */
+  const sizePrice = size != null ? sizePrices?.[size] : undefined;
+  const basePrice = sizePrice != null && Number.isFinite(sizePrice)
+    ? Number(sizePrice) : Number(p.price);
+  const pct = discountPercent(basePrice, p.discount_price);
+  const effectivePrice = p.discount_price ?? basePrice;
+
+  /** What the big number says before a size is chosen: the cheapest size
+   * that is real, so a shopper is never quoted less than they can buy at
+   * -- the same direction the card errs in (lowerPriceTo in
+   * lib/receiving.ts). Once a size IS chosen it is that size's price. */
+  const headlinePrice = useMemo(() => {
+    if (size != null) return basePrice;
+    const vals = (p.sizes || [])
+      .map((sz) => sizePrices?.[sz])
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    return vals.length ? Math.min(...vals) : Number(p.price);
+  }, [size, basePrice, p.sizes, p.price, sizePrices]);
+
+  /** Whether the sizes cost different amounts, which is what turns the
+   * headline into a "from". Two prices that happen to be equal are not a
+   * range and do not get the word. */
+  const priceVaries = useMemo(() => {
+    const vals = (p.sizes || [])
+      .map((s) => sizePrices?.[s])
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    if (vals.length < 2) return false;
+    return Math.min(...vals) !== Math.max(...vals);
+  }, [p.sizes, sizePrices]);
 
   const siteUrl = (path: string) => `${siteOrigin}${path}`;
   const waDigits = settings.wa_number.replace(/[^\d]/g, "");
@@ -164,11 +210,23 @@ export default function ProductInteractive({
             {pct != null ? (
               <>
                 <span className="aab-price aab-price-discount">{money(p.discount_price!)}</span>
-                <span className="aab-price-original">{money(p.price)}</span>
+                {/* Struck through: what this SIZE would have cost, not
+                    what the product row says. On a shirt whose Large is
+                    dearer, crossing out the product's price would show
+                    the shopper a saving they are not getting. */}
+                <span className="aab-price-original">{money(basePrice)}</span>
                 <span className="aab-price-pct">-{pct}%</span>
               </>
             ) : (
-              <span className="aab-price">{money(p.price)}</span>
+              <>
+                {/* "From" until a size is chosen, when the sizes are not
+                    all one price. A single number over three prices is
+                    the one number that is wrong for two of them. */}
+                {priceVaries && size == null && (
+                  <span className="aab-price-from">{t("priceFrom", lang)}</span>
+                )}
+                <span className="aab-price">{money(headlinePrice)}</span>
+              </>
             )}
             {/* USD, and it says so. Timor-Leste uses the dollar, and a bare
                 "$" is ambiguous across a dozen of them. */}
