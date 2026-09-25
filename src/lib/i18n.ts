@@ -28,6 +28,16 @@ export const STR: Record<string, [string,string,string]> = {
   pendingAlerts:["Avizu ba kliente ne'ebé seidauk haruka","Avisos por enviar","Announcements still to send"],
   alertNew:["Sasan foun","Novidade","New in"],
   alertDiscount:["Folin tun","Desconto","Price drop"],
+  /* WHY AN ANNOUNCEMENT REACHED NOBODY, in the shop's own words.
+     Each of these was a silent return 0 until a shop reported adding a
+     product and seeing no message, on a screen that said every message had
+     been sent. */
+  announceTitle:["Avizu ba produtu foun","Avisos de novos produtos","New-product announcements"],
+  announceNoOrigin:["Desliga: enderesu website la defini. Defini NEXT_PUBLIC_SITE_URL atu mensajen bele lori ligasaun.","Desativado: o endereço do site não está definido. Defina NEXT_PUBLIC_SITE_URL para a mensagem poder levar um link.","Switched off: the site address is not set. Set NEXT_PUBLIC_SITE_URL so a message can carry a link."],
+  announceNoTable:["Seidauk prontu: halo supabase/customer-alerts.sql lai.","Ainda não pronto: execute supabase/customer-alerts.sql.","Not set up yet: run supabase/customer-alerts.sql."],
+  announceNoRecipients:["Seidauk iha kliente ida husu atu hatene, ka husu maibé la fó númeru telefone.","Ainda ninguém pediu para ser avisado, ou pediu sem deixar telefone.","Nobody has asked to be told yet, or asked without leaving a phone number."],
+  announceReady:["Kliente {n} sei hatene bainhira produtu foun tama.","{n} clientes serão avisados quando entrar um produto novo.","{n} customers will be told when a new product goes on sale."],
+  announceDraftNote:["Produtu rascunho la avizu ida: ninia pájina seidauk públiku.","Um produto em rascunho não é anunciado: a sua página ainda não é pública.","A draft product is not announced: its page is not public yet."],
   /* Said when somebody tries to add more than the shelf holds. Both name
      the two numbers that matter -- what is there and what was asked for --
      because "not enough stock" leaves the shopper to guess how many to
