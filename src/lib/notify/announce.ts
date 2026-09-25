@@ -1,7 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { activeProvider } from "./registry";
-import { dispatchNotification } from "./service";
 import { forceGsm7Enabled, toGsm7 } from "@/lib/sms";
 import { money } from "@/lib/utils";
 import { reportError } from "@/lib/observability";
@@ -255,15 +254,21 @@ export async function queueProductAlerts(
        wrong, and saying so is what stops somebody hunting for a fault that
        is actually the brake working. */
     if (!queued) return { queued: 0, blocked: "already_announced" };
-    // No gateway: they wait for the admin, exactly as an order message does.
-    if (!provider) return { queued, blocked: null };
 
-    /* Sent one at a time through the same path the order queue uses, so a
-       retry, a failure and a cost estimate all behave identically. */
-    for (const row of inserted!) {
-      await dispatchNotification(
-        row.id as string, String(row.to_phone), String(row.body), "customer_alerts");
-    }
+    /* QUEUED, AND THAT IS THE WHOLE JOB.
+     *
+     * This used to send them here: a loop awaiting one HTTP call per
+     * recipient, inside the request that saved the product. The ceiling of
+     * five hundred recipients was protecting the phone bill, and nothing at
+     * all was protecting the save -- five hundred customers meant five
+     * hundred sequential gateway calls before the shop's "add product"
+     * came back, and a gateway having a slow morning made adding a product
+     * look broken.
+     *
+     * /api/cron/send-queued drains both queues now. With no gateway
+     * configured the rows wait for the admin exactly as they always have;
+     * with one, they leave within five minutes. Either way the shop's save
+     * returns as soon as the rows are written. */
     return { queued, blocked: null };
   } catch (err) {
     reportError(err, { scope: "queueProductAlerts", kind, product: product.id });

@@ -320,6 +320,28 @@ Two options, either one is enough (see `.env.example` for every variable):
 If both are set the local gateway wins, on the assumption that you configured
 it deliberately and it is the cheaper route.
 
+**Also set `CRON_SECRET`.** A gateway on its own is not enough: what actually
+sends a queued message is `/api/cron/send-queued`, which `vercel.json`
+schedules every five minutes, and that endpoint refuses every call without
+the secret. Without it the messages queue and wait for you to tap them out by
+hand — which is a supported way to run the shop, but not the one you thought
+you had configured.
+
+Run it by hand to check:
+
+    curl -H "Authorization: Bearer $CRON_SECRET" \
+      https://yourdomain.tl/api/cron/send-queued
+
+It answers with what it did, per queue. `{"skipped":"no messaging gateway
+configured"}` means the gateway variables are not reaching production;
+`{"skipped":"migration not run"}` means `supabase/message-queue.sql` has not
+been applied yet.
+
+With no gateway configured the cron claims nothing at all, on purpose:
+claiming counts an attempt, so draining a queue you cannot send from would
+burn every message's three tries in a quarter of an hour and leave you with a
+queue marked as tried and never sent.
+
 ### What an SMS costs
 
 SMS is billed per **segment**, not per message, and the alphabet decides how

@@ -155,6 +155,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "video_url"]],
   },
   {
+    file: "message-queue.sql", labelKey: "featMessageQueue",
+    columns: [["notifications", "claimed_at"], ["customer_alerts", "attempts"]],
+  },
+  {
     file: "site-chrome.sql", labelKey: "featSiteChrome",
     columns: [["settings", "heading_font"], ["settings", "incentives_off"]],
   },
@@ -498,6 +502,9 @@ export const SCHEMA_ORDER: readonly string[] = [
   "order-items.sql",         // after marketplace-v2.sql
   "notifications.sql",
   "customer-alerts.sql",     // after notifications.sql, whose shape it follows
+  // AFTER both queues exist: it adds a claim column to each and the
+  // function that drains them.
+  "message-queue.sql",
   "payments.sql",
 
   // Buying, then the ledger that receiving writes into, then returns --

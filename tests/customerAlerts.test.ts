@@ -24,6 +24,8 @@ const PRODUCTS = code("src/lib/actions/products.ts");
 const SCREEN = code("src/app/admin/notifications/page.tsx");
 const PANEL = code("src/components/admin/AnnounceState.tsx");
 const I18N = raw("src/lib/i18n.ts");
+const CRON = code("src/app/api/cron/send-queued/route.ts");
+const QUEUE_SQL = raw("supabase/message-queue.sql");
 
 /** The three strings behind one i18n key: Tetun, Portuguese, English.
  *
@@ -70,8 +72,15 @@ describe("what it will not do by itself", () => {
   it("sends nothing without a configured gateway", () => {
     /* With no provider the rows queue and the admin sends them, exactly as
        order notifications already behave -- so the feature cannot start
-       spending money on its own the day it is deployed. */
-    expect(ANNOUNCE).toMatch(/if \(!provider\) return \{ queued, blocked: null \};/);
+       spending money on its own the day it is deployed.
+
+       THE GUARD MOVED WITH THE SENDING. announce.ts no longer sends at all;
+       the drain cron does, and it refuses to claim anything when there is
+       no gateway. That refusal is not politeness: claiming increments the
+       attempt counter, so draining without a provider would burn all three
+       attempts on every queued message and leave a shop in manual mode
+       holding a queue marked as tried and never sent. */
+    expect(CRON).toMatch(/if \(!activeProvider\(\)\) \{\s*\n?\s*return NextResponse\.json\(\{ skipped: "no messaging gateway configured" \}\);/);
   });
 
   it("has a ceiling on how many people one announcement reaches", () => {
@@ -137,11 +146,22 @@ describe("one send path, not two", () => {
   it("dispatches through the function the order queue uses", () => {
     /* A second copy of "send it, record what happened" would drift from the
        first -- and the drift would show up as a message the admin cannot
-       retry. */
-    expect(ANNOUNCE).toMatch(/dispatchNotification\(/);
+       retry. Still one function; it is now called from the cron for both
+       queues rather than from each queue's own writer. */
+    expect(CRON).toMatch(/dispatchNotification\(row\.id, row\.to_phone, row\.body, queue\)/);
     const service = code("src/lib/notify/service.ts");
     expect(service).toMatch(/table: "notifications" \| "customer_alerts" = "notifications"/);
     expect(service).toMatch(/sb\.from\(table\)/);
+  });
+
+  it("does not send from the request that saved the product", () => {
+    /* THE THING THAT WAS WRONG. This awaited one HTTP call per recipient
+       inside the save: five hundred customers meant five hundred sequential
+       gateway calls before "add product" returned. The ceiling on
+       recipients was protecting the phone bill; nothing was protecting the
+       save. */
+    expect(ANNOUNCE).not.toContain("dispatchNotification");
+    expect(ANNOUNCE).not.toMatch(/for \(const row of inserted/);
   });
 });
 
@@ -295,5 +315,96 @@ describe("the screen stops saying every message has been sent", () => {
       expect(pt.length, key + " pt").toBeGreaterThan(0);
       expect(en.length, key + " en").toBeGreaterThan(0);
     }
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   THE QUEUE THAT NOW DRAINS ITSELF
+   ------------------------------------------------------------------------ */
+
+describe("two drain runs cannot send the same message twice", () => {
+  it("claims with FOR UPDATE SKIP LOCKED, not with a read then a write", () => {
+    /* Reading the queued rows and then marking them is a race, and losing
+       it means a customer gets the same SMS twice and the shop pays for
+       both. SKIP LOCKED makes the two runs take different rows instead of
+       waiting for each other or duplicating. */
+    expect(QUEUE_SQL).toMatch(/for update skip locked/);
+    expect(QUEUE_SQL).toMatch(/update %1\$I q\s*\n\s*set claimed_at = now\(\)/);
+  });
+
+  it("counts the attempt as part of taking the row", () => {
+    /* Counting it after a send would not count a send that never reported
+       back -- a timeout, a frozen function, a crashed run -- and a number
+       that always times out would be dialled for ever. */
+    expect(QUEUE_SQL).toMatch(/attempts   = q\.attempts \+ 1/);
+    const service = code("src/lib/notify/service.ts");
+    expect(service, "dispatchNotification must not write attempts as well")
+      .not.toMatch(/attempts: 1/);
+  });
+
+  it("treats an abandoned claim as free, rather than stranding it", () => {
+    // A run that dies mid-batch would otherwise hold its rows for ever.
+    expect(QUEUE_SQL).toMatch(
+      /c\.claimed_at is null\s*\n?\s*or c\.claimed_at < now\(\) - make_interval\(mins => \$2\)/);
+  });
+
+  it("stops trying eventually", () => {
+    expect(QUEUE_SQL).toMatch(/c\.attempts < \$1/);
+    expect(CRON).toMatch(/const MAX_ATTEMPTS = \d+;/);
+  });
+
+  it("never sends something already sent or skipped", () => {
+    expect(QUEUE_SQL).toMatch(/c\.status in \('queued', 'failed'\)/);
+  });
+});
+
+describe("the claim function cannot be pointed at another table", () => {
+  it("matches the queue name against literals instead of interpolating it", () => {
+    /* It is SECURITY DEFINER and it builds a statement with format(). A
+       caller-supplied table name reaching that would be a way to update
+       any table in the database as the owner. What reaches format() is the
+       matched literal, never the argument. */
+    expect(QUEUE_SQL).toMatch(
+      /v_table := case p_queue\s*\n\s*when 'notifications'\s+then 'notifications'\s*\n\s*when 'customer_alerts' then 'customer_alerts'\s*\n\s*else null/);
+    expect(QUEUE_SQL).toMatch(/if v_table is null then\s*\n\s*raise exception/);
+    expect(QUEUE_SQL).toMatch(/format\(\$f\$[\s\S]*?\$f\$, v_table\)/);
+  });
+
+  it("is not reachable with the public key", () => {
+    // Every row it returns is a customer's phone number beside what they
+    // were told.
+    expect(QUEUE_SQL).toMatch(
+      /revoke all on function claim_queued_messages\(text, int, int, int\) from public, anon, authenticated/);
+  });
+});
+
+describe("the drain run behaves like the other crons", () => {
+  it("refuses an unauthenticated call, and fails closed without a secret", () => {
+    expect(CRON).toMatch(/const secret = process\.env\.CRON_SECRET \|\| "";/);
+    expect(CRON).toMatch(/if \(!secret\) return false;/);
+    expect(CRON).toMatch(/crypto\.timingSafeEqual/);
+  });
+
+  it("says a missing migration is a skip, not a failure", () => {
+    /* A half-migrated shop must not page somebody every five minutes. Same
+       treatment release-reservations gives its own missing function. */
+    expect(CRON).toMatch(/code === "42883" \|\| code === "PGRST202"/);
+  });
+
+  it("spends its budget on the order queue first", () => {
+    // Somebody is waiting on an order message. Nobody is waiting on an
+    // advertisement.
+    expect(CRON).toMatch(/const QUEUES = \["notifications", "customer_alerts"\] as const;/);
+    expect(CRON).toMatch(/budget -= result\.claimed;/);
+  });
+
+  it("is actually scheduled", () => {
+    /* A cron that nothing calls is a queue that never drains -- which is
+       the state this whole change exists to leave behind. */
+    const vercel = JSON.parse(raw("vercel.json")) as
+      { crons: Array<{ path: string; schedule: string }> };
+    const row = vercel.crons.find((c) => c.path === "/api/cron/send-queued");
+    expect(row, "the send-queued cron in vercel.json").toBeTruthy();
+    expect(row!.schedule).toBe("*/5 * * * *");
   });
 });

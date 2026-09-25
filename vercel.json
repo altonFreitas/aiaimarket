@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/release-reservations",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/send-queued",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

@@ -140,12 +140,15 @@ export async function dispatchNotification(
     provider_ref: result.providerRef ?? null,
     error: result.ok ? null : (result.error || "").slice(0, 1000),
     sent_at: result.ok ? new Date().toISOString() : null,
-    // Read-modify-write on a counter is a race, but the only cost of losing
-    // a count is a slightly wrong "attempts" number in the admin UI. Not
-    // worth an RPC.
-    // customer_alerts has no attempts column: an announcement is sent once
-    // or not at all, where an order message is retried by hand.
-    ...(table === "notifications" ? { attempts: 1 } : {}),
+    /* THE ATTEMPT COUNTER IS NOT TOUCHED HERE any more.
+     *
+     * It used to be set to 1 -- flat, not incremented -- which made a
+     * second try look like a first one. claim_queued_messages increments it
+     * as part of taking the row, which is the only place that can count
+     * honestly: a send that never reports back (a timeout, a frozen
+     * function, a crashed run) has still been attempted, and only the claim
+     * knows that happened. Writing it here as well would undo the claim's
+     * count and let a dead number be dialled for ever. */
   }).eq("id", notificationId);
 
   return result.ok;

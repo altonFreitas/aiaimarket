@@ -1459,6 +1459,7 @@ export const STR: Record<string, [string,string,string]> = {
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
   featOrderDiscount:["Diskontu iha enkomenda","Desconto na encomenda","The discount on an order"],
   featCustomerAlerts:["Avizu ba kliente","Avisos para clientes","Alerts for customers"],
+  featMessageQueue:["Fila mensajen ne'ebé haruka automatikamente","Fila de mensagens enviada automaticamente","Message queue drained automatically"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */
   /* "below" no longer: the note sits under the size boxes now, not over
