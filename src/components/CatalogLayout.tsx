@@ -65,7 +65,8 @@ export default async function CatalogLayout({
           <h1>{title}</h1>
           {sub}
           <CatRail cats={cats} products={allProducts} activeSlug={activeSlug} lang={lang} />
-          <Toolbar count={result.total} lang={lang} showRelevance={showRelevance} />
+          <Toolbar count={result.total} countCapped={result.totalCapped}
+            lang={lang} showRelevance={showRelevance} />
           {result.products.length ? (
             <>
               <div className="grid">

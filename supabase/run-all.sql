@@ -1514,6 +1514,142 @@ comment on table customer_alerts is
   'Queued messages telling customers about a new product or a new discount. One per customer per product per kind, enforced by customer_alerts_once. Written by queueProductAlerts() in src/lib/notify/announce.ts; never readable through the anon key.';
 
 
+-- ==== message-queue.sql =================================================
+
+-- ---------------------------------------------------------------------------
+-- Draining the message queues from a cron, instead of from the request
+-- ---------------------------------------------------------------------------
+-- Run AFTER notifications.sql and customer-alerts.sql. Safe to re-run.
+--
+-- BOTH QUEUES ALREADY EXISTED. A message has always been written to the
+-- database before anything is sent, precisely so a failed send leaves
+-- something behind to act on. What was missing was anything that comes back
+-- for it: the send happened inline, in the request that queued it, and a row
+-- that failed sat there until a person noticed.
+--
+-- Two consequences, and the second is the expensive one:
+--
+--   1. In a serverless runtime a "fire and forget" send is forgotten. The
+--      function can be frozen the moment the response is written, so the
+--      send that was not awaited may simply never happen -- and the row says
+--      `queued` for ever with nothing wrong anywhere.
+--
+--   2. queueProductAlerts sent to every opted-in customer IN THE SAVE. Five
+--      hundred recipients meant five hundred sequential HTTP calls before
+--      the shop's "add product" finished. The ceiling on recipients was
+--      protecting the phone bill; nothing was protecting the save.
+--
+-- So the queues become real queues: the request writes rows and stops, and
+-- /api/cron/send-queued claims a batch and sends it.
+--
+-- WHAT MAKES THIS SAFE TO RUN TWICE AT ONCE. Two overlapping cron runs
+-- picking the same row would send the same SMS twice, which costs money and
+-- annoys a customer. Claiming is therefore a single UPDATE with FOR UPDATE
+-- SKIP LOCKED: whoever gets the row gets it, and the other run takes
+-- different rows rather than waiting or duplicating.
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- 1. What a queue row needs to be claimable
+-- ---------------------------------------------------------------------------
+-- claimed_at does three jobs with one column, which is why there is no
+-- 'sending' status to go with it:
+--
+--   * it marks a row as taken, so a concurrent run skips it;
+--   * it expires that claim, so a run that dies mid-batch does not strand
+--     its rows -- after the window they are simply claimable again;
+--   * it spaces out retries. A failed row is not retried until its claim
+--     ages out, which turns the same column into a backoff.
+alter table notifications   add column if not exists claimed_at timestamptz;
+alter table customer_alerts add column if not exists claimed_at timestamptz;
+
+-- customer_alerts was written without one because an announcement was sent
+-- once, inline, or not at all. Now that something comes back for it, it
+-- needs to count -- otherwise a permanently failing number is retried for
+-- ever, every few minutes, forever.
+alter table customer_alerts add column if not exists attempts int not null default 0;
+
+comment on column notifications.claimed_at is
+  'When a drain run took this row. Null means free. An old claim is treated as free, so a crashed run strands nothing.';
+comment on column customer_alerts.claimed_at is
+  'When a drain run took this row. Null means free. An old claim is treated as free, so a crashed run strands nothing.';
+comment on column customer_alerts.attempts is
+  'How many times sending has been tried. Bounds retries: a number that never answers must not be dialled for ever.';
+
+-- The index the claim query needs. Partial, because `sent` rows are most of
+-- the table within a week and none of them are ever claimed.
+create index if not exists notifications_claimable
+  on notifications (created_at) where status in ('queued', 'failed');
+create index if not exists customer_alerts_claimable
+  on customer_alerts (created_at) where status in ('queued', 'failed');
+
+-- ---------------------------------------------------------------------------
+-- 2. Claiming a batch
+-- ---------------------------------------------------------------------------
+-- One function for both queues rather than two near-identical ones: the two
+-- tables were deliberately given the same shape (see customer-alerts.sql),
+-- and dispatchNotification() already sends from either. A second copy here
+-- would be the third place the same logic lives.
+--
+-- p_queue IS NOT INTERPOLATED FROM THE CALLER. It is matched against a
+-- literal allowlist and the matched literal is what reaches format(), so no
+-- value of p_queue can name another table -- this function is SECURITY
+-- DEFINER and would otherwise be a way to update anything.
+create or replace function claim_queued_messages(
+  p_queue        text,
+  p_limit        int default 50,
+  -- How long a claim is honoured before the row is considered abandoned,
+  -- and therefore also how long a failed message waits before its next try.
+  p_stale_minutes int default 15,
+  p_max_attempts int default 3
+)
+returns table (id uuid, to_phone text, body text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_table text;
+  v_limit int := least(greatest(coalesce(p_limit, 50), 1), 500);
+begin
+  v_table := case p_queue
+               when 'notifications'   then 'notifications'
+               when 'customer_alerts' then 'customer_alerts'
+               else null
+             end;
+  if v_table is null then
+    raise exception 'claim_queued_messages: unknown queue %', p_queue;
+  end if;
+
+  return query execute format($f$
+    update %1$I q
+       set claimed_at = now(),
+           attempts   = q.attempts + 1
+     where q.id in (
+             select c.id from %1$I c
+              where c.status in ('queued', 'failed')
+                and c.attempts < $1
+                and (c.claimed_at is null
+                     or c.claimed_at < now() - make_interval(mins => $2))
+              order by c.created_at
+                for update skip locked
+              limit $3)
+    returning q.id, q.to_phone, q.body
+  $f$, v_table)
+  using greatest(coalesce(p_max_attempts, 3), 1),
+        greatest(coalesce(p_stale_minutes, 15), 1),
+        v_limit;
+end $$;
+
+comment on function claim_queued_messages is
+  'Takes up to p_limit sendable rows from one of the two message queues, marking them claimed so a concurrent run takes different ones. The attempt counter is incremented HERE, by the claim, so a send that never reports back still counts against the limit.';
+
+-- Only the service role drains queues. Both tables hold customers' phone
+-- numbers beside what they were told, and this function returns exactly
+-- that.
+revoke all on function claim_queued_messages(text, int, int, int) from public, anon, authenticated;
+
+
 -- ==== payments.sql ======================================================
 
 -- ===========================================================================
@@ -11332,6 +11468,10 @@ declare
   v_tsquery tsquery := null;
   v_limit   int := least(greatest(coalesce(lim, 24), 1), 100);
   v_offset  int := greatest(coalesce(off, 0), 0);
+  -- HOW DEEP THE RESULT SET IS COUNTED AND PAGED. See the note above the
+  -- CTE below. One more than the cap is fetched, so the caller can tell
+  -- "exactly this many" from "more than this many" and say so.
+  v_cap     constant int := 1000;
 begin
   -- Build a prefix tsquery by hand rather than using websearch_to_tsquery:
   -- shoppers type partial words ("kame" for "kamera") far more often than
@@ -11347,6 +11487,49 @@ begin
     v_tsquery := to_tsquery('simple', v_terms);
   end if;
 
+  /* -------------------------------------------------------------------
+   * COUNTED AND ORDERED ONCE, AND BOUNDED.
+   * -------------------------------------------------------------------
+   * This used to be `count(*) over ()` over the whole match set. A window
+   * count has to see every matching row before it can answer, so the
+   * catalog page -- the most-visited page on the site, where the match set
+   * is the WHOLE catalog -- read every product to show twenty-four of
+   * them, and no index could help because the count needed the rows
+   * anyway.
+   *
+   * Measured over 25 calls each, both versions installed side by side on
+   * one database of 60,000 products so the comparison is of the functions
+   * and not of two machines:
+   *
+   *     bare catalog, page 1      94.4 ms  ->   2.1 ms
+   *     cheapest first, page 1   108.9 ms  ->  41.2 ms
+   *     "kamiza" (7,500 hits)     17.9 ms  ->  17.0 ms
+   *     a search matching 12       3.0 ms  ->   3.1 ms
+   *
+   * The last line is why the cap is inside the same scan rather than in a
+   * separate counting query. That was tried first: it was faster still for
+   * the catalog page (0.3 ms) and SLOWER for small result sets (2.8 -> 5.5
+   * ms), because a narrow search then paid for two scans of the same
+   * handful of rows. A shop's ordinary search is a narrow one, so a change
+   * that wins the catalog page by making every real search worse is not an
+   * improvement.
+   *
+   * Cheapest-first is still linear in the match set: no index orders by a
+   * price that depends on whether a discount is set. It is 2.6x better
+   * because it no longer counts as well as sorts, and an index on that
+   * expression is the next thing to do if anyone starts using the sort.
+   *
+   * WHAT IS GIVEN UP: an exact total beyond v_cap. The storefront says
+   * "1,000+" rather than "60,001", and the pager reaches page 42 rather
+   * than page 2,501. Nobody pages to 2,501 -- but somebody does open the
+   * catalog, every single time, and they were paying for that number.
+   *
+   * ORDERED INSIDE, so the cap keeps the RIGHT rows: `limit` without an
+   * order takes an arbitrary thousand, and sorting those would put the
+   * fourth-cheapest product on page one. Ordered again outside because a
+   * CTE's row order is not guaranteed to survive; over at most 1,001 rows
+   * that costs nothing.
+   * ------------------------------------------------------------------- */
   return query
   with matched as (
     select p,
@@ -11371,18 +11554,30 @@ begin
        and (max_price is null or
             (case when p.discount_price is not null and p.discount_price > 0
                   then p.discount_price else p.price end) <= max_price)
+     order by
+       -- Sort by the price a buyer would actually pay, not the list price:
+       -- a discounted item belongs where its discounted price puts it.
+       case when sort = 'low'  then (case when p.discount_price is not null
+              and p.discount_price > 0 then p.discount_price else p.price end) end asc,
+       case when sort = 'high' then (case when p.discount_price is not null
+              and p.discount_price > 0 then p.discount_price else p.price end) end desc,
+       case when sort = 'rating'
+            then p.rating_sum::numeric / nullif(p.rating_count, 0) end desc nulls last,
+       case when sort = 'relevance' then
+              (case when v_tsquery is null then 0::real
+                    else ts_rank(p.search_vector, v_tsquery) end) end desc,
+       -- Final tiebreaker, and the whole ordering for sort = 'new'.
+       p.created_at desc
+     limit v_cap + 1
   )
   select m.p, count(*) over () as total_count, m.r
     from matched m
    order by
-     -- Sort by the price a buyer would actually pay, not the list price:
-     -- a discounted item belongs where its discounted price puts it.
      case when sort = 'low'  then m.effective_price end asc,
      case when sort = 'high' then m.effective_price end desc,
      case when sort = 'rating'
           then (m.p).rating_sum::numeric / nullif((m.p).rating_count, 0) end desc nulls last,
      case when sort = 'relevance' then m.r end desc,
-     -- Final tiebreaker, and the whole ordering for sort = 'new'.
      (m.p).created_at desc
    limit v_limit offset v_offset;
 end;

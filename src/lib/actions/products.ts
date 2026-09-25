@@ -179,7 +179,8 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
     // the one edit anybody ever asks about later -- "who put this on sale"
     // -- under a stream of description tweaks.
     const { data: was } = await sb
-      .from("products").select("name, price, discount_price").eq("id", input.id).maybeSingle();
+      .from("products").select("name, price, discount_price, status, archived")
+      .eq("id", input.id).maybeSingle();
     // qty and stock_status are deliberately absent from this patch. The
     // quantity moves through the ledger below, and the status is derived
     // from the quantity by the database. Writing either here would put the
@@ -231,7 +232,17 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
     const hadDiscount = was?.discount_price != null && Number(was.discount_price) > 0;
     if (!hadDiscount && discount != null) {
       await queueProductAlerts(
-        { id: input.id, name: input.name, slug, price, discount_price: discount },
+        {
+          id: input.id, name: input.name, slug, price, discount_price: discount,
+          /* What the row will BE after this save, not what it was: the same
+             save can publish a draft and cut its price, and announcing
+             against the old status would either skip the message or send it
+             about a page that is still hidden. */
+          status: input.onSale === undefined
+            ? (was?.status as string | undefined) ?? null
+            : (input.onSale ? "approved" : "pending"),
+          archived: (was?.archived as boolean | undefined) ?? false,
+        },
         "discount", await storeName(sb));
     }
 
@@ -307,7 +318,14 @@ export async function saveProduct(input: ProductFormInput): Promise<string> {
      * never throws -- a broken message queue must not stop a shop adding a
      * product. */
     await queueProductAlerts(
-      { id: made.id, name: input.name, slug, price, discount_price: discount },
+      {
+        id: made.id, name: input.name, slug, price, discount_price: discount,
+        /* THE SAME EXPRESSION AS THE INSERT ABOVE, and it has to stay that
+           way: a product saved as a draft used to be announced anyway, so
+           the message linked to a page the public cannot open. */
+        status: input.onSale === false ? "pending" : "approved",
+        archived: false,
+      },
       "new_product", await storeName(sb));
   }
   revalidatePath("/", "layout");
