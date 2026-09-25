@@ -88,6 +88,36 @@ describe("buttons that look like buttons", () => {
   });
 });
 
+describe("the hero runs edge to edge", () => {
+  /* IT WAS BOXED IN ONCE, and the shop asked for it back. The reasoning
+     for boxing it was that everything else on plain paper is a
+     soft-shadowed card and a full-width slab was the odd one out. That
+     is a real observation and it is still the wrong trade: the hero is
+     the one element on the homepage allowed to ignore the content width,
+     and an inset card cuts the picture off at both sides.
+     This is here so the same tidy-minded change cannot be made twice. */
+  it("is not constrained to the content width", () => {
+    const hero = /(?:^|\})\s*\.home \.hero\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(hero, "the .home .hero rule").not.toBeNull();
+    expect(hero![1], "no max-width on the hero").not.toMatch(/max-width/);
+    expect(hero![1], "no border-radius on the hero").not.toMatch(/border-radius/);
+    expect(hero![1], "no margin centring the hero").not.toMatch(/margin:/);
+  });
+
+  it("still lines its headline up with the rows below it", () => {
+    /* --bleed-pad is the gutter the element would have had inside .wrap.
+       Full bleed without it puts the headline against the window edge. */
+    expect(NO_COMMENTS).toMatch(/\.home \.hero\{[^}]*padding:26px var\(--bleed-pad\)/);
+    expect(NO_COMMENTS).toMatch(/\.home \.hero\{[^}]*padding:52px var\(--bleed-pad\)/);
+  });
+
+  it("keeps the photograph hero full width too", () => {
+    const car = /(?:^|\})\s*\.hero-carousel\{([^}]*)\}/.exec(NO_COMMENTS);
+    expect(car, "the .hero-carousel rule").not.toBeNull();
+    expect(car![1]).not.toMatch(/max-width/);
+  });
+});
+
 describe("the cloth behind the page", () => {
   /* IT IS GONE, at the shop's request, and this guards the removal the
      way the test above it used to guard the opacity.
