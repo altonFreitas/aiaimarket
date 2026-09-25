@@ -14,8 +14,20 @@ import { taxOn, type TaxLine } from "@/lib/money";
  */
 
 export interface MixedTax extends TaxLine {
-  /** Each line's tax, in the order the lines came in. Sums to `tax`, or to
-   * `includedTax` when prices are tax-inclusive, exactly. */
+  /** Each line's tax, in the order the lines came in.
+   *
+   * SUMS TO THE TAX ON THE GOODS, NOT TO `tax`. It said "sums to `tax` …
+   * exactly", and that is only true when the delivery fee is zero: `tax` is
+   * the goods tax PLUS the fee's, and the fee is nobody's line. On $100 of
+   * goods and a $10 fee at 10%, `tax` is 11 and these sum to 10.
+   *
+   * The missing cent is not lost, it is deliberate. A line's tax exists so a
+   * RETURN of that line can give it back (see lib/actions/returns.ts), and
+   * sending one shirt back does not refund the delivery that brought it --
+   * so the fee's tax must not be apportioned across the lines, or every
+   * partial return would hand back a slice of it.
+   *
+   * Tax-inclusive works the same way against `includedTax`. */
   perLine: number[];
 }
 

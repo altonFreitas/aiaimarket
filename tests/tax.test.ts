@@ -12,15 +12,39 @@ import path from "node:path";
  */
 
 describe("tax on an order, and each line's share of it", () => {
-  it("adds up: the lines sum to the order's tax exactly", () => {
+  const summed = (ns: readonly number[]) =>
+    Math.round(ns.reduce((a, n) => a + n, 0) * 100) / 100;
+
+  it("adds up: with no delivery fee, the lines sum to the order's tax exactly", () => {
     /* Each line is rounded on its own and the total is the sum of the
        rounded lines, so what the order says and what its lines say are the
        same number. Apportioning a rounded total backwards is what leaves a
        cent the books cannot explain -- and that cent is what a return of
        the last line would get wrong. */
     const out = taxOnLines([33.33, 33.33, 33.34], 0, 0.1, false);
-    const summed = Math.round(out.perLine.reduce((a, n) => a + n, 0) * 100) / 100;
-    expect(summed).toBe(out.tax);
+    expect(summed(out.perLine)).toBe(out.tax);
+  });
+
+  it("leaves the fee's tax out of the lines, because a return does not refund delivery", () => {
+    /* The header on MixedTax.perLine used to promise it summed to `tax`
+       "exactly", with no mention of the fee -- and the test above only ever
+       checked it with the fee set to zero, so the claim went unexamined.
+       With a fee the two genuinely differ, and that is correct: a line's tax
+       is what a RETURN of that line gives back, and sending one shirt back
+       does not refund the delivery that brought it. Apportioning the fee's
+       tax across the lines would hand back a slice of it on every partial
+       return. Pinned here so the difference stays a decision. */
+    const out = taxOnLines([100], 10, 0.1, false);
+    expect(out.tax).toBe(11);            // goods 10 + fee 1
+    expect(summed(out.perLine)).toBe(10); // the goods only
+  });
+
+  it("keeps the fee out of the lines tax-inclusive too", () => {
+    // $110 of goods and an $11 fee, both tax-inclusive at 10%: $10 inside
+    // the goods, $1 inside the fee, and only the goods reach the lines.
+    const out = taxOnLines([110], 11, 0.1, true);
+    expect(out.includedTax).toBe(11);
+    expect(summed(out.perLine)).toBe(10);
   });
 
   it("taxes the delivery fee with the goods", () => {
