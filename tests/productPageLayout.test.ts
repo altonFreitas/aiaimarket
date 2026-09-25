@@ -53,16 +53,26 @@ describe("four blocks, in the order a phone needs them", () => {
        and three columns from 1180. */
     for (const rule of [
       ".pdp-media{grid-column:1;grid-row:1}",
-      ".pdp-about{grid-column:1;grid-row:2}",
+      ".pdp-about{grid-column:1;grid-row:2;margin-top:0}",
       ".pdp-info{grid-column:2;grid-row:1}",
       ".pdp-buy{grid-column:2;grid-row:2}",
     ]) expect(RULES, `768: ${rule}`).toContain(rule);
     for (const rule of [
       ".pdp-media{grid-column:1;grid-row:1/span 2}",
       ".pdp-info{grid-column:2;grid-row:1;margin-top:0}",
-      ".pdp-about{grid-column:2;grid-row:2}",
+      ".pdp-about{grid-column:2;grid-row:2;margin-top:0}",
       ".pdp-buy{grid-column:3;grid-row:1/span 2}",
     ]) expect(RULES, `1180: ${rule}`).toContain(rule);
+  });
+
+  it("does not let the tall columns pad the row the price sits in", () => {
+    /* MEASURED: a grid shares a SPANNING item's height out between the
+       rows it covers, so the 558px buy panel pushed row one to 334px for
+       a 207px price block and opened a 165px hole above the description.
+       min-content alone did not fix it -- a spanning item contributes to
+       that too. A flexible second row absorbs the extra instead, and row
+       one came back to exactly the price block's 207px. */
+    expect(RULES).toContain("grid-template-rows:min-content 1fr");
   });
 
   it("goes one, two, three columns as the screen widens", () => {
@@ -228,6 +238,31 @@ describe("the middle column", () => {
     // "Is it any good" and "can I have it" are asked in the same breath.
     expect(BUY).toContain('<div className="pdp-meta">');
     expect(BUY).toContain('<span className={"pdp-stock " + STOCK_CLS[p.stock_status]}>');
+  });
+
+  it("marks each tile with the icon for what KIND of fact it is", () => {
+    /* The reference draws a fabric swirl, a shirt and a figure beside the
+       three tiles. Keyed on the SLUG, never on the label: the label is
+       the shop's own wording in whichever language it was typed, so
+       matching on it would give "Material" a picture and "Materiál"
+       none. */
+    expect(BUY).toContain("<SpecIcon slug={x.slug} />");
+    expect(BUY).not.toContain("<SpecIcon slug={x.label}");
+    expect(PDP).toContain("slug: sp.slug, label: sp.name, value: sp.value");
+  });
+
+  it("draws SOMETHING on every tile, including a fact it has no picture for", () => {
+    /* A fridge answers Capacity and Energy rating; there is no drawing
+       that means "capacity". One tile with an icon and two without reads
+       as two icons that failed to load, so the fallback is a neutral tag
+       rather than nothing. */
+    const ICON = read("src/components/SpecIcon.tsx");
+    expect(ICON).toContain("default:");
+    // Every branch returns an <svg>, the default one included.
+    const returns = (ICON.match(/return \(\s*<svg/g) ?? []).length;
+    const cases = (ICON.match(/^\s*case "/gm) ?? []).length;
+    expect(returns).toBeGreaterThan(1);
+    expect(cases).toBeGreaterThanOrEqual(returns - 1);
   });
 
   it("picks its three tiles by meaning, not by position", () => {

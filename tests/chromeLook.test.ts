@@ -89,12 +89,26 @@ describe("buttons that look like buttons", () => {
 });
 
 describe("the cloth behind the page", () => {
-  it("is fainter than it was, and still there", () => {
-    const o = Number(/--tais-opacity:([\d.]+)/.exec(NO_COMMENTS)?.[1] ?? NaN);
-    // Its own note: below ~.06 it is invisible on most screens, past ~.16
-    // it competes with the product photography.
-    expect(o).toBeGreaterThanOrEqual(0.06);
-    expect(o).toBeLessThan(0.12);
+  /* IT IS GONE, at the shop's request, and this guards the removal the
+     way the test above it used to guard the opacity.
+     A Timor-Leste tais was the ground the whole store rested on, faded
+     down twice before it was taken out. It cost more than it looked:
+     every card, panel and strip carried a hard 1px border whose real job
+     was to separate white from the weave, and the reference the shop
+     designed to is plain paper. The asset itself stays in public/ -- it
+     is the shop's own cloth, and deleting it would make putting it back
+     a re-draw rather than a rule. */
+  it("no longer paints a layer behind the page", () => {
+    expect(NO_COMMENTS).not.toMatch(/body::before/);
+    expect(NO_COMMENTS).not.toMatch(/tais\.svg/);
+    expect(NO_COMMENTS).not.toMatch(/--tais-opacity/);
+  });
+
+  it("still paints the paper colour on <html>, not only on <body>", () => {
+    /* That is what fills the over-scroll area on iOS. A body-only
+       background leaves a white band there when the page bounces, which
+       is exactly the sort of thing removing a full-page layer breaks. */
+    expect(NO_COMMENTS).toMatch(/html\{background:var\(--paper\)\}/);
   });
 });
 

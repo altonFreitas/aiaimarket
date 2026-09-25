@@ -56,7 +56,7 @@
      against this, so they widen together and stay aligned with each other
      and with the full-bleed hero. */
   --content-w:1720px;
-  --sh:0 1px 2px rgba(11,20,36,.08),0 8px 24px -16px rgba(11,20,36,.25);
+  --sh:0 0 0 1px rgba(11,20,36,.055),0 1px 2px rgba(11,20,36,.07),0 8px 24px -16px rgba(11,20,36,.22);
   --hd:52px;
   /* The main navigation bar (MegaNav). There is no separate search strip
      any more -- the box is in the header. THE BAR ITSELF IS GONE TOO, so
@@ -64,18 +64,16 @@
      expressed as "the header plus the navigation": a shop that grows a
      second pinned row again sets this and everything below it moves. */
   --nav-h:0px;
-  /* Strength of the tais cloth behind the page. The one knob: raise it to
-     make the weave more present, drop it toward 0 to fade it out entirely.
-     Below ~.06 it is invisible on most screens; past ~.16 it starts
-     competing with the product photography, which is the thing people
-     actually came to look at.
-
-     Taken down from .12: the weave was still legible as a pattern in the
-     gutters beside the catalogue, which is one graphic too many next to a
-     wall of product photos. At .07 it reads as a tint in the margins and
-     as nothing at all behind content -- present, not noticed, which is
-     what a ground is for. */
-  --tais-opacity:.07;
+  /* THE TAIS IS GONE, and --tais-opacity with it.
+     A Timor-Leste tais (public/tais.svg) was the cloth the whole store
+     rested on -- a fixed, low-opacity weave in every gutter and margin.
+     It was the shop's own identity and it is still in the hero's art and
+     the logo; as a ground behind a catalogue it was one graphic too many
+     next to a wall of product photography, and the reference the shop
+     designed to is plain paper.
+     It cost more than it looked: every card, panel and strip on the site
+     carried a hard 1px border whose real job was to separate it from a
+     pattern. Those borders go soft with it -- see --sh-1 below. */
 
   /* =====================================================================
      THE SCALES
@@ -148,8 +146,11 @@
      everything is raised has nothing raised. --sh keeps its existing
      value as the medium step. */
   --sh-0:none;
-  --sh-1:0 1px 2px rgba(11,20,36,.08);
-  --sh-2:0 1px 2px rgba(11,20,36,.08),0 8px 24px -16px rgba(11,20,36,.25);
+  /* Each carries a 0-blur hairline as its first layer -- the outline a
+     white card needs against a white page, at a tenth the weight of a
+     real border. */
+  --sh-1:0 0 0 1px rgba(11,20,36,.055),0 1px 2px rgba(11,20,36,.07);
+  --sh-2:0 0 0 1px rgba(11,20,36,.055),0 1px 2px rgba(11,20,36,.07),0 8px 24px -16px rgba(11,20,36,.22);
   --sh-3:0 4px 12px rgba(11,20,36,.10),0 24px 48px -24px rgba(11,20,36,.35);
 
   /* ---- motion --------------------------------------------------------
@@ -176,44 +177,17 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-/* The paper colour lives on <html>, not <body>, so the tais layer below can
-   sit between the two -- above the ground colour, beneath every pixel of
-   content. */
+/* The paper colour was on <html> rather than <body> so the tais layer
+   could sit between the two. With the weave gone there is nothing to sit
+   between them, but it stays on <html>: that is what paints the
+   over-scroll area on iOS, and a body-only background leaves a white
+   band there when the page bounces. */
 html{background:var(--paper)}
 body{
   background:transparent; color:var(--ink); font-family:var(--sans);
   font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
   overflow-wrap:break-word;
   display:flex; flex-direction:column; min-height:100vh;
-}
-/* Timor-Leste tais (public/tais.svg), as the cloth the whole store rests on.
-   Only ever visible in the gutters and margins -- cards, panels and the
-   header all paint opaque over it.
-
-   position:fixed rather than background-attachment:fixed on purpose: the
-   latter is the well-known janky-scrolling case on iOS Safari, and this store
-   is mobile-first. A fixed layer costs one composite and never repaints on
-   scroll, so the cloth stays still while the catalog slides over it.
-
-   z-index:-1 puts it above <html>'s background and below everything else
-   without needing a single content element to be re-stacked. */
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  z-index:-1;
-  pointer-events:none;
-  background:url("/tais.svg") repeat;
-  /* Tile is 120x320; drawn at 200px wide the motifs read as woven texture
-     rather than as a graphic pattern competing for attention. */
-  background-size:200px auto;
-  opacity:var(--tais-opacity);
-}
-/* On a 360px phone a 200px tile is more than half the screen, which turns
-   texture back into pattern. Weaving it finer keeps the same cloth reading
-   as a ground rather than a graphic. */
-@media(max-width:700px){
-  body::before{background-size:150px auto}
 }
 /* Everything pinned to the top of the window, added up. The catalogue
    sidebar and the admin's own sticky rows park below it, so there is one
@@ -455,8 +429,17 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
 /* ---------- product grid (D1) ---------- */
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;text-decoration:none;
-  display:flex;flex-direction:column;position:relative}
+/* SURFACES ON PLAIN PAPER.
+   Every one of these carried a hard 1px border, and the border's real
+   job was to separate a white card from the tais weave behind it. With
+   the ground plain the rule is the loudest thing on a quiet page -- the
+   reference draws these as white blocks with a soft shadow and no
+   outline at all, which is what actually says "this is raised" rather
+   than "this is fenced". The hairline stays only as a very faint one in
+   the shadow itself, so a card is still findable on a white background
+   and in a high-contrast mode. */
+.card{background:var(--card);border:1px solid transparent;border-radius:var(--r);overflow:hidden;text-decoration:none;
+  box-shadow:var(--sh-1);display:flex;flex-direction:column;position:relative}
 /* NO DARK OUTLINE ON HOVER. This drew a near-black border round the card,
    which read as selected-and-disabled rather than as raised and fought the
    photograph it was framing. The card keeps its ordinary hairline; the
@@ -640,7 +623,7 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
    NOT OPAQUE. At full strength a bright yellow face is the loudest thing on
    the page and the button stops being the thing you press. At .82 it sits
-   on the tais like part of the paper, and the grey cart is quieter still so
+   back into the paper, and the grey cart is quieter still so
    the face leads. Dark mode needs less, not more: the same yellow on a dark
    ground is far brighter to the eye than it is on white. */
 .empty-art{display:block;margin:18px auto 0;width:clamp(150px,30vmin,320px);
@@ -662,7 +645,8 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 @media (prefers-contrast:more){.empty-art{opacity:1}}
 
 /* ---------- product page ---------- */
-.gal{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.gal{background:var(--card);border:1px solid transparent;border-radius:var(--r);
+  box-shadow:var(--sh-1);overflow:hidden}
 .gal .main{aspect-ratio:4/3;max-height:40vh;background:var(--line-2);
   position:relative;overflow:hidden;touch-action:pan-y}
 .gal .main img{width:100%;height:100%;object-fit:cover;transform-origin:center center}
@@ -754,7 +738,8 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .qty span{min-width:30px;text-align:center;font-family:var(--mono);font-weight:700}
 
 /* ---------- panels, forms -- ON THE SCALE ---------- */
-.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3);margin:0 0 var(--sp-3)}
+.panel{background:var(--card);border:1px solid transparent;border-radius:var(--r);
+  box-shadow:var(--sh-1);padding:var(--sp-3);margin:0 0 var(--sp-3)}
 .panel h3{margin:0 0 var(--sp-2);font-size:var(--fs-body-sm);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .field{margin:0 0 var(--sp-3)}
 .field label{display:block;font-size:var(--fs-sm);font-weight:600;margin:0 0 var(--sp-1)}
@@ -1002,10 +987,8 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 
 /* ---------- footer ---------- */
 /* No rule above it and no fill behind it: the footer is one quiet line of
-   text, so it sits directly on the tais rather than inside a painted panel
-   that reads as another section of the page. background:transparent, not
-   the paper colour -- an opaque block here would punch a rectangle through
-   the cloth the rest of the page rests on. */
+   text, so it sits on the paper rather than inside a painted panel that
+   reads as another section of the page. */
 .ft{margin-top:24px;padding:16px 12px calc(78px + env(safe-area-inset-bottom));
   color:var(--muted);font-size:12px;text-align:center;background:transparent;
   max-width:var(--content-w);margin-left:auto;margin-right:auto}
@@ -1023,8 +1006,20 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
    inside .wrap, so a headline lines up with the product rows below it at
    every window width. */
 :root{--bleed-pad:max(12px, calc((100% - var(--content-w)) / 2 + 12px))}
+/* THE HERO AS A CARD, not a band across the window.
+   It was full-bleed: a dark slab edge to edge, with --bleed-pad lining
+   its headline up with the rows below. That was the right answer while
+   the page sat on a woven ground -- a band read as a section of cloth.
+   On plain paper with soft-shadowed cards everywhere else, an
+   edge-to-edge rectangle is the one element on the homepage not speaking
+   the reference's language.
+   Same ink, same headline, same buttons: only the shape changes, so the
+   shop's own colour is not what was traded away. */
 .home .hero{display:flex;flex-direction:column-reverse;gap:18px;background:var(--ink);color:#fff;
-  padding:26px var(--bleed-pad);overflow:hidden}
+  padding:26px 20px;overflow:hidden;
+  border-radius:var(--r);box-shadow:var(--sh-2);
+  max-width:var(--content-w);margin:var(--sp-3) auto 0;
+  width:calc(100% - 24px)}
 .home .hero-copy h1{color:#fff;font-size:24px;line-height:1.15;margin:0 0 10px;letter-spacing:-.01em}
 .home .hero-sub{color:rgba(255,255,255,.75);font-size:14px;margin:0 0 16px;max-width:46ch}
 .home .hero-cta{display:flex;flex-direction:column;gap:8px}
@@ -1037,13 +1032,15 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .home .hero-art{max-width:220px;margin:0 auto}
 
 /* photo carousel hero (populated via /admin/hero) */
+/* The photograph hero takes the same shape, for the same reason. */
 .hero-carousel{position:relative;aspect-ratio:4/5;max-height:76vh;overflow:hidden;
-  background:var(--ink)}
+  background:var(--ink);border-radius:var(--r);box-shadow:var(--sh-2);
+  max-width:var(--content-w);margin:var(--sp-3) auto 0;width:calc(100% - 24px)}
 .hero-slide-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;
   transition:opacity .6s ease}
 .hero-slide-img.active{opacity:1}
 .hero-slide-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;pointer-events:none;
-  padding:0 var(--bleed-pad);
+  padding:0 20px;
   background:linear-gradient(0deg,rgba(11,20,36,.82) 0%,rgba(11,20,36,.35) 50%,transparent 80%)}
 .hero-slide-content{pointer-events:auto;padding:22px 0 46px;max-width:420px;color:#fff}
 /* THE VIDEO, WHOLE. Every video this shop will ever have is filmed on the
@@ -1116,7 +1113,7 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 .hero-fit-opt{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-body-sm);cursor:pointer}
 .hero-fit-opt input{margin:0}
 
-.home-section{margin:30px 0}
+.home-section{margin:var(--sp-5) 0}
 /* THE ROW HEADINGS, A THIRD BIGGER. At 19px "New Arrivals" was barely
    louder than the product names under it, so a page of six rows read as
    one undifferentiated column of cards. 25px is the 30% asked for, and
@@ -1325,7 +1322,7 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 }
 
 @media(min-width:1180px){
-  .home .hero{flex-direction:row;align-items:center;padding:52px var(--bleed-pad);gap:40px}
+  .home .hero{flex-direction:row;align-items:center;padding:52px 48px;gap:40px}
   .home .hero-copy{flex:1}
   .home .hero-copy h1{font-size:34px}
   .home .hero-sub{font-size:15.5px;max-width:52ch}
@@ -1926,7 +1923,7 @@ h2{font-size:15px;margin:22px 0 10px;text-transform:uppercase;letter-spacing:.04
 @media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 /* body::before too: an invoice printed on a customer's receipt is not the
    place to spend their toner on background cloth. */
-@media print{.hd,.nav,.btn-row,.adm-nav,body::before{display:none}}
+@media print{.hd,.nav,.btn-row,.adm-nav{display:none}}
 
 /* ============================================================
    Dense marketplace layer — utility top bar + promo strip.
@@ -2651,7 +2648,7 @@ span.stock-btn:hover{filter:none}
    chrome from the content. */
 .home{padding-top:10px}
 /* The body of the homepage, under the full-bleed hero. */
-.home-body{padding-top:22px}
+.home-body{padding-top:var(--sp-4)}
 .home-section-acts{display:flex;align-items:center;gap:10px;flex:0 0 auto}
 
 /* A row that scrolls sideways rather than a grid that grows downwards --
@@ -3076,18 +3073,17 @@ tr.is-ended{opacity:.55}
 .variants .table input{max-width:130px}
 
 /* ---------- the specification table (a product page) ---------- */
-/* What a particular product IS, from its product type's attributes. Two
-   columns on a desktop, stacked on a phone -- a definition list rather
-   than a table because that is what it is, and it reads correctly to a
-   screen reader without any row/column scaffolding. */
-.specs{margin:0;display:grid;gap:0}
-.spec-row{display:grid;grid-template-columns:minmax(120px,38%) 1fr;
-  gap:var(--sp-2);padding:8px 0;border-bottom:1px solid var(--line)}
-.spec-row:last-child{border-bottom:0}
-/* Past five rows this stops being a list and starts being the page. The
-   height is five rows of .spec-row plus its borders, measured. */
-.specs-scroll{max-height:236px;overflow-y:auto;overscroll-behavior:contain}
-.specs-scroll:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+/* .specs and the base .spec-row lived here: a two-column definition list
+   with a rule under every row. The specification table is in a tab now
+   and lays out as real columns with a rule BETWEEN them instead -- see
+   .spec-cols further down, which is the only thing that styles these
+   rows. The base rule stayed behind for a while and its border was still
+   being drawn under every line of the new table, which is the grille
+   .spec-cols exists to avoid. A rule with no markup behind it does not
+   sit quietly; it keeps working. */
+/* .specs-scroll capped the old specification list at five rows and
+   scrolled the rest. The list is in a tab now and lays out in columns
+   instead, which hides nothing -- see .spec-cols. */
 /* The same for a description somebody pasted four hundred words into. */
 /* ============================================================
    THE PRODUCT PAGE
@@ -3103,7 +3099,8 @@ tr.is-ended{opacity:.55}
    headed "ALL ANSWERS, HERE" -- the right questions in the wrong shape,
    because a table is for comparing rows and nobody compares the price of
    a thing with its size. */
-.buybox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+.buybox{background:var(--card);border:1px solid transparent;border-radius:var(--r);
+  box-shadow:var(--sh-2);
   padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
 /* The name and the rating live over the photograph now, not in here --
    see .pdp-nm. */
@@ -3137,8 +3134,12 @@ tr.is-ended{opacity:.55}
 .buybox-seller a{color:var(--ink);font-weight:600}
 
 .buybox-opt{display:flex;flex-direction:column;gap:var(--sp-2)}
-.buybox-lbl{font-size:var(--fs-sm);font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--muted)}
+/* SENTENCE CASE, the way the reference writes them: "Color: Brown",
+   "Size: M". They were uppercase and letterspaced, which is this shop's
+   caption style -- and on a label whose whole job is to carry a VALUE
+   after a colon, it shouted the question and flattened the answer. The
+   chosen colour is the thing worth reading here. */
+.buybox-lbl{font-size:var(--fs-body-sm);font-weight:600;color:var(--muted)}
 
 .buybox-stock{display:flex;align-items:center;gap:var(--sp-2)}
 .buybox-stock small{color:var(--muted);font-size:var(--fs-sm)}
@@ -3202,7 +3203,14 @@ tr.is-ended{opacity:.55}
    wider than the page. */
 @media(min-width:768px){
   .pdp{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,340px);
-    gap:22px;align-items:start}
+    gap:22px;align-items:start;
+    /* THE FIRST ROW HUGS ITS CONTENT. Both the picture and the buy panel
+       span the two rows, and a grid shares a spanning item's height out
+       between the rows it covers -- so a tall panel pushed row one taller
+       than the price block in it and opened a 95px hole above the
+       description. min-content pins row one to what is actually in it and
+       leaves the remainder to row two, which is the one with room. */
+    grid-template-rows:min-content 1fr}
   /* PLACED EXPLICITLY, all four of them. The document order is the
      PHONE's order -- picture, name and price, the panel you press, then
      the prose -- and auto-placement would carry that order into the
@@ -3210,7 +3218,9 @@ tr.is-ended{opacity:.55}
      description underneath on the left, the price and the panel that
      buys it stacked on the right. */
   .pdp-media{grid-column:1;grid-row:1}
-  .pdp-about{grid-column:1;grid-row:2}
+  /* The grid's own row gap separates it; the margin below is for the
+     phone, where this stacks under the buy panel instead. */
+  .pdp-about{grid-column:1;grid-row:2;margin-top:0}
   .pdp-info{grid-column:2;grid-row:1}
   .pdp-buy{grid-column:2;grid-row:2}
   /* PINNED, so the thing you buy with never scrolls away while you
@@ -3253,7 +3263,7 @@ tr.is-ended{opacity:.55}
      both rows on the right so a tall one has somewhere to go. */
   .pdp-media{grid-column:1;grid-row:1/span 2}
   .pdp-info{grid-column:2;grid-row:1;margin-top:0}
-  .pdp-about{grid-column:2;grid-row:2}
+  .pdp-about{grid-column:2;grid-row:2;margin-top:0}
   .pdp-buy{grid-column:3;grid-row:1/span 2}
 }
 
@@ -3345,21 +3355,27 @@ tr.is-ended{opacity:.55}
    than two tiles and a hole. */
 .pdp-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
   gap:var(--sp-2);margin:var(--sp-3) 0}
-.pdp-tile{background:var(--line-2);border:1px solid var(--line);border-radius:var(--r-s);
-  padding:var(--sp-2) var(--sp-3);min-width:0}
+/* Icon on the left, the fact stacked beside it -- the reference's
+   arrangement. No border: on plain paper a tinted block is already a
+   block, and a rule around it makes three small tiles read as three
+   small tables. */
+.pdp-tile{display:flex;align-items:center;gap:var(--sp-3);
+  background:var(--line-2);border-radius:var(--r-s);
+  padding:var(--sp-3);min-width:0}
+.pdp-tile > svg{flex:0 0 auto;color:var(--ink-3)}
+.pdp-tile > div{min-width:0}
 .pdp-tile b{display:block;font-size:var(--fs-body-sm);color:var(--ink);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pdp-tile span{font-size:var(--fs-caption);color:var(--muted)}
 
-/* THE DESCRIPTION AND THE TICKS, on a card.
-   The reference's whole page is white, so its description sits on the
-   page itself. This shop's background is a tais pattern, and the scroll
-   box underneath needs a solid colour for its shaded edges to work
-   against -- so a white box appeared over the weave and read as
-   something that had failed to be styled. A card is what this page
-   already uses to say "this is a block of content". */
-.pdp-about{background:var(--card);border:1px solid var(--line);
-  border-radius:var(--r);padding:var(--sp-3);margin-top:var(--sp-3)}
+/* THE DESCRIPTION AND THE TICKS, ON THE PAGE.
+   It was a card, and the card was the weave's fault: the scroll box
+   underneath needs a solid colour for its shaded edges to work against,
+   so a white box appeared over the pattern and had to be explained as a
+   card rather than looking like a mistake. With the ground plain, the
+   reference's own arrangement works -- the description is simply text on
+   the page, and the box paints the paper colour instead. */
+.pdp-about{margin-top:var(--sp-4)}
 .pdp-about:empty{display:none}
 .pdp-desc{margin:0}
 .pdp-desc h2{margin:0 0 var(--sp-2);font-size:var(--fs-h4);letter-spacing:.04em}
@@ -3423,33 +3439,46 @@ tr.is-ended{opacity:.55}
 .ptab:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
 .ptabs-body{margin-top:var(--sp-3)}
 
-/* THE SPECIFICATION TABLE, IN COLUMNS. A sofa answers eighteen
-   questions: down one column that is eighteen rows to scroll past, and
-   across three it is six.
-   THREE AT MOST, and counted rather than left to auto-fit. auto-fit with
-   a 240px minimum gave FIVE columns on a 1440px screen, which put a
-   label and its answer eight pixels apart in one column and a hand's
-   width apart in the next -- measured, and it read as five unrelated
-   lists rather than one table. */
-.spec-cols{display:grid;grid-template-columns:1fr;gap:0 var(--sp-5);margin:0}
-@media(min-width:620px){.spec-cols{grid-template-columns:1fr 1fr}}
-@media(min-width:1024px){.spec-cols{grid-template-columns:1fr 1fr 1fr}}
-/* The shipping panel's little tables are already inside a column of the
-   grid above them, so they stay single-file however wide the page is. */
-.ship-zones{grid-template-columns:1fr}
-@media(min-width:620px){.ship-zones{grid-template-columns:1fr}}
-@media(min-width:1024px){.ship-zones{grid-template-columns:1fr}}
+/* THE SPECIFICATION TABLE, IN COLUMNS WITH A RULE BETWEEN THEM.
+   A sofa answers eighteen questions: down one column that is eighteen
+   rows to scroll past, and across three it is six.
+
+   MULTI-COLUMN, NOT GRID, and the difference is visible. A grid flows
+   ROW-major -- item 1 goes top-left, item 2 top-middle, item 3 top-right
+   -- so reading a column top to bottom skips two answers between every
+   line. The reference's columns are contiguous lists, which is what
+   `columns` does natively, at any number of answers and with no count to
+   keep in step.
+
+   column-rule is then the hairline the reference draws between the
+   groups, in the one place the eye needs help: it separates the three
+   lists and leaves each one's rows to hold together by proximity. A line
+   under every row instead drew a nine-line grille and made three columns
+   of pairs read as one long ledger.
+
+   break-inside on the rows, because a question at the foot of one column
+   with its answer at the head of the next is worse than no columns. */
+.spec-cols{columns:1;column-gap:var(--sp-5);margin:0}
+@media(min-width:620px){
+  .spec-cols{columns:2;column-rule:1px solid var(--line)}
+}
+@media(min-width:1024px){
+  .spec-cols{columns:3}
+}
 /* THE ANSWER BESIDE THE QUESTION, not at the far end of the row.
    space-between put "Gender" at one edge of a 460px column and "Men" at
    the other, so the eye had to travel the width of a hand to pair them
-   -- and each column paired them at a different distance. A grid instead:
-   the answer starts at the same offset in every column, close enough to
-   read as one fact. */
-.spec-cols .spec-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
-  align-items:baseline;gap:var(--sp-3);padding:var(--sp-2) 0;
-  border-bottom:1px solid var(--line);min-width:0}
+   -- and each column paired them at a different distance. */
+.spec-cols .spec-row{break-inside:avoid;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);
+  align-items:baseline;gap:var(--sp-3);padding:var(--sp-2) 0;min-width:0}
 .spec-cols dt{color:var(--muted);font-size:var(--fs-sm);min-width:0;overflow-wrap:anywhere}
 .spec-cols dd{margin:0;min-width:0;overflow-wrap:anywhere;font-weight:600}
+/* The shipping panel's little tables are already inside a column of the
+   grid above them, so they stay single-file however wide the page is. */
+.ship-zones{columns:1}
+@media(min-width:620px){.ship-zones{columns:1;column-rule:none}}
+@media(min-width:1024px){.ship-zones{columns:1}}
 
 .ship-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
   gap:var(--sp-4)}
@@ -3476,6 +3505,8 @@ tr.is-ended{opacity:.55}
 .empty-loves .btn{margin-top:var(--sp-3)}
 .pdp-scroll:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
+/* The shading below paints var(--paper) for .pdp-scroll, because that
+   box now sits on the page rather than inside a card. */
 /* A CUT LINE OF TEXT IS NOT AN AFFORDANCE.
    Both of these boxes cap their height and scroll, and both were cutting
    a sentence in half at the bottom edge with nothing to say there was
@@ -3488,24 +3519,22 @@ tr.is-ended{opacity:.55}
    shadow appears. So the shading is there exactly when there is more to
    see, at exactly the edge there is more beyond -- and it costs nothing
    on a box short enough not to scroll at all. */
-.pdp-scroll, .specs-scroll{
+.pdp-scroll{
   background:
-    linear-gradient(var(--card) 40%, rgba(0,0,0,0)) top / 100% 26px no-repeat local,
-    linear-gradient(rgba(0,0,0,0), var(--card) 60%) bottom / 100% 26px no-repeat local,
+    linear-gradient(var(--paper) 40%, rgba(0,0,0,0)) top / 100% 26px no-repeat local,
+    linear-gradient(rgba(0,0,0,0), var(--paper) 60%) bottom / 100% 26px no-repeat local,
     linear-gradient(rgba(0,0,0,.13), rgba(0,0,0,0)) top / 100% 13px no-repeat scroll,
     linear-gradient(rgba(0,0,0,0), rgba(0,0,0,.13)) bottom / 100% 13px no-repeat scroll;
-  background-color:var(--card)}
+  background-color:var(--paper)}
 /* A colour, as a colour. The swatch carries a hairline so white shows up
    against the card. */
 .spec-color{display:inline-flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .spec-swatch{width:16px;height:16px;border-radius:4px;flex:0 0 auto;
   border:1px solid var(--line);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
-.spec-row dt{margin:0;color:var(--muted);font-size:var(--fs-sm)}
-.spec-row dd{margin:0}
 @media(max-width:480px){
-  /* Stacked: two columns of 120px each leaves nothing for a long answer
-     like "Brushed stainless steel". */
-  .spec-row{grid-template-columns:1fr;gap:2px}
+  /* Stacked: a label column and an answer column on a 390px screen
+     leaves nothing for "Brushed stainless steel". */
+  .spec-cols .spec-row{grid-template-columns:1fr;gap:2px}
 }
 
 /* ---------- generated catalogue filters ---------- */

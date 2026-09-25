@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
 import { useToast } from "@/components/Toast";
 import CartIcon from "./CartIcon";
+import SpecIcon from "./SpecIcon";
 import { bumpWaClickAction } from "@/lib/actions/track";
 import { money, waLink, waProductMsg, discountPercent } from "@/lib/utils";
 import { t } from "@/lib/i18n";
@@ -46,7 +47,7 @@ export default function ProductInteractive({
   /** The three tiles over the description: Material, Fit, Gender and the
    * like, picked by slug so they are the same three on every product
    * that answers them. */
-  tiles?: Array<{ label: string; value: string }>;
+  tiles?: Array<{ slug: string; label: string; value: string }>;
   /** The star average, or null when nobody has reviewed it. */
   average?: number | null;
   ratingCount?: number;
@@ -305,8 +306,13 @@ export default function ProductInteractive({
           <div className="pdp-tiles">
             {tiles.map((x) => (
               <div key={x.label} className="pdp-tile">
-                <b>{x.value}</b>
-                <span>{x.label}</span>
+                {/* The mark first, the way the reference reads: the icon
+                    says what KIND of fact this is before the words do. */}
+                <SpecIcon slug={x.slug} />
+                <div>
+                  <b>{x.value}</b>
+                  <span>{x.label}</span>
+                </div>
               </div>
             ))}
           </div>

@@ -111,8 +111,13 @@ describe("the product page", () => {
        FIVE columns on a 1440px screen, which read as five unrelated
        lists. Measured. */
     expect(TABS).toContain('<dl className="spec-cols">');
-    expect(CSS).toContain(".spec-cols{display:grid;grid-template-columns:1fr");
-    expect(CSS).toMatch(/@media\(min-width:1024px\)\{\.spec-cols\{grid-template-columns:1fr 1fr 1fr\}/);
+    /* MULTI-COLUMN, NOT GRID, and the difference is visible. A grid flows
+       ROW-major -- item 1 top-left, item 2 top-middle, item 3 top-right
+       -- so reading a column top to bottom skipped two answers between
+       every line. `columns` gives contiguous lists at any number of
+       answers, which is what the reference draws. */
+    expect(CSS).toContain(".spec-cols{columns:1");
+    expect(CSS).toMatch(/@media\(min-width:1024px\)\{\s*\.spec-cols\{columns:3\}/);
   });
 
   it("scrolls a description somebody pasted a page into", () => {

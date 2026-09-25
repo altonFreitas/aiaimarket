@@ -88,7 +88,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     })
     .slice(0, 3)
-    .map((sp) => ({ label: sp.name, value: sp.value }));
+    .map((sp) => ({ slug: sp.slug, label: sp.name, value: sp.value }));
 
   const brand = specs.find((sp) => sp.slug === "brand")?.value ?? null;
 
