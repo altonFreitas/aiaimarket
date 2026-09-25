@@ -46,6 +46,39 @@ export async function allSizeStock(): Promise<Map<string, SizeBalance[]>> {
   return out;
 }
 
+/** Per-size balances for a named handful of products.
+ *
+ * allSizeStock() above reads the whole view, which is right for the screens
+ * that want the entire catalogue and wrong for a basket of four things.
+ * Same shaping, same "absent means not counted" rule, one `in` filter.
+ *
+ * It also keeps that shaping in THIS file. A copy of it grew in the basket
+ * action, which reads the products table as well -- and the ledger guard in
+ * tests/stockLedger.test.ts flagged the `qty:` it wrote, correctly: a file
+ * that touches products and assigns qty is exactly the shape of the bug
+ * that guard exists for. The shaping belongs here, where nothing writes
+ * stock. */
+export async function someSizeStock(
+  productIds: readonly string[]
+): Promise<Map<string, SizeBalance[]>> {
+  const out = new Map<string, SizeBalance[]>();
+  if (!productIds.length) return out;
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb
+      .from("product_size_stock").select("product_id, size, qty")
+      .in("product_id", productIds as string[]).limit(MAX_ROWS);
+    if (error || !data) return out;
+    for (const r of data as Array<Record<string, unknown>>) {
+      const id = String(r.product_id);
+      const rows = out.get(id) ?? [];
+      rows.push({ size: String(r.size ?? ""), qty: Number(r.qty) || 0 });
+      out.set(id, rows);
+    }
+  } catch { /* migration not run */ }
+  return out;
+}
+
 /** One product's picture, for the product page.
  *
  * Read through the admin client because product_size_stock sits on

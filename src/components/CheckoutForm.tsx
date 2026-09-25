@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
+import { useBasketStock } from "@/lib/useBasketStock";
+import QtyStepper from "./QtyStepper";
 import { useToast } from "@/components/Toast";
 import CopyButton from "@/components/CopyButton";
 import { placeOrder } from "@/lib/actions/orders";
@@ -34,7 +36,12 @@ function newAttemptKey(): string {
 export default function CheckoutForm({
   lang, settings, cardAvailable = false,
 }: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
-  const { lines, ready, subtotal, setQty, remove, clear } = useBasket();
+  const { lines, ready, subtotal, setQty, remove, clear, applyStock } = useBasket();
+  /* The same re-read the cart does. Both screens can change a quantity, so
+     both have to know what the shelf holds -- fixing one and leaving the
+     other is how the + button came to count past it here in the first
+     place. */
+  useBasketStock(lines, ready, applyStock);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -314,13 +321,8 @@ export default function CheckoutForm({
                     <div className="co-line-g">
                       <b>{l.name}</b>
                       <span>{l.size ? l.size + " · " : ""}{money(l.price)}</span>
-                      <div className="qty" style={{ height: 30 }}>
-                        <button type="button" onClick={() => setQty(i, l.qty - 1)}
-                          aria-label={t("qty", lang)}>−</button>
-                        <span>{l.qty}</span>
-                        <button type="button" onClick={() => setQty(i, l.qty + 1)}
-                          aria-label={t("qty", lang)}>+</button>
-                      </div>
+                      <QtyStepper line={l} lang={lang} height={30}
+                        onChange={(q) => setQty(i, q)} />
                     </div>
 
                     <div className="co-line-r">
