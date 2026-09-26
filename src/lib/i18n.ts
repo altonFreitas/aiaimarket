@@ -4,6 +4,14 @@ export const STR: Record<string, [string,string,string]> = {
   searchGo:["Buka","Procurar","Search"],
   catalog:["Katálogu","Catálogo","Catalog"],
   categories:["Kategoria sira","Categorias","Categories"],
+  /* The footer's column headings and its WhatsApp panel. The reference
+     design puts app-store badges here; this shop has no app and does have
+     a number every customer already uses. */
+  help:["Ajuda","Ajuda","Help"],
+  information:["Informasaun","Informação","Information"],
+  footWaTitle:["Sosa liu WhatsApp","Comprar pelo WhatsApp","Shop on WhatsApp"],
+  footWaBody:["Haruka mensajen mai ami — ami bele hatudu foto, konfirma tamañu, no simu enkomenda iha loron servisu.","Envie-nos uma mensagem — mostramos fotos, confirmamos tamanhos e aceitamos encomendas em dias úteis.","Message us — we can send photos, confirm sizes and take your order on working days."],
+  footWaMsg:["Botardi! Hau hakarak hatene kona-ba sasan iha loja.","Olá! Gostaria de saber mais sobre os produtos da loja.","Hello! I would like to ask about something in the shop."],
   all:["Hotu","Todos","All"],
   list:["Ha'u nia lista","O meu cesto","My cart"],
   track:["Buka enkomenda","Seguir encomenda","Track order"],
