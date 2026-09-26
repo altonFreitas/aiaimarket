@@ -7,7 +7,7 @@ import { useToast } from "@/components/Toast";
 import { canCancel } from "@/lib/orderActions";
 import { returnWindow } from "@/lib/returnWindow";
 import { placeholder } from "@/lib/placeholder";
-import { addrLine, money, nowIso } from "@/lib/utils";
+import { addrLine, money, nowIso, phoneDisplay} from "@/lib/utils";
 import { t } from "@/lib/i18n";
 import type { Lang, OrderStatus, Settings } from "@/lib/types";
 import type { HistoryItem } from "@/lib/orderActions";
@@ -80,7 +80,7 @@ export default function OrderHistory({
         id: String(it.product_id), name: it.name, size: it.size,
         price: it.now.price, qty: it.qty,
         seller_id: null, sellerName: null,
-        image: it.now.image, slug: it.now.slug, stock: it.now.stock,
+        image: it.look?.image || "", slug: it.look?.slug || "", stock: it.now.stock,
       });
       added += 1;
     }
@@ -95,7 +95,7 @@ export default function OrderHistory({
   return (
     <div className="wrap">
       <h1>{t("myOrders", lang)}</h1>
-      <p className="sub mono">{phone}</p>
+      <p className="sub mono">{phoneDisplay(phone)}</p>
 
       {/* ---- search and filter ------------------------------------- */}
       <div className="oh-tools">
@@ -127,7 +127,7 @@ export default function OrderHistory({
           {shown.map((o) => {
             const isOpen = open === o.ref;
             const first = o.items[0];
-            const thumb = first?.now?.image || placeholder(first?.name || o.ref);
+            const thumb = first?.look?.image || placeholder(first?.name || o.ref);
             const win = returnWindow(o, settings);
             const showCancel = canCancel(o);
             const reorderable = o.items.some((i) => i.now);
@@ -172,7 +172,7 @@ export default function OrderHistory({
                   <div className="oh-body" id={`oh-b-${o.ref}`}>
                     <ul className="oh-lines">
                       {o.items.map((it, i) => {
-                        const img = it.now?.image || placeholder(it.name);
+                        const img = it.look?.image || placeholder(it.name);
                         const body = (
                           <>
                             <Image src={img} alt="" width={96} height={96}
@@ -191,8 +191,8 @@ export default function OrderHistory({
                         // product name.
                         return (
                           <li className="oh-line" key={`${it.product_id}-${it.size}-${i}`}>
-                            {it.now
-                              ? <Link className="oh-line-a" href={`/p/${it.now.slug}`}>{body}</Link>
+                            {it.look?.slug
+                              ? <Link className="oh-line-a" href={`/p/${it.look.slug}`}>{body}</Link>
                               : <span className="oh-line-a">{body}</span>}
                           </li>
                         );

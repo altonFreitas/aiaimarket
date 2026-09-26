@@ -81,6 +81,64 @@ export function phoneNorm(v: string): string {
   return "+" + d;
 }
 
+/* THE CALLING CODE, TOLD APART FROM THE NUMBER.
+ *
+ * Orders store a phone in one unbroken run of digits -- "+351932766074" --
+ * because that is what the lookups match on: lookupOrder compares against
+ * phoneNorm(), and getOrdersByPhone filters the column by equality. That
+ * canonical form has to stay exactly as it is or every buyer loses their
+ * own order history.
+ *
+ * But nobody reads a number that way. The shop copies it out of an order
+ * to call or message somebody, and "+351 932766074" is the version a
+ * person can read back over the phone. So the split happens on the way to
+ * a screen, never on the way to the database.
+ *
+ * WHERE THE CODE ENDS is the only hard part, and it cannot be guessed from
+ * the digits -- +1, +62 and +670 are all real. So it is looked up in the
+ * list the checkout itself offers, longest code first, because a shorter
+ * code can be a prefix of a longer one.
+ */
+import { COUNTRIES } from "./countries";
+
+const CODES = [...new Set(COUNTRIES.map((c) => c.code))];
+
+/** Which of `codes` begins `digits`, preferring the LONGEST match.
+ *
+ * Takes the list rather than reading COUNTRIES, so the tie-break can be
+ * proved: the shop's own nine codes happen to share no prefixes today, so
+ * with the real list a shortest-first search gives identical answers and
+ * nothing would catch it being wrong. Add +1 and +1242 -- both real -- and
+ * shortest-first starts reading a Bahamas number as an American one with
+ * three of its digits in the country code.
+ *
+ * Null when none of them fits, and null for a string that is nothing but a
+ * country code: there is no local number in "+670" to put after a space.
+ */
+export function callingCodeOf(
+  digits: string, codes: readonly string[]
+): string | null {
+  let best: string | null = null;
+  for (const c of codes) {
+    if (digits.length <= c.length || !digits.startsWith(c)) continue;
+    if (!best || c.length > best.length) best = c;
+  }
+  return best;
+}
+
+/** "+351932766074" -> "+351 932766074". A number whose code is not one the
+ * shop offers comes back unchanged: a wrong split is worse than none, and
+ * inventing a boundary would put the digits in the wrong places. */
+export function phoneDisplay(raw: string | null | undefined): string {
+  const v = String(raw ?? "").trim();
+  if (!v) return "";
+  // Already spaced, or not in the canonical +digits shape: leave it alone.
+  if (!/^\+\d+$/.test(v)) return v;
+  const digits = v.slice(1);
+  const code = callingCodeOf(digits, CODES);
+  return code ? `+${code} ${digits.slice(code.length)}` : v;
+}
+
 /** A timestamp as "03 Sep 21:09", on the shop's clock.
  *
  * The name is a leftover and a poor one -- it is neither "now" nor ISO --

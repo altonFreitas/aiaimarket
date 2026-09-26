@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useBasket } from "@/lib/useBasket";
-import { useBasketStock } from "@/lib/useBasketStock";
+import { useBasketFacts } from "@/lib/useBasketFacts";
 import { deliveryNote } from "@/lib/payMethods";
 import { placeholder } from "@/lib/placeholder";
 import { zoneLabelKey } from "@/lib/zones";
@@ -44,10 +44,10 @@ export default function BasketView({
   suggestions: Product[];
   pays: string[];
 }) {
-  const { lines, ready, setQty, remove, subtotal, applyStock } = useBasket();
+  const { lines, ready, setQty, remove, subtotal, applyFacts } = useBasket();
   /* What the shelf holds NOW, not when the line was added -- see
-     useBasketStock. */
-  useBasketStock(lines, ready, applyStock);
+     useBasketFacts. */
+  useBasketFacts(lines, ready, applyFacts);
 
   // Nothing is known about the basket until the browser's copy has been
   // read. Saying "empty" here would be saying it about a basket nobody has

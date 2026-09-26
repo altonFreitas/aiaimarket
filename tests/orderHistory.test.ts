@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { matches } from "@/components/OrderHistory";
 import {
-  canCancel, historyItems, sellableNow, CANCELLABLE_STATUSES,
+  canCancel, historyItems, productLook, sellableNow, CANCELLABLE_STATUSES,
 } from "@/lib/orderActions";
 import { returnWindow } from "@/lib/returnWindow";
 import type { HistoryOrder } from "@/components/OrderHistory";
@@ -112,21 +112,36 @@ describe("which actions a row may offer", () => {
 
 describe("buy again", () => {
   it("will not re-offer a delisted, unapproved or sold-out product", () => {
-    const live = { slug: "s", images: ["i"], price: 10, qty: 4, archived: false, status: "approved" };
-    expect(sellableNow(live)).toEqual({ slug: "s", image: "i", price: 10, stock: 4 });
+    const live = { price: 10, qty: 4, archived: false, status: "approved" };
+    expect(sellableNow(live)).toEqual({ price: 10, stock: 4 });
     expect(sellableNow({ ...live, archived: true })).toBeNull();
     expect(sellableNow({ ...live, status: "pending" })).toBeNull();
     expect(sellableNow({ ...live, status: "rejected" })).toBeNull();
     expect(sellableNow({ ...live, qty: 0 })).toBeNull();
   });
 
+  it("still knows what a sold-out product LOOKS like", () => {
+    /* These were one function, and that was the bug: an order full of
+       things the shop has since sold out of rendered as a column of grey
+       placeholders. What somebody already bought does not stop having a
+       photograph because there are none left. */
+    const gone = { slug: "s", images: ["i.jpg"], price: 10, qty: 0, archived: true };
+    expect(sellableNow(gone)).toBeNull();
+    expect(productLook(gone)).toEqual({ slug: "s", image: "i.jpg" });
+  });
+
+  it("skips past an empty first photo rather than showing nothing", () => {
+    expect(productLook({ slug: "s", images: ["", "real.jpg"] }).image).toBe("real.jpg");
+    expect(productLook({ slug: "s", images: [] }).image).toBe("");
+    expect(productLook({}).image).toBe("");
+  });
+
   it("re-adds at today's price, not at what was paid months ago", () => {
     /* The order's line carries the price PAID. Adding at it puts a number
        in the basket that the checkout then quietly corrects. */
-    expect(sellableNow({ slug: "s", images: [], price: 26, qty: 5 })!.price).toBe(26);
+    expect(sellableNow({ price: 26, qty: 5 })!.price).toBe(26);
     // ...and the discount when there is one, because that is what is charged.
-    expect(sellableNow({ slug: "s", images: [], price: 26, discount_price: 19, qty: 5 })!.price)
-      .toBe(19);
+    expect(sellableNow({ price: 26, discount_price: 19, qty: 5 })!.price).toBe(19);
     // The component must take it from the live entry, never from the line.
     expect(OH).toMatch(/price: it\.now\.price/);
     expect(OH).not.toMatch(/price: it\.price/);
@@ -153,6 +168,15 @@ describe("what the row shows", () => {
     expect(OH).not.toMatch(/function addressLine/);
   });
 
+  it("shows the photo of a row whose product can no longer be bought", () => {
+    /* The thumbnail and the line images read the LOOK, never the
+       still-sellable half -- keyed off `now`, an order full of sold-out
+       things renders as a column of grey placeholders. */
+    expect(OH).toMatch(/first\?\.look\?\.image \|\| placeholder\(/);
+    expect(OH).toMatch(/it\.look\?\.image \|\| placeholder\(/);
+    expect(OH).not.toMatch(/\bnow\?\.image/);
+  });
+
   it("says 'address' only for an order that was delivered somewhere", () => {
     expect(OH).toMatch(/o\.mode === "pickup" \? t\("ohPickupOrder", lang\)/);
   });
@@ -168,7 +192,7 @@ describe("what the row shows", () => {
 
   it("links a product only while it is still listed", () => {
     // A link to a delisted product is a 404 wearing a product name.
-    expect(OH).toMatch(/it\.now\s*\n?\s*\? <Link className="oh-line-a"/);
+    expect(OH).toMatch(/it\.look\?\.slug\s*\n?\s*\? <Link className="oh-line-a"/);
   });
 });
 
@@ -214,29 +238,41 @@ describe("the row opens in place", () => {
 });
 
 describe("shaping an order's stored items", () => {
-  const live = new Map([["p1", { slug: "s", image: "i", price: 26, stock: 5 }]]);
+  const looks = new Map([["p1", { slug: "s", image: "i" }],
+                         ["p2", { slug: "t", image: "j" }]]);
+  const live = new Map([["p1", { price: 26, stock: 5 }]]);
 
   it("pairs each line with what the catalog holds today", () => {
     const [a, b] = historyItems(
       [{ product_id: "p1", name: "Shoes", size: "41", qty: 2, price: 24 },
-       { product_id: "p9", name: "Gone", size: "", qty: 1, price: 5 }], live);
+       { product_id: "p9", name: "Gone", size: "", qty: 1, price: 5 }], looks, live);
     // Bought at 24, still sold, now 26.
     expect(a).toEqual({ product_id: "p1", name: "Shoes", size: "41", qty: 2, price: 24,
-      now: { slug: "s", image: "i", price: 26, stock: 5 } });
-    // No longer sold: the line still renders, "buy again" cannot use it.
+      look: { slug: "s", image: "i" }, now: { price: 26, stock: 5 } });
+    // Product row gone entirely: no photo and no buy-again.
+    expect(b.look).toBeUndefined();
     expect(b.now).toBeUndefined();
+  });
+
+  it("keeps the photo of something that can no longer be bought", () => {
+    // p2 has a look but no live entry: sold out, still photographed.
+    const [only] = historyItems(
+      [{ product_id: "p2", name: "Cap", size: "", qty: 1, price: 30 }], looks, live);
+    expect(only.look).toEqual({ slug: "t", image: "j" });
+    expect(only.now).toBeUndefined();
   });
 
   it("survives an items column that is missing or not a list", () => {
     // Tolerated like every read in the migration window.
     for (const bad of [null, undefined, "", 7, {}]) {
-      expect([bad, historyItems(bad, live)]).toEqual([bad, []]);
+      expect([bad, historyItems(bad, looks, live)]).toEqual([bad, []]);
     }
   });
 
   it("does not crash on a line with nothing in it", () => {
-    expect(historyItems([{}], live)).toEqual(
-      [{ product_id: null, name: "", size: "", qty: 0, price: 0, now: undefined }]);
+    expect(historyItems([{}], looks, live)).toEqual(
+      [{ product_id: null, name: "", size: "", qty: 0, price: 0,
+         look: undefined, now: undefined }]);
   });
 
   it("lives outside the file that queries the products table", () => {
@@ -244,6 +280,6 @@ describe("shaping an order's stored items", () => {
        shape the real oversell bug was written in, and tests/stockLedger
        rightly flags it. The quantity here is how many were ORDERED. */
     expect(ORDERS).not.toMatch(/qty: Number\(it\?\.qty\)/);
-    expect(ORDERS).toMatch(/historyItems\(o\.items, live\)/);
+    expect(ORDERS).toMatch(/historyItems\(o\.items, looks, live\)/);
   });
 });

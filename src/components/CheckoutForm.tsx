@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useBasket } from "@/lib/useBasket";
-import { useBasketStock } from "@/lib/useBasketStock";
+import { useBasketFacts } from "@/lib/useBasketFacts";
 import QtyStepper from "./QtyStepper";
 import { useToast } from "@/components/Toast";
 import CopyButton from "@/components/CopyButton";
@@ -35,12 +35,12 @@ function newAttemptKey(): string {
 export default function CheckoutForm({
   lang, settings, cardAvailable = false,
 }: { lang: Lang; settings: Settings; cardAvailable?: boolean }) {
-  const { lines, ready, subtotal, setQty, remove, clear, applyStock } = useBasket();
+  const { lines, ready, subtotal, setQty, remove, clear, applyFacts } = useBasket();
   /* The same re-read the cart does. Both screens can change a quantity, so
      both have to know what the shelf holds -- fixing one and leaving the
      other is how the + button came to count past it here in the first
      place. */
-  useBasketStock(lines, ready, applyStock);
+  useBasketFacts(lines, ready, applyFacts);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -427,14 +427,24 @@ export default function CheckoutForm({
                 aria-label={t("country", lang)}
                 value={countryCode}
                 onChange={(e) => setCountryCode(e.target.value)}
-                style={{ flex: "0 0 auto", width: 108 }}
+                /* SIZED BY ITS OWN LONGEST OPTION, not by a number typed
+                   here. At a fixed 108px the "Other" option was clipped to
+                   "Othe" and ran into the dropdown arrow -- and it clips
+                   rather than scrolls, so nothing in the DOM says so.
+                   min-width keeps the short "+670" options from
+                   collapsing into a stub. */
+                style={{ flex: "0 0 auto", width: "auto", minWidth: 108 }}
               >
                 {COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.flag} +{c.code}
                   </option>
                 ))}
-                <option value="other">🌐 {t("otherCountry", lang)}</option>
+                {/* No emoji on this one. Every other option is a flag at
+                    text weight; a globe renders as a large coloured glyph
+                    beside them, and it was buying that weight with the
+                    width the word needed. */}
+                <option value="other">{t("otherCountry", lang)}</option>
               </select>
               {countryCode === "other" && (
                 <input

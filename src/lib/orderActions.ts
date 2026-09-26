@@ -30,6 +30,23 @@ export function canCancel(order: {
     && !order.cancel_requested_at;
 }
 
+/** What a past order's product still LOOKS like.
+ *
+ * Separate from sellableNow() on purpose, and the split is a fix: those
+ * two questions were one function, so an order full of things the shop has
+ * since sold out of rendered as a column of grey placeholders. Whether a
+ * buyer can have another one has nothing to do with what the thing they
+ * already bought looked like.
+ *
+ * Absent only when the product row is gone entirely.
+ */
+export function productLook(p: {
+  slug?: unknown; images?: unknown;
+}): { slug: string; image: string } {
+  const imgs = Array.isArray(p.images) ? (p.images as string[]) : [];
+  return { slug: String(p.slug || ""), image: String(imgs.find(Boolean) || "") };
+}
+
 /** What the catalog still offers for a product somebody bought before.
  *
  * "Buy again" is the only caller, and the only honest version of it. The
@@ -43,21 +60,15 @@ export function canCancel(order: {
  * the buyer finds out now or after filling in the form.
  */
 export function sellableNow(p: {
-  slug?: unknown; images?: unknown; price?: unknown; discount_price?: unknown;
+  price?: unknown; discount_price?: unknown;
   qty?: unknown; archived?: unknown; status?: unknown;
-}): { slug: string; image: string; price: number; stock: number } | null {
+}): { price: number; stock: number } | null {
   if (p.archived) return null;
   if (p.status && p.status !== "approved") return null;
   const stock = Number(p.qty) || 0;
   if (stock <= 0) return null;
-  const imgs = Array.isArray(p.images) ? (p.images as string[]) : [];
-  return {
-    slug: String(p.slug || ""),
-    image: String(imgs[0] || ""),
-    // The discounted price when there is one -- that is what is charged.
-    price: Number(p.discount_price ?? p.price) || 0,
-    stock,
-  };
+  // The discounted price when there is one -- that is what is charged.
+  return { price: Number(p.discount_price ?? p.price) || 0, stock };
 }
 
 /** One line of an order, as the history needs it. */
@@ -68,11 +79,16 @@ export interface HistoryItem {
   qty: number;
   /** What it cost on the day. The snapshot, not today's price. */
   price: number;
-  /** Today's catalog entry, when the product is still sellable. Absent
-   * means "buy again" cannot include this line, which is the honest
+  /** What it looks like today: its photo and its page. Known whenever the
+   * product row still exists, whether or not it is still for sale -- a
+   * past order shows what was bought, and "can I buy another" is a
+   * different question. */
+  look?: { slug: string; image: string };
+  /** Today's price and ceiling, ONLY while the product is still sellable.
+   * Absent means "buy again" cannot include this line, which is the honest
    * answer -- re-adding a delisted product at a price nobody will honour
    * is worse than saying it is gone. */
-  now?: { slug: string; image: string; price: number; stock: number };
+  now?: { price: number; stock: number };
 }
 
 /** An order's stored items, paired with what the catalog holds today.
@@ -87,7 +103,8 @@ export interface HistoryItem {
  */
 export function historyItems(
   raw: unknown,
-  live: Map<string, { slug: string; image: string; price: number; stock: number }>
+  looks: Map<string, { slug: string; image: string }>,
+  live: Map<string, { price: number; stock: number }>
 ): HistoryItem[] {
   const rows = Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [];
   return rows.map((it) => {
@@ -98,6 +115,7 @@ export function historyItems(
       size: String(it?.size || ""),
       qty: Number(it?.qty) || 0,
       price: Number(it?.price) || 0,
+      look: id ? looks.get(id) : undefined,
       now: id ? live.get(id) : undefined,
     };
   });

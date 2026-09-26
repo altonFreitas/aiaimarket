@@ -1,10 +1,18 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { basketAvailability } from "@/lib/actions/basket";
+import { basketLineFacts } from "@/lib/actions/basket";
+import type { LineFacts } from "@/lib/actions/basket";
 import type { BasketLine } from "./useBasket";
 
-/** Re-reads what the shelf holds for everything in the basket, once, when a
- * screen that can change quantities opens.
+/** Re-reads what the CATALOGUE says about everything in the basket, once,
+ * when a screen that shows or changes the basket opens.
+ *
+ * Two things go stale on a line, and for the same reason: both are copied
+ * onto it when it is added, and a basket lives in the browser for as long
+ * as the shopper leaves it there. The ceiling was already refreshed here.
+ * The PHOTO was not -- so a product added before the shop uploaded its
+ * picture kept a blank one for ever, and adding the same shirt again after
+ * the upload put two lines in the cart, one with the photo and one without.
  *
  * The ceiling stored on a line is a snapshot from add-time, and a basket
  * lives in the browser for as long as the shopper leaves it there. Without
@@ -15,9 +23,9 @@ import type { BasketLine } from "./useBasket";
  * courtesy check before somebody fills in a form, not a live stock ticker,
  * and the database is what actually refuses an oversell.
  */
-export function useBasketStock(
+export function useBasketFacts(
   lines: BasketLine[], ready: boolean,
-  applyStock: (fresh: Record<string, number>) => void
+  applyFacts: (fresh: Record<string, LineFacts>) => void
 ): void {
   const done = useRef(false);
   useEffect(() => {
@@ -27,9 +35,9 @@ export function useBasketStock(
     if (!lines.length) return;
     done.current = true;
     let live = true;
-    basketAvailability(lines.map((l) => ({ id: l.id, size: l.size })))
-      .then((fresh) => { if (live && fresh && Object.keys(fresh).length) applyStock(fresh); })
+    basketLineFacts(lines.map((l) => ({ id: l.id, size: l.size })))
+      .then((fresh) => { if (live && fresh && Object.keys(fresh).length) applyFacts(fresh); })
       .catch(() => { /* keeps the ceilings it has */ });
     return () => { live = false; };
-  }, [ready, lines, applyStock]);
+  }, [ready, lines, applyFacts]);
 }

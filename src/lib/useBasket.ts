@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useSyncExternalStore } from "react";
 import { stockKey } from "./basketKey";
+import type { LineFacts } from "./actions/basket";
 
 export interface BasketLine {
   id: string;
@@ -90,19 +91,35 @@ export function mergedQty(
  * entirely keeps its quantity and gains a ceiling of zero -- the screen says
  * sold out and the shopper decides, rather than the basket quietly editing
  * itself to something they did not choose. */
-export function withFreshStock(
-  lines: BasketLine[], fresh: Record<string, number>
+export function withCatalogFacts(
+  lines: BasketLine[], fresh: Record<string, LineFacts>
 ): BasketLine[] {
   return lines.map((l) => {
     const key = stockKey(l.id, l.size);
-    if (!(key in fresh)) return l;
-    const cap = Math.max(0, Math.floor(fresh[key]));
-    const qty = cap === 0 ? l.qty : Math.max(1, Math.min(cap, l.qty));
-    return l.stock === cap && l.qty === qty ? l : { ...l, stock: cap, qty };
+    const f = fresh[key];
+    if (!f) return l;
+
+    const next: BasketLine = { ...l };
+    let moved = false;
+
+    if (f.stock !== undefined) {
+      const cap = Math.max(0, Math.floor(f.stock));
+      // A sold-out line keeps its quantity so the shopper is told, rather
+      // than having it silently edited to something they did not choose.
+      const qty = cap === 0 ? l.qty : Math.max(1, Math.min(cap, l.qty));
+      if (l.stock !== cap || l.qty !== qty) { next.stock = cap; next.qty = qty; moved = true; }
+    }
+
+    /* THE PHOTO AND THE LINK, from the catalogue rather than from whenever
+       this line was added. "" is a real answer -- the product has no photo
+       today -- so it overwrites a stale URL just as a URL overwrites a
+       stale "". */
+    if (f.image !== undefined && (l.image ?? "") !== f.image) { next.image = f.image; moved = true; }
+    if (f.slug !== undefined && (l.slug ?? "") !== f.slug) { next.slug = f.slug; moved = true; }
+
+    return moved ? next : l;
   });
 }
-
-
 
 const KEY = "loja:basket:v1";
 const EVT = "loja:basket:change";
@@ -200,9 +217,9 @@ export function useBasket() {
    * stops it being a stale promise. Quantities only ever come DOWN here --
    * a shelf that has been restocked does not silently increase what
    * somebody asked for. */
-  const applyStock = useCallback((fresh: Record<string, number>) => {
+  const applyFacts = useCallback((fresh: Record<string, LineFacts>) => {
     const cur = getSnapshot();
-    const next = withFreshStock(cur, fresh);
+    const next = withCatalogFacts(cur, fresh);
     // Written only when something moved: every write wakes every subscriber,
     // and a re-render per cart open with nothing to show for it is waste.
     if (next.some((l, i) => l !== cur[i])) write(next);
@@ -219,5 +236,5 @@ export function useBasket() {
   const count = lines.reduce((a, l) => a + l.qty, 0);
   const subtotal = lines.reduce((a, l) => a + l.price * l.qty, 0);
 
-  return { lines, ready, add, setQty, remove, clear, applyStock, count, subtotal };
+  return { lines, ready, add, setQty, remove, clear, applyFacts, count, subtotal };
 }

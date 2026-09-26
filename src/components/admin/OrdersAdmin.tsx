@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import PeriodChips from "./PeriodChips";
 import { BarSeries } from "./Charts";
-import { money, nowIso, FLOW } from "@/lib/utils";
+import { money, nowIso, FLOW, phoneDisplay} from "@/lib/utils";
 import {
   filterOrders, orderFilterIsActive, orderKpis, flagCounts, sortOrders,
   municipalitiesIn, ordersByDay, isLate,
@@ -329,7 +329,7 @@ export default function OrdersAdmin({
                     <button type="button" className="ord-phone"
                       title={t("filterToCustomer", lang)}
                       onClick={() => set({ customer: o.buyer_phone })}>
-                      {o.buyer_phone}
+                      {phoneDisplay(o.buyer_phone)}
                     </button>
                     <span className={"pill " + (PAY_PILL[o.pay_status] ?? "")}>
                       {t("ps_" + o.pay_status, lang)}

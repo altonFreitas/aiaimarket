@@ -18,7 +18,9 @@ import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
 import { notifyStatusChange } from "@/lib/orderNotify";
-import { CANCELLABLE_STATUSES, historyItems, sellableNow } from "@/lib/orderActions";
+import {
+  CANCELLABLE_STATUSES, historyItems, productLook, sellableNow,
+} from "@/lib/orderActions";
 import type { Order, OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Trims and hard-truncates a free-text field. Postgres `text` has no
@@ -685,7 +687,12 @@ export async function getOrdersByPhone(phone: string) {
     }
   }
 
-  const live = new Map<string, { slug: string; image: string; price: number; stock: number }>();
+  /* TWO MAPS, because they answer two questions. What a past order's
+     product looks like is known for every product row that still exists;
+     whether it can be bought again is not. Merged into one, an order full
+     of sold-out things rendered as a column of grey placeholders. */
+  const looks = new Map<string, { slug: string; image: string }>();
+  const live = new Map<string, { price: number; stock: number }>();
   if (ids.size) {
     /* Tolerated, like every read in this window: a database missing any of
        these columns leaves the map empty, the rows still render from the
@@ -698,12 +705,13 @@ export async function getOrdersByPhone(phone: string) {
       // Delisted, unapproved or sold out is NOT offered again -- see
       // sellableNow(), which is where that judgement lives so a test can
       // drive it without a database.
+      looks.set(String(p.id), productLook(p));
       const now = sellableNow(p);
       if (now) live.set(String(p.id), now);
     }
   }
 
-  return orders.map((o) => ({ ...o, items: historyItems(o.items, live) }));
+  return orders.map((o) => ({ ...o, items: historyItems(o.items, looks, live) }));
 }
 
 /** I7 — buyer-initiated cancellation request; still gated by ref+phone. */

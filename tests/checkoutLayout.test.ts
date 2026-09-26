@@ -155,3 +155,34 @@ describe("the two columns", () => {
     expect(base[1].trim()).toBe("minmax(0,1fr)");
   });
 });
+
+describe("the country picker", () => {
+  it("is sized by its own options, not by a number typed into the style", () => {
+    /* At a fixed 108px the "Other" option rendered as "Othe" running into
+       the dropdown arrow. A <select> CLIPS rather than scrolls, so
+       scrollWidth === clientWidth and nothing in the DOM reports it --
+       it was only visible by looking. */
+    /* The whole element, not a non-greedy match up to the first ">" --
+       the onChange arrow function contains one, so that stopped short of
+       the style it was supposed to be reading. */
+    const at = FORM.indexOf('id="phoneCountry"');
+    expect(at, "the country select").toBeGreaterThan(-1);
+    const sel = FORM.slice(FORM.lastIndexOf("<select", at), FORM.indexOf("</select>", at));
+    expect(sel).toMatch(/width: "auto"/);
+    expect(sel).toMatch(/minWidth: \d+/);
+    expect(sel).not.toMatch(/width: \d+\s*[,}]/);
+  });
+
+  it("gives the Other option no emoji to pay for", () => {
+    /* Every other option is a flag at text weight. A globe renders as a
+       large coloured glyph beside them and was spending the width the
+       word itself needed. */
+    const opt = /<option value="other">([\s\S]*?)<\/option>/.exec(FORM);
+    expect(opt, "the Other option").not.toBeNull();
+    expect(opt![1]).toBe('{t("otherCountry", lang)}');
+  });
+
+  it("keeps the country flags, which are what make the list scannable", () => {
+    expect(FORM).toMatch(/\{c\.flag\} \+\{c\.code\}/);
+  });
+});

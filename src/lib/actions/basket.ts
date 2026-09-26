@@ -33,16 +33,38 @@ export interface BasketLineRef {
   size: string;
 }
 
-/** Availability keyed by `id \u0000 size`, matching what useBasket sends.
+/** What the catalogue says about one basket line today. */
+export interface LineFacts {
+  /** The ceiling. Absent means "no ceiling known" -- see below. */
+  stock?: number;
+  /** TODAY'S PHOTO AND LINK, not the ones copied onto the line when it was
+   * added.
+   *
+   * This is the half that was missing. A basket line denormalises the
+   * product's photo at add-time, and a basket lives in the browser for as
+   * long as the shopper leaves it there -- so a product added BEFORE the
+   * shop uploaded its photo kept an empty image for ever. Add the same
+   * shirt again after the upload and the two lines sit side by side in the
+   * cart, one with the photo and one with a grey placeholder, which is
+   * exactly what was reported.
+   *
+   * Absent when the product row cannot be read at all; "" when the product
+   * genuinely has no photo yet, which is a real answer and overwrites a
+   * stale one. */
+  image?: string;
+  slug?: string;
+}
+
+/** Line facts keyed by `id \u0000 size`, matching what useBasket sends.
  *
  * A line whose product cannot be found, or whose shop has not counted its
  * stock, is LEFT OUT rather than returned as zero: absent means "no ceiling
  * known", and reporting an uncounted product as sold out would empty the
  * carts of every shop that has not started counting. */
-export async function basketAvailability(
+export async function basketLineFacts(
   lines: BasketLineRef[]
-): Promise<Record<string, number>> {
-  const out: Record<string, number> = {};
+): Promise<Record<string, LineFacts>> {
+  const out: Record<string, LineFacts> = {};
   try {
     const wanted = (Array.isArray(lines) ? lines : []).slice(0, MAX_LINES);
     const ids = [...new Set(wanted.map((l) => String(l.id)).filter(Boolean))];
@@ -51,7 +73,7 @@ export async function basketAvailability(
     const sb = supabaseAdmin();
     const { data: products, error } = await sb
       .from("products")
-      .select("id, qty, sizes, status, archived")
+      .select("id, qty, sizes, status, archived, images, slug")
       .in("id", ids);
     if (error || !products) return out;
 
@@ -73,8 +95,23 @@ export async function basketAvailability(
          ceiling. This is the one case where an absent product IS reported
          rather than skipped. */
       if (!p) continue;
+
+      /* The picture and the link, whatever the product's selling state.
+         A delisted product still has to LOOK like itself in a cart -- the
+         shopper is being told they cannot have it, and a grey square is a
+         worse way to say so than the photo they recognise. */
+      const imgs = Array.isArray(p.images) ? (p.images as string[]) : [];
+      const facts: LineFacts = {
+        image: String(imgs.find(Boolean) || ""),
+        slug: String(p.slug || ""),
+      };
+      out[stockKey(id, size)] = facts;
+
       if (p.status !== "approved" || p.archived === true) {
-        out[stockKey(id, size)] = 0;
+        /* Delisted or archived while it sat in a basket: nothing the shop
+           will sell, and zero is the true ceiling. This is the one case
+           where an absent product IS reported rather than skipped. */
+        facts.stock = 0;
         continue;
       }
 
@@ -84,12 +121,13 @@ export async function basketAvailability(
         : null;
 
       if (stock?.tracked) {
-        out[stockKey(id, size)] = availableInSize(stock, size);
+        facts.stock = availableInSize(stock, size);
       } else {
         // Not counted by size: the product's own balance is the ceiling,
-        // and an uncounted product is left out rather than called empty.
+        // and an uncounted product is left without one rather than called
+        // empty.
         const qty = Number(p.qty);
-        if (Number.isFinite(qty) && qty > 0) out[stockKey(id, size)] = qty;
+        if (Number.isFinite(qty) && qty > 0) facts.stock = qty;
       }
     }
     return out;

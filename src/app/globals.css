@@ -651,20 +651,74 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 /* Sits above the bottom bar on a phone, not over it: a notice that covers
    the navigation is a notice that traps you on the page it appeared on.
    env(safe-area-inset-bottom) keeps it clear of the home indicator. */
-.cookie-note{position:fixed;left:12px;right:12px;z-index:70;
-  bottom:calc(78px + env(safe-area-inset-bottom));
-  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
-  padding:12px 14px;border-radius:var(--r);background:var(--card);
-  border:1px solid var(--line);box-shadow:var(--sh);
-  animation:up .18s ease-out}
-.cookie-note p{margin:0;flex:1 1 260px;font-size:13.5px;color:var(--ink-3, var(--ink))}
-.cookie-note .btn{flex:0 0 auto}
-@media(min-width:760px){
-  /* No bottom bar on a wide screen, so it can sit lower and narrower --
-     a full-width band across a desktop reads as an interstitial. */
-  .cookie-note{left:auto;right:18px;bottom:18px;max-width:440px}
+/* ---------------------------------------------------------------------------
+   THE CONSENT DIALOG.
+
+   Centred and modal, with a switch per category visible on load rather
+   than folded behind a "Manage" link -- the point of the redesign is that
+   the choice is in front of somebody before they answer it, not one click
+   further on.
+   ------------------------------------------------------------------------ */
+.ck-scrim{position:fixed;inset:0;z-index:90;display:flex;align-items:center;
+  justify-content:center;padding:16px;background:rgba(11,20,36,.55);
+  animation:ckIn .18s ease}
+.ck-dialog{width:100%;max-width:460px;max-height:calc(100svh - 32px);overflow:auto;
+  background:var(--card);border-radius:var(--r-l);
+  box-shadow:0 24px 60px rgba(11,20,36,.4);outline:none}
+@keyframes ckIn{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.ck-scrim{animation:none}}
+
+.ck-head{display:flex;align-items:flex-start;gap:12px;padding:18px 18px 14px;
+  border-bottom:1px solid var(--line-2)}
+.ck-head h2{margin:0 0 3px;font-size:var(--fs-h4)}
+.ck-head .hint{margin:0}
+.ck-x{flex:0 0 auto;margin-left:auto;width:30px;height:30px;padding:0;display:flex;
+  align-items:center;justify-content:center;border-radius:50%;border:0;cursor:pointer;
+  background:none;color:var(--muted)}
+.ck-x:hover{background:var(--line-2);color:var(--ink)}
+
+.ck-body{display:flex;flex-direction:column;gap:10px;padding:14px 18px}
+/* Each row is a grid so the switch keeps its column whatever the copy
+   does: a two-line description must not push it out of alignment with
+   the row above. */
+.ck-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;
+  align-items:center;margin:0;padding:12px 14px;border:1px solid var(--line);
+  border-radius:var(--r);cursor:pointer}
+.ck-row:has(input:disabled),.ck-row:first-child{cursor:default}
+.ck-row .ck-row-t{grid-column:1;display:flex;align-items:center;gap:8px}
+.ck-row .hint{grid-column:1;margin:0}
+.ck-row .ck-sw{grid-column:2;grid-row:1 / span 2}
+.ck-row:hover{border-color:var(--ink-3)}
+.ck-row:first-child:hover{border-color:var(--line)}
+.ck-req{display:inline-flex;align-items:center;height:20px;padding:0 8px;
+  border-radius:var(--r-pill);background:var(--line-2);color:var(--muted);
+  font-size:var(--fs-caption);font-weight:600}
+.ck-none{color:var(--muted-2)}
+
+/* The switch. A real <input type="checkbox"> is behind it (class "sr"), so
+   it is focusable, keyboard-operable and announced as a checkbox; this is
+   only what it looks like. */
+.ck-sw{flex:0 0 auto;position:relative;width:40px;height:23px;border-radius:var(--r-pill);
+  background:var(--line);transition:background .15s ease}
+.ck-sw i{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 3px rgba(11,20,36,.3);transition:transform .15s ease}
+.ck-sw.is-on{background:var(--ink)}
+.ck-sw.is-on i{transform:translateX(17px)}
+.ck-sw.is-locked{background:var(--muted)}
+/* Focus has to be visible on the thing that LOOKS like the control, since
+   the real one is visually hidden. */
+.ck-row input:focus-visible ~ .ck-sw{outline:2px solid var(--ink);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.ck-sw,.ck-sw i{transition:none}}
+
+.ck-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  padding:14px 18px 18px;border-top:1px solid var(--line-2)}
+.ck-more{font-size:var(--fs-sm)}
+.ck-acts{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+@media (max-width:480px){
+  /* The buttons get the full width rather than three stubs on one line. */
+  .ck-acts{width:100%;margin-left:0}
+  .ck-acts .btn{flex:1 1 auto}
 }
-@media (prefers-reduced-motion:reduce){.cookie-note{animation:none}}
 
 /* ---------- an empty basket ---------- */
 /* SIZED AS A SHARE OF THE SCREEN, which is what "about a third of the page"

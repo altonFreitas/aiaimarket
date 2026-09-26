@@ -14,7 +14,7 @@ import { compressImage } from "@/lib/compressImage";
 import SellerRatingForm from "@/components/SellerRatingForm";
 import ProductReviewForm from "@/components/ProductReviewForm";
 import PayNowButton from "@/components/PayNowButton";
-import { money, nowIso, waLink, waOrderMsg, flowFor } from "@/lib/utils";
+import { money, nowIso, waLink, waOrderMsg, flowFor, phoneDisplay} from "@/lib/utils";
 import { taxWasIncluded } from "@/lib/tax";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
@@ -252,7 +252,7 @@ function Dashboard({
     <div className="wrap">
       <h1>{o.ref}</h1>
       <p className="sub">
-        {o.buyer_name} · <span className="mono">{o.buyer_phone}</span> · {nowIso(o.created_at)}
+        {o.buyer_name} · <span className="mono">{phoneDisplay(o.buyer_phone)}</span> · {nowIso(o.created_at)}
       </p>
 
       {/* I1 status timeline */}

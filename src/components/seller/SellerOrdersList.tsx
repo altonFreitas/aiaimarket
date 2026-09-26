@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import PeriodChips from "@/components/admin/PeriodChips";
 import { setOrderStatusAsSeller } from "@/lib/actions/seller-orders";
-import { money, nowIso, addrLine, flowFor, FLOW } from "@/lib/utils";
+import { money, nowIso, addrLine, flowFor, FLOW, phoneDisplay} from "@/lib/utils";
 import {
   filterSellerOrders, sellerFilterIsActive, sellerOrderKpis, sellerFlagCounts,
   SELLER_ORDER_FLAGS, SELLER_PAY_STATUSES,
@@ -222,7 +222,7 @@ export default function SellerOrdersList({
                   <div>
                     <b>{o.ref}</b>
                     <div className="sub" style={{ margin: "2px 0 0" }}>
-                      {o.buyer_name} · {o.buyer_phone} · {nowIso(o.created_at)}
+                      {o.buyer_name} · {phoneDisplay(o.buyer_phone)} · {nowIso(o.created_at)}
                     </div>
                     <div className="sub" style={{ margin: "2px 0 0" }}>{addr}</div>
                   </div>

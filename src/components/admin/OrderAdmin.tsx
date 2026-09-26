@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { addOrderNote, editOrderNote, setOrderStatus, setPayStatus } from "@/lib/actions/orders";
-import { addrLine, money, nowIso, waLink, flowFor } from "@/lib/utils";
+import { addrLine, money, nowIso, waLink, flowFor, phoneDisplay} from "@/lib/utils";
 import { taxWasIncluded } from "@/lib/tax";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
@@ -59,7 +59,7 @@ export default function OrderAdmin({
         <Link href="/admin/orders">{t("orders", lang)}</Link> / {o.ref}
       </p>
       <h1>{o.buyer_name}</h1>
-      <p className="sub mono">{o.buyer_phone} · {nowIso(o.created_at)}</p>
+      <p className="sub mono">{phoneDisplay(o.buyer_phone)} · {nowIso(o.created_at)}</p>
 
       <div className="btn-row" style={{ flexDirection: "row", flexWrap: "wrap" }}>
         <a className="btn btn-wa btn-sm" target="_blank" rel="noopener"

@@ -1,5 +1,6 @@
 "use server";
 import ExcelJS from "exceljs";
+import { phoneDisplay } from "@/lib/utils";
 import { adminOrdersCapped, adminProducts } from "@/lib/data/admin";
 import { computeAdminStats, monthlySeries, quarterlySeries, yearlySeries } from "@/lib/stats";
 import { requireAdminRead, requireSection } from "./guard";
@@ -101,7 +102,7 @@ export async function exportStatsExcel() {
     Ref: o.ref,
     Date: new Date(o.created_at).toISOString().slice(0, 19).replace("T", " "),
     Buyer: o.buyer_name,
-    Phone: o.buyer_phone,
+    Phone: phoneDisplay(o.buyer_phone),
     Status: o.status,
     "Payment method": o.pay_method,
     "Payment status": o.pay_status,
