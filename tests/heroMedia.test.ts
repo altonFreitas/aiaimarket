@@ -138,9 +138,17 @@ describe("a shop that has not run the migration yet", () => {
     // Same treatment products.ts gives `audience`.
     expect(ACTION).toMatch(/writeTolerating\(/);
     expect(ACTION).toMatch(/import \{ writeTolerating \}/);
-    // The optional field is separated from the ones that always exist.
-    expect(ACTION).toMatch(/const \{ media_fit, \.\.\.always \} = fields/);
-    expect(ACTION).toMatch(/media_fit === undefined \? \{\} : \{ media_fit \}/);
+    /* The optional fields are separated from the ones that always exist.
+       There are two of them now -- media_fit and product_id, both added
+       by later SQL files -- and writeTolerating drops them ONE AT A TIME,
+       so a database with neither still saves the headline and the copy. */
+    expect(ACTION).toMatch(/const \{ media_fit, product_id, \.\.\.always \} = fields/);
+    for (const col of ["media_fit", "product_id"]) {
+      expect([col, new RegExp(`if \\(${col} !== undefined\\) optional\\.${col}`).test(ACTION)])
+        .toEqual([col, true]);
+      // ...and none of them may sit in the always-written half.
+      expect([col, new RegExp(`always[^\n]*${col}`).test(ACTION)]).toEqual([col, false]);
+    }
   });
 
   it("does not name the column among the ones it always writes", () => {

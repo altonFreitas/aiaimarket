@@ -81,6 +81,17 @@ export interface HeroSlide {
    * column, and showing a whole picture in the wrong shape is a cosmetic
    * problem where cropping one is a lost one. */
   media_fit?: "contain" | "cover" | null;
+  /** The product this slide features, when it features one.
+   *
+   * WHICH product, never a copy of its details: every figure the card
+   * prints -- price, rating, photos, stock -- is read from the product at
+   * render time, so the hero cannot advertise $69 for something the
+   * catalogue sells at $75. See supabase/hero-product.sql.
+   *
+   * Optional: a database that has not run that file has no column, and a
+   * missing value reads as "no product", which is what every slide was
+   * before this existed. */
+  product_id?: string | null;
   headline: string;
   subtext: string;
   cta_label: string;

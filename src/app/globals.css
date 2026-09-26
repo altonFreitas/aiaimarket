@@ -1209,15 +1209,33 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 /* photo carousel hero (populated via /admin/hero) */
 /* The photograph hero is full-bleed for the same reason: a photograph
    with a margin round it is a photograph with less of itself in it. */
-.hero-carousel{position:relative;aspect-ratio:4/5;max-height:76vh;overflow:hidden;
-  background:var(--ink)}
+/* FULL VIEWPORT, MINUS THE CHROME ABOVE IT.
+   The hero used to be a 4/5 box on a phone and a 720px band on a desktop,
+   and the band is what forced the choice between letterboxing a portrait
+   video and cropping it to a strip of sky. A frame this tall costs a
+   portrait clip far less: there is simply more frame for it to fill.
+
+   svh, not vh: on a phone, vh is the height WITHOUT the browser's address
+   bar, so a 100vh hero is taller than the screen until the bar retracts
+   and the first thing a visitor does is scroll past a gap.
+
+   The chrome is subtracted because the header is sticky -- a hero of the
+   full viewport sits partly behind it, and "full screen" that starts
+   under an opaque bar is just a hero with its top cut off. */
+.hero-carousel{position:relative;height:var(--hero-fit,calc(100svh - var(--chrome-h)));
+  min-height:520px;overflow:hidden;background:var(--ink)}
 .hero-slide-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;
   transition:opacity .6s ease}
 .hero-slide-img.active{opacity:1}
 .hero-slide-overlay{position:absolute;inset:0;display:flex;align-items:flex-end;pointer-events:none;
   padding:0 var(--bleed-pad);
   background:linear-gradient(0deg,rgba(11,20,36,.82) 0%,rgba(11,20,36,.35) 50%,transparent 80%)}
-.hero-slide-content{pointer-events:auto;padding:22px 0 46px;max-width:420px;color:#fff}
+/* Card and copy. One column on a phone -- the card first, because it is
+   the thing that can be bought -- and side by side once there is width. */
+.hero-slide-inner{width:100%;display:flex;flex-direction:column;align-items:flex-start;
+  gap:18px;padding:0 0 46px}
+.hero-slide-content{pointer-events:auto;padding:0;max-width:420px;color:#fff}
+.hero-slide-card{pointer-events:auto;width:min(300px,72vw)}
 /* THE VIDEO, WHOLE. Every video this shop will ever have is filmed on the
    phone the shop is run from, so it is portrait; the hero is a tall box on
    a phone and a wide band on a desktop. Filling that band with a portrait
@@ -1508,8 +1526,19 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   .home-section-more-mobile{display:none}
   .promo{flex-direction:row;align-items:center;justify-content:space-between;padding:26px 30px}
 
-  .hero-carousel{aspect-ratio:auto;height:min(74vh,720px);max-height:none}
-  .hero-slide-content{padding:0 0 56px;max-width:560px}
+  /* Still the whole viewport; the min-height is what stops a short
+     laptop window squashing the card. */
+  /* The floor is the card's own height plus breathing room, not a round
+     number: a short laptop window has ~520px left under the chrome, and a
+     larger floor pushed the carousel's dots below the fold there. */
+  .hero-carousel{height:var(--hero-fit,calc(100svh - var(--chrome-h)));min-height:460px}
+  /* The card to the left of the copy, as in the reference, and both
+     centred in the frame rather than pinned to the bottom -- at this
+     height, bottom-aligned leaves the top two thirds empty. */
+  .hero-slide-overlay{align-items:center}
+  .hero-slide-inner{flex-direction:row;align-items:center;gap:48px;padding:0}
+  .hero-slide-content{padding:0;max-width:560px}
+  .hero-slide-card{width:320px;flex:0 0 auto}
   .hero-slide-h{font-size:36px}
   .hero-slide-sub{font-size:15.5px;max-width:52ch}
   .hero-arrow{width:42px;height:42px;font-size:24px}
@@ -4374,3 +4403,63 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
 .oh-addr b{font-size:var(--fs-sm)}
 
 .oh-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+
+/* ---------------------------------------------------------------------------
+   THE HERO'S PRODUCT CARD.
+
+   A solid card over a full-bleed picture, as in the reference: photo with
+   a badge and a wishlist heart, a gallery when the product has more than
+   one shot, then category, name, price and the rating it has actually
+   earned.
+   ------------------------------------------------------------------------ */
+.hpc{display:block;background:var(--card);border-radius:var(--r);overflow:hidden;
+  text-decoration:none;color:inherit;box-shadow:0 18px 40px rgba(11,20,36,.34);
+  transition:transform .18s ease,box-shadow .18s ease}
+.hpc:hover{transform:translateY(-3px);box-shadow:0 24px 52px rgba(11,20,36,.42)}
+.hpc-ph{position:relative;aspect-ratio:1;background:var(--line-2)}
+.hpc-ph img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Badge and discount on one row, so they measure each other instead of
+   both claiming the same corner -- the mistake the grid card made once. */
+.hpc-top{position:absolute;top:8px;left:8px;display:flex;flex-wrap:wrap;gap:6px;
+  max-width:calc(100% - 52px)}
+.hpc-off{display:inline-flex;align-items:center;height:22px;padding:0 8px;
+  border-radius:var(--r-pill);background:var(--red);color:#fff;
+  font-size:var(--fs-caption);font-weight:700;letter-spacing:.02em}
+
+.hpc-love{position:absolute;top:8px;right:8px;width:32px;height:32px;padding:0;
+  display:flex;align-items:center;justify-content:center;border-radius:50%;
+  border:0;background:rgba(255,255,255,.9);cursor:pointer;color:var(--ink)}
+.hpc-love:hover{background:#fff}
+.hpc-love.is-on{color:var(--red)}
+
+/* Buttons, not hover: a phone has no hover, and a dot you cannot reach is
+   a gallery nobody can use. */
+.hpc-shots{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:6px;
+  justify-content:center}
+.hpc-shot{width:7px;height:7px;padding:0;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(255,255,255,.85);background:rgba(11,20,36,.35)}
+.hpc-shot.on{background:#fff}
+
+.hpc-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px}
+.hpc-cat{font-size:var(--fs-caption);letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted)}
+.hpc-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.hpc-name{font-size:15px;line-height:1.25;min-width:0}
+.hpc-price{flex:0 0 auto;display:flex;align-items:baseline;gap:6px;font-size:15px}
+.hpc-price s{color:var(--muted-2);font-size:var(--fs-sm)}
+/* A SHORT WINDOW GETS A SMALLER CARD, not a clipped one.
+   A laptop at 620px tall has barely 440px under the chrome, and a 320px
+   card is 409px of that before any padding -- so below this height the
+   card shrinks instead of the hero growing past the fold and taking the
+   carousel's dots with it. */
+@media (min-width:900px) and (max-height:780px){
+  .hero-slide-card{width:250px}
+  .hpc-body{padding:9px 11px 11px;gap:2px}
+  .hpc-name{font-size:14px}
+  .hpc-price{font-size:14px}
+}
+.hpc-rate{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);
+  color:var(--muted)}
+.hpc-stars{color:var(--amber-ink);letter-spacing:.05em}
+.hpc-reviews{text-transform:uppercase;letter-spacing:.04em}

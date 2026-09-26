@@ -86,7 +86,7 @@ const EVERYTHING = snap([
   "purchase_order_items.size_qty",
   "operating_expenses", "recurring_expenses",
   "promotions",
-  "hero_slides.video_url",
+  "hero_slides.video_url", "hero_slides.product_id",
   "products.loves",
   "seller_invites",
   "rate_limits",

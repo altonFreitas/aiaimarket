@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { taglineOf } from "@/lib/tagline";
 import Link from "next/link";
 import { t } from "@/lib/i18n";
-import type { HeroSlide, Lang, Settings } from "@/lib/types";
+import HeroProductCard from "./HeroProductCard";
+import { heroFeature } from "@/lib/heroFeature";
+import type { Category, HeroSlide, Lang, Product, Settings } from "@/lib/types";
 
 /** How long a photo slide holds the screen. */
 const AUTOPLAY_MS = 6000;
@@ -46,6 +48,41 @@ function fitOf(s: HeroSlide): "contain" | "cover" {
   return s.media_fit === "cover" ? "cover" : "contain";
 }
 
+/* HOW TALL "FULL VIEWPORT" ACTUALLY IS.
+ *
+ * The hero wants the whole screen below whatever is drawn above it -- the
+ * top strip, the header, the incentives row -- and CSS cannot read that:
+ * calc(100svh - var(--chrome-h)) only knows about the STICKY chrome, so
+ * the hero overshot the fold by the height of everything else and took
+ * its own dots and arrows below it with it. The carousel's controls were
+ * off screen on first paint, which is the one thing a carousel cannot
+ * afford.
+ *
+ * So it is measured, once on mount and again on resize: how much of the
+ * viewport is left from where this element starts. The CSS default stays
+ * as the fallback, so a first paint before this runs is close rather than
+ * broken, and min-height stops it ever collapsing.
+ */
+function useFillsViewport() {
+  const ref = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty("--hero-fit", Math.max(0, window.innerHeight - top) + "px");
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    /* The strip above wraps at some widths, and fonts land late -- both
+       change where the hero starts without a resize event. */
+    const ro = new ResizeObserver(fit);
+    if (el.parentElement) ro.observe(el.parentElement);
+    return () => { window.removeEventListener("resize", fit); ro.disconnect(); };
+  }, []);
+  return ref;
+}
+
 /** Inline SVG visual — same "no photo yet" visual language as
  * lib/placeholder.ts (layered navy/amber shapes, zero network requests),
  * used as the hero's brand visual until the admin uploads real photos
@@ -66,8 +103,9 @@ function HeroArt() {
  * this project shipped with before the carousel existed. */
 function DefaultHero({ lang, settings }: { lang: Lang; settings: Settings }) {
   const tagline = taglineOf(settings, lang);
+  const fitRef = useFillsViewport();
   return (
-    <section className="hero">
+    <section ref={fitRef as React.RefObject<HTMLElement>} className="hero">
       <div className="hero-copy">
         <h1>{t("heroTitle", lang)}</h1>
         <p className="hero-sub">{tagline || t("heroSub", lang)}</p>
@@ -115,7 +153,10 @@ function DefaultHero({ lang, settings }: { lang: Lang; settings: Settings }) {
  * regardless of whether any slide has a headline (a page should have
  * exactly one h1; slide headlines render as a styled paragraph instead,
  * since there can be several of them across slides). */
-function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Settings; slides: HeroSlide[] }) {
+function SlideCarousel({ lang, settings, slides, products, cats }: {
+  lang: Lang; settings: Settings; slides: HeroSlide[];
+  products: Product[]; cats: Category[];
+}) {
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -126,9 +167,13 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
    * has to call setState from an effect to clear it. */
   const [videoLen, setVideoLen] = useState<{ id: string; ms: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fitRef = useFillsViewport();
 
   const active = slides[Math.min(i, slides.length - 1)];
   const src = videoSrc(active);
+  /* Resolved from the catalogue the page already loaded, so a featured
+     product costs no query -- and can only be one that is on sale. */
+  const feature = heroFeature(active, products, cats);
   const tagline = taglineOf(settings, lang);
   const srTitle = settings.store_name + (tagline ? " — " + tagline : "");
 
@@ -179,7 +224,7 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
   const showPlayPause = slides.length > 1 || src !== "";
 
   return (
-    <section className="hero-carousel" aria-roledescription="carousel" aria-label={srTitle}>
+    <section ref={fitRef} className="hero-carousel" aria-roledescription="carousel" aria-label={srTitle}>
       <h1 className="sr">{srTitle}</h1>
 
       {/* WHAT FILLS THE LETTERBOX, ALL OF THEM BEFORE ANY PICTURE.
@@ -211,8 +256,16 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
         )
       ))}
 
+      {/* NO PICTURE MEANS NO <img>, not an <img> with nothing in it.
+          src="" is not "draw nothing": the browser resolves it against the
+          current document and RE-REQUESTS THE WHOLE PAGE, which on a shop
+          built for mobile data in Timor-Leste is the worst possible way to
+          render an empty frame. A slide is allowed to have no picture -- a
+          video slide with no poster always was, and a slide can now be a
+          product card over the dark ground -- so this is a real state, not
+          a defensive check. The background is what shows instead. */}
       {slides.map((s, idx) => (
-        videoSrc(s) ? null : (
+        videoSrc(s) || !s.image_url ? null : (
           // eslint-disable-next-line @next/next/no-img-element
           <img key={s.id} src={s.image_url} alt="" aria-hidden="true"
             className={"hero-slide-img" + (idx === i ? " active" : "")
@@ -248,13 +301,29 @@ function SlideCarousel({ lang, settings, slides }: { lang: Lang; settings: Setti
       )}
 
 
-      {(active.headline || active.subtext || (active.cta_label && active.cta_href)) && (
+      {/* THE CARD AND THE COPY, OVER THE PICTURE.
+          The card is drawn only for a slide that names a product the shop
+          is actually selling -- see heroFeature: archived, unapproved or
+          deleted resolves to nothing, and the slide falls back to being
+          picture-and-copy, which is what every slide was before this. */}
+      {(feature || active.headline || active.subtext
+        || (active.cta_label && active.cta_href)) && (
         <div className="hero-slide-overlay">
-          <div className="hero-slide-content">
-            {active.headline && <p className="hero-slide-h">{active.headline}</p>}
-            {active.subtext && <p className="hero-slide-sub">{active.subtext}</p>}
-            {active.cta_label && active.cta_href && (
-              <Link className="btn btn-amber" href={active.cta_href}>{active.cta_label}</Link>
+          <div className="hero-slide-inner">
+            {feature && (
+              <div className="hero-slide-card">
+                <HeroProductCard feature={feature} lang={lang} />
+              </div>
+            )}
+            {(active.headline || active.subtext
+              || (active.cta_label && active.cta_href)) && (
+              <div className="hero-slide-content">
+                {active.headline && <p className="hero-slide-h">{active.headline}</p>}
+                {active.subtext && <p className="hero-slide-sub">{active.subtext}</p>}
+                {active.cta_label && active.cta_href && (
+                  <Link className="btn btn-amber" href={active.cta_href}>{active.cta_label}</Link>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -324,7 +393,15 @@ function MutedIcon() {
   );
 }
 
-export default function Hero({ lang, settings, slides }: { lang: Lang; settings: Settings; slides: HeroSlide[] }) {
+export default function Hero({
+  lang, settings, slides, products = [], cats = [],
+}: {
+  lang: Lang; settings: Settings; slides: HeroSlide[];
+  /* The catalogue the homepage has already loaded. A featured slide picks
+     its product out of these rather than costing a query of its own. */
+  products?: Product[]; cats?: Category[];
+}) {
   if (!slides.length) return <DefaultHero lang={lang} settings={settings} />;
-  return <SlideCarousel lang={lang} settings={settings} slides={slides} />;
+  return <SlideCarousel lang={lang} settings={settings} slides={slides}
+    products={products} cats={cats} />;
 }

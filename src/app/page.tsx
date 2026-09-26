@@ -84,7 +84,7 @@ export default async function HomePage() {
     <div className="home">
       {/* Full-bleed, edge to edge: the hero is the only thing on this page
           that is allowed to ignore the content width. */}
-      <Hero lang={lang} settings={settings} slides={heroSlides} />
+      <Hero lang={lang} settings={settings} slides={heroSlides} products={products} cats={cats} />
 
       <div className="wrap home-body">
         {/* A "Shop by" strip of Women and Men used to open this page. It

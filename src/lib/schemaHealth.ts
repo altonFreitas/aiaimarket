@@ -155,6 +155,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "video_url"]],
   },
   {
+    file: "hero-product.sql", labelKey: "featHeroProduct",
+    columns: [["hero_slides", "product_id"]],
+  },
+  {
     file: "sales-rollup.sql", labelKey: "featSalesRollup",
     /* A materialized view and the function that rebuilds it. Checked by
        the function, because an inventory that reports relations may or may
@@ -554,6 +558,7 @@ export const SCHEMA_ORDER: readonly string[] = [
   "sales-rollup.sql",
   "promotions.sql",
   "hero-video.sql",
+  "hero-product.sql",     // after schema.sql (products) and hero-video.sql
   "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql
   "tax-precision.sql",       // widens the two tax_rate columns it added
   "stale-stock.sql",         // one column on settings; anywhere after schema.sql

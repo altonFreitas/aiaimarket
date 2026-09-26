@@ -9,11 +9,19 @@ import {
 } from "@/lib/actions/hero";
 import { t } from "@/lib/i18n";
 import WriteOnly from "./Access";
-import type { HeroSlide, Lang } from "@/lib/types";
+import type { HeroSlide, Lang, Product } from "@/lib/types";
 
-type Draft = Pick<HeroSlide, "headline" | "subtext" | "cta_label" | "cta_href" | "media_fit">;
+type Draft = Pick<HeroSlide,
+  "headline" | "subtext" | "cta_label" | "cta_href" | "media_fit" | "product_id">;
 
-export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: HeroSlide[] }) {
+export default function HeroSlidesAdmin({ lang, slides, products = [] }: {
+  lang: Lang; slides: HeroSlide[];
+  /* The live catalogue, for the featured-product picker. Only products
+     the shop is actually selling are offered -- the storefront refuses to
+     draw a card for anything else (see heroFeature), so offering one here
+     would be offering a choice that does nothing. */
+  products?: Product[];
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -22,6 +30,7 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
   function draftFor(s: HeroSlide): Draft {
     return {
       headline: s.headline, subtext: s.subtext, cta_label: s.cta_label, cta_href: s.cta_href,
+      product_id: s.product_id ?? "",
       // A database that has not run the latest hero-video.sql has no
       // column, and absent means "show the whole picture" -- the same
       // reading the storefront takes.
@@ -189,6 +198,32 @@ export default function HeroSlidesAdmin({ lang, slides }: { lang: Lang; slides: 
                         nothing is worse than one that is not there. The
                         storefront does the right thing without it
                         anyway, and shows the whole picture. */}
+                    {/* WHICH PRODUCT THIS SLIDE SELLS.
+                        Not a name and a price typed in by hand: the slide
+                        stores which product, and the card reads every
+                        figure off it, so the hero cannot advertise a
+                        price the catalogue does not charge.
+
+                        Gated on the column existing, exactly like the fit
+                        control below -- s.product_id is undefined only on
+                        a database that has not run
+                        supabase/hero-product.sql, and a control that takes
+                        a choice, says "saved" and changes nothing is worse
+                        than one that is not there. */}
+                    {s.product_id !== undefined && (
+                      <div className="field" style={{ margin: 0 }}>
+                        <label htmlFor={`prod-${s.id}`}>{t("slideProduct", lang)}</label>
+                        <select id={`prod-${s.id}`} value={d.product_id ?? ""} disabled={busy}
+                          onChange={(e) => setDraft(s.id, { product_id: e.target.value })}>
+                          <option value="">{t("slideNoProduct", lang)}</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        <p className="hint" style={{ margin: 0 }}>{t("slideProductHint", lang)}</p>
+                      </div>
+                    )}
+
                     {s.media_fit !== undefined && (
                     <div className="hero-fit">
                       <span className="hero-fit-hd">{t("slideMediaFit", lang)}</span>

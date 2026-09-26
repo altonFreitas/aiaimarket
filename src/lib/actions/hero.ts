@@ -95,7 +95,8 @@ export async function createHeroSlide(imageUrl: string, videoUrl = ""): Promise<
 export async function updateHeroSlide(
   id: string,
   fields: Partial<Pick<HeroSlide,
-    "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url" | "media_fit">>
+    "headline" | "subtext" | "cta_label" | "cta_href" | "image_url" | "video_url"
+    | "media_fit" | "product_id">>
 ) {
   await requireAdmin();
   const sb = supabaseAdmin();
@@ -108,9 +109,21 @@ export async function updateHeroSlide(
      migration-era columns: try
      it, and if the column is what the database objects to, save everything
      else and drop that one. */
-  const { media_fit, ...always } = fields;
+  const { media_fit, product_id, ...always } = fields;
+  /* BOTH migration-era columns go through the same door. writeTolerating
+     drops them ONE AT A TIME across passes, so a database with neither
+     still saves the headline, the copy and the CTA rather than failing the
+     whole update over a column nobody on that shop can see yet.
+
+     product_id is normalised here rather than at the form: an empty select
+     means "no product", and "" is not a uuid -- Postgres would reject the
+     whole update for invalid input syntax. NULL is the column's own way of
+     saying the same thing. */
+  const optional: Record<string, unknown> = {};
+  if (media_fit !== undefined) optional.media_fit = media_fit;
+  if (product_id !== undefined) optional.product_id = (product_id || null);
   const { error } = await writeTolerating(
-    media_fit === undefined ? {} : { media_fit },
+    optional,
     (extra) => sb.from("hero_slides").update({ ...always, ...extra }).eq("id", id),
   );
   if (error) throw error;
