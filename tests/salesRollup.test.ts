@@ -18,7 +18,7 @@ const code = (p: string) => read(p)
 
 const row = (over: Partial<RollupRow> = {}): RollupRow => ({
   day: "2026-09-03", status: "completed", sellerId: null, categoryId: null,
-  orders: 1, qty: 2, netSales: 30, cost: 12, discount: 0,
+  hasCost: true, orders: 1, qty: 2, netSales: 30, cost: 12, discount: 0,
   linesWithoutCost: 0, lines: 1, ...over,
 });
 
@@ -64,7 +64,7 @@ describe("a shop that has not run the migration", () => {
     /* The dashboard it already had must keep working exactly as it did.
        This is an addition, and it has to behave like one on the day the
        code ships and the SQL has not been pasted yet. */
-    expect(READER).toMatch(/const EMPTY: Rollup = \{ ready: false, rows: \[\] \};/);
+    expect(READER).toMatch(/const EMPTY: Rollup = \{ ready: false, rows: \[\], orders: \[\] \};/);
     expect(READER).toMatch(/if \(error \|\| !data\) return EMPTY;/);
     expect(READER).toMatch(/\} catch \{\s*\n?\s*return EMPTY;/);
   });
@@ -132,5 +132,52 @@ describe("what the view promises about itself", () => {
     // Every row is the shop's takings and its margin.
     expect(SQL).toMatch(/revoke all on sales_daily from anon, authenticated/);
     expect(SQL).toMatch(/revoke all on function refresh_sales_daily\(\) from public, anon, authenticated/);
+  });
+});
+
+describe("which source the dashboard reads", () => {
+  const PAGE = code("src/app/admin/page.tsx");
+
+  it("does not ask a daily rollup for an hourly chart", () => {
+    /* "1d" is the one range bucketed by hour. A rollup by DAY cannot draw
+       one, and the decision is made from the range alone -- before any
+       read -- so the page never pays for orders it will not use, and never
+       asks the rollup for something it cannot answer. */
+    expect(PAGE).toMatch(/const daily = canSales && rangeSpec\(range\)\.bucket !== "hour";/);
+  });
+
+  it("still reads the order book when the view is not there", () => {
+    // A shop that has not pasted the SQL must see exactly the dashboard it
+    // had yesterday.
+    expect(PAGE).toMatch(/const fromRollup = daily && rollup\.ready;/);
+    expect(PAGE).toMatch(/adminSalesData\(\{ withOrders: !fromRollup \}\)/);
+  });
+
+  it("counts orders from the view built to count them", () => {
+    /* sales_daily groups by seller and category: an order holding a shirt
+       and a football is a row in each, so summing its `orders` column
+       would say two. */
+    expect(PAGE).toMatch(/rollupOrderCount\(rollup\.orders, from, to,/);
+    /* EVERY use of the grouped rows goes to rollupLines and nowhere else.
+       A window-based "does not contain" was the first attempt and it was
+       loose: the page legitimately mentions rollup.rows and rollup.orders
+       within a few lines of each other. */
+    const uses = PAGE.match(/rollup\.rows/g) ?? [];
+    expect(uses.length).toBe(1);
+    expect(PAGE).toMatch(/rollupLines\(rollup\.rows, sales\.categories, sales\.sellers\)/);
+  });
+
+  it("builds the lines once, not twice", () => {
+    /* The profit and loss called buildSalesLines a SECOND time over the
+       same orders -- the same work twice a load, and a standing invitation
+       for it to be computed from a different set than the revenue card
+       above it. */
+    expect((PAGE.match(/buildSalesLines\(/g) ?? []).length).toBe(1);
+  });
+
+  it("does not read the returns map it no longer nets with", () => {
+    // The rollup is already netted; asking would be a second read of a
+    // table nothing on that path consults.
+    expect(PAGE).toMatch(/canSales && !fromRollup \? returnedUnits\(\)/);
   });
 });

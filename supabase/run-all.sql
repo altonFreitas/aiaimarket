@@ -4477,11 +4477,26 @@ select
   (o.created_at at time zone 'Asia/Dili')::date::text
     || '|' || o.status
     || '|' || coalesce(oi.seller_id::text, '')
-    || '|' || coalesce(p.category_id::text, '')           as grain,
+    || '|' || coalesce(p.category_id::text, '')
+    || '|' || (coalesce(oi.cost, pc.cost_price) is not null)::text as grain,
   (o.created_at at time zone 'Asia/Dili')::date          as day,
   o.status                                               as status,
   oi.seller_id                                           as seller_id,
   p.category_id                                          as category_id,
+  /* WHETHER THESE LINES HAD A COST AT ALL, and part of the grain rather
+     than a summary of it.
+     .
+     Gross profit is computed over the revenue that HAS a cost behind it --
+     see totals() in src/lib/sales.ts, which adds a line's revenue to the
+     margin base only when its cost is known. A row mixing costed and
+     uncosted lines cannot express that: coalescing the missing ones to
+     zero lets their revenue into the base at no cost and inflates the
+     margin, which is exactly what the dashboard's own headline metrics
+     disagreed about until this column existed.
+     .
+     Split into the grain, every row is wholly one or the other, and a row
+     with no cost reports cost as absent rather than as zero. */
+  (coalesce(oi.cost, pc.cost_price) is not null)         as has_cost,
   count(distinct o.id)                                   as orders,
   -- NET OF RETURNS, and floored at zero. A return larger than the order is
   -- a data error, and it must not become negative revenue that quietly
@@ -4514,7 +4529,7 @@ select
   left join products p  on p.id = oi.product_id
   left join product_costs pc on pc.product_id = oi.product_id
   left join returned rt on rt.order_id = oi.order_id and rt.product_id = oi.product_id
- group by 1, 2, 3, 4, 5;
+ group by 1, 2, 3, 4, 5, 6;
 
 comment on materialized view sales_daily is
   'One row per shop-day, order status, seller and category, netted for returns. What the admin dashboard reads instead of the order book. Refreshed by refresh_sales_daily(); see /api/cron/refresh-analytics.';
@@ -4528,6 +4543,39 @@ comment on materialized view sales_daily is
 create unique index if not exists sales_daily_grain on sales_daily (grain);
 
 create index if not exists sales_daily_day on sales_daily (day desc);
+
+-- ---------------------------------------------------------------------------
+-- HOW MANY ORDERS, which the view above cannot answer
+-- ---------------------------------------------------------------------------
+-- sales_daily counts orders per day PER SELLER PER CATEGORY, so an order
+-- holding a shirt and a football contributes a row to each and summing that
+-- column across a day counts it twice. Money, units and discount are
+-- additive across the grain; "how many orders" is not, and no amount of
+-- care at the reading end fixes a number that was already wrong when it was
+-- grouped.
+--
+-- So it gets its own view at the only grain where the answer is exact. Day
+-- and status, which is what the dashboard's order-count card asks for.
+-- ---------------------------------------------------------------------------
+drop materialized view if exists sales_daily_orders;
+
+create materialized view sales_daily_orders as
+select
+  (o.created_at at time zone 'Asia/Dili')::date::text || '|' || o.status  as grain,
+  (o.created_at at time zone 'Asia/Dili')::date                           as day,
+  o.status                                                                as status,
+  count(distinct o.id)                                                    as orders
+  from orders o
+ where exists (select 1 from order_items oi where oi.order_id = o.id)
+ group by 1, 2, 3;
+
+comment on materialized view sales_daily_orders is
+  'Distinct orders per shop-day and status. Separate from sales_daily because that view''s grain makes an order count non-additive.';
+
+create unique index if not exists sales_daily_orders_grain
+  on sales_daily_orders (grain);
+
+revoke all on sales_daily_orders from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Refreshing it
@@ -4553,10 +4601,21 @@ begin
   else
     refresh materialized view sales_daily;
   end if;
+
+  -- BOTH, from one call. Two views that the dashboard reads together must
+  -- be rebuilt together, or a page shows this hour's revenue beside last
+  -- hour's order count and the average order value between them is
+  -- arithmetic on two different days.
+  if exists (select 1 from pg_class
+              where relname = 'sales_daily_orders' and relkind = 'm' and relispopulated) then
+    refresh materialized view concurrently sales_daily_orders;
+  else
+    refresh materialized view sales_daily_orders;
+  end if;
 end $$;
 
 comment on function refresh_sales_daily is
-  'Rebuilds sales_daily. Concurrent once the view has been populated, so the dashboard is never locked out of its own figures.';
+  'Rebuilds both sales rollups, together. Concurrent once each has been populated, so the dashboard is never locked out of its own figures.';
 
 -- Nobody reaches this with the public key. Every row is the shop's takings
 -- and its margin: the two things the storefront must never be able to ask

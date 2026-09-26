@@ -1,4 +1,4 @@
-import { isLive, totals, type SalesLine } from "./sales";
+import { isLive, totals, type SalesFigures } from "./sales";
 import { isCancelled, isResaleLine, poTotal } from "./procurement";
 import { storeDay, storeDayStart, storeHourKey } from "./tz";
 import type { PurchaseOrder } from "./types";
@@ -227,7 +227,7 @@ function bucketsFor(
 
 /** The earliest store day either side has any activity on. */
 export function earliestActivity(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[]
+  lines: readonly SalesFigures[], pos: readonly PurchaseOrder[]
 ): string | null {
   let earliest: string | null = null;
   const take = (d: string | undefined | null) => {
@@ -242,7 +242,7 @@ export function earliestActivity(
 
 /** Both sides over one range, bucketed to match it. */
 export function overviewSeries(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[],
+  lines: readonly SalesFigures[], pos: readonly PurchaseOrder[],
   range: RangeKey, today: string
 ): PeriodPoint[] {
   const spec = rangeSpec(range);
@@ -344,7 +344,7 @@ function daysApart(from: string, to: string): number {
  * Derived from the same bucket list the chart draws, so the two cannot
  * describe different periods -- which is the bug this replaced. */
 export function rangeWindow(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[],
+  lines: readonly SalesFigures[], pos: readonly PurchaseOrder[],
   range: RangeKey, today: string
 ): WindowSpec {
   const points = overviewSeries(lines, pos, range, today);
@@ -398,7 +398,7 @@ export interface Totals {
 
 /** Both sides over one date window, inclusive. */
 export function totalsIn(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[], w: { from: string; to: string }
+  lines: readonly SalesFigures[], pos: readonly PurchaseOrder[], w: { from: string; to: string }
 ): Totals {
   const inWindow = lines.filter((l) => l.date >= w.from && l.date <= w.to);
   const sold = totals(inWindow.filter(isLive));
@@ -452,7 +452,7 @@ export const METRIC_KEYS: readonly MetricKey[] = [
 /** The six headline numbers for a range, each against the period before it
  * and against the same span last year. */
 export function headlineMetrics(
-  lines: readonly SalesLine[], pos: readonly PurchaseOrder[],
+  lines: readonly SalesFigures[], pos: readonly PurchaseOrder[],
   range: RangeKey, today: string
 ): MetricRow[] {
   const w = rangeWindow(lines, pos, range, today);
