@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { acceptedPayments } from "@/lib/payMethods";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -69,23 +70,45 @@ describe("the places row is this shop's places", () => {
 });
 
 describe("what the shop takes, read off the settings", () => {
+  /* Driven rather than grepped. The list is shared with the cart, which
+     makes the same promise beside its checkout button, so what matters is
+     what the function returns -- not what any one caller's source says. */
+  const shop = (over: Partial<Parameters<typeof acceptedPayments>[0]> = {}) =>
+    ({ pickup: false, banks: [], wallets: [], ...over }) as Parameters<typeof acceptedPayments>[0];
+
+  it("always offers cash on delivery", () => {
+    // What this shop is for, and what the checkout assumes as its
+    // fallback.
+    expect(acceptedPayments(shop(), false)).toEqual(["pm_cod"]);
+  });
+
   it("offers bank transfer only when a bank has been entered", () => {
-    expect(FOOTER).toMatch(/if \(\(settings\.banks \?\? \[\]\)\.length\) pays\.push\("pm_bank"\)/);
+    expect(acceptedPayments(shop(), false)).not.toContain("pm_bank");
+    expect(acceptedPayments(
+      shop({ banks: [{ label: "BNCTL", account: "1", holder: "A" }] }), false))
+      .toContain("pm_bank");
   });
 
   it("offers a wallet only when one has been entered", () => {
-    expect(FOOTER).toMatch(/if \(\(settings\.wallets \?\? \[\]\)\.length\) pays\.push\("pm_wallet"\)/);
+    expect(acceptedPayments(shop(), false)).not.toContain("pm_wallet");
+    expect(acceptedPayments(shop({ wallets: [{ label: "M", number: "1" }] }), false))
+      .toContain("pm_wallet");
   });
 
   it("offers a card only when a gateway is configured", () => {
-    /* The same function the checkout asks before showing the card option:
-       a payment method that throws the moment it is chosen is worse than
+    /* A payment method that throws the moment it is chosen is worse than
        one that is not offered. */
-    expect(FOOTER).toMatch(/if \(cardPaymentAvailable\(\)\) pays\.push\("pm_card"\)/);
+    expect(acceptedPayments(shop(), false)).not.toContain("pm_card");
+    expect(acceptedPayments(shop(), true)).toContain("pm_card");
   });
 
   it("offers cash on pickup only when the shop does pickup", () => {
-    expect(FOOTER).toMatch(/if \(settings\.pickup\) pays\.push\("pm_cop"\)/);
+    expect(acceptedPayments(shop(), false)).not.toContain("pm_cop");
+    expect(acceptedPayments(shop({ pickup: true }), false)).toContain("pm_cop");
+  });
+
+  it("is the list the footer prints, not a second one", () => {
+    expect(FOOTER).toMatch(/acceptedPayments\(settings, cardPaymentAvailable\(\)\)/);
   });
 });
 

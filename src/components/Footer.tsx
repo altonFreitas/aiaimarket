@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCategories } from "@/lib/data/public";
 import { cardPaymentAvailable } from "@/lib/payments/registry";
+import { acceptedPayments } from "@/lib/payMethods";
 import { t } from "@/lib/i18n";
 import { taglineOf } from "@/lib/tagline";
 import { money, waLink, waNumberDigits } from "@/lib/utils";
@@ -62,13 +63,10 @@ export default async function Footer(
 
   /* WHAT IT ACTUALLY TAKES. Read off the settings, not a list of logos:
      bank transfer only when a bank has been entered, a wallet only when
-     one has, a card only when a gateway is configured. */
-  const pays: string[] = [];
-  pays.push("pm_cod");
-  if (settings.pickup) pays.push("pm_cop");
-  if ((settings.banks ?? []).length) pays.push("pm_bank");
-  if ((settings.wallets ?? []).length) pays.push("pm_wallet");
-  if (cardPaymentAvailable()) pays.push("pm_card");
+     one has, a card only when a gateway is configured. The cart makes the
+     same promise beside its checkout button, so the list lives in one
+     place -- see lib/payMethods.ts. */
+  const pays = acceptedPayments(settings, cardPaymentAvailable());
 
   return (
     <footer className="ft">

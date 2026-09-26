@@ -8,6 +8,15 @@ export const STR: Record<string, [string,string,string]> = {
      design puts app-store badges here; this shop has no app and does have
      a number every customer already uses. */
   help:["Ajuda","Ajuda","Help"],
+  /* The cart. The reference's banner promises free shipping over $50;
+     this shop prices delivery by zone and has no threshold, so these say
+     what is actually on offer instead -- see deliveryNote() in
+     lib/payMethods.ts. */
+  each:["ida","cada","each"],
+  cartSuggested:["Sujestaun","Sugestões","Suggested"],
+  cartFreeZone:["Entrega gratuita ba {zone}.","Entrega gratuita para {zone}.","Free delivery to {zone}."],
+  cartDeliveryFrom:["Entrega hahú husi {fee}, tuir fatin.","Entrega a partir de {fee}, conforme a zona.","Delivery from {fee}, depending on the zone."],
+  cartDeliveryAtCheckout:["Hili iha pasu tuirmai","Escolhido no passo seguinte","Chosen at the next step"],
   information:["Informasaun","Informação","Information"],
   footWaTitle:["Sosa liu WhatsApp","Comprar pelo WhatsApp","Shop on WhatsApp"],
   footWaBody:["Haruka mensajen mai ami — ami bele hatudu foto, konfirma tamañu, no simu enkomenda iha loron servisu.","Envie-nos uma mensagem — mostramos fotos, confirmamos tamanhos e aceitamos encomendas em dias úteis.","Message us — we can send photos, confirm sizes and take your order on working days."],

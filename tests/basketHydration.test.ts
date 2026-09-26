@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import BasketView from "@/components/BasketView";
 import { t } from "@/lib/i18n";
+import type { Settings } from "@/lib/types";
 
 /* What the browser paints before React hydrates.
  *
@@ -18,7 +19,16 @@ import { t } from "@/lib/i18n";
  * createElement rather than JSX only because this suite includes .ts. */
 describe("the cart as the server renders it", () => {
   const html = renderToString(
-    createElement(BasketView, { lang: "en" as const, storeName: "Loja" }));
+    createElement(BasketView, {
+      lang: "en" as const,
+      // The cart now takes the whole settings row (for the delivery
+      // zones), the shop's best sellers and the payment methods it
+      // accepts. None of it changes what this file is about: what the
+      // SERVER paints before the browser's basket has been read.
+      settings: { store_name: "Loja", zones: [] } as unknown as Settings,
+      suggestions: [],
+      pays: ["pm_cod"],
+    }));
 
   it("does not claim the basket is empty", () => {
     expect(html).not.toContain(t("emptyList", "en"));

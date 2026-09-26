@@ -1041,6 +1041,77 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 /* No rule above it and no fill behind it: the footer is one quiet line of
    text, so it sits on the paper rather than inside a painted panel that
    reads as another section of the page. */
+/* ---------- the cart ----------
+   The reference is a slide-over sheet with suggestions down the left and
+   the lines beside them. This is a page, so the same two columns sit side
+   by side and stack on a phone -- suggestions LAST when stacked, because
+   on a small screen the thing somebody came for is their own basket. */
+.cart-cols{display:grid;gap:var(--sp-4)}
+@media (min-width:900px){
+  /* NARROW TRACK FIRST. The suggestions are ordered into it (order:1) and
+     the cart into the wide one, so the tracks have to be in that order
+     too -- with 1fr first the suggestions took the wide column, the cart
+     was squeezed into 260px, and each suggested product rendered as a
+     990px square. Caught by looking at it. */
+  .cart-cols{grid-template-columns:240px minmax(0,1fr);align-items:start}
+  /* Source order puts the lines first so they come first on a phone; at
+     this width the suggestions move to the left, as in the reference. */
+  .cart-main{order:2}
+  .cart-side{order:1;position:sticky;top:calc(var(--hd) + 12px)}
+}
+.cart-seller{margin:0 0 6px;font-weight:600}
+
+/* The delivery line. Not an alert: nothing is wrong, and a shop that
+   shouts its own delivery terms in amber has told you off for shopping. */
+.cart-note{display:flex;align-items:center;gap:10px;padding:12px 14px;
+  border:1px solid var(--line);border-radius:var(--r-m);background:var(--sh-1);
+  margin-bottom:var(--sp-3);font-size:var(--fs-sm)}
+.cart-note svg{flex:none;color:var(--muted)}
+
+.cart-line{display:flex;gap:12px;padding:12px;border:1px solid var(--line);
+  border-radius:var(--r-m);background:var(--card);margin-bottom:10px}
+.cart-thumb{flex:none;width:72px;height:72px;border-radius:var(--r-s);
+  overflow:hidden;background:var(--sh-1);display:block}
+.cart-thumb img{width:100%;height:100%;object-fit:cover}
+.cart-line-body{flex:1;min-width:0;display:flex;flex-direction:column;
+  justify-content:space-between;gap:8px}
+.cart-line-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.cart-name{font-weight:650;color:var(--ink);text-decoration:none}
+.cart-name:hover{text-decoration:underline}
+/* The remove control is a quiet icon until you reach for it. In the
+   reference it is a red trash button on every row, which on a four-line
+   cart is four red buttons shouting at a shopper who has not asked to
+   delete anything. */
+.cart-x{flex:none;width:32px;height:32px;display:inline-flex;align-items:center;
+  justify-content:center;border:1px solid transparent;border-radius:var(--r-s);
+  background:transparent;color:var(--muted);cursor:pointer}
+.cart-x:hover{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.cart-line-bottom{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:10px;flex-wrap:wrap}
+.cart-money{text-align:right;display:flex;flex-direction:column;line-height:1.3}
+
+.cart-sum{margin-top:var(--sp-3);padding:14px;border:1px solid var(--line);
+  border-radius:var(--r-m);background:var(--card);display:grid;gap:10px}
+.cart-sum .kv{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.cart-go{width:100%}
+.cart-sum .btn-ghost{width:100%}
+.cart-pays{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+
+.cart-side h2{font-size:var(--fs-base);margin:0 0 10px}
+/* A row on a phone, a column beside the cart on a desktop. */
+.cart-sugg{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+@media (min-width:900px){.cart-sugg{grid-template-columns:1fr}}
+.cart-sugg-item{display:grid;gap:4px;padding:8px;border:1px solid var(--line);
+  border-radius:var(--r-m);background:var(--card);text-decoration:none;color:inherit}
+.cart-sugg-item:hover{border-color:var(--ink-2)}
+/* max-height as well as an aspect ratio: a square that is only ever as
+   wide as its column is still a very tall square if the column is wide,
+   and a suggestion the size of a poster is not a suggestion. */
+.cart-sugg-item img{width:100%;height:auto;aspect-ratio:1;max-height:200px;
+  object-fit:cover;border-radius:var(--r-s);background:var(--sh-1)}
+.cart-sugg-name{font-size:var(--fs-sm);line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
 /* ---------- the footer ----------
    Built on the reference's shape: a row of places across the top, then a
    brand column beside three columns of links and a WhatsApp panel, then a
