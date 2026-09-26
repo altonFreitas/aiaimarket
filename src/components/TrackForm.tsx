@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import {
@@ -20,16 +19,8 @@ import { taxWasIncluded } from "@/lib/tax";
 import { t } from "@/lib/i18n";
 import type { Lang, Order, Settings } from "@/lib/types";
 import ReturnRequest from "@/components/ReturnRequest";
-
-interface OrderSummary {
-  ref: string; buyer_name: string; buyer_phone: string;
-  status: string; pay_status: string; total: number; created_at: string; mode: string;
-  /** What this order was quoted in, and at what rate. Absent on a database
-   * that has not run supabase/legal-currency-tax.sql, where every order was
-   * in dollars at a rate of one. */
-  currency?: string | null;
-  fx_rate?: number | null;
-}
+import OrderHistory from "@/components/OrderHistory";
+import type { HistoryOrder } from "@/components/OrderHistory";
 
 export default function TrackForm({
   lang, initialRef, settings, sellersById, unlockedPhone, initialOrder,
@@ -69,7 +60,7 @@ export default function TrackForm({
      which is precisely what the buyer saw between confirming their order
      and being able to read it. */
   const [order, setOrder] = useState<Order | null>(initialOrder ?? null);
-  const [history, setHistory] = useState<OrderSummary[] | null>(null);
+  const [history, setHistory] = useState<HistoryOrder[] | null>(null);
   const [busy, setBusy] = useState(false);
 
   /* THE ONE CASE STILL LEFT FOR THE BROWSER TO RESOLVE.
@@ -118,7 +109,7 @@ export default function TrackForm({
     setBusy(true);
     try {
       const list = await getOrdersByPhone(ph);
-      setHistory(list as OrderSummary[]);
+      setHistory(list as unknown as HistoryOrder[]);
       setOrder(null);
       if (!list.length) toast(t("notFound", lang), true);
     } catch { toast(t("notFound", lang), true); }
@@ -155,40 +146,12 @@ export default function TrackForm({
   }
 
   // ---------------- history list (phone-only, every order) ----------------
+  /* Was a flat list of links: reference, date, total, two pills, and a
+     navigation away from the page for anything else. It is now searchable,
+     filterable and opens in place -- see components/OrderHistory.tsx. */
   if (history) {
-    return (
-      <div className="wrap">
-        <h1>{t("myOrders", lang)}</h1>
-        <p className="sub mono">{phone}</p>
-        {history.length ? (
-          <div className="list">
-            {history.map((o) => (
-              <Link key={o.ref} className="item" href={`/o/${o.ref}?phone=${encodeURIComponent(phone)}`} style={{ textDecoration: "none" }}>
-                <div className="g">
-                  <b>{o.ref}</b>
-                  <span>{nowIso(o.created_at)} · {money(o.total)} · {o.mode === "pickup" ? t("pickup", lang) : t("delivery", lang)}</span>
-                </div>
-                <div className="acts">
-                  <span className={"pill " + (o.pay_status === "paid" ? "ok" : o.pay_status === "unpaid" ? "" : "warn")}>
-                    {t("ps_" + o.pay_status, lang)}
-                  </span>
-                  <span className={"pill " + (o.status === "completed" ? "ok" : o.status === "cancelled" ? "bad" : "warn")}>
-                    {t("st_" + o.status, lang)}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="empty"><p>{t("noResults", lang)}</p></div>
-        )}
-        <div className="btn-row">
-          <button className="btn btn-ghost" type="button" onClick={() => setHistory(null)}>
-            {t("backToSingle", lang)}
-          </button>
-        </div>
-      </div>
-    );
+    return <OrderHistory orders={history} lang={lang} phone={phone} settings={settings}
+      onBack={() => setHistory(null)} />;
   }
 
   return <Dashboard order={order as Order} lang={lang} settings={settings} phone={phone}

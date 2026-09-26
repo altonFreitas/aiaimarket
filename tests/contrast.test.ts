@@ -118,3 +118,38 @@ describe("the token palette", () => {
     }
   });
 });
+
+/* EVERY TOKEN A RULE ASKS FOR MUST EXIST.
+ *
+ * A `var(--r-m)` that was never defined is not an error anywhere: the
+ * browser drops the whole declaration and the element quietly renders
+ * with square corners, or inherited text, or a transparent background.
+ * Nothing goes red, so it survives review and ships.
+ *
+ * Four were found this way, three of them written during this redesign:
+ * --r-m and --fs-base (never existed), --r-sm (a typo for --r-s) and
+ * --danger and --bg (names from some other palette). A fallback --
+ * var(--ok, var(--green, #1f8a4c)) -- is deliberate and allowed.
+ */
+describe("the stylesheet's variable references", () => {
+  /** Injected at runtime by next/font (see app/layout.tsx), so they are
+   * never declared in the stylesheet and never can be. */
+  const RUNTIME = ["--font-inter", "--font-grotesk", "--font-jakarta"];
+
+  it("names no token that is never defined and has no fallback", () => {
+    const defined = new Set(Array.from(CSS.matchAll(/(--[a-z0-9-]+)\s*:/g), (m) => m[1]));
+    const missing: string[] = [];
+    for (const m of CSS.matchAll(/var\(\s*(--[a-z0-9-]+)\s*(,?)/g)) {
+      const [, name, fallback] = m;
+      if (fallback || defined.has(name) || RUNTIME.includes(name)) continue;
+      missing.push(`${name} (line ${CSS.slice(0, m.index).split("\n").length})`);
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("is reading a stylesheet with tokens in it at all", () => {
+    // Guards the guard: a regex that stopped matching would report an
+    // empty list of failures for ever.
+    expect(Array.from(CSS.matchAll(/var\(\s*--[a-z0-9-]+/g)).length).toBeGreaterThan(200);
+  });
+});

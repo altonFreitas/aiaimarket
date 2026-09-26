@@ -1064,12 +1064,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 /* The delivery line. Not an alert: nothing is wrong, and a shop that
    shouts its own delivery terms in amber has told you off for shopping. */
 .cart-note{display:flex;align-items:center;gap:10px;padding:12px 14px;
-  border:1px solid var(--line);border-radius:var(--r-m);background:var(--sh-1);
+  border:1px solid var(--line);border-radius:var(--r);background:var(--sh-1);
   margin-bottom:var(--sp-3);font-size:var(--fs-sm)}
 .cart-note svg{flex:none;color:var(--muted)}
 
 .cart-line{display:flex;gap:12px;padding:12px;border:1px solid var(--line);
-  border-radius:var(--r-m);background:var(--card);margin-bottom:10px}
+  border-radius:var(--r);background:var(--card);margin-bottom:10px}
 .cart-thumb{flex:none;width:72px;height:72px;border-radius:var(--r-s);
   overflow:hidden;background:var(--sh-1);display:block}
 .cart-thumb img{width:100%;height:100%;object-fit:cover}
@@ -1091,18 +1091,18 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .cart-money{text-align:right;display:flex;flex-direction:column;line-height:1.3}
 
 .cart-sum{margin-top:var(--sp-3);padding:14px;border:1px solid var(--line);
-  border-radius:var(--r-m);background:var(--card);display:grid;gap:10px}
+  border-radius:var(--r);background:var(--card);display:grid;gap:10px}
 .cart-sum .kv{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
 .cart-go{width:100%}
 .cart-sum .btn-ghost{width:100%}
 .cart-pays{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 
-.cart-side h2{font-size:var(--fs-base);margin:0 0 10px}
+.cart-side h2{font-size:var(--fs-body);margin:0 0 10px}
 /* A row on a phone, a column beside the cart on a desktop. */
 .cart-sugg{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
 @media (min-width:900px){.cart-sugg{grid-template-columns:1fr}}
 .cart-sugg-item{display:grid;gap:4px;padding:8px;border:1px solid var(--line);
-  border-radius:var(--r-m);background:var(--card);text-decoration:none;color:inherit}
+  border-radius:var(--r);background:var(--card);text-decoration:none;color:inherit}
 .cart-sugg-item:hover{border-color:var(--ink-2)}
 /* max-height as well as an aspect ratio: a square that is only ever as
    wide as its column is still a very tall square if the column is wide,
@@ -1140,18 +1140,18 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .ft-places{display:grid;gap:18px 24px;
   grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
 .ft-place{display:flex;flex-direction:column;gap:3px;min-width:0}
-.ft-place b{color:var(--ink);font-size:var(--fs-base)}
+.ft-place b{color:var(--ink);font-size:var(--fs-body)}
 
 .ft-main{display:grid;gap:22px 24px;
   grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 /* The brand column is worth more room than a list of four links. */
 .ft-brand{min-width:0;grid-column:span 1}
 .ft-mark{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.ft-mark b{color:var(--ink);font-size:var(--fs-base)}
+.ft-mark b{color:var(--ink);font-size:var(--fs-body)}
 .ft-brand p{max-width:34ch}
 
 .ft-col{display:flex;flex-direction:column;gap:8px;min-width:0}
-.ft-col h3{margin:0 0 2px;font-size:var(--fs-base);color:var(--ink);
+.ft-col h3{margin:0 0 2px;font-size:var(--fs-body);color:var(--ink);
   font-family:var(--display);font-weight:700}
 .ft-wa .btn{align-self:flex-start;display:inline-flex;align-items:center;gap:6px}
 .ft-wa p{max-width:30ch}
@@ -3195,13 +3195,13 @@ tr.is-ended{opacity:.55}
 /* The unit belongs to the label, not the input: putting "(cm)" inside the
    box would be a value somebody has to delete before typing. */
 .attr-unit{color:var(--muted);font-weight:400}
-.attr-req{color:var(--danger)}
+.attr-req{color:var(--red)}
 /* A multi-select with options. A column of checkboxes rather than a
    multiple<select>, which on a phone is a scrolling box that needs a
    modifier key nobody has. */
 .attr-checks{display:flex;flex-direction:column;gap:4px;
   max-height:160px;overflow:auto;padding:6px 8px;
-  border:1px solid var(--line);border-radius:var(--r-sm);
+  border:1px solid var(--line);border-radius:var(--r-s);
   background:var(--card)}
 .attr-check{display:flex;align-items:center;gap:8px;
   font-size:var(--fs-sm);font-weight:400;cursor:pointer}
@@ -3210,7 +3210,7 @@ tr.is-ended{opacity:.55}
    catalogue whose colours are names rather than hexes. */
 .attr-color{display:flex;gap:8px;align-items:center}
 .attr-color input[type=color]{width:44px;flex:0 0 auto;padding:2px;
-  height:38px;border:1px solid var(--line);border-radius:var(--r-sm)}
+  height:38px;border:1px solid var(--line);border-radius:var(--r-s)}
 .attr-color input[type=text]{flex:1;min-width:0}
 
 /* ---------- the attribute builder (/admin/attributes, /admin/types) ---------- */
@@ -3972,7 +3972,7 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
   /* A colour list can be long. Scroll the group rather than the page. */
   max-height:220px;overflow:auto}
 .filter-opt{display:flex;justify-content:space-between;gap:8px;
-  padding:5px 8px;border-radius:var(--r-sm);text-decoration:none;
+  padding:5px 8px;border-radius:var(--r-s);text-decoration:none;
   color:var(--ink);font-size:var(--fs-sm)}
 .filter-opt:hover{background:var(--surface-2)}
 /* The chosen ones, marked by more than colour: a tick as well, so it does
@@ -4224,7 +4224,7 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
   gap:var(--sp-2)}
 .po-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--sp-2);
   padding:var(--sp-2);border:1px solid var(--line-2);border-radius:var(--r-s);
-  background:var(--bg)}
+  background:var(--paper)}
 .po-row .field{flex:1 1 120px;min-width:0;margin:0}
 .po-row-total{display:flex;flex-direction:column;align-items:flex-end;gap:2px;
   flex:0 0 auto;min-width:74px}
@@ -4318,3 +4318,59 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
   background:var(--amber);color:#3a2b00;
   font-family:var(--mono);font-size:var(--fs-caption);font-weight:700;
   letter-spacing:.02em;line-height:1}
+
+/* ---------------------------------------------------------------------------
+   ORDER HISTORY -- searchable, filterable, and it opens in place.
+   
+   It was a flat list of links: reference, date, total, two pills, and a
+   navigation off the page for anything else. Somebody looking for "the
+   shoes I bought in March" had to open each order in turn to find out
+   what was in it.
+   ------------------------------------------------------------------------ */
+.oh-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:0 0 14px}
+@media (min-width:640px){
+  /* Search takes the room; the filter needs only its widest status. */
+  .oh-tools{grid-template-columns:minmax(0,1fr) 220px;align-items:start}
+}
+.oh-tools .field{margin:0}
+
+.oh-list{display:flex;flex-direction:column;gap:10px}
+.oh-item{border:1px solid var(--line);border-radius:var(--r);background:var(--card);
+  overflow:hidden}
+.oh-item.on{border-color:var(--ink-3)}
+
+/* The whole header is the control. A chevron off to one side is a 18px
+   target on a phone; this is the full width of the row. */
+.oh-head{display:flex;align-items:center;gap:12px;width:100%;padding:12px;
+  background:none;border:0;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.oh-head:hover{background:var(--line-2)}
+.oh-thumb{flex:0 0 auto;width:52px;height:52px;border-radius:var(--r-s);overflow:hidden;
+  background:var(--line-2)}
+.oh-thumb img{width:100%;height:100%;object-fit:cover}
+.oh-g{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.oh-g b{font-size:14px}
+.oh-pills{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.oh-chev{flex:0 0 auto;color:var(--muted);transition:transform .15s ease}
+.oh-item.on .oh-chev{transform:rotate(180deg)}
+@media (max-width:560px){
+  /* The pills wrap under the reference rather than squeezing it: on a
+     narrow phone "Out for delivery" beside a reference leaves neither
+     readable. */
+  .oh-head{flex-wrap:wrap}
+  .oh-pills{width:100%;justify-content:flex-start;order:3}
+  .oh-chev{order:2}
+}
+
+.oh-body{padding:0 12px 12px;border-top:1px solid var(--line-2)}
+.oh-lines{list-style:none;margin:12px 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.oh-line-a{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.oh-line-a img{width:44px;height:44px;border-radius:var(--r-s);object-fit:cover;
+  background:var(--line-2);flex:0 0 auto}
+.oh-line-g{min-width:0;display:flex;flex-direction:column;gap:2px}
+.oh-line-g b{font-size:13.5px;line-height:1.25}
+
+.oh-addr{display:flex;flex-direction:column;gap:2px;padding:10px;border-radius:var(--r-s);
+  background:var(--line-2);font-size:var(--fs-sm)}
+.oh-addr b{font-size:var(--fs-sm)}
+
+.oh-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}

@@ -18,6 +18,7 @@ import { revalidatePath } from "next/cache";
 import { getLang } from "@/lib/lang";
 import { notifyOrderEventInBackground } from "@/lib/notify/service";
 import { notifyStatusChange } from "@/lib/orderNotify";
+import { CANCELLABLE_STATUSES, historyItems, sellableNow } from "@/lib/orderActions";
 import type { Order, OrderItem, OrderLogEntry, OrderStatus, PayMethod, PayStatus, Zone } from "@/lib/types";
 
 /** Trims and hard-truncates a free-text field. Postgres `text` has no
@@ -620,6 +621,17 @@ export async function lookupOrder(ref: string, phone: string) {
  * level as guest checkout already uses (the spec's Decision 3: phone
  * number is the identity), just widened from one order to all of them —
  * no new accounts table, no SMS provider, no added cost. */
+/* THE COLUMNS THE HISTORY LIST READS.
+ *
+ * The address so a buyer can see where an order went without opening it,
+ * the items so the row can show what is in it, and cancel_requested_at so
+ * the row does not offer a cancellation that is already pending. All of
+ * them are in the base schema; only currency/fx_rate need the tolerated
+ * fallback below. */
+const HISTORY_COLS =
+  "ref, buyer_name, buyer_phone, status, pay_status, total, created_at, mode, " +
+  "items, address_line, municipality, post, suku, aldeia, landmark, cancel_requested_at";
+
 export async function getOrdersByPhone(phone: string) {
   if (!phoneOk(phone)) return [];
   // A phone number is the ONLY credential here (Decision 3), so this
@@ -630,33 +642,75 @@ export async function getOrdersByPhone(phone: string) {
   if (!lookupLimit.allowed) return [];
   const sb = supabaseAdmin();
   const normalized = phoneNorm(phone);
-  const { data } = await sb
-    .from("orders")
-    /* currency so the list can print each total in the currency THAT order
-       was placed in. A shop that switches from dollars to euros has not
-       re-priced what it already sold. Read through the service role, which
-       is not bound by the anon column grants, and tolerated below for a
-       database that has no such column yet. */
-    .select("ref, buyer_name, buyer_phone, status, pay_status, total, created_at, mode, currency, fx_rate")
-    .eq("buyer_phone", normalized)
-    .order("created_at", { ascending: false });
-  if (data) return data;
 
-  // No currency column: the shop has not run supabase/legal-currency-tax.sql,
-  // and every order it holds was placed in dollars.
-  const fallback = await sb
+  /* currency so the list can print each total in the currency THAT order
+     was placed in. A shop that switches from dollars to euros has not
+     re-priced what it already sold. Read through the service role, which
+     is not bound by the anon column grants, and tolerated below for a
+     database that has no such column yet. */
+  let { data } = await sb
     .from("orders")
-    .select("ref, buyer_name, buyer_phone, status, pay_status, total, created_at, mode")
+    .select(HISTORY_COLS + ", currency, fx_rate")
     .eq("buyer_phone", normalized)
     .order("created_at", { ascending: false });
-  return fallback.data || [];
+
+  if (!data) {
+    // No currency column: the shop has not run
+    // supabase/legal-currency-tax.sql, and every order it holds was placed
+    // in dollars.
+    const fallback = await sb
+      .from("orders")
+      .select(HISTORY_COLS)
+      .eq("buyer_phone", normalized)
+      .order("created_at", { ascending: false });
+    data = fallback.data;
+  }
+  const orders = (data || []) as unknown as Array<Record<string, unknown>>;
+  if (!orders.length) return [];
+
+  /* WHAT THOSE PRODUCTS ARE WORTH TODAY.
+   *
+   * One query for every product across the whole history, not one per
+   * order -- this runs on a buyer's phone on mobile data, and a customer
+   * with thirty orders would otherwise fan out to thirty round trips.
+   *
+   * It is also the only way "buy again" can be honest. The order's own
+   * items carry the price PAID, which for an order placed in March is not
+   * a price the shop will sell at today; re-adding at it would put a
+   * number in the basket that the checkout then silently corrects. */
+  const ids = new Set<string>();
+  for (const o of orders) {
+    for (const it of (Array.isArray(o.items) ? o.items : []) as Array<Record<string, unknown>>) {
+      if (typeof it?.product_id === "string") ids.add(it.product_id);
+    }
+  }
+
+  const live = new Map<string, { slug: string; image: string; price: number; stock: number }>();
+  if (ids.size) {
+    /* Tolerated, like every read in this window: a database missing any of
+       these columns leaves the map empty, the rows still render from the
+       snapshot, and only "buy again" goes quiet. */
+    const { data: prods } = await sb
+      .from("products")
+      .select("id, slug, images, price, discount_price, qty, archived, status")
+      .in("id", [...ids]);
+    for (const p of (prods || []) as unknown as Array<Record<string, unknown>>) {
+      // Delisted, unapproved or sold out is NOT offered again -- see
+      // sellableNow(), which is where that judgement lives so a test can
+      // drive it without a database.
+      const now = sellableNow(p);
+      if (now) live.set(String(p.id), now);
+    }
+  }
+
+  return orders.map((o) => ({ ...o, items: historyItems(o.items, live) }));
 }
 
 /** I7 — buyer-initiated cancellation request; still gated by ref+phone. */
 export async function requestCancellation(ref: string, phone: string, reason: string) {
   const order = await lookupOrder(ref, phone);
   if (!order) throw new Error("Order not found");
-  if (!["new", "confirmed"].includes(order.status)) throw new Error("Too late to cancel");
+  if (!(CANCELLABLE_STATUSES as readonly string[]).includes(order.status)) throw new Error("Too late to cancel");
   const sb = supabaseAdmin();
   await sb
     .from("orders")
