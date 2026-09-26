@@ -43,6 +43,13 @@ export const STR: Record<string, [string,string,string]> = {
      because "not enough stock" leaves the shopper to guess how many to
      take, and guessing means trying again. */
   stockCapNoSize:["Iha de'it {n}. Ita husu {q}.","Só há {n} disponíveis. Pediu {q}.","Only {n} left. You asked for {q}."],
+  /* The standing statement of a ceiling, as opposed to stockCap* above,
+     which answer somebody who just asked for more than there is. In a cart
+     the line sits at the ceiling without anybody having overreached, and
+     "you asked for 10" when they have 10 reads as a complaint about
+     nothing. This says why the + button is grey and stops there. */
+  onlyNLeft:["Iha de'it {n} hela.","Só restam {n}.","Only {n} left."],
+  onlyNLeftSize:["Tamañu {s}: iha de'it {n} hela.","Tamanho {s}: só restam {n}.","Size {s}: only {n} left."],
   stockCapSize:["Tamañu {s}: iha de'it {n}. Ita husu {q}.","Tamanho {s}: só há {n}. Pediu {q}.","Size {s}: only {n} left. You asked for {q}."],
   /* buyer questions — the four repeated questions (§2.2) */
   qPrice:["Folin","Preço","Price"],
@@ -1459,6 +1466,7 @@ export const STR: Record<string, [string,string,string]> = {
   featLegalCurrencyTax:["Faktu legál, moeda no taxa","Factos legais, moeda e imposto","The shop's legal facts, currency and tax"],
   featOrderDiscount:["Diskontu iha enkomenda","Desconto na encomenda","The discount on an order"],
   featCustomerAlerts:["Avizu ba kliente","Avisos para clientes","Alerts for customers"],
+  featSalesRollup:["Rezumu venda loron-loron ba dashboard","Resumo diário de vendas para o painel","Daily sales rollup for the dashboard"],
   featMessageQueue:["Fila mensajen ne'ebé haruka automatikamente","Fila de mensagens enviada automaticamente","Message queue drained automatically"],
   featSizeStock:["Stok tuir tamañu","Stock por tamanho","Stock counted per size"],
   /* stock per size */

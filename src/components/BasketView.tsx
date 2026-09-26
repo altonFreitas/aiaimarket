@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useBasket } from "@/lib/useBasket";
+import { useBasketStock } from "@/lib/useBasketStock";
+import QtyStepper from "./QtyStepper";
 
 import EmptyBasketArt from "./EmptyBasketArt";
 import { money } from "@/lib/utils";
@@ -8,7 +10,10 @@ import { t } from "@/lib/i18n";
 import type { Lang } from "@/lib/types";
 
 export default function BasketView({ lang, storeName }: { lang: Lang; storeName: string }) {
-  const { lines, ready, setQty, remove, subtotal } = useBasket();
+  const { lines, ready, setQty, remove, subtotal, applyStock } = useBasket();
+  /* What the shelf holds NOW, not when the line was added -- see
+     useBasketStock. */
+  useBasketStock(lines, ready, applyStock);
 
   // Nothing is known about the basket until the browser's copy has been
   // read. Saying "empty" here would be saying it about a basket nobody has
@@ -78,11 +83,7 @@ export default function BasketView({ lang, storeName }: { lang: Lang; storeName:
                   <b>{l.name}</b>
                   <span>{l.size ? l.size + " · " : ""}{money(l.price)}</span>
                 </div>
-                <div className="qty" style={{ height: 34 }}>
-                  <button type="button" onClick={() => setQty(i, l.qty - 1)}>−</button>
-                  <span>{l.qty}</span>
-                  <button type="button" onClick={() => setQty(i, l.qty + 1)}>+</button>
-                </div>
+                <QtyStepper line={l} lang={lang} onChange={(q) => setQty(i, q)} />
                 <button className="btn btn-sm btn-ghost" type="button" onClick={() => remove(i)}>✕</button>
               </div>
             ))}

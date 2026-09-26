@@ -190,6 +190,10 @@ export default function ProductInteractive({
       seller_id: p.seller_id, sellerName: seller?.store_name || null,
       // Only when there IS one: see BasketLine.listPrice.
       listPrice: p.discount_price != null ? Number(p.price) : undefined,
+      /* The ceiling travels WITH the line. This screen already knew it --
+         its own + button stops here -- and the cart's + button had no way
+         to find out, so it counted past the shelf two screens later. */
+      stock: Number.isFinite(maxQty) ? maxQty : undefined,
       image: p.images?.[0] || "", slug: p.slug });
     toast(`${p.name} → ${t("list", lang)}`);
   }
@@ -212,6 +216,10 @@ export default function ProductInteractive({
       seller_id: p.seller_id, sellerName: seller?.store_name || null,
       // Only when there IS one: see BasketLine.listPrice.
       listPrice: p.discount_price != null ? Number(p.price) : undefined,
+      /* The ceiling travels WITH the line. This screen already knew it --
+         its own + button stops here -- and the cart's + button had no way
+         to find out, so it counted past the shelf two screens later. */
+      stock: Number.isFinite(maxQty) ? maxQty : undefined,
       image: p.images?.[0] || "", slug: p.slug });
     router.push("/checkout");
   }

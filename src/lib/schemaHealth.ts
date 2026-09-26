@@ -155,6 +155,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "video_url"]],
   },
   {
+    file: "sales-rollup.sql", labelKey: "featSalesRollup",
+    /* A materialized view and the function that rebuilds it. Checked by
+       the function, because an inventory that reports relations may or may
+       not report a matview as a table -- and the function is the half the
+       cron actually calls. */
+    routines: ["refresh_sales_daily"],
+  },
+  {
     file: "message-queue.sql", labelKey: "featMessageQueue",
     columns: [["notifications", "claimed_at"], ["customer_alerts", "attempts"]],
   },
@@ -538,6 +546,12 @@ export const SCHEMA_ORDER: readonly string[] = [
 
   // Reporting and storefront features. Independent of each other.
   "sales.sql",
+  /* AFTER order-items.sql, returns.sql and sales.sql, all three of which
+     it reads: the lines, the returns that net them down, and product_costs
+     for the cost a line was sold without. Placed by running it -- the
+     first attempt sat beside message-queue.sql and run-all.sql stopped at
+     "relation order_return_items does not exist". */
+  "sales-rollup.sql",
   "promotions.sql",
   "hero-video.sql",
   "legal-currency-tax.sql",  // columns only; safe anywhere after schema.sql

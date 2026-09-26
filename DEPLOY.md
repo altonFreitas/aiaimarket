@@ -342,6 +342,27 @@ claiming counts an attempt, so draining a queue you cannot send from would
 burn every message's three tries in a quarter of an hour and leave you with a
 queue marked as tried and never sent.
 
+### The dashboard's figures
+
+`/api/cron/refresh-analytics` rebuilds `sales_daily`, the rollup the admin
+dashboard reads instead of the order book, and `vercel.json` schedules it
+hourly at twenty past. It needs `CRON_SECRET` like the others.
+
+If it never runs, nothing breaks and nothing says so: the view simply holds
+the figures from the moment it was created. Check it by hand with
+
+    curl -H "Authorization: Bearer $CRON_SECRET" \
+      https://yourdomain.tl/api/cron/refresh-analytics
+
+`{"skipped":"migration not run"}` means `supabase/sales-rollup.sql` has not
+been applied yet, which is not an error — the dashboard goes on working the
+way it always did.
+
+**If you change `NEXT_PUBLIC_STORE_TZ`**, change the timezone in
+`supabase/sales-rollup.sql` to match and re-run it. A day is the shop's day,
+and the view has to agree with the code about which one that is; a test
+fails if the two drift.
+
 ### What an SMS costs
 
 SMS is billed per **segment**, not per message, and the alphabet decides how
