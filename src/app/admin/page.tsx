@@ -3,16 +3,17 @@ import { adminAttention, adminLoveStats, adminSellerLedgers } from "@/lib/data/a
 import { financeTables, cashSideTotals } from "@/lib/data/finance";
 import { profitAndLoss } from "@/lib/finance";
 import {
-  headlineMetrics, overviewSeries, rangeWindow, RANGES, type RangeKey,
+  headlineMetrics, overviewSeries, rangeSpec, rangeWindow, RANGES, type RangeKey,
 } from "@/lib/overview";
 import { stockOnHand, type KpiInput } from "@/lib/adminHomeKpis";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { adminProcurementData } from "@/lib/data/procurement";
 import {
-  buildSalesLines, isLive, salesByCategory, salesByCustomer, todayIso,
+  buildSalesLines, isLive, LIVE_STATUSES, salesByCategory, todayIso,
 } from "@/lib/sales";
-import { spendBySupplier } from "@/lib/procurement";
-import { packSalesLines } from "@/lib/salesWire";
+import {
+  rollupLines, rollupOrderCount, salesRollup,
+} from "@/lib/data/salesRollup";
 import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
 import { canSee, sectionForPath } from "@/lib/adminSections";
@@ -57,13 +58,45 @@ export default async function AdminHomePage(
      widened for either. */
   const wantsProducts = canSales || canCatalog;
 
+  /* WHERE THIS PAGE'S FIGURES COME FROM.
+   *
+   * sales_daily holds the same arithmetic, already done -- see
+   * supabase/sales-rollup.sql, and tests/rls/salesRollup.test.ts for the
+   * proof that it agrees with buildSalesLines figure for figure. Reading it
+   * instead of the order book is the difference between shipping 11 MB of
+   * order lines to this page and shipping a few hundred rows.
+   *
+   * TWO THINGS DECIDE WHETHER IT CAN ANSWER, and both are known before any
+   * read happens:
+   *
+   *   the range, because a rollup by DAY cannot draw an hour chart, and
+   *   "1d" is the one range bucketed by hour;
+   *
+   *   and whether the view exists at all, which it does not on a shop that
+   *   has not pasted supabase/sales-rollup.sql yet.
+   *
+   * The second is only knowable after asking, so the order book is still
+   * read when the rollup turns out not to be there -- this page has to
+   * work identically the day the code ships and the SQL has not been.
+   */
+  const daily = canSales && rangeSpec(range).bucket !== "hour";
+  const rollup = daily
+    ? await salesRollup(shiftDays(todayIso(), -2000), todayIso())
+    : { ready: false, rows: [], orders: [] };
+  const fromRollup = daily && rollup.ready;
+
   const [lang, items, sales, procurement, returns, loves, tables, cash, ledgers] =
     await Promise.all([
       getLang(),
       adminAttention(),
-      wantsProducts ? adminSalesData() : Promise.resolve(null),
+      wantsProducts
+        ? adminSalesData({ withOrders: !fromRollup })
+        : Promise.resolve(null),
       canProcurement ? adminProcurementData() : Promise.resolve(null),
-      canSales ? returnedUnits() : Promise.resolve(new Map<string, number>()),
+      // The returns map exists only to net the ORDER LINES down. The rollup
+      // is already netted, so asking for it would be a second read of a
+      // table nothing here would consult.
+      canSales && !fromRollup ? returnedUnits() : Promise.resolve(new Map<string, number>()),
       canCatalog ? adminLoveStats() : Promise.resolve(null),
       canFinance ? financeTables() : Promise.resolve(null),
       canFinance ? cashSideTotals() : Promise.resolve(null),
@@ -75,23 +108,22 @@ export default async function AdminHomePage(
     return section !== null && canSee(actor, section);
   });
 
-  const lines = sales && canSales
-    ? buildSalesLines(sales.orders, {
-        products: sales.products,
-        categories: sales.categories,
-        sellers: sales.sellers,
-        costs: costMap(sales.costs),
-        returns,
-      })
-    : [];
+  /* ONE SHAPE, TWO SOURCES. Everything below groups and sums these; it
+     does not care which side they came from, which is the property that
+     makes swapping the source safe. The synthetic rows carry only the
+     fields a rolled-up row can honestly fill -- see rollupLines(). */
+  const lines = !canSales || !sales
+    ? []
+    : fromRollup
+      ? rollupLines(rollup.rows, sales.categories, sales.sellers)
+      : buildSalesLines(sales.orders, {
+          products: sales.products,
+          categories: sales.categories,
+          sellers: sales.sellers,
+          costs: costMap(sales.costs),
+          returns,
+        });
   const pos = procurement?.purchaseOrders ?? [];
-
-  // The one name from each side, for the written summary. Computed here
-  // rather than shipped as two more ranked lists: "who is biggest" is a
-  // sentence on this page and a whole panel on the two dashboards.
-  const topCustomer = canSales ? (salesByCustomer(lines)[0] ?? null) : null;
-  const topSupplier = canProcurement && procurement
-    ? (spendBySupplier(pos, procurement.suppliers)[0] ?? null) : null;
 
   /* ONE FIGURE FROM EACH AREA, over the same month the overview below uses.
      Built here rather than in the component because three of the four are
@@ -107,10 +139,12 @@ export default async function AdminHomePage(
 
   const pl = canFinance && sales && tables && cash && ledgers
     ? profitAndLoss({
-        lines: buildSalesLines(sales.orders, {
-          products: sales.products, categories: sales.categories,
-          sellers: sales.sellers, costs: costMap(sales.costs), returns,
-        }).filter(isLive).map((l) => ({
+        /* THE SAME LINES AS EVERY OTHER FIGURE ON THIS PAGE. This used to
+           call buildSalesLines a SECOND time over the same orders -- the
+           same work twice per load, and a standing invitation for the
+           profit and loss to be computed from a different set than the
+           revenue card above it. */
+        lines: lines.filter(isLive).map((l) => ({
           sellerId: l.sellerId, netSales: l.netSales, cost: l.cost,
         })),
         commission: ledgers.reduce((a, l) => a + l.commission, 0),
@@ -130,8 +164,16 @@ export default async function AdminHomePage(
      of orders -- one order of six shoes is one order here and six in
      "quantity sold", which is the distinction the card is for. */
   const ordersIn = (from: string, to: string) =>
-    new Set(lines.filter((l) => l.date >= from && l.date <= to)
-      .map((l) => l.orderId)).size;
+    fromRollup
+      /* FROM ITS OWN VIEW, not from the rows above. sales_daily groups by
+         seller and category, so an order holding a shirt and a football is
+         a row in each and summing its `orders` column would count it
+         twice. sales_daily_orders is grouped at the only grain where the
+         answer is exact. */
+      ? rollupOrderCount(rollup.orders, from, to,
+          (st) => (LIVE_STATUSES as readonly string[]).includes(st))
+      : new Set(lines.filter((l) => l.date >= from && l.date <= to)
+          .map((l) => (l as { orderId?: string }).orderId ?? "")).size;
   const win = canSales ? rangeWindow(lines, pos, range, today) : null;
   const orderCount = win ? ordersIn(win.from, win.to) : 0;
   const orderCountPrev = win

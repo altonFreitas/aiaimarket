@@ -72,7 +72,20 @@ export interface DataCoverage {
  * page testable without a database. A store's history is small enough that
  * this is cheaper than it looks, and it is one round trip instead of one
  * per panel. */
-export async function adminSalesData(): Promise<SalesData> {
+export async function adminSalesData(
+  /* WITHOUT THE ORDER BOOK, when the caller has a rollup to read instead.
+   *
+   * The orders are 11 MB of this payload on a busy shop and everything
+   * else here is a few hundred kilobytes -- products for the catalogue
+   * KPI, categories and sellers for the labels on a chart. A dashboard
+   * reading sales_daily still needs all of that; it does not need the
+   * lines it has already had summed for it.
+   *
+   * The default is unchanged, so every existing caller behaves exactly as
+   * it did. */
+  opts: { withOrders?: boolean } = {}
+): Promise<SalesData> {
+  const withOrders = opts.withOrders !== false;
   const sb = supabaseAdmin();
   const ready = await salesReady();
 
@@ -80,11 +93,16 @@ export async function adminSalesData(): Promise<SalesData> {
     // Capped, and the page is told so. Newest first, so the rows that fall
     // off the end are the OLDEST -- which is why the year-on-year comparison
     // is the first thing a silent cap would break.
-    readCapped<Order>(MAX_ORDERS, async (limit) => {
-      const r = await sb.from("orders").select("*")
-        .order("created_at", { ascending: false }).limit(limit);
-      return r.data as Order[] | null;
-    }),
+    withOrders
+      ? readCapped<Order>(MAX_ORDERS, async (limit) => {
+          const r = await sb.from("orders").select("*")
+            .order("created_at", { ascending: false }).limit(limit);
+          return r.data as Order[] | null;
+        })
+      /* Not "no orders": no orders WERE ASKED FOR. truncated stays false
+         because nothing was left behind -- the figures this page shows come
+         from the rollup, which covers the whole book. */
+      : Promise.resolve({ rows: [] as Order[], truncated: false, cap: 0, oldestKept: null }),
     sb.from("products").select("*").limit(MAX_PRODUCTS)
       .then((r) => (r.data as Product[]) || []),
     sb.from("categories").select("*").order("sort_order")

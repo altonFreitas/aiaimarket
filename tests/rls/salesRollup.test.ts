@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { DATABASE_URL, sql, scalar } from "./db";
-import { buildSalesLines, returnKey } from "@/lib/sales";
+import { buildSalesLines, LIVE_STATUSES, returnKey } from "@/lib/sales";
+import { headlineMetrics, overviewSeries } from "@/lib/overview";
+import { rollupLines, rollupOrderCount, type DayOrders, type RollupRow } from "@/lib/data/salesRollup";
 import { STORE_TZ } from "@/lib/tz";
 import fs from "node:fs";
 import path from "node:path";
@@ -57,9 +59,15 @@ function json<T>(statement: string): T[] {
   return raw ? (JSON.parse(raw) as T[]) : [];
 }
 
-/** The view's own grain, computed in JavaScript from a line. */
-const grainOf = (day: string, status: string, seller: string | null, cat: string | null) =>
-  `${day}|${status}|${seller ?? ""}|${cat ?? ""}`;
+/** The view's own grain, computed in JavaScript from a line.
+ *
+ * `hasCost` is part of it because gross profit is computed over the revenue
+ * that has a cost behind it: a group mixing costed and uncosted lines
+ * cannot say what its margin base is, so the view splits them. */
+const grainOf = (
+  day: string, status: string, seller: string | null, cat: string | null,
+  hasCost: boolean,
+) => `${day}|${status}|${seller ?? ""}|${cat ?? ""}|${hasCost}`;
 
 const money = (n: number) => Math.round(n * 1e6) / 1e6;
 
@@ -165,7 +173,7 @@ describeDb("sales_daily says what buildSalesLines says", () => {
        the two have to agree on that, and this is where it is proved. */
     const mine = new Map<string, { qty: number; net: number; cost: number; disc: number }>();
     for (const l of lines) {
-      const key = grainOf(l.date, l.status, l.sellerId, l.categoryId);
+      const key = grainOf(l.date, l.status, l.sellerId, l.categoryId, l.cost != null);
       const at = mine.get(key) ?? { qty: 0, net: 0, cost: 0, disc: 0 };
       at.qty += l.qty;
       at.net += l.netSales;
@@ -193,8 +201,11 @@ describeDb("sales_daily says what buildSalesLines says", () => {
     /* The order placed at 22:15 UTC on the 2nd was rung up at 07:15 on the
        3rd in Dili. Bucketing by UTC would file about a third of trading
        hours under yesterday. */
+    /* Ana's order, by the shirt she bought: placed at 22:15 UTC on the
+       2nd, which is 07:15 on the 3rd where the shop is. */
     const day = scalar(
-      `select day::text from sales_daily where grain like '%completed%' limit 1`);
+      `select day::text from sales_daily
+        where status = 'completed' and category_id = '${C1}' and qty = 1`);
     expect(day).toBe("2026-09-03");
   });
 
@@ -271,5 +282,113 @@ describe("the shop's day is one definition", () => {
     const m = /at time zone '([^']+)'/.exec(SQL_FILE);
     expect(m, "the timezone literal in sales-rollup.sql").not.toBeNull();
     expect(m![1]).toBe(STORE_TZ);
+  });
+});
+
+
+/* ---------------------------------------------------------------------------
+   THE DASHBOARD ITSELF, COMPUTED BOTH WAYS
+   ---------------------------------------------------------------------------
+   The test above proves the VIEW sums to what buildSalesLines sums to. That
+   is necessary and it is not sufficient: the dashboard does not print sums,
+   it prints headlineMetrics and a chart, over a window, against the period
+   before it. What matters to a shop is that those come out the same
+   whichever source answered -- so this runs the real functions over both.
+   ------------------------------------------------------------------------ */
+
+describeDb("the dashboard reads the same either way", () => {
+  function bothSides() {
+    const orders = json<Order>(`select * from orders`);
+    const products = json<Product>(`select * from products`);
+    const categories = json<Category>(`select * from categories`);
+    const sellers = json<Seller>(`select * from sellers`);
+    const costRows = json<{ product_id: string; cost_price: number }>(
+      `select product_id, cost_price from product_costs`);
+    const returnRows = json<{ order_id: string; product_id: string; qty: number }>(
+      `select r.order_id, ri.product_id, sum(ri.qty) as qty
+         from order_return_items ri join order_returns r on r.id = ri.return_id
+        where ri.product_id is not null group by 1, 2`);
+
+    const lines = buildSalesLines(orders, {
+      products, categories, sellers,
+      costs: new Map(costRows.map((c) => [c.product_id, Number(c.cost_price)])),
+      returns: new Map(returnRows.map((r) =>
+        [returnKey(r.order_id, r.product_id), Number(r.qty)])),
+    });
+
+    const rows = json<Record<string, unknown>>(
+      `select day::text as day, status, seller_id, category_id, has_cost, orders,
+              qty, net_sales, cost, discount, lines_without_cost, lines
+         from sales_daily`).map((r): RollupRow => ({
+      day: String(r.day), status: String(r.status),
+      sellerId: (r.seller_id as string | null) ?? null,
+      categoryId: (r.category_id as string | null) ?? null,
+      hasCost: r.has_cost === true,
+      orders: Number(r.orders), qty: Number(r.qty),
+      netSales: Number(r.net_sales), cost: Number(r.cost),
+      discount: Number(r.discount),
+      linesWithoutCost: Number(r.lines_without_cost), lines: Number(r.lines),
+    }));
+
+    return { lines, rolled: rollupLines(rows, categories, sellers) };
+  }
+
+  /* Every range except 1d, which is bucketed by hour: a rollup by DAY
+     cannot answer an intraday chart and the dashboard does not ask it to. */
+  const RANGES = ["5d", "1m", "6m", "ytd", "1y", "5y", "max"] as const;
+  const TODAY = "2026-09-10";
+
+  it("gives the same headline metrics at every range it serves", () => {
+    const { lines, rolled } = bothSides();
+    for (const range of RANGES) {
+      const a = headlineMetrics(lines, [], range, TODAY);
+      const b = headlineMetrics(rolled, [], range, TODAY);
+      expect(b, `headline metrics at ${range}`).toEqual(a);
+    }
+  });
+
+  it("draws the same chart at every range it serves", () => {
+    const { lines, rolled } = bothSides();
+    for (const range of RANGES) {
+      const a = overviewSeries(lines, [], range, TODAY);
+      const b = overviewSeries(rolled, [], range, TODAY);
+      expect(b, `the series at ${range}`).toEqual(a);
+    }
+  });
+
+  it("counts the same orders, from the view that can count them", () => {
+    /* NOT from the rolled-up rows. sales_daily groups by seller and
+       category, so an order holding a shirt and a football is a row in
+       each -- summing its `orders` column would say two. */
+    const { lines } = bothSides();
+    const counts = json<Record<string, unknown>>(
+      `select day::text as day, status, orders from sales_daily_orders`)
+      .map((r): DayOrders => ({
+        day: String(r.day), status: String(r.status), orders: Number(r.orders),
+      }));
+
+    const from = "2026-09-01", to = "2026-09-30";
+    const live = new Set<string>(LIVE_STATUSES as readonly string[]);
+    const fromLines = new Set(
+      lines.filter((l) => l.date >= from && l.date <= to && live.has(l.status))
+        .map((l) => l.orderId)).size;
+
+    expect(rollupOrderCount(counts, from, to, (st) => live.has(st))).toBe(fromLines);
+    expect(fromLines, "the fixture has orders to count").toBeGreaterThan(0);
+  });
+
+  it("would double-count if it summed the wrong view", () => {
+    /* The mistake this guards against, demonstrated rather than asserted:
+       an order spanning two categories IS two rows in sales_daily, so a
+       reader that summed `orders` there would report more orders than
+       exist. */
+    const summedWrongly = json<{ n: string }>(
+      `select sum(orders)::text as n from sales_daily
+        where day = '2026-09-03' and status = 'completed'`)[0];
+    const exact = json<{ n: string }>(
+      `select orders::text as n from sales_daily_orders
+        where day = '2026-09-03' and status = 'completed'`)[0];
+    expect(Number(summedWrongly.n)).toBeGreaterThan(Number(exact.n));
+    expect(Number(exact.n)).toBe(1);
   });
 });

@@ -91,42 +91,55 @@ export function orderDate(o: Order): string {
  * differently.
  * ------------------------------------------------------------------------ */
 
-export interface SalesLine {
-  orderId: string;
-  ref: string;
+/** THE FIELDS THE GROUP-AND-SUM FUNCTIONS ACTUALLY READ.
+ *
+ * Split out of SalesLine so a source that is already grouped can feed them.
+ * The admin dashboard reads sales_daily -- rows that were summed in the
+ * database -- and those rows can honestly fill exactly this much: a date, a
+ * status, money, units, and the two things they were grouped by. They have
+ * no order ref, no buyer, no product, because a rolled-up row is not one
+ * sale and inventing those would put blanks into screens.
+ *
+ * So the functions that need no more than this SAY no more than this, and
+ * the ones that genuinely need a line -- salesByCustomer, the order book,
+ * anything per-product -- keep asking for a SalesLine and cannot be handed
+ * a rollup by mistake. */
+export interface SalesFigures {
   /** Order date, YYYY-MM-DD. */
   date: string;
   createdAt: string;
+  sellerId: string | null;
+  sellerName: string;
+  categoryId: string | null;
+  categoryName: string;
+  qty: number;
+  discount: number;
+  netSales: number;
+  cost: number | null;
+  status: OrderStatus;
+}
+
+export interface SalesLine extends SalesFigures {
+  orderId: string;
+  ref: string;
 
   customerPhone: string;
   customerName: string;
   municipality: string;
 
-  sellerId: string | null;
-  sellerName: string;
-
   productId: string;
   productName: string;
-  categoryId: string | null;
-  categoryName: string;
 
-  qty: number;
   /** What the buyer actually paid per unit. */
   unitPrice: number;
   /** Undiscounted list price at the time we can best reconstruct it. */
   listPrice: number;
-  /** (listPrice - unitPrice) * qty. Zero when nothing was discounted. */
-  discount: number;
-  /** unitPrice * qty. The spec's "Net Sales Value". */
-  netSales: number;
 
   unitCost: number | null;
-  cost: number | null;
   grossProfit: number | null;
   /** 0..1, or null when cost is unknown. */
   margin: number | null;
 
-  status: OrderStatus;
   payStatus: string;
   payMethod: string;
 
@@ -284,8 +297,9 @@ export function buildSalesLines(orders: Order[], src: LineSources): SalesLine[] 
   return lines;
 }
 
-export function isCancelled(l: SalesLine): boolean { return l.status === "cancelled"; }
-export function isLive(l: SalesLine): boolean { return l.status !== "cancelled"; }
+/* One field, so a rolled-up row can be asked the same question. */
+export function isCancelled(l: { status: OrderStatus }): boolean { return l.status === "cancelled"; }
+export function isLive(l: { status: OrderStatus }): boolean { return l.status !== "cancelled"; }
 export function isDelivered(l: SalesLine): boolean {
   return l.status === "arrived" || l.status === "completed";
 }
@@ -324,7 +338,22 @@ export function emptyTotals(): Totals {
 
 /** Totals over the non-cancelled lines of `lines`. Cancelled lines are
  * dropped here, once, rather than at forty call sites. */
-export function totals(lines: SalesLine[]): Totals {
+export function totals(
+  /* `orderId` IS OPTIONAL, AND THAT IS THE ONE COMPROMISE IN THIS TYPE.
+   *
+   * Everything else here can be summed from rows that were grouped in the
+   * database; a count of distinct orders cannot, because a row that is
+   * already a group of lines has no single order behind it. Such rows
+   * therefore contribute nothing to `orders` and it comes back 0 --
+   * visibly nothing, rather than a plausible wrong number.
+   *
+   * Nothing on the rolled-up path reads it: METRIC_KEYS in lib/overview.ts
+   * has no "orders" entry, and the admin home counts orders from
+   * sales_daily_orders, which is grouped at the grain where the answer is
+   * exact. A screen that wants this figure from grouped rows has to get it
+   * the same way. */
+  lines: readonly (SalesFigures & { orderId?: string })[]
+): Totals {
   const live = lines.filter(isLive);
   let revenue = 0, qty = 0, discount = 0, cost = 0, costedRevenue = 0;
   let anyCost = false;
@@ -334,7 +363,7 @@ export function totals(lines: SalesLine[]): Totals {
     revenue += l.netSales;
     qty += l.qty;
     discount += l.discount;
-    orderIds.add(l.orderId);
+    if (l.orderId) orderIds.add(l.orderId);
     if (l.cost != null) {
       cost += l.cost;
       costedRevenue += l.netSales;
@@ -788,13 +817,15 @@ export interface GroupTotals extends Totals {
   meta?: string;
 }
 
-function groupBy(
-  lines: SalesLine[],
-  keyOf: (l: SalesLine) => string,
-  labelOf: (l: SalesLine) => string,
+/* Generic over what it is grouping, so the same function serves a list of
+   lines and a list of rows that were grouped in the database. */
+function groupBy<T extends SalesFigures>(
+  lines: readonly T[],
+  keyOf: (l: T) => string,
+  labelOf: (l: T) => string,
   fallbackLabel: string
 ): GroupTotals[] {
-  const buckets = new Map<string, { label: string; lines: SalesLine[] }>();
+  const buckets = new Map<string, { label: string; lines: T[] }>();
   for (const l of lines) {
     const k = keyOf(l);
     let b = buckets.get(k);
@@ -813,7 +844,7 @@ function groupBy(
 export function salesByProduct(lines: SalesLine[]): GroupTotals[] {
   return groupBy(lines, (l) => l.productId, (l) => l.productName, "—");
 }
-export function salesByCategory(lines: SalesLine[]): GroupTotals[] {
+export function salesByCategory(lines: readonly SalesFigures[]): GroupTotals[] {
   return groupBy(lines, (l) => l.categoryId || "none", (l) => l.categoryName, "Uncategorised");
 }
 export function salesByCustomer(lines: SalesLine[]): GroupTotals[] {

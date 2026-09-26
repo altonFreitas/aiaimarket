@@ -1029,11 +1029,66 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 /* No rule above it and no fill behind it: the footer is one quiet line of
    text, so it sits on the paper rather than inside a painted panel that
    reads as another section of the page. */
-.ft{margin-top:24px;padding:16px 12px calc(78px + env(safe-area-inset-bottom));
-  color:var(--muted);font-size:12px;text-align:center;background:transparent;
-  max-width:var(--content-w);margin-left:auto;margin-right:auto}
-.ft a{color:var(--muted)}
+/* ---------- the footer ----------
+   Built on the reference's shape: a row of places across the top, then a
+   brand column beside three columns of links and a WhatsApp panel, then a
+   bottom strip. Left-aligned, not centred: the old footer was three
+   centred lines, and a centred multi-column block reads as a poster.
+
+   It ends with room for the phone's bottom bar, which is fixed and would
+   otherwise sit on top of the last row. */
+/* width:100% because <body> is a flex container, so this is a flex item:
+   without it the auto margins make the box shrink to fit its contents and
+   centre THAT, which is why a footer of three centred lines never looked
+   wrong and a footer of five columns came out 784px wide in a 1280px
+   window. Same declaration .wrap carries, for the same reason. */
+.ft{margin-top:32px;padding:28px 12px calc(78px + env(safe-area-inset-bottom));
+  color:var(--muted);font-size:var(--fs-sm);background:transparent;
+  width:100%;max-width:var(--content-w);margin-left:auto;margin-right:auto}
+.ft a{color:var(--muted);text-decoration:none}
+.ft a:hover{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
 .ft .mono{font-size:11px;color:var(--muted-2)}
+.ft-dim{color:var(--muted-2);margin:0}
+.ft-rule{border:0;border-top:1px solid var(--line);margin:22px 0}
+
+/* The places row. auto-fit rather than a fixed four: this shop has one
+   address and however many delivery zones it has set, and the reference's
+   four-across is a consequence of having four shops, not a grid to fill. */
+.ft-places{display:grid;gap:18px 24px;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.ft-place{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ft-place b{color:var(--ink);font-size:var(--fs-base)}
+
+.ft-main{display:grid;gap:22px 24px;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+/* The brand column is worth more room than a list of four links. */
+.ft-brand{min-width:0;grid-column:span 1}
+.ft-mark{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ft-mark b{color:var(--ink);font-size:var(--fs-base)}
+.ft-brand p{max-width:34ch}
+
+.ft-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.ft-col h3{margin:0 0 2px;font-size:var(--fs-base);color:var(--ink);
+  font-family:var(--display);font-weight:700}
+.ft-wa .btn{align-self:flex-start;display:inline-flex;align-items:center;gap:6px}
+.ft-wa p{max-width:30ch}
+
+.ft-bottom{display:flex;flex-wrap:wrap;gap:10px 16px;
+  align-items:center;justify-content:space-between}
+/* What the shop takes, in words. The reference prints six card-network
+   logos; naming the methods is the only version of this that can be true
+   of a shop whose payment options are settings. */
+.ft-pays{display:flex;flex-wrap:wrap;gap:6px}
+.ft-pay{border:1px solid var(--line);border-radius:6px;padding:3px 8px;
+  font-size:11px;color:var(--muted);background:var(--sh-1);white-space:nowrap}
+
+@media (min-width:900px){
+  /* Two columns' worth for the brand, which is what stops the tagline
+     wrapping every three words beside four one-word links. The side
+     padding stays: it is the same 12px gutter .wrap keeps, and dropping it
+     put the copyright hard against the window edge. */
+  .ft-main{grid-template-columns:1.6fr 1fr 1fr 1fr 1.4fr}
+}
 
 /* ---------- homepage ---------- */
 /* THE HERO RUNS TO BOTH EDGES OF THE WINDOW.
