@@ -131,6 +131,40 @@ describe("the footer fills the window", () => {
   });
 });
 
+describe("the WhatsApp button is WhatsApp's colour", () => {
+  it("uses the shop's WhatsApp green, not its dark blue", () => {
+    expect(FOOTER).toMatch(/className="btn btn-sm btn-wa"/);
+  });
+
+  it("is the same green the product page's WhatsApp button uses", () => {
+    /* One colour for one thing. .btn-wa is WhatsApp green darkened
+       exactly as far as white text needs to stay legible -- the brand
+       #25D366 measures 2.2:1 against white, and tests/contrast.test.ts
+       holds --wa above 4.5. */
+    const PDP = read("src/components/ProductInteractive.tsx");
+    expect(PDP).toContain("btn btn-wa");
+    expect(CSS).toMatch(/\.btn-wa\{background:var\(--wa\)/);
+  });
+});
+
+describe("a placeholder looks like a hint, not an answer", () => {
+  it("is smaller than the value it stands in for", () => {
+    /* At the field's own size an example like "ORD-2026-0001" reads as
+       though the box were already filled. */
+    const rule = /input::placeholder,textarea::placeholder\{([^}]*)\}/.exec(CSS);
+    expect(rule, "the placeholder rule").not.toBeNull();
+    expect(rule![1]).toContain("font-size:var(--fs-sm)");
+  });
+
+  it("is quieter than the value too", () => {
+    const rule = /input::placeholder,textarea::placeholder\{([^}]*)\}/.exec(CSS);
+    expect(rule![1]).toContain("color:var(--muted-2)");
+    // Firefox dims placeholders by default; without this the two browsers
+    // disagree about how faint it is.
+    expect(rule![1]).toContain("opacity:1");
+  });
+});
+
 describe("the new wording exists in all three languages", () => {
   it("says the same thing in Tetun, Portuguese and English", () => {
     for (const key of ["help", "information", "footWaTitle", "footWaBody", "footWaMsg"]) {

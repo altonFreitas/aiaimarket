@@ -218,6 +218,18 @@ body{--chrome-h:calc(var(--hd) + var(--nav-h));--admin-chrome-h:var(--chrome-h)}
 img{max-width:100%;display:block}
 a{color:inherit}
 button,input,select,textarea{font:inherit;color:inherit}
+
+/* A PLACEHOLDER IS A HINT, NOT AN ANSWER.
+   Set at the same size as the value it stands in for, an example like
+   "ORD-2026-0001" or "Rua Praia dos Coqueiros, Dili" reads as though the
+   field were already filled -- and on the tracking form people tried to
+   submit without typing anything. Smaller and lighter says "this is the
+   shape of the thing", which is all it is for.
+
+   :placeholder-shown is not involved: this is the placeholder's own
+   pseudo-element, so the typed value keeps the field's real size. */
+input::placeholder,textarea::placeholder{font-size:var(--fs-sm);
+  color:var(--muted-2);opacity:1}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:3px}
 .mono{font-family:var(--mono)}
 .hide{display:none !important}

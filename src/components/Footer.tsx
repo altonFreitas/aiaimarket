@@ -143,7 +143,12 @@ export default async function Footer(
           <div className="ft-col ft-wa">
             <h3>{t("footWaTitle", lang)}</h3>
             <p className="ft-dim">{t("footWaBody", lang)}</p>
-            <a className="btn btn-sm" target="_blank" rel="noopener"
+            {/* btn-wa, which is WhatsApp's own green -- darkened exactly as
+                far as white text needs to stay legible on it, and no
+                further. tests/contrast.test.ts holds it there: the brand
+                #25D366 measures 2.2:1 against white, which is a label
+                somebody has to squint at. */}
+            <a className="btn btn-sm btn-wa" target="_blank" rel="noopener"
               href={waLink(wa, t("footWaMsg", lang))}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
                 aria-hidden="true">
