@@ -17,9 +17,8 @@ import { taxRateAsPercent } from "@/lib/money";
 import { personName } from "@/lib/personName";
 import { t } from "@/lib/i18n";
 import { normalizeZones } from "@/lib/zones";
+import { enabledPayments } from "@/lib/payMethods";
 import type { Lang, PayMethod, Settings } from "@/lib/types";
-
-const ALL_PAY: PayMethod[] = ["cod", "cop", "bank", "wallet", "card"];
 
 /** crypto.randomUUID where it exists -- every browser this shop supports,
  * over HTTPS. The fallback is for an insecure origin during development,
@@ -129,22 +128,42 @@ export default function CheckoutForm({
   const taxName = (settings.tax_label || "").trim() || t("taxDefaultName", lang);
   const shopTaxPct = taxRateAsPercent(settings.tax_rate);
 
+  /* Where and when to collect, out of whatever the shop has actually
+     filled in -- address parts on one side of the dot, opening hours on
+     the other, and nothing at all if neither is set. */
+  const pickupWhere = [
+    [settings.suku, settings.municipality].filter((x) => (x || "").trim()).join(", "),
+    (settings.hours || "").trim(),
+  ].filter(Boolean).join(" · ");
+
   const isDiliCenter = mode === "delivery" && zoneId === "dili_center";
   const needsFullAddress = mode === "delivery" && !isDiliCenter;
 
   // Cash on delivery only makes sense for delivery orders; cash on pickup
   // only makes sense for pickup orders. Whichever doesn't apply to the
   // chosen "how do you want it" option is hidden below.
+  /* WHAT THIS SHOP CAN TAKE, then what this ORDER can take.
+   *
+   * enabledPayments() answers the first -- the same list the footer and the
+   * cart print, so all three agree -- and it is the half that was missing:
+   * bank transfer and mobile wallet were offered by a hardcoded array
+   * whatever the settings held, and choosing one showed a details box with
+   * no account in it.
+   *
+   * The mode decides the rest: cash on delivery means nothing on a pickup
+   * order, and cash on pickup means nothing on a delivery. */
   const availablePay = useMemo(
-    () => ALL_PAY.filter((m) => {
-      // "card" only appears when a gateway is configured (see
-      // lib/payments/registry.ts). Everything else is a manual method the
-      // owner reconciles by hand and is always available.
-      if (m === "card") return cardAvailable;
-      return mode === "pickup" ? m !== "cod" : m !== "cop";
-    }),
-    [mode, cardAvailable]
+    () => enabledPayments(settings, cardAvailable)
+      .filter((m) => (mode === "pickup" ? m !== "cod" : m !== "cop")) as PayMethod[],
+    [mode, cardAvailable, settings]
   );
+
+  /* A method that was chosen and then switched off -- the owner removes
+     their last bank account while somebody is mid-checkout -- must not
+     stay selected, or the order goes out naming a method the shop does not
+     have. Falls back to whatever is first, which is always cash. */
+  const payOk = availablePay.includes(pay);
+  const effectivePay: PayMethod = payOk ? pay : availablePay[0];
 
   // Same as the cart: not-yet-read is not the same as empty, and this
   // page told people their basket was empty on the way INTO paying for it.
@@ -221,7 +240,7 @@ export default function CheckoutForm({
         suku: needsFullAddress ? f.suku : undefined,
         aldeia: needsFullAddress ? f.aldeia : undefined,
         landmark: mode === "delivery" ? f.landmark : undefined,
-        payMethod: pay,
+        payMethod: effectivePay,
         note: f.note,
         idempotencyKey: attemptKey.current,
       });
@@ -456,7 +475,10 @@ export default function CheckoutForm({
                   onChange={() => { setMode("pickup"); setPay((p) => (p === "cod" ? "cop" : p)); }} />
                 <span>
                   <b>{t("pickup", lang)}</b>
-                  <small>{settings.suku}, {settings.municipality} · {settings.hours}</small>
+                  {/* Only the parts that are filled in. Joined blindly, a
+                      shop that has not entered its address or hours told
+                      the buyer to collect their order from ", ·". */}
+                  {pickupWhere && <small>{pickupWhere}</small>}
                 </span>
               </label>
             )}
@@ -508,8 +530,8 @@ export default function CheckoutForm({
           <p className="sub" style={{ margin: "0 0 8px" }}>{t("choosePay", lang)}</p>
           <div className="checks">
             {availablePay.map((m) => (
-              <label className="check" key={m} data-on={pay === m}>
-                <input type="radio" name="pay" checked={pay === m} onChange={() => setPay(m)} />
+              <label className="check" key={m} data-on={effectivePay === m}>
+                <input type="radio" name="pay" checked={effectivePay === m} onChange={() => setPay(m)} />
                 <span>
                   <b>{t("pm_" + m, lang)}</b>
                   {m === "fiar" && <small>{t("pm_fiar_note", lang)}</small>}
@@ -518,7 +540,7 @@ export default function CheckoutForm({
             ))}
           </div>
 
-          {pay === "bank" && (
+          {effectivePay === "bank" && (
             <div className="note info" style={{ marginTop: 8 }}>
               <b>{t("bankDetails", lang)}</b>
               {settings.banks.map((b, i) => (
@@ -529,7 +551,7 @@ export default function CheckoutForm({
               ))}
             </div>
           )}
-          {pay === "wallet" && (
+          {effectivePay === "wallet" && (
             <div className="note info" style={{ marginTop: 8 }}>
               <b>{t("walletDetails", lang)}</b>
               {settings.wallets.map((w, i) => (
@@ -540,10 +562,10 @@ export default function CheckoutForm({
               ))}
             </div>
           )}
-          {pay === "fiar" && (
+          {effectivePay === "fiar" && (
             <div className="note" style={{ marginTop: 8 }}>{t("pm_fiar_note", lang)}</div>
           )}
-          {pay === "card" && (
+          {effectivePay === "card" && (
             <div className="note info" style={{ marginTop: 8 }}>{t("pm_card_note", lang)}</div>
           )}
         </div>

@@ -2984,17 +2984,20 @@ span.stock-btn:hover{filter:none}
 /* ---------- checkout: the order beside the form ---------- */
 /* One column on a phone, where the order comes FIRST -- what is being
    bought, then the form that buys it, which is the order somebody reads
-   in. Two columns from 900px, with the order on the left and sticky, so it
-   stays in view down a form that runs several screens. */
+   in. Two columns from 900px: the form takes the wide track and the order
+   moves to the right, sticky, so it stays in view down a form that runs
+   several screens.
+
+   WIDE TRACK FIRST, and the summary ORDERED into the narrow one. Written
+   the other way round -- narrow track first with the summary left -- the
+   form was capped at 820px in a track that had ~874, and the order sat
+   above a column of empty page. */
 .co-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
 .co-summary{min-width:0}
 @media(min-width:900px){
-  .co-cols{grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:22px}
-  .co-summary{position:sticky;top:calc(var(--chrome-h) + 14px)}
-  /* The form stops short of the window. A name field a thousand pixels
-     wide is not easier to fill in -- it is a longer distance between the
-     label and the caret, and it makes the page look like a spreadsheet. */
-  .co-cols>form{max-width:820px}
+  .co-cols{grid-template-columns:minmax(0,1fr) minmax(300px,360px);gap:22px}
+  .co-cols>form{order:1;min-width:0}
+  .co-summary{order:2;position:sticky;top:calc(var(--chrome-h) + 14px)}
 }
 .co-summary .panel{margin-bottom:0}
 

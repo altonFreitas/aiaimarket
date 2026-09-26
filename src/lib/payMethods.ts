@@ -14,18 +14,39 @@ import type { Settings } from "./types";
  * Returns i18n keys, not words, because the shopper's language is the
  * caller's business.
  */
-export function acceptedPayments(
+export type PayId = "cod" | "cop" | "bank" | "wallet" | "card";
+
+/** Every method this shop can actually take, as method ids.
+ *
+ * THE CHECKOUT IS THE CALLER THAT MATTERS. It used to filter a hardcoded
+ * ["cod","cop","bank","wallet","card"] by nothing but the delivery mode,
+ * so a shop that had never entered a bank account still offered "Bank
+ * transfer" -- and choosing it printed a "Bank details" heading with
+ * nothing underneath. The buyer had committed to a payment method that
+ * named nowhere to send the money. The footer and the cart were already
+ * gated on the settings; the one screen where it decided anything was not.
+ */
+export function enabledPayments(
   settings: Pick<Settings, "pickup" | "banks" | "wallets">,
   /** From cardPaymentAvailable(). Passed in rather than read here so this
    * stays a pure function the tests can drive. */
   cardAvailable: boolean
-): string[] {
-  const out = ["pm_cod"];
-  if (settings.pickup) out.push("pm_cop");
-  if ((settings.banks ?? []).length) out.push("pm_bank");
-  if ((settings.wallets ?? []).length) out.push("pm_wallet");
-  if (cardAvailable) out.push("pm_card");
+): PayId[] {
+  const out: PayId[] = ["cod"];
+  if (settings.pickup) out.push("cop");
+  if ((settings.banks ?? []).length) out.push("bank");
+  if ((settings.wallets ?? []).length) out.push("wallet");
+  if (cardAvailable) out.push("card");
   return out;
+}
+
+/** The same list as i18n keys, for the footer and the cart. Derived rather
+ * than restated, so the two can never drift apart. */
+export function acceptedPayments(
+  settings: Pick<Settings, "pickup" | "banks" | "wallets">,
+  cardAvailable: boolean
+): string[] {
+  return enabledPayments(settings, cardAvailable).map((m) => "pm_" + m);
 }
 
 /* ---------------------------------------------------------------------------
