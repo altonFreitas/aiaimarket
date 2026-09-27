@@ -423,3 +423,69 @@ describe("the card's gallery", () => {
     expect(CSS).toMatch(/@media \(prefers-reduced-motion:reduce\)\{[\s\S]{0,160}\.hpc:hover \.hpc-ph img\{transform:none\}/);
   });
 });
+
+describe("how much of a phone the hero's card takes", () => {
+  /* REPORTED FROM A PHONE: the card was most of the slide. At 72vw it was
+     281px of a 390px screen and, with its body under it, 370px of a 659px
+     hero -- so the headline and the CTA it is meant to sit beside were
+     squeezed into what was left. It is a card ON the slide, not the
+     slide. */
+
+  it("is a little over half the width, not three quarters", () => {
+    const rule = /\.hero-slide-card\{[^}]*width:min\((\d+)px,(\d+)vw\)/.exec(CSS);
+    expect(rule, "the phone card width").not.toBeNull();
+    const [, px, vw] = rule!;
+    expect(Number(vw)).toBeLessThanOrEqual(60);
+    expect(Number(px)).toBeLessThanOrEqual(240);
+    // ...and still big enough to be a card rather than a thumbnail.
+    expect(Number(px)).toBeGreaterThanOrEqual(180);
+  });
+
+  it("leaves the desktop card alone", () => {
+    // Only the phone was complained about, and 320px beside the copy is
+    // a quarter of a 1280 screen.
+    const wide = /@media \(min-width:900px\)\{[\s\S]*?\.hero-slide-card\{width:(\d+)px/.exec(CSS);
+    expect(wide, "the wide-screen card").not.toBeNull();
+    expect(Number(wide![1])).toBeGreaterThanOrEqual(300);
+  });
+
+  it("keeps the name and the price on one row at that width", () => {
+    /* A product name is one long word as often as not --
+       BAUCANIAPRODUTO -- and at the narrower card the browser broke it
+       mid-word and pushed the price onto a second row. */
+    const rule = /\.hpc-name\{([^}]*)\}/.exec(CSS);
+    expect(rule, "the card's name").not.toBeNull();
+    expect(rule![1]).toMatch(/white-space:nowrap/);
+    expect(rule![1]).toMatch(/text-overflow:ellipsis/);
+    expect(rule![1]).toMatch(/overflow:hidden/);
+    // min-width:0 is what lets it shrink inside the flex row at all.
+    expect(rule![1]).toMatch(/min-width:0/);
+  });
+});
+
+describe("the grid card's photograph", () => {
+  it("is inset, so the goods do not run under the wishlist heart", () => {
+    /* The badges sit 8px from the photo box's edges and the picture
+       filled it corner to corner, so a shirt photographed to the edge of
+       its own frame came right up against the heart. */
+    const img = /\.card \.ph img\{([^}]*)\}/.exec(CSS);
+    expect(img, "the card photo").not.toBeNull();
+    expect(img![1]).toMatch(/padding:\d+px \d+px \d+px/);
+    // Padding only insets the CONTENT box if the border box is the one
+    // being sized -- without this the picture would overflow instead.
+    expect(img![1]).toMatch(/box-sizing:border-box/);
+    expect(img![1]).toMatch(/object-fit:cover/);
+  });
+
+  it("gives the top more room than the sides, where the badges are", () => {
+    const pad = /\.card \.ph img\{[^}]*padding:(\d+)px (\d+)px (\d+)px/.exec(CSS)!;
+    const [, top, side] = pad.map(Number);
+    expect(top).toBeGreaterThanOrEqual(side);
+  });
+
+  it("leaves the badges themselves where they were", () => {
+    // They belong to the card, not to the goods: pulling them in with the
+    // picture would just move the collision.
+    expect(CSS).toMatch(/\.card-badges\{position:absolute;top:8px;left:8px;right:8px/);
+  });
+});

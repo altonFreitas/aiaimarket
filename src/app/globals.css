@@ -506,7 +506,14 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
    lift, the rounder corner and the shadow further down are what say "this
    one". */
 .card .ph{aspect-ratio:1/1;background:var(--line-2);position:relative;overflow:hidden}
-.card .ph img{width:100%;height:100%;object-fit:cover}
+/* INSET, so the goods stop running under the wishlist heart.
+   The badges sit at 8px from this box's edges and the picture filled it
+   corner to corner, so a shirt photographed to the edge of its frame came
+   right up against the heart -- two things touching that have nothing to
+   do with each other. The padding pulls the photo in; the badges stay
+   where they are, against the card rather than against the goods. */
+.card .ph img{width:100%;height:100%;object-fit:cover;
+  padding:14px 12px 10px;box-sizing:border-box}
 /* The photo leans in when the pointer is on the card -- the frame stays put
    and the picture grows inside it, which is why .ph clips. Only where there
    is a real pointer to hover with, and only for someone who has not asked
@@ -1308,7 +1315,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .hero-slide-inner{width:100%;display:flex;flex-direction:column;align-items:flex-start;
   gap:18px;padding:0 0 calc(var(--bn-h) + 104px)}
 .hero-slide-content{pointer-events:auto;padding:0;max-width:420px;color:#fff}
-.hero-slide-card{pointer-events:auto;width:min(300px,72vw)}
+/* SMALLER ON A PHONE THAN IT WAS. At 72vw the card was 281px of a 390px
+   screen and, with its body under it, 370px of a 659px hero -- more than
+   half the frame, so the headline and the CTA it is supposed to sit beside
+   were squeezed into what was left. It is a card ON the slide, not the
+   slide. */
+.hero-slide-card{pointer-events:auto;width:min(216px,56vw)}
 /* THE VIDEO, WHOLE. Every video this shop will ever have is filmed on the
    phone the shop is run from, so it is portrait; the hero is a tall box on
    a phone and a wide band on a desktop. Filling that band with a portrait
@@ -4557,7 +4569,12 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
 .hpc-cat{font-size:var(--fs-caption);letter-spacing:.08em;text-transform:uppercase;
   color:var(--muted)}
 .hpc-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.hpc-name{font-size:15px;line-height:1.25;min-width:0}
+/* ONE LINE, CUT WITH AN ELLIPSIS. A product name is one long word as
+   often as not -- BAUCANIAPRODUTO -- and at the narrower card width the
+   browser broke it mid-word and pushed the price onto a second row. The
+   whole name is one tap away on the product page; a card is a label. */
+.hpc-name{font-size:15px;line-height:1.25;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hpc-price{flex:0 0 auto;display:flex;align-items:baseline;gap:6px;font-size:15px}
 .hpc-price s{color:var(--muted-2);font-size:var(--fs-sm)}
 /* A SHORT WINDOW GETS A SMALLER CARD, not a clipped one.
