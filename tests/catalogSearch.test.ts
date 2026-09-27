@@ -169,8 +169,14 @@ describe("the cap is one number, not two", () => {
      instead of the code and failed against a correct file. A guard that
      reads comments is a guard that can be satisfied by writing about the
      thing rather than doing it. */
+  /* THE FILE THAT IS THE LAST WORD ON search_products, which is the only
+     one worth reading. Five files create it and the database is left
+     holding whichever run-all.sql applied last -- so a guard pointed at an
+     earlier one passes while the live definition drifts. See
+     SCHEMA_ORDER's search_products entry in lib/schemaHealth.ts, which is
+     what keeps that list honest. */
   const SQL = fs.readFileSync(
-    path.join(process.cwd(), "supabase/drop-audience.sql"), "utf8")
+    path.join(process.cwd(), "supabase/search-sorts.sql"), "utf8")
     .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*--.*$/gm, "");
 
   it("agrees with the SQL that produces it", () => {
@@ -179,7 +185,7 @@ describe("the cap is one number, not two", () => {
        "1,000+" for a set it counted exactly, or offers pages the function
        will not serve. */
     const m = /v_cap\s+constant int := (\d+);/.exec(SQL);
-    expect(m, "v_cap in drop-audience.sql").not.toBeNull();
+    expect(m, "v_cap in search-sorts.sql").not.toBeNull();
     expect(Number(m![1])).toBe(SEARCH_TOTAL_CAP);
   });
 
@@ -190,7 +196,7 @@ describe("the cap is one number, not two", () => {
   it("counts over the capped rows, not the whole match set", () => {
     /* The point of the change. count(*) over () has to see every row it
        counts, so it has to be looking at the bounded set. */
-    const body = SQL.slice(SQL.indexOf("create function search_products"));
+    const body = SQL.slice(SQL.indexOf("function search_products"));
     const cap = body.indexOf("limit v_cap + 1");
     const count = body.indexOf("count(*) over ()");
     expect(cap).toBeGreaterThan(-1);
@@ -201,7 +207,7 @@ describe("the cap is one number, not two", () => {
     /* `limit` without an order takes an arbitrary thousand. Sorting those
        would put the fourth-cheapest product on page one of "cheapest
        first" -- fast, and wrong. */
-    const body = SQL.slice(SQL.indexOf("create function search_products"));
+    const body = SQL.slice(SQL.indexOf("function search_products"));
     const inner = body.slice(0, body.indexOf("limit v_cap + 1"));
     expect(inner).toMatch(/order by[\s\S]*case when sort = 'low'/);
   });

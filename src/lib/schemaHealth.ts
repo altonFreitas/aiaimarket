@@ -453,6 +453,14 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     routines: ["products_with_attribute"],
   },
   {
+    // Two more ways to order the catalogue. Named by its indexes: the
+    // function it replaces is created by four other files as well, so
+    // probing for search_products would read "applied" before this ran.
+    file: "search-sorts.sql", labelKey: "featSearchSorts",
+    indexes: [["public.products", "products_views_idx"],
+              ["public.products", "products_deal_idx"]],
+  },
+  {
     // Creates nothing -- it WIDENS two columns legal-currency-tax.sql
     // already added. A column's precision is not in the inventory, so the
     // file renames the range check instead, which is: the same rule under
@@ -627,6 +635,11 @@ export const SCHEMA_ORDER: readonly string[] = [
   // it drops both columns, and a file that adds one again downstream of
   // this would undo it.
   "drop-audience.sql",
+  // AFTER drop-audience.sql, because it redefines the same search_products
+  // and has to be the last word on it. Same signature, so it is a plain
+  // create-or-replace -- but run the other way round and the older body,
+  // which knows nothing of 'popular' or 'deal', would be the one left.
+  "search-sorts.sql",
   // AFTER taxonomy-seed.sql, whose tree it reshapes. It only moves rows
   // that file put there, so on a shop that has never pasted the seed it
   // finds nothing and does nothing.
@@ -937,7 +950,7 @@ export const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
   ],
   // Catalogue search gains the audience filter.
   search_products: ["marketplace-v2.sql", "audience-restock.sql", "attribute-filters.sql",
-                    "drop-audience.sql"],
+                    "drop-audience.sql", "search-sorts.sql"],
   // A refund counts when it has SETTLED, not when it was agreed.
   sync_order_refund_status: ["returns.sql", "refund-settlement.sql"],
   // The line-building trigger gains the line's share of the order's tax.

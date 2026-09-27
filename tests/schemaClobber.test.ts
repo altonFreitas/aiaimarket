@@ -50,10 +50,13 @@ const FINAL_DEFINER: Readonly<Record<string, string>> = {
   reserve_order_stock: "variants.sql",
   sync_order_stock_state: "size-stock.sql",
   sync_order_stock: "stock-reservation.sql",
-  // drop-audience.sql restates attribute-filters.sql's definition with the
-  // audience parameter removed, so it MUST come after it. If these two ever
-  // swap, search loses its attribute filters and nothing errors.
-  search_products: "drop-audience.sql",
+  // Restated three times, each keeping everything the last one had:
+  // attribute-filters.sql adds id_filter, drop-audience.sql removes the
+  // audience parameter, search-sorts.sql adds the 'popular' and 'deal'
+  // orderings. If any two ever swap, the search loses a feature and
+  // NOTHING ERRORS -- it just quietly orders by something else, or stops
+  // filtering by attribute.
+  search_products: "search-sorts.sql",
   // Keeps the ledger's "never clamp a negative balance" rule and adds
   // restock_level on top of it.
   apply_stock_movement: "audience-restock.sql",

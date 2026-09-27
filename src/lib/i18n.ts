@@ -612,6 +612,13 @@ export const STR: Record<string, [string,string,string]> = {
      answer to what the filters just did. */
   productsFound:["Hetan produtu {n}","{n} produtos encontrados","{n} products found"],
   sortBy:["Ordena tuir","Ordenar por","Sort by"],
+  /* Named for what it actually ranks by. The shop counts one view per
+     person per product per quarter of an hour (see lib/counterGuard.ts),
+     so this is nearer "how many people looked" than "how many page
+     loads" -- but it is still looking, not buying, and the label says so
+     rather than claiming a popularity the shop cannot measure. */
+  sortPopular:["Haree barak liu","Mais vistos","Most viewed"],
+  sortDeal:["Deskontu boot liu","Maior desconto","Biggest discount"],
   newBadge:["FOUN","NOVO","NEW"],
   /* The empty result's second way out: the first clears the filters, this
      one leaves them behind entirely. */
@@ -1573,6 +1580,7 @@ export const STR: Record<string, [string,string,string]> = {
   featVariants:["Variante produtu","Variantes de produto","Product variants"],
   featVariantPurchasing:["Sosa tuir variante","Compras por variante","Buying by variant"],
   featAttributeFilters:["Filtru atributu","Filtros por atributo","Attribute filters"],
+  featSearchSorts:["Ordena tan: popular no deskontu","Mais ordenações: popular e desconto","Popular and biggest-discount sorts"],
   featTaxPrecision:["Presizaun taxa nian","Precisão da taxa de imposto","Tax rate precision"],
   featPoTaxonomy:["Sosa tuir tipu produtu","Compra por tipo de produto","Buying by product type"],
   featStaleStock:["Avizu produtu la faan","Aviso de produtos parados","Slow-moving stock notice"],

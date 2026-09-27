@@ -62,6 +62,8 @@ export default function ShopBar({
           onChange={(e) => setSort(e.target.value)}>
           {showRelevance && <option value="relevance">{t("sortRelevance", lang)}</option>}
           <option value="new">{t("sortNew", lang)}</option>
+          <option value="popular">{t("sortPopular", lang)}</option>
+          <option value="deal">{t("sortDeal", lang)}</option>
           <option value="low">{t("sortLow", lang)}</option>
           <option value="high">{t("sortHigh", lang)}</option>
           <option value="rating">{t("sortRating", lang)}</option>

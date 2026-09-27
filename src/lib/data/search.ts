@@ -27,9 +27,19 @@ import type { Product } from "@/lib/types";
  * relevance ranking and "did you mean").
  * ------------------------------------------------------------------------ */
 
-export type CatalogSort = "relevance" | "new" | "low" | "high" | "rating";
+export type CatalogSort =
+  | "relevance" | "new" | "low" | "high" | "rating"
+  /* What people look at: products.views, then products.wa_clicks. Both are
+     deduplicated before they are written -- one bump per caller per
+     product per fifteen minutes (lib/counterGuard.ts) -- which is what
+     makes it a count of people rather than of page loads. */
+  | "popular"
+  /* How far the price is reduced, as a FRACTION: $5 off $10 beats $5 off
+     $500, and the shopper reading "-50%" agrees. */
+  | "deal";
 
-const SORTS: readonly CatalogSort[] = ["relevance", "new", "low", "high", "rating"];
+const SORTS: readonly CatalogSort[] =
+  ["relevance", "new", "low", "high", "rating", "popular", "deal"];
 
 export const DEFAULT_PER_PAGE = 24;
 const MAX_PER_PAGE = 100;
@@ -245,8 +255,33 @@ export function sortProducts(products: Product[], sort: CatalogSort): Product[] 
     // Unrated products sort last rather than as zero -- a listing nobody has
     // reviewed is not a one-star listing.
     a.sort((x, y) => (ratingAverage(y) ?? -1) - (ratingAverage(x) ?? -1) || byNewest(x, y));
+  } else if (sort === "popular") {
+    a.sort((x, y) =>
+      (Number(y.views) || 0) - (Number(x.views) || 0)
+      || (Number(y.wa_clicks) || 0) - (Number(x.wa_clicks) || 0)
+      || byNewest(x, y));
+  } else if (sort === "deal") {
+    // -1 for "no discount", which puts them after every real one -- the
+    // same thing `nulls last` does in the SQL. A product at full price is
+    // not a bad deal; it is not a deal.
+    a.sort((x, y) => (dealFraction(y) ?? -1) - (dealFraction(x) ?? -1) || byNewest(x, y));
   } else a.sort(byNewest);
   return a;
+}
+
+/** How far off the asking price this product is, as a fraction, or null
+ *  when it is not on offer.
+ *
+ * A FRACTION, NOT AN AMOUNT, and that is the whole decision: $5 off a $10
+ * shirt is half price and $5 off a $500 phone is a rounding error, and the
+ * shopper reading "-50%" against "-1%" already knows which is the better
+ * deal. The same expression is indexed and ordered by in
+ * supabase/search-sorts.sql -- the two paths have to agree. */
+export function dealFraction(p: Product): number | null {
+  const price = Number(p.price) || 0;
+  const off = p.discount_price == null ? 0 : Number(p.discount_price) || 0;
+  if (price <= 0 || off <= 0 || off >= price) return null;
+  return (price - off) / price;
 }
 
 export interface Suggestion { name: string; slug: string; }

@@ -32,6 +32,9 @@ const KINDS = {
     ["public.sellers", "idx_sellers_status"],
     ["public.order_returns", "order_returns_unsettled_idx"],
     ["public.customer_alerts", "customer_alerts_once"],
+    // search-sorts.sql -- the two the new orderings walk.
+    ["public.products", "products_views_idx"],
+    ["public.products", "products_deal_idx"],
   ] as [string, string][],
   /* harden-rls.sql has been run, so the three open-door policies are gone.
    * One unrelated policy is left in place to prove the check looks for the
@@ -311,6 +314,10 @@ describe("an old schema_inventory() that can only see tables", () => {
       "variants.sql",
       // A function alone, which an old inventory cannot report at all.
       "attribute-filters.sql",
+      // Two indexes alone -- the old function reports no index either, and
+      // the function it redefines is created by four other files, so there
+      // is nothing here it could see.
+      "search-sorts.sql",
       // A renamed check constraint alone -- the file widens two columns
       // and an inventory reports neither a precision nor a constraint.
       "tax-precision.sql",
