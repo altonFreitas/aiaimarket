@@ -129,7 +129,33 @@ export default function ProductCard(
             The inline SVG placeholder is passed through unoptimized: it is
             already ~0 bytes and running it through the optimizer would add
             a round trip to save nothing. */}
+        {/* THE TILE'S SURROUND, TAKEN OUT OF THE PHOTOGRAPH ITSELF.
+            The picture below is held off the edges so the goods do not run
+            under the heart, and something has to fill the margin that
+            leaves. A colour of ours cannot: a seller's photograph may be
+            shot on green, on white, on anything, and whatever one colour we
+            picked would sit beside it as a second one. This is the same
+            image, blown up and blurred out behind -- so the margin is that
+            photograph's own background, green when the photograph is green,
+            and the seam disappears.
+
+            Same src, same sizes, same quality as the picture below, which
+            means the same optimised URL: the browser fetches it once and
+            paints it twice. Nothing extra goes down the wire, which matters
+            on the connections this shop was built for. */}
         <Image
+          className="ph-wash"
+          src={img}
+          alt=""
+          aria-hidden="true"
+          width={400}
+          height={400}
+          loading="lazy"
+          sizes="(max-width: 600px) 50vw, (max-width: 1000px) 33vw, 240px"
+          unoptimized={img.startsWith("data:")}
+        />
+        <Image
+          className="ph-goods"
           src={img}
           alt={p.name}
           width={400}

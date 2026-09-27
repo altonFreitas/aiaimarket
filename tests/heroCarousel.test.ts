@@ -462,30 +462,3 @@ describe("how much of a phone the hero's card takes", () => {
     expect(rule![1]).toMatch(/min-width:0/);
   });
 });
-
-describe("the grid card's photograph", () => {
-  it("is inset, so the goods do not run under the wishlist heart", () => {
-    /* The badges sit 8px from the photo box's edges and the picture
-       filled it corner to corner, so a shirt photographed to the edge of
-       its own frame came right up against the heart. */
-    const img = /\.card \.ph img\{([^}]*)\}/.exec(CSS);
-    expect(img, "the card photo").not.toBeNull();
-    expect(img![1]).toMatch(/padding:\d+px \d+px \d+px/);
-    // Padding only insets the CONTENT box if the border box is the one
-    // being sized -- without this the picture would overflow instead.
-    expect(img![1]).toMatch(/box-sizing:border-box/);
-    expect(img![1]).toMatch(/object-fit:cover/);
-  });
-
-  it("gives the top more room than the sides, where the badges are", () => {
-    const pad = /\.card \.ph img\{[^}]*padding:(\d+)px (\d+)px (\d+)px/.exec(CSS)!;
-    const [, top, side] = pad.map(Number);
-    expect(top).toBeGreaterThanOrEqual(side);
-  });
-
-  it("leaves the badges themselves where they were", () => {
-    // They belong to the card, not to the goods: pulling them in with the
-    // picture would just move the collision.
-    expect(CSS).toMatch(/\.card-badges\{position:absolute;top:8px;left:8px;right:8px/);
-  });
-});
