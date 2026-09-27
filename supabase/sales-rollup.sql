@@ -202,6 +202,26 @@ begin
   else
     refresh materialized view sales_daily_orders;
   end if;
+
+  /* WHEN IT RAN, recorded AFTER the rebuild -- a refresh that throws must
+     not leave behind a record saying it succeeded.
+   *
+   * The dashboard compares this against orders.updated_at before it will
+   * read money out of the rollup. Without it, `ready` only ever meant
+   * "the view can be read", and the admin home served a week-old net
+   * profit on every range except the one bucketed by hour. See
+   * supabase/analytics-freshness.sql, which creates the table and runs
+   * before this file.
+   *
+   * Tolerated, because this file is applied on shops that have not got
+   * that one yet: a missing table must not fail the refresh. */
+  begin
+    insert into analytics_refresh (view_name, refreshed_at)
+         values ('sales_daily', now())
+    on conflict (view_name) do update set refreshed_at = excluded.refreshed_at;
+  exception when undefined_table then
+    null;
+  end;
 end $$;
 
 comment on function refresh_sales_daily is

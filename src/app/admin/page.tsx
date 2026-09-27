@@ -12,7 +12,7 @@ import {
   buildSalesLines, isLive, LIVE_STATUSES, salesByCategory, todayIso,
 } from "@/lib/sales";
 import {
-  rollupLines, rollupOrderCount, salesRollup,
+  analyticsFreshness, rollupIsCurrent, rollupLines, rollupOrderCount, salesRollup,
 } from "@/lib/data/salesRollup";
 import { getLang } from "@/lib/lang";
 import { requireSection } from "@/lib/actions/guard";
@@ -80,10 +80,36 @@ export default async function AdminHomePage(
    * work identically the day the code ships and the SQL has not been.
    */
   const daily = canSales && rangeSpec(range).bucket !== "hour";
-  const rollup = daily
+
+  /* AND A THIRD THING, which is why this page could disagree with itself.
+   *
+   * A materialized view is exactly as current as its last refresh, and
+   * `ready` only ever meant "the view can be read". So the shop saw net
+   * profit $102.20 on every range except "1D" -- the one range bucketed by
+   * hour, which a day-grained rollup cannot answer, so it alone fell back
+   * to the live order book and alone agreed with the Finance screen.
+   *
+   * Nothing was wrong with the arithmetic; both sources compute the same
+   * figures (tests/rls/salesRollup). One of them was simply reading a
+   * week-old copy of the order book and saying so nowhere. A number that
+   * is silently out of date is worse than a missing one, because it looks
+   * like an answer.
+   *
+   * So the rollup is used only when it has seen every change the order
+   * book has -- see rollupIsCurrent, and analytics_freshness() for why the
+   * comparison is against orders.updated_at rather than created_at. */
+  const freshness = daily ? await analyticsFreshness() : null;
+  const rollupCurrent = freshness ? rollupIsCurrent(freshness) : false;
+
+  const rollup = daily && rollupCurrent
     ? await salesRollup(shiftDays(todayIso(), -2000), todayIso())
     : { ready: false, rows: [], orders: [] };
-  const fromRollup = daily && rollup.ready;
+  const fromRollup = daily && rollupCurrent && rollup.ready;
+
+  /* Worth saying out loud only when it costs the shop something: on a
+     shop with orders, where the rollup exists but is behind, this page is
+     doing the slow thing and somebody should start the cron. */
+  const rollupStale = daily && !rollupCurrent && Boolean(freshness?.ordersChangedAt);
 
   const [lang, items, sales, procurement, returns, loves, tables, cash, ledgers] =
     await Promise.all([
@@ -245,6 +271,7 @@ export default async function AdminHomePage(
       flow={flow}
       categories={categories}
       loves={loves}
+      rollupStale={rollupStale}
     />
   );
 }

@@ -231,3 +231,68 @@ export function rollupOrderCount(
   }
   return n;
 }
+
+/* ---------------------------------------------------------------------------
+ * IS THE ROLLUP CURRENT ENOUGH TO READ MONEY OUT OF?
+ *
+ * REPORTED FROM THE SHOP: net profit read $102.20 on every range except
+ * "1D", where it read $259.43 -- the figure the Finance screen shows.
+ *
+ * "1D" is the only range bucketed by HOUR, so it is the only one a rollup
+ * grouped by DAY cannot answer, and therefore the only one that falls back
+ * to the live order book -- which is also what Finance reads. Every other
+ * range read sales_daily, a materialized view that is exactly as current
+ * as the last run of refresh_sales_daily(). Nothing recorded when that
+ * was, so `ready: true` only ever meant "the view can be read".
+ * ------------------------------------------------------------------------ */
+
+export interface Freshness {
+  /** When refresh_sales_daily() last finished. Null means it has never
+   * run, or the migration that records it has not been applied. */
+  refreshedAt: string | null;
+  /** When an order was last placed OR changed. Null on a shop with none. */
+  ordersChangedAt: string | null;
+}
+
+/** Whether the rollup has seen every change the order book has.
+ *
+ * FALSE WHEN NOTHING IS KNOWN, deliberately. A shop that has not applied
+ * supabase/analytics-freshness.sql gets null for the refresh time, and the
+ * honest reading of "I cannot tell whether these figures are current" is
+ * not to put them on a card labelled net profit.
+ *
+ * True on a shop with no orders at all: there is nothing for the rollup to
+ * be behind on, and an empty dashboard is the same either way.
+ */
+export function rollupIsCurrent(f: Freshness): boolean {
+  if (!f.refreshedAt) return false;
+  /* NULL means no orders exist. An empty or unreadable string means
+     something came back that this cannot make sense of -- which is not
+     the same thing, and must not be read as "nothing to be behind on". */
+  if (f.ordersChangedAt == null) return true;
+  const refreshed = Date.parse(f.refreshedAt);
+  const changed = Date.parse(f.ordersChangedAt);
+  if (!Number.isFinite(refreshed) || !Number.isFinite(changed)) return false;
+  return refreshed >= changed;
+}
+
+/** Both halves in one round trip, from a function that reads them in the
+ * same statement -- assembled from two separate reads they could straddle
+ * a refresh and report a state that never existed. */
+export async function analyticsFreshness(): Promise<Freshness> {
+  try {
+    const sb = supabaseAdmin();
+    const { data, error } = await sb.rpc("analytics_freshness");
+    if (error || !data) return { refreshedAt: null, ordersChangedAt: null };
+    const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+    if (!row) return { refreshedAt: null, ordersChangedAt: null };
+    return {
+      refreshedAt: row.refreshed_at ? String(row.refreshed_at) : null,
+      ordersChangedAt: row.orders_changed_at ? String(row.orders_changed_at) : null,
+    };
+  } catch {
+    /* The function does not exist yet. Unknown, which rollupIsCurrent
+       reads as "do not trust it with money". */
+    return { refreshedAt: null, ordersChangedAt: null };
+  }
+}

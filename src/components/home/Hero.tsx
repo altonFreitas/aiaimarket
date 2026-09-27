@@ -221,10 +221,19 @@ function SlideCarousel({ lang, settings, slides, products, cats }: {
     setI(((nextIndex % slides.length) + slides.length) % slides.length);
   }
 
-  const showPlayPause = slides.length > 1 || src !== "";
-
   return (
-    <section ref={fitRef} className="hero-carousel" aria-roledescription="carousel" aria-label={srTitle}>
+    <section ref={fitRef} className="hero-carousel"
+      aria-roledescription="carousel" aria-label={srTitle}
+      /* WHAT REPLACED THE PAUSE BUTTON. It is gone from the controls, so
+         the carousel holds still while somebody is actually looking at a
+         slide -- which is when advancing is most annoying -- and starts
+         again when they move away. Focus counts as looking: a keyboard
+         user tabbing into the slide's own link must not have it slide out
+         from under them. */
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}>
       <h1 className="sr">{srTitle}</h1>
 
       {/* WHAT FILLS THE LETTERBOX, ALL OF THEM BEFORE ANY PICTURE.
@@ -336,12 +345,7 @@ function SlideCarousel({ lang, settings, slides, products, cats }: {
             {muted ? <MutedIcon /> : <SoundIcon />}
           </button>
         )}
-        {showPlayPause && (
-          <button type="button" className="hero-ctrl" onClick={() => setPaused((p) => !p)}
-            aria-label={t(paused ? "heroPlay" : "heroPause", lang)}>
-            {paused ? <PlayIcon /> : <PauseIcon />}
-          </button>
-        )}
+
       </div>
 
       {slides.length > 1 && (
@@ -350,6 +354,36 @@ function SlideCarousel({ lang, settings, slides, products, cats }: {
             aria-label={t("heroPrevSlide", lang)}>‹</button>
           <button type="button" className="hero-arrow hero-arrow-next" onClick={() => goTo(i + 1)}
             aria-label={t("heroNextSlide", lang)}>›</button>
+
+          {/* WHAT IS COMING NEXT, AS PICTURES.
+              Dots say how many slides there are and which one you are on.
+              They cannot say what is on any of them, so the only way to
+              find the slide you half-remember is to wait for it to come
+              round. This is that, in the order they will actually appear:
+              the strip starts at the slide AFTER this one and wraps, so
+              the top square is always what is about to arrive.
+
+              A slide with no picture still gets a square -- a gap in the
+              strip would misalign it with the slides it stands for. */}
+          <div className="hero-rail" aria-label={t("heroUpNext", lang)}>
+            {slides.map((_, n) => {
+              const idx = (i + 1 + n) % slides.length;
+              const s = slides[idx];
+              const shot = s.image_url;
+              return (
+                <button key={s.id} type="button"
+                  className={"hero-rail-item" + (idx === i ? " on" : "")}
+                  onClick={() => goTo(idx)}
+                  aria-label={`${t("heroSlideLabel", lang)} ${idx + 1}`}>
+                  {shot
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={shot} alt="" aria-hidden="true" />
+                    : <span className="hero-rail-blank" aria-hidden="true" />}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="hero-dots">
             {slides.map((s, idx) => (
               <button key={s.id} type="button" className={"hero-dot" + (idx === i ? " active" : "")}
@@ -362,20 +396,6 @@ function SlideCarousel({ lang, settings, slides, products, cats }: {
   );
 }
 
-function PauseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" />
-    </svg>
-  );
-}
-function PlayIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M8 5v14l11-7z" />
-    </svg>
-  );
-}
 function SoundIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

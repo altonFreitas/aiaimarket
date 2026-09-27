@@ -1,0 +1,102 @@
+-- ===========================================================================
+-- Loja AIAI -- WHEN THE ROLLUP LAST LOOKED AT THE ORDER BOOK
+--
+-- REPORTED FROM THE SHOP: the admin home said net profit $102.20 on every
+-- range except "1D", where it said $259.43 -- and $259.43 is what the
+-- Finance screen says. Two screens, two answers, both labelled net profit.
+--
+-- The cause is not arithmetic. "1D" is the only range bucketed by HOUR, so
+-- it is the only one a rollup grouped by DAY cannot answer -- and the only
+-- one that therefore reads the live order book, which is also what the
+-- Finance screen reads. Every other range reads sales_daily, a MATERIALIZED
+-- view that is only as current as the last run of refresh_sales_daily().
+-- Nothing recorded when that was, so nothing could tell the difference
+-- between a rollup that agrees with the order book and one that is a week
+-- behind it. `ready: true` only ever meant "the view can be read".
+--
+-- A figure that is silently out of date is worse than a missing one: it
+-- looks like an answer. So this records the refresh, and the dashboard
+-- falls back to the order book when the rollup has not seen the latest
+-- change.
+--
+-- WHY orders.updated_at IS PART OF THIS. Comparing the refresh against the
+-- newest order's created_at is not enough: cancelling a month-old order
+-- changes the takings and moves no created_at. The dashboard would go on
+-- showing a cancelled sale as revenue until something newer was ordered.
+--
+-- APPLIED BEFORE sales-rollup.sql, which is where the stamping itself
+-- lives. Defining refresh_sales_daily() a second time here would have
+-- worked, and would also have made this file the last one to create it --
+-- at which point the health panel, which checks that function to decide
+-- whether the ROLLUP is installed, would report a rollup that was never
+-- built. One definition, in the file that owns it.
+--
+-- Safe to re-run.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- WHEN AN ORDER LAST CHANGED
+-- ---------------------------------------------------------------------------
+alter table orders
+  add column if not exists updated_at timestamptz not null default now();
+
+comment on column orders.updated_at is
+  'Last time anything about this order changed. Read by analytics_freshness() to tell whether the sales rollup has seen it yet.';
+
+create or replace function touch_order_updated_at() returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end $$;
+
+drop trigger if exists orders_touch_updated_at on orders;
+create trigger orders_touch_updated_at
+  before update on orders
+  for each row execute function touch_order_updated_at();
+
+-- Backfilled from the order's own creation, which is the only honest
+-- answer for rows that existed before this column: nothing recorded when
+-- they were last touched, and now() would claim every one of them changed
+-- the moment this file ran.
+update orders set updated_at = created_at where updated_at < created_at;
+
+create index if not exists idx_orders_updated on orders (updated_at desc);
+
+-- ---------------------------------------------------------------------------
+-- WHEN A ROLLUP LAST RAN
+-- ---------------------------------------------------------------------------
+create table if not exists analytics_refresh (
+  view_name    text primary key,
+  refreshed_at timestamptz not null default now()
+);
+
+comment on table analytics_refresh is
+  'One row per materialized analytics view, stamped by refresh_sales_daily(). The dashboard compares it against orders.updated_at before trusting the rollup with money.';
+
+-- ---------------------------------------------------------------------------
+-- THE ONE QUESTION THE DASHBOARD ASKS
+--
+-- Both halves in a single round trip, and as a function so the comparison
+-- is not assembled from two reads that could straddle a refresh.
+-- ---------------------------------------------------------------------------
+create or replace function analytics_freshness()
+returns table (refreshed_at timestamptz, orders_changed_at timestamptz)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select
+    (select r.refreshed_at from analytics_refresh r where r.view_name = 'sales_daily'),
+    (select max(o.updated_at) from orders o);
+$$;
+
+comment on function analytics_freshness is
+  'When the sales rollup last ran, and when an order last changed. The dashboard refuses to read money out of the rollup when the second is later than the first.';
+
+-- The storefront must never reach any of this: every row is the shop's
+-- takings. The admin screens read it with the service-role client.
+revoke all on analytics_refresh from anon, authenticated;
+revoke all on function analytics_freshness() from public, anon, authenticated;

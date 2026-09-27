@@ -77,6 +77,14 @@
      expressed as "the header plus the navigation": a shop that grows a
      second pinned row again sets this and everything below it moves. */
   --nav-h:0px;
+  /* THE PHONE'S BOTTOM BAR (.nav), which is fixed and content-sized, so
+     nothing could ask how tall it is. Anything pinned to the bottom of a
+     full-height screen has to clear it or it is simply not reachable --
+     the hero's own dots sat underneath it, and so did the arrows the
+     moment they moved down beside them. Measured at 52px.
+     (.toast clears the same bar with its own hardcoded 76px, which
+     predates this and is left alone.) */
+  --bn-h:52px;
   /* THE TAIS IS GONE, and --tais-opacity with it.
      A Timor-Leste tais (public/tais.svg) was the cloth the whole store
      rested on -- a fixed, low-opacity weave in every gutter and margin.
@@ -1183,6 +1191,13 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   color:var(--muted);font-size:var(--fs-sm);background:transparent;
   width:100%;max-width:var(--content-w);margin-left:auto;margin-right:auto}
 .ft a{color:var(--muted);text-decoration:none}
+/* A BUTTON IN THE FOOTER IS A BUTTON, not a footer link.
+   `.ft a` is (0,1,1) and `.btn` is (0,1,0), so the rule above was winning
+   and painting the WhatsApp button's label muted grey on WhatsApp green --
+   measured at rgb(75,84,99) on rgb(25,136,69), which is two mid-tones on
+   top of each other and close to unreadable. The green landed when the
+   button was restyled; the label quietly did not. */
+.ft a.btn{color:#fff}
 .ft a:hover{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
 .ft .mono{font-size:11px;color:var(--muted-2)}
 .ft-dim{color:var(--muted-2);margin:0}
@@ -1342,6 +1357,22 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .hero-arrow-prev{left:10px}
 .hero-arrow-next{right:10px}
 .hero-dots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:6px}
+/* ON A PHONE THE ARROWS SIT ON THE DOTS ROW, not down the sides.
+   The frame is 390px wide and the product card fills most of it, so a
+   vertically-centred side arrow lands ON the card -- a control on top of
+   the thing it is meant to be beside. Down here they are clear of it, and
+   the row reads as one set of carousel controls rather than three. */
+@media (max-width:899px){
+  /* ...AND ABOVE THE BOTTOM BAR. The hero runs the full height of the
+     screen, so its last 52px are behind .nav: measured, the dots landed
+     at y=821 inside a bar occupying 792-844. Both controls were on
+     screen and neither could be pressed. */
+  .hero-arrow{top:auto;bottom:calc(var(--bn-h) + 6px);transform:none;
+    width:30px;height:30px;font-size:18px}
+  .hero-arrow-prev{left:calc(50% - 74px)}
+  .hero-arrow-next{left:auto;right:calc(50% - 74px)}
+  .hero-dots{bottom:calc(var(--bn-h) + 18px)}
+}
 .hero-dot{width:7px;height:7px;border-radius:50%;border:0;background:rgba(255,255,255,.45);padding:0;cursor:pointer}
 .hero-dot.active{background:#fff;width:18px;border-radius:4px}
 
@@ -1588,8 +1619,15 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   .hero-carousel{height:var(--hero-fit,calc(100svh - var(--chrome-h)));min-height:460px}
   /* The card to the left of the copy, as in the reference, and both
      centred in the frame rather than pinned to the bottom -- at this
-     height, bottom-aligned leaves the top two thirds empty. */
-  .hero-slide-overlay{align-items:center}
+     height, bottom-aligned leaves the top two thirds empty.
+
+     THE SIDE PADDING IS FOR THE CONTROLS. The carousel's own prev arrow
+     sits at left:16 and the slide rail at right:12, and at the page
+     gutter the product card ran underneath the arrow -- a control on top
+     of the thing it is meant to be beside. Each side is cleared by the
+     width of what lives there. */
+  .hero-slide-overlay{align-items:center;
+    padding-left:74px;padding-right:86px}
   .hero-slide-inner{flex-direction:row;align-items:center;gap:48px;padding:0}
   .hero-slide-content{padding:0;max-width:560px}
   .hero-slide-card{width:320px;flex:0 0 auto}
@@ -4470,8 +4508,38 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
   text-decoration:none;color:inherit;box-shadow:0 18px 40px rgba(11,20,36,.34);
   transition:transform .18s ease,box-shadow .18s ease}
 .hpc:hover{transform:translateY(-3px);box-shadow:0 24px 52px rgba(11,20,36,.42)}
-.hpc-ph{position:relative;aspect-ratio:1;background:var(--line-2)}
-.hpc-ph img{width:100%;height:100%;object-fit:cover;display:block}
+/* overflow:hidden is what makes the zoom below a zoom rather than a
+   photo growing out of its own card. */
+.hpc-ph{position:relative;aspect-ratio:1;background:var(--line-2);overflow:hidden}
+.hpc-ph img{width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform .35s ease}
+/* THE PHOTO LEANS IN, the card does not move. Scaling the whole card
+   would drag the price and the rating with it and shift everything
+   around it; scaling the picture inside a clipped box is the part that
+   reads as "look closer". Not on touch -- see the hover query below. */
+@media (hover:hover){
+  .hpc:hover .hpc-ph img{transform:scale(1.08)}
+}
+@media (prefers-reduced-motion:reduce){
+  .hpc-ph img{transition:none}
+  .hpc:hover .hpc-ph img{transform:none}
+}
+
+/* The gallery arrows. Hidden until the pointer is on the card at widths
+   that have a pointer, always there on a phone -- where they are the only
+   way to change the photo, since a 7px dot is not a target. */
+.hpc-arrow{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;
+  padding:0;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;
+  border-radius:50%;background:rgba(255,255,255,.92);color:var(--ink);
+  box-shadow:0 2px 8px rgba(11,20,36,.25)}
+.hpc-arrow:hover{background:#fff}
+.hpc-arrow-prev{left:8px}
+.hpc-arrow-next{right:8px}
+@media (hover:hover){
+  .hpc-arrow{opacity:0;transition:opacity .18s ease}
+  .hpc:hover .hpc-arrow,.hpc-arrow:focus-visible{opacity:1}
+}
+@media (prefers-reduced-motion:reduce){.hpc-arrow{transition:none}}
 
 /* Badge and discount on one row, so they measure each other instead of
    both claiming the same corner -- the mistake the grid card made once. */
@@ -4517,3 +4585,31 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
   color:var(--muted)}
 .hpc-stars{color:var(--amber-ink);letter-spacing:.05em}
 .hpc-reviews{text-transform:uppercase;letter-spacing:.04em}
+
+/* ---------------------------------------------------------------------------
+   THE SLIDE RAIL -- what is coming next, as pictures.
+
+   Dots say how many slides there are and which one you are on; they cannot
+   say what is on any of them. This is the strip down the side, in the
+   order the slides will actually appear, each in a bordered square.
+   ------------------------------------------------------------------------ */
+.hero-rail{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:3;
+  display:none;flex-direction:column;gap:8px;max-height:calc(100% - 120px);
+  overflow:auto;padding:2px;scrollbar-width:none}
+.hero-rail::-webkit-scrollbar{display:none}
+@media (min-width:900px){.hero-rail{display:flex}}
+.hero-rail-item{width:56px;height:56px;padding:0;flex:0 0 auto;cursor:pointer;
+  border-radius:var(--r-s);overflow:hidden;background:rgba(11,20,36,.5);
+  /* THE BORDER IS THE POINT, per the reference: each square is ringed so
+     it reads as a separate thing over whatever the slide behind it is. */
+  border:2px solid rgba(255,255,255,.55);
+  opacity:.75;transition:opacity .18s ease,border-color .18s ease,transform .18s ease}
+.hero-rail-item:hover,.hero-rail-item:focus-visible{opacity:1;border-color:#fff;
+  transform:scale(1.06)}
+/* The slide on screen, when the strip has wrapped all the way round to it. */
+.hero-rail-item.on{opacity:1;border-color:var(--amber)}
+.hero-rail-item img{width:100%;height:100%;object-fit:cover;display:block}
+.hero-rail-blank{display:block;width:100%;height:100%;
+  background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,.04))}
+@media (prefers-reduced-motion:reduce){.hero-rail-item{transition:none}
+  .hero-rail-item:hover{transform:none}}

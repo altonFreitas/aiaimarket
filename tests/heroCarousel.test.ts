@@ -259,3 +259,114 @@ describe("the column itself", () => {
     expect(read("supabase/run-all.sql")).toContain("hero-product.sql");
   });
 });
+
+describe("the slide rail", () => {
+  it("shows what is coming next, in the order it will arrive", () => {
+    /* Dots say how many slides there are and which one you are on. They
+       cannot say what is ON any of them, so the only way to find the
+       slide you half-remember is to wait for it to come round. */
+    expect(HERO).toMatch(/const idx = \(i \+ 1 \+ n\) % slides\.length/);
+    expect(HERO).toMatch(/className="hero-rail"/);
+  });
+
+  it("gives a pictureless slide a square anyway", () => {
+    // A gap would misalign the strip with the slides it stands for.
+    expect(HERO).toMatch(/hero-rail-blank/);
+  });
+
+  it("rings every square, which is what makes it read as a thumbnail", () => {
+    const rule = /\.hero-rail-item\{([^}]*)\}/.exec(CSS);
+    expect(rule, "the rail item").not.toBeNull();
+    expect(rule![1]).toMatch(/border:\dpx solid/);
+    expect(rule![1]).toMatch(/aspect|width:\d+px;height:\d+px/);
+  });
+
+  it("stays off a phone, where there is no room beside the card", () => {
+    expect(CSS).toMatch(/\.hero-rail\{[^}]*display:none/);
+    expect(CSS).toMatch(/@media \(min-width:900px\)\{\.hero-rail\{display:flex\}\}/);
+  });
+});
+
+describe("the carousel's controls", () => {
+  it("has no play or pause button", () => {
+    expect(HERO).not.toMatch(/heroPlay|heroPause|PlayIcon|PauseIcon/);
+  });
+
+  it("holds still while somebody is looking at a slide instead", () => {
+    /* What replaced it. Advancing is most annoying exactly when somebody
+       has stopped to read, and focus counts as looking -- a keyboard user
+       tabbing into a slide's link must not have it slide away. */
+    expect(HERO).toMatch(/onMouseEnter=\{\(\) => setPaused\(true\)\}/);
+    expect(HERO).toMatch(/onMouseLeave=\{\(\) => setPaused\(false\)\}/);
+    expect(HERO).toMatch(/onFocusCapture=\{\(\) => setPaused\(true\)\}/);
+    expect(HERO).toMatch(/onBlurCapture=\{\(\) => setPaused\(false\)\}/);
+  });
+
+  it("keeps the mute control, which answers a different question", () => {
+    // A video that starts making noise is not the same problem as one
+    // that moves.
+    expect(HERO).toMatch(/heroUnmute|heroMute/);
+  });
+
+  it("clears the phone's bottom bar", () => {
+    /* MEASURED: the dots sat at y=821 inside a fixed bar occupying
+       792-844. On screen, and not pressable. */
+    const phone = /@media \(max-width:899px\)\{([\s\S]*?)\n\}/.exec(CSS);
+    expect(phone, "the narrow-screen hero rules").not.toBeNull();
+    expect(phone![1]).toMatch(/\.hero-arrow\{[^}]*bottom:calc\(var\(--bn-h\)/);
+    expect(phone![1]).toMatch(/\.hero-dots\{bottom:calc\(var\(--bn-h\)/);
+    expect(CSS).toMatch(/--bn-h:\d+px/);
+  });
+
+  it("leaves the overlay room for the controls on either side", () => {
+    // The product card ran underneath the carousel's own prev arrow.
+    const wide = /\.hero-slide-overlay\{align-items:center;([\s\S]{0,120})\}/.exec(CSS);
+    expect(wide, "the wide-screen overlay rule").not.toBeNull();
+    expect(wide![1]).toMatch(/padding-left:\d+px/);
+    expect(wide![1]).toMatch(/padding-right:\d+px/);
+  });
+});
+
+describe("the card's gallery", () => {
+  it("has arrows, not only dots", () => {
+    // A 7px dot is a thing you can see and cannot hit.
+    expect(CARD).toMatch(/hpc-arrow-prev/);
+    expect(CARD).toMatch(/hpc-arrow-next/);
+    expect(CARD).toMatch(/heroShotPrev/);
+    expect(CARD).toMatch(/heroShotNext/);
+  });
+
+  it("wraps at both ends", () => {
+    // An arrow that stops working is one somebody presses twice before
+    // believing it.
+    expect(CARD).toMatch(/\(i \+ by \+ gallery\.length\) % gallery\.length/);
+  });
+
+  it("caps the photos once, so the dots and the arrows agree", () => {
+    /* The dots sliced to five while the arrows would have walked the
+       whole array: press next six times and the photo changes with no dot
+       to match it. */
+    const cap = /const SHOTS = (\d+)/.exec(CARD);
+    expect(cap, "the photo cap").not.toBeNull();
+    /* Small enough to be a cap. Both the dots and the arrows honour
+       whatever this says, so a large number is not incorrect -- it is a
+       row of dots nobody can count, which is what the cap was for. */
+    expect(Number(cap![1])).toBeGreaterThan(1);
+    expect(Number(cap![1])).toBeLessThanOrEqual(8);
+    expect(CARD).toMatch(/\.slice\(0, SHOTS\)/);
+    expect(CARD).not.toMatch(/\.slice\(0, 5\)/);
+  });
+
+  it("zooms the photo, not the card", () => {
+    /* Scaling the card would drag the price and the rating with it and
+       shift everything around it. */
+    expect(CSS).toMatch(/\.hpc:hover \.hpc-ph img\{transform:scale\([\d.]+\)\}/);
+    expect(CSS).toMatch(/\.hpc-ph\{[^}]*overflow:hidden/);
+    expect(CSS).not.toMatch(/\.hpc:hover\{[^}]*transform:scale/);
+  });
+
+  it("does not zoom where there is no pointer, or where motion is unwanted", () => {
+    expect(CSS).toMatch(/@media \(hover:hover\)\{\s*\.hpc:hover \.hpc-ph img/);
+    expect(CSS).toMatch(/@media \(prefers-reduced-motion:reduce\)\{[\s\S]{0,160}\.hpc:hover \.hpc-ph img\{transform:none\}/);
+  });
+});

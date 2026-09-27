@@ -51,6 +51,7 @@ const ACCENT: Record<string, string> = {
 
 export default function AdminHome({
   lang, items, canSales, canProcurement, kpis, range, flow, categories, loves,
+  rollupStale = false,
 }: {
   lang: Lang;
   items: AttentionItem[];
@@ -66,6 +67,10 @@ export default function AdminHome({
   /** What sold in the window, biggest first. */
   categories: RankedRow[];
   loves: { total: number; top: { id: string; name: string; loves: number } | null } | null;
+  /** The sales rollup exists but has not seen the latest order change, so
+   * this page read the order book instead. Correct, just slower -- and
+   * worth saying, because the fix is to start the refresh cron. */
+  rollupStale?: boolean;
 }) {
   const urgent = items.filter((i) => i.severity === "urgent");
   const tiles = buildKpis(kpis, {
@@ -92,6 +97,16 @@ export default function AdminHome({
           </Link>
         )}
       </div>
+
+      {/* SLOWER THAN IT SHOULD BE, AND SAYING SO.
+          Not an error: every figure on this page is correct, read from
+          the order book itself. But the rollup that exists to spare it
+          that work is behind, which on a busy shop is the difference
+          between a page and a wait. Silence here is how a dashboard ends
+          up reading a week-old copy of the takings. */}
+      {rollupStale && (
+        <div className="note" role="status">{t("rollupStale", lang)}</div>
+      )}
 
       {/* WHICH SPAN THE FIGURES COVER.
           Links, not buttons: this page is computed on the server, so

@@ -16,6 +16,8 @@ import type { Lang } from "@/lib/types";
  * would make a grid-card detail part of that component's public surface,
  * and it is three pairs of strings. The GUARD is that both render the same
  * i18n keys -- see tests/heroCarousel. */
+const SHOTS = 5;
+
 const BADGE = { in: ["b-in", "stockIn"], low: ["b-low", "stockLow"], out: ["b-out", "stockOut"] } as const;
 
 /* THE PRODUCT CARD THAT SITS ON THE HERO.
@@ -35,6 +37,15 @@ const BADGE = { in: ["b-in", "stockIn"], low: ["b-low", "stockLow"], out: ["b-ou
  * is a modal of the product page; this shop already has a product page,
  * and a second copy of it that can drift is worse than one more tap.
  */
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={dir === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+    </svg>
+  );
+}
+
 export default function HeroProductCard({
   feature, lang,
 }: { feature: HeroFeature; lang: Lang }) {
@@ -42,8 +53,19 @@ export default function HeroProductCard({
   const [shot, setShot] = useState(0);
 
   const images = (p.images || []).filter(Boolean);
-  const gallery = images.length ? images : [placeholder(p.name)];
+  /* CAPPED ONCE, HERE. The dots used to slice to five while the arrows
+     would have walked the whole array -- press next six times and the
+     photo changes with no dot to match it. */
+  const gallery = (images.length ? images : [placeholder(p.name)]).slice(0, SHOTS);
   const img = gallery[Math.min(shot, gallery.length - 1)];
+
+  /* Wraps, because an arrow that stops doing anything at the end is an
+     arrow somebody presses twice before believing it. */
+  function step(e: React.MouseEvent, by: number) {
+    e.preventDefault();
+    e.stopPropagation();
+    setShot((i) => (i + by + gallery.length) % gallery.length);
+  }
 
   const [cls, key] = BADGE[p.stock_status];
   const pct = discountPercent(p.price, p.discount_price);
@@ -87,14 +109,30 @@ export default function HeroProductCard({
             nothing. Buttons rather than hover, because the pointer is not
             the only way people use this and a phone has no hover at all. */}
         {gallery.length > 1 && (
-          <div className="hpc-shots">
-            {gallery.slice(0, 5).map((src, idx) => (
-              <button key={src + idx} type="button"
-                className={"hpc-shot" + (idx === shot ? " on" : "")}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShot(idx); }}
-                aria-label={`${t("heroShot", lang)} ${idx + 1}`} />
-            ))}
-          </div>
+          <>
+            {/* ARROWS AS WELL AS DOTS. The dots said the photo could be
+                changed; they are 7px, and on a phone a 7px target is a
+                thing you can see and cannot hit. The arrows are the
+                control, the dots are the position. */}
+            <button type="button" className="hpc-arrow hpc-arrow-prev"
+              onClick={(e) => { step(e, -1); }}
+              aria-label={t("heroShotPrev", lang)}>
+              <Chevron dir="left" />
+            </button>
+            <button type="button" className="hpc-arrow hpc-arrow-next"
+              onClick={(e) => { step(e, 1); }}
+              aria-label={t("heroShotNext", lang)}>
+              <Chevron dir="right" />
+            </button>
+            <div className="hpc-shots">
+              {gallery.slice(0, SHOTS).map((src, idx) => (
+                <button key={src + idx} type="button"
+                  className={"hpc-shot" + (idx === shot ? " on" : "")}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShot(idx); }}
+                  aria-label={`${t("heroShot", lang)} ${idx + 1}`} />
+              ))}
+            </div>
+          </>
         )}
       </div>
 

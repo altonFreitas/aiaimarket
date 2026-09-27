@@ -147,9 +147,15 @@ describe("which source the dashboard reads", () => {
   });
 
   it("still reads the order book when the view is not there", () => {
-    // A shop that has not pasted the SQL must see exactly the dashboard it
-    // had yesterday.
-    expect(PAGE).toMatch(/const fromRollup = daily && rollup\.ready;/);
+    /* A shop that has not pasted the SQL must see exactly the dashboard it
+       had yesterday.
+       AND one more condition than this originally checked. `ready` only
+       ever meant "the view can be read" -- a materialized view is as
+       current as its last refresh, and the shop saw net profit $102.20 on
+       every range except the one bucketed by hour, which alone fell back
+       to the order book and alone agreed with the Finance screen. See
+       tests/rollupFreshness. */
+    expect(PAGE).toMatch(/const fromRollup = daily && rollupCurrent && rollup\.ready;/);
     expect(PAGE).toMatch(/adminSalesData\(\{ withOrders: !fromRollup \}\)/);
   });
 

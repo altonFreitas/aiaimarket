@@ -159,6 +159,11 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["hero_slides", "product_id"]],
   },
   {
+    file: "analytics-freshness.sql", labelKey: "featAnalyticsFreshness",
+    tables: ["analytics_refresh"],
+    columns: [["orders", "updated_at"]],
+  },
+  {
     file: "sales-rollup.sql", labelKey: "featSalesRollup",
     /* A materialized view and the function that rebuilds it. Checked by
        the function, because an inventory that reports relations may or may
@@ -555,6 +560,11 @@ export const SCHEMA_ORDER: readonly string[] = [
      for the cost a line was sold without. Placed by running it -- the
      first attempt sat beside message-queue.sql and run-all.sql stopped at
      "relation order_return_items does not exist". */
+  // BEFORE sales-rollup.sql, whose refresh_sales_daily() stamps the table
+  // this file creates. The function tolerates the table being absent, so
+  // the other order still works -- but the dashboard would then never
+  // learn when the rollup ran, which is the whole point of it.
+  "analytics-freshness.sql",
   "sales-rollup.sql",
   "promotions.sql",
   "hero-video.sql",
