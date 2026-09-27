@@ -120,8 +120,6 @@ export const STR: Record<string, [string,string,string]> = {
   heroSub:["Sasán loos, folin klaru — sosa online no simu iha Timor-Leste tomak.","Stock real, preços claros — compre online e receba em qualquer lugar de Timor-Leste.","Real stock, clear prices — shop online and get it delivered across Timor-Leste."],
   heroShopNow:["Sosa agora","Comprar agora","Shop now"],
   heroNewArrivals:["Haree foun sira","Ver novidades","See new arrivals"],
-  heroPrevSlide:["Anterior","Anterior","Previous slide"],
-  heroNextSlide:["Tuir mai","Seguinte","Next slide"],
   heroSlideLabel:["Banner","Banner","Slide"],
   newArrivals:["Sasán Foun","Novidades","New Arrivals"],
   newArrivalsSub:["Sasán foun, foin tama.","Stock novo, acabado de chegar.","Fresh stock, just added."],

@@ -350,12 +350,13 @@ function SlideCarousel({ lang, settings, slides, products, cats }: {
 
       {slides.length > 1 && (
         <>
-          <button type="button" className="hero-arrow hero-arrow-prev" onClick={() => goTo(i - 1)}
-            aria-label={t("heroPrevSlide", lang)}>‹</button>
-          <button type="button" className="hero-arrow hero-arrow-next" onClick={() => goTo(i + 1)}
-            aria-label={t("heroNextSlide", lang)}>›</button>
-
-          {/* WHAT IS COMING NEXT, AS PICTURES.
+          {/* WHAT IS COMING NEXT, AS PICTURES -- AND THE ONLY WAY ROUND.
+              The prev/next arrows are gone: a square you can see is a
+              better way back than an arrow that steps blindly, and two
+              controls doing the same job is one more than the frame has
+              room for. Which is why the strip is no longer desktop-only
+              (see .hero-rail): take the arrows away on a phone and the
+              7px dots would have been all that was left.
               Dots say how many slides there are and which one you are on.
               They cannot say what is on any of them, so the only way to
               find the slide you half-remember is to wait for it to come

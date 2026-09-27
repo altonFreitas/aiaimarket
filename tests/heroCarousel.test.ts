@@ -27,6 +27,18 @@ const CARD = code("src/components/home/HeroProductCard.tsx");
 const ADMIN = code("src/components/admin/HeroSlidesAdmin.tsx");
 const ACTION = code("src/lib/actions/hero.ts");
 const CSS = read("src/app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "");
+const I18N = read("src/lib/i18n.ts");
+
+/** The rail's OWN declaration, not one of the width overrides that also
+ * open with `.hero-rail{`. Matching the first occurrence found the
+ * narrow-screen `bottom:` override, which says nothing about how the
+ * strip is laid out. */
+function railBase(): string | null {
+  for (const m of CSS.matchAll(/\.hero-rail\{([^}]*)\}/g)) {
+    if (m[1].includes("position:absolute")) return m[1];
+  }
+  return null;
+}
 const SQL = read("supabase/hero-product.sql")
   .replace(/^\s*--.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
@@ -281,9 +293,36 @@ describe("the slide rail", () => {
     expect(rule![1]).toMatch(/aspect|width:\d+px;height:\d+px/);
   });
 
-  it("stays off a phone, where there is no room beside the card", () => {
-    expect(CSS).toMatch(/\.hero-rail\{[^}]*display:none/);
-    expect(CSS).toMatch(/@media \(min-width:900px\)\{\.hero-rail\{display:flex\}\}/);
+  it("is there at every width, because it is now the only way round", () => {
+    /* It was desktop-only while the prev/next arrows existed. Removing
+       them there and leaving this hidden would have left a phone with
+       nothing but 7px dots -- which is the thing this codebase already
+       decided is a target you can see and cannot hit. */
+    expect(CSS).not.toMatch(/\.hero-rail\{[^}]*display:none/);
+    const base = railBase();
+    expect(base, "the rail's own declaration").not.toBeNull();
+    expect(base!).toMatch(/display:flex/);
+  });
+
+  it("is a row along the bottom on a phone and a column beside the card on a desktop", () => {
+    const base = railBase()!;
+    // Base: full width, centred, horizontal.
+    expect(base).toMatch(/left:\d+px/);
+    expect(base).toMatch(/right:\d+px/);
+    expect(base).not.toMatch(/flex-direction:column/);
+    const wide = /@media \(min-width:900px\)\{\s*\.hero-rail\{([^}]*)\}/.exec(CSS);
+    expect(wide, "the wide-screen rail").not.toBeNull();
+    expect(wide![1]).toMatch(/flex-direction:column/);
+    expect(wide![1]).toMatch(/left:auto/);
+  });
+
+  it("leaves the slide's own copy room above it", () => {
+    /* MEASURED: at 46px of bottom padding the rail's 60px row sat on top
+       of the headline and the CTA -- a control over the thing it is meant
+       to sit under. */
+    const inner = /\.hero-slide-inner\{([^}]*)\}/.exec(CSS);
+    expect(inner, "the overlay's inner stack").not.toBeNull();
+    expect(inner![1]).toMatch(/padding:0 0 calc\(var\(--bn-h\) \+ \d+px\)/);
   });
 });
 
@@ -308,22 +347,36 @@ describe("the carousel's controls", () => {
     expect(HERO).toMatch(/heroUnmute|heroMute/);
   });
 
+  it("has no prev/next arrows at all", () => {
+    /* Removed on request: a square you can SEE is a better way back than
+       an arrow that steps blindly, and two controls doing one job is one
+       more than the frame has room for. */
+    expect(HERO).not.toMatch(/hero-arrow/);
+    expect(HERO).not.toMatch(/heroPrevSlide|heroNextSlide/);
+    expect(CSS).not.toMatch(/\.hero-arrow/);
+    // ...and their wording is not left behind in the dictionary.
+    expect(I18N).not.toMatch(/heroPrevSlide|heroNextSlide/);
+  });
+
   it("clears the phone's bottom bar", () => {
     /* MEASURED: the dots sat at y=821 inside a fixed bar occupying
-       792-844. On screen, and not pressable. */
+       792-844. On screen, and not pressable. The rail sits above them and
+       has to clear it too. */
     const phone = /@media \(max-width:899px\)\{([\s\S]*?)\n\}/.exec(CSS);
     expect(phone, "the narrow-screen hero rules").not.toBeNull();
-    expect(phone![1]).toMatch(/\.hero-arrow\{[^}]*bottom:calc\(var\(--bn-h\)/);
     expect(phone![1]).toMatch(/\.hero-dots\{bottom:calc\(var\(--bn-h\)/);
+    expect(phone![1]).toMatch(/\.hero-rail\{bottom:calc\(var\(--bn-h\)/);
     expect(CSS).toMatch(/--bn-h:\d+px/);
   });
 
-  it("leaves the overlay room for the controls on either side", () => {
-    // The product card ran underneath the carousel's own prev arrow.
-    const wide = /\.hero-slide-overlay\{align-items:center;([\s\S]{0,120})\}/.exec(CSS);
+  it("leaves the overlay room for the rail, and nothing on the left", () => {
+    /* The right padding clears the rail's column. The left had been
+       clearing the prev arrow; with that gone the card goes back to the
+       page's own gutter rather than sitting 74px inside it. */
+    const wide = /\.hero-slide-overlay\{align-items:center;([\s\S]{0,120}?)\}/.exec(CSS);
     expect(wide, "the wide-screen overlay rule").not.toBeNull();
-    expect(wide![1]).toMatch(/padding-left:\d+px/);
     expect(wide![1]).toMatch(/padding-right:\d+px/);
+    expect(wide![1]).not.toMatch(/padding-left/);
   });
 });
 

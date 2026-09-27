@@ -1301,8 +1301,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   background:linear-gradient(0deg,rgba(11,20,36,.82) 0%,rgba(11,20,36,.35) 50%,transparent 80%)}
 /* Card and copy. One column on a phone -- the card first, because it is
    the thing that can be bought -- and side by side once there is width. */
+/* THE BOTTOM PADDING CLEARS THE CONTROLS. On a phone the rail is a
+   60px row above the dots above the fixed bottom bar, and at 46px the
+   headline and the CTA ran underneath the squares. Measured, not
+   guessed: the rail occupies 702-762 in an 844 viewport. */
 .hero-slide-inner{width:100%;display:flex;flex-direction:column;align-items:flex-start;
-  gap:18px;padding:0 0 46px}
+  gap:18px;padding:0 0 calc(var(--bn-h) + 104px)}
 .hero-slide-content{pointer-events:auto;padding:0;max-width:420px;color:#fff}
 .hero-slide-card{pointer-events:auto;width:min(300px,72vw)}
 /* THE VIDEO, WHOLE. Every video this shop will ever have is filmed on the
@@ -1350,12 +1354,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .hero-ctrl:hover{background:rgba(11,20,36,.78)}
 .hero-slide-h{font-size:22px;font-weight:800;line-height:1.15;margin:0 0 6px;letter-spacing:-.01em}
 .hero-slide-sub{font-size:13.5px;color:rgba(255,255,255,.85);margin:0 0 12px}
-.hero-arrow{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;
-  border:0;background:rgba(11,20,36,.5);color:#fff;font-size:20px;line-height:1;cursor:pointer;
-  display:flex;align-items:center;justify-content:center}
-.hero-arrow:hover{background:rgba(11,20,36,.75)}
-.hero-arrow-prev{left:10px}
-.hero-arrow-next{right:10px}
 .hero-dots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:6px}
 /* ON A PHONE THE ARROWS SIT ON THE DOTS ROW, not down the sides.
    The frame is 390px wide and the product card fills most of it, so a
@@ -1363,15 +1361,12 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
    the thing it is meant to be beside. Down here they are clear of it, and
    the row reads as one set of carousel controls rather than three. */
 @media (max-width:899px){
-  /* ...AND ABOVE THE BOTTOM BAR. The hero runs the full height of the
-     screen, so its last 52px are behind .nav: measured, the dots landed
-     at y=821 inside a bar occupying 792-844. Both controls were on
-     screen and neither could be pressed. */
-  .hero-arrow{top:auto;bottom:calc(var(--bn-h) + 6px);transform:none;
-    width:30px;height:30px;font-size:18px}
-  .hero-arrow-prev{left:calc(50% - 74px)}
-  .hero-arrow-next{left:auto;right:calc(50% - 74px)}
-  .hero-dots{bottom:calc(var(--bn-h) + 18px)}
+  /* ABOVE THE BOTTOM BAR. The hero runs the full height of the screen, so
+     its last 52px are behind .nav: measured, the dots landed at y=821
+     inside a bar occupying 792-844 -- on screen, and not pressable. The
+     rail sits above them for the same reason. */
+  .hero-dots{bottom:calc(var(--bn-h) + 10px)}
+  .hero-rail{bottom:calc(var(--bn-h) + 30px)}
 }
 .hero-dot{width:7px;height:7px;border-radius:50%;border:0;background:rgba(255,255,255,.45);padding:0;cursor:pointer}
 .hero-dot.active{background:#fff;width:18px;border-radius:4px}
@@ -1621,21 +1616,16 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
      centred in the frame rather than pinned to the bottom -- at this
      height, bottom-aligned leaves the top two thirds empty.
 
-     THE SIDE PADDING IS FOR THE CONTROLS. The carousel's own prev arrow
-     sits at left:16 and the slide rail at right:12, and at the page
-     gutter the product card ran underneath the arrow -- a control on top
-     of the thing it is meant to be beside. Each side is cleared by the
-     width of what lives there. */
-  .hero-slide-overlay{align-items:center;
-    padding-left:74px;padding-right:86px}
+     THE RIGHT PADDING IS FOR THE RAIL, which lives at right:12 and is
+     56px of square. Nothing needs clearing on the left any more: the
+     prev arrow that used to sit there is gone, and the card goes back to
+     the page's own gutter. */
+  .hero-slide-overlay{align-items:center;padding-right:86px}
   .hero-slide-inner{flex-direction:row;align-items:center;gap:48px;padding:0}
   .hero-slide-content{padding:0;max-width:560px}
   .hero-slide-card{width:320px;flex:0 0 auto}
   .hero-slide-h{font-size:36px}
   .hero-slide-sub{font-size:15.5px;max-width:52ch}
-  .hero-arrow{width:42px;height:42px;font-size:24px}
-  .hero-arrow-prev{left:16px}
-  .hero-arrow-next{right:16px}
 }
 /* ---------- catalog filters, pagination, ratings, reviews ---------- */
 /* The price filter is a form inside .bar, so it needs to keep the bar's
@@ -4593,11 +4583,20 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
    say what is on any of them. This is the strip down the side, in the
    order the slides will actually appear, each in a bordered square.
    ------------------------------------------------------------------------ */
-.hero-rail{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:3;
-  display:none;flex-direction:column;gap:8px;max-height:calc(100% - 120px);
-  overflow:auto;padding:2px;scrollbar-width:none}
+/* A ROW ALONG THE BOTTOM ON A PHONE, a column down the side once there is
+   width beside the card. It is shown at every size because it is now the
+   only way to reach another slide -- it was desktop-only while the arrows
+   existed, and removing them there would have left a phone with nothing
+   but 7px dots. */
+.hero-rail{position:absolute;z-index:3;display:flex;gap:8px;padding:2px;
+  overflow:auto;scrollbar-width:none;
+  left:12px;right:12px;justify-content:center;flex-wrap:nowrap}
 .hero-rail::-webkit-scrollbar{display:none}
-@media (min-width:900px){.hero-rail{display:flex}}
+@media (min-width:900px){
+  .hero-rail{left:auto;right:12px;top:50%;bottom:auto;transform:translateY(-50%);
+    flex-direction:column;justify-content:flex-start;
+    max-height:calc(100% - 120px)}
+}
 .hero-rail-item{width:56px;height:56px;padding:0;flex:0 0 auto;cursor:pointer;
   border-radius:var(--r-s);overflow:hidden;background:rgba(11,20,36,.5);
   /* THE BORDER IS THE POINT, per the reference: each square is ringed so
