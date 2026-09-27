@@ -1,0 +1,306 @@
+import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+
+/* RUNNING THE SHOP SOMEWHERE THAT IS NOT VERCEL.
+ *
+ * Vercel did four things for us that nothing else does: it built the
+ * server, it ran it, it gave it a certificate, and it called four cron
+ * endpoints on a clock. The first two are the Dockerfile, the third is a
+ * reverse proxy (DEPLOY.md), and the fourth is a sidecar -- and the fourth
+ * is the one that fails silently. A scheduler that is not running does not
+ * error: stock reservations simply never expire, queued messages are never
+ * sent, and the dashboard's figures quietly go stale.
+ *
+ * So the guards here are mostly about agreement -- between vercel.json and
+ * the crontab, between the Dockerfile and what `next build` actually
+ * writes, between the health check and the thing it checks -- and about
+ * the two mistakes that produce a container which looks fine and is not:
+ * a server bound to localhost, and a secret baked into an image layer.
+ */
+
+const ROOT = process.cwd();
+const read = (p: string) => fs.readFileSync(path.join(ROOT, p), "utf8");
+
+const DOCKERFILE = read("Dockerfile");
+const COMPOSE = read("docker-compose.yml");
+const IGNORE = read(".dockerignore");
+const CRONTAB = read("docker/crontab");
+/* Comments stripped, same reason as the health route below: both scripts
+   explain their own flags, so a guard reading the raw file matched the
+   explanation rather than the command. */
+const shell = (p: string) => read(p).split("\n")
+  .filter((l) => !/^\s*#/.test(l)).join("\n");
+const CRON_SH = shell("docker/cron.sh");
+const ENTRY = shell("docker/cron-entrypoint.sh");
+const DEPLOY = read(".github/workflows/deploy.yml");
+const NEXT_CONFIG = read("next.config.ts");
+/* COMMENTS STRIPPED, and not for tidiness. The route explains at length
+   why it does NOT call Supabase, so a guard reading the raw file found the
+   explanation and failed against a correct file -- a guard that reads
+   comments can be satisfied by writing about the thing instead of doing
+   it. */
+const HEALTH = read("src/app/api/health/route.ts")
+  .replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+const VERCEL: { crons: { path: string; schedule: string }[] } =
+  JSON.parse(read("vercel.json"));
+
+/** Every cron endpoint that exists, from the filesystem rather than from a
+ *  list somebody maintains. */
+function cronRoutes(): string[] {
+  const dir = path.join(ROOT, "src/app/api/cron");
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => `/api/cron/${e.name}`)
+    .sort();
+}
+
+/** The crontab, as [schedule, path]. */
+function crontabJobs(): [string, string][] {
+  return CRONTAB.split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"))
+    .map((l) => {
+      const m = /^(\S+ \S+ \S+ \S+ \S+)\s+\S*cron\.sh\s+(\S+)$/.exec(l);
+      expect(m, `unparseable crontab line: ${l}`).not.toBeNull();
+      return [m![1], m![2]] as [string, string];
+    });
+}
+
+describe("the scheduler runs the same jobs Vercel did", () => {
+  it("finds jobs at all, so this cannot pass by reading nothing", () => {
+    expect(cronRoutes().length).toBeGreaterThan(3);
+    expect(crontabJobs().length).toBe(cronRoutes().length);
+  });
+
+  it("calls every endpoint that exists", () => {
+    /* THE FAILURE THIS IS FOR. A cron endpoint is added, wired into
+       vercel.json, and the crontab is forgotten -- so it runs on Vercel
+       and never once on the shop's own server, and nothing anywhere
+       says so. */
+    const scheduled = crontabJobs().map(([, p]) => p).sort();
+    expect(scheduled).toEqual(cronRoutes());
+  });
+
+  it("and vercel.json calls every one too", () => {
+    expect(VERCEL.crons.map((c) => c.path).sort()).toEqual(cronRoutes());
+  });
+
+  it("on the same clocks, to the minute", () => {
+    // Different schedules in the two places is a shop that behaves
+    // differently depending on where it is deployed, which is the thing
+    // containers are supposed to stop.
+    const fromVercel = Object.fromEntries(VERCEL.crons.map((c) => [c.path, c.schedule]));
+    for (const [schedule, p] of crontabJobs()) {
+      expect([p, schedule]).toEqual([p, fromVercel[p]]);
+    }
+  });
+});
+
+describe("the scheduler cannot fail quietly", () => {
+  it("refuses to start without the secret the endpoints require", () => {
+    /* The endpoints fail closed on an empty CRON_SECRET, by design. A
+       scheduler started without one therefore does nothing at all, four
+       times an hour, for ever -- and a container that is "up" is the
+       worst possible way to say that. */
+    expect(ENTRY).toMatch(/CRON_SECRET/);
+    expect(ENTRY).toMatch(/exit 1/);
+  });
+
+  it("passes the environment through a file, not through crond", () => {
+    // crond does not give its own environment to the commands it runs, so
+    // a job reading $CRON_SECRET directly sends "Bearer " and is refused.
+    expect(ENTRY).toMatch(/> \/etc\/cron\.env/);
+    expect(CRON_SH).toMatch(/\. \/etc\/cron\.env/);
+  });
+
+  it("keeps the secret out of the process list", () => {
+    // -K - reads the header from stdin. As an argument it would be
+    // visible to anything that can run ps in that container.
+    expect(CRON_SH).toMatch(/-K -/);
+    expect(CRON_SH).not.toMatch(/-H ["']Authorization/);
+  });
+
+  it("treats an HTTP error as a failure rather than as output", () => {
+    // Without -f, curl prints the error body and exits 0, so a job that
+    // was refused all night reads as a job that ran all night.
+    expect(CRON_SH).toMatch(/curl -fsS/);
+    expect(CRON_SH).toMatch(/exit 1/);
+  });
+
+  it("bounds a job so it cannot still be running at the next one", () => {
+    const m = /-m (\d+)/.exec(CRON_SH);
+    expect(m, "a curl timeout").not.toBeNull();
+    // The shortest schedule is five minutes; the longest maxDuration in
+    // the routes is sixty seconds.
+    expect(Number(m![1])).toBeLessThan(300);
+    expect(Number(m![1])).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe("the image serves what it was built to serve", () => {
+  it("is built from the standalone output, which the config must ask for", () => {
+    /* These two are one decision in two files. Without output:standalone
+       there is no .next/standalone to copy and the build fails; with it
+       and without the COPY the image is missing its server. */
+    expect(NEXT_CONFIG).toMatch(/output: "standalone"/);
+    expect(DOCKERFILE).toMatch(/\/app\/\.next\/standalone \.\//);
+  });
+
+  it("copies the two things standalone leaves behind", () => {
+    // Neither is traced into standalone: static is served from disk, and
+    // public/ is read at request time. Forget either and the site loads
+    // with no styling and no images.
+    expect(DOCKERFILE).toMatch(/\/app\/\.next\/static \.\/\.next\/static/);
+    expect(DOCKERFILE).toMatch(/\/app\/public \.\/public/);
+  });
+
+  it("binds every interface, not localhost", () => {
+    /* THE CLASSIC. Next binds localhost by default. Inside a container
+       that means "reachable only from inside this container": the port
+       mapping is correct, the page never loads, and nothing says why. */
+    expect(DOCKERFILE).toMatch(/ENV HOSTNAME=0\.0\.0\.0/);
+  });
+
+  it("runs the standalone server, not next start", () => {
+    // `next start` needs the Next CLI, which standalone does not ship.
+    expect(DOCKERFILE).toMatch(/CMD \["node", "server\.js"\]/);
+    expect(DOCKERFILE).not.toMatch(/CMD.*next.*start/);
+  });
+
+  it("does not run as root", () => {
+    expect(DOCKERFILE).toMatch(/USER nextjs/);
+    expect(DOCKERFILE.indexOf("USER nextjs")).toBeLessThan(DOCKERFILE.indexOf('CMD ["node"'));
+  });
+
+  it("keeps sharp working, which is the whole image pipeline", () => {
+    // Without libc6-compat sharp cannot load on Alpine and next/image
+    // silently serves the original upload instead of a resized one.
+    expect(DOCKERFILE).toMatch(/libc6-compat/);
+  });
+});
+
+describe("no secret is baked into a layer", () => {
+  /** An ARG ends up in the image's build history, which anybody who can
+   *  pull the image can read. Only the values that MUST be compiled in --
+   *  NEXT_PUBLIC_*, which are in every visitor's browser anyway -- may be
+   *  arguments. */
+  const args = [...DOCKERFILE.matchAll(/^ARG ([A-Z_0-9]+)/gm)].map((m) => m[1]);
+
+  it("takes arguments at all, so this cannot pass by reading nothing", () => {
+    expect(args.length).toBeGreaterThan(3);
+  });
+
+  it("takes only what has to be compiled in", () => {
+    for (const a of args) {
+      expect(a.startsWith("NEXT_PUBLIC_") || a === "APP_REVISION", a).toBe(true);
+    }
+  });
+
+  it("names the server-side ones as build-only placeholders", () => {
+    // They are set so the build can finish -- src/lib/session.ts throws
+    // at module load without SESSION_SECRET -- and read again from the
+    // container's environment at run time.
+    expect(DOCKERFILE).toMatch(/SESSION_SECRET=build-only/);
+    expect(DOCKERFILE).toMatch(/SUPABASE_SERVICE_ROLE_KEY=build-only/);
+  });
+
+  it("keeps .env out of the build context entirely", () => {
+    // Copied in, the service role key is in a layer for ever.
+    expect(IGNORE).toMatch(/^\.env$/m);
+    expect(IGNORE).toMatch(/^\.env\.\*$/m);
+    expect(IGNORE).toMatch(/^node_modules$/m);
+  });
+});
+
+describe("the health check answers the question it is asked", () => {
+  it("needs no credential", () => {
+    // A health check behind a secret cannot be used by the supervisor
+    // that needs it.
+    expect(HEALTH).not.toMatch(/requireSection|requireAdmin|Authorization/);
+  });
+
+  it("does not ask the database whether the process is alive", () => {
+    /* A check that calls Supabase restarts the app when the DATABASE is
+       unwell: it fixes nothing, drops every request in flight, and does
+       it again thirty seconds later. */
+    expect(HEALTH).not.toMatch(/supabase/i);
+  });
+
+  it("is never cached, by Next or by anything in front of it", () => {
+    expect(HEALTH).toMatch(/dynamic = "force-dynamic"/);
+    expect(HEALTH).toMatch(/"cache-control": "no-store"/);
+  });
+
+  it("says which build is answering", () => {
+    // How you tell whether the deploy you just pushed is the one running.
+    expect(HEALTH).toMatch(/APP_REVISION/);
+  });
+
+  it("prints no setting's value", () => {
+    const envReads = [...HEALTH.matchAll(/process\.env\.([A-Z_0-9]+)/g)].map((m) => m[1]);
+    expect(envReads).toEqual(["APP_REVISION"]);
+  });
+});
+
+describe("compose brings both halves up and keeps them up", () => {
+  it("checks health against the route that exists", () => {
+    expect(COMPOSE).toContain("/api/health");
+  });
+
+  it("restarts both services by itself", () => {
+    expect((COMPOSE.match(/restart: unless-stopped/g) ?? []).length).toBe(2);
+  });
+
+  it("does not start the scheduler before the shop answers", () => {
+    // Jobs fired at a server still booting fail, and the first run of
+    // send-queued is five minutes away.
+    expect(COMPOSE).toMatch(/condition: service_healthy/);
+  });
+
+  it("keeps the scheduler off the network", () => {
+    // Exactly one published port, and it is the shop's.
+    expect((COMPOSE.match(/^\s+ports:/gm) ?? []).length).toBe(1);
+  });
+
+  it("calls the shop by its service name, not by its public address", () => {
+    /* Out to the internet and back in makes a job depend on DNS, TLS and
+       the reverse proxy all being up, to do something that never needed
+       to leave the host. */
+    expect(COMPOSE).toMatch(/APP_URL: http:\/\/app:3000/);
+  });
+});
+
+describe("the deploy is gated on the tests passing", () => {
+  it("waits for verify rather than racing it", () => {
+    /* Two workflows on the same push race: the image would be built and
+       published while the tests that say whether it works were still
+       running. */
+    expect(DEPLOY).toMatch(/workflows: \["verify"\]/);
+    expect(DEPLOY).toMatch(/workflow_run\.conclusion == 'success'/);
+  });
+
+  it("builds the commit that was tested, not the branch head", () => {
+    // workflow_run checks out the default branch by default, which may
+    // have moved on.
+    expect(DEPLOY).toMatch(/ref: \$\{\{ github\.event\.workflow_run\.head_sha/);
+  });
+
+  it("stops rather than ship an image that cannot reach Supabase", () => {
+    // A missing NEXT_PUBLIC_* does not fail a build: it produces an image
+    // that starts, serves pages, and reaches nothing.
+    expect(DEPLOY).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
+    expect(DEPLOY).toMatch(/::error::/);
+    expect(DEPLOY).toMatch(/exit 1/);
+  });
+
+  it("tags with the commit as well as latest, so a rollback can be named", () => {
+    expect(DEPLOY).toMatch(/:latest/);
+    expect(DEPLOY).toMatch(/outputs\.sha/);
+  });
+
+  it("builds the scheduler too, not only the server", () => {
+    expect(DEPLOY).toMatch(/target: cron/);
+    expect(DEPLOY).toMatch(/target: runtime/);
+  });
+});

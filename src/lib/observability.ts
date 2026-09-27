@@ -43,11 +43,36 @@ function redact(value: unknown, depth = 0): unknown {
   return out;
 }
 
+/** What to print for something that was thrown.
+ *
+ * NOT EVERYTHING THROWN IS AN Error, and this shop's most common failure
+ * is one of the things that is not: supabase-js does not throw, it returns
+ * a PostgrestError -- a plain object with message, code, details and hint.
+ * Passed to String() that is "[object Object]", so a failed reconciliation
+ * reached the log, and the webhook a person actually reads, saying
+ * nothing. The alert existed and was useless, which is worse than no
+ * alert: somebody has been told there is a problem and given no way to
+ * find it.
+ *
+ * message and code only. details and hint are the two fields Postgres
+ * fills with the offending ROW -- "Key (phone)=(+670...) already exists"
+ * -- and a log line is not a place to put a customer's phone number. */
+function describe(err: unknown): { message: string; code?: string } {
+  if (err instanceof Error) return { message: err.message };
+  if (err && typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    const message = typeof o.message === "string" && o.message ? o.message : String(err);
+    const code = typeof o.code === "string" && o.code ? o.code : undefined;
+    return { message, code };
+  }
+  return { message: String(err) };
+}
+
 export function reportError(err: unknown, context: ErrorContext): void {
   const payload = {
     level: "error",
     at: new Date().toISOString(),
-    message: err instanceof Error ? err.message : String(err),
+    ...describe(err),
     stack: err instanceof Error ? err.stack?.split("\n").slice(0, 8).join("\n") : undefined,
     ...(redact(context) as Record<string, unknown>),
   };

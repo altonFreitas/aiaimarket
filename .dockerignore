@@ -1,0 +1,26 @@
+# What must never reach the build context.
+#
+# The first group is correctness, not size. A .env copied in puts the
+# service role key into an image layer, which anybody who can pull the
+# image can read; a host node_modules silently replaces the one npm ci
+# installed for Alpine, and the native parts of sharp are not portable
+# between the two.
+.env
+.env.*
+!.env.example
+node_modules
+.next
+.git
+.github
+
+# Nothing below is read by `next build` (nothing in src/ reads a file off
+# disk at all), and every megabyte here is uploaded to the Docker daemon
+# on every build. supabase/ alone is most of a megabyte of SQL that is
+# pasted into Supabase by hand and never by the app.
+tests
+docs
+qrcode
+supabase
+scripts
+*.md
+!README.md

@@ -78,6 +78,13 @@ git push -u origin main
 
 ## Step 3 — Deploy to Vercel
 
+> **Or run it on your own machine instead.** Vercel is the quickest way to
+> get a shop online and it is not the only one. If you would rather keep it
+> on a server you control — in Docker, restarting itself, with nothing
+> depending on your laptop being open — skip to
+> [Running it yourself, in Docker](#running-it-yourself-in-docker) and come
+> back here for Step 4 onwards, which is the same either way.
+
 1. [vercel.com](https://vercel.com) → **Add New → Project** → import your GitHub repo.
 2. Framework preset: **Next.js** (auto-detected). Don't change the build settings.
 3. Before clicking Deploy, open **Environment Variables** and add all six:
@@ -204,6 +211,133 @@ npm install
 cp .env.example .env.local     # fill in your real Supabase keys
 npm run dev                    # http://localhost:3000
 ```
+
+---
+
+## Running it yourself, in Docker
+
+Everything Vercel did, on a machine you control. Supabase stays where it
+is — only the Next server moves.
+
+### What you need
+
+A Linux box with Docker and the Compose plugin, reachable from the
+internet. A €5 VPS is enough for a shop this size.
+
+### Once
+
+```bash
+git clone https://github.com/altonFreitas/aiaimarket.git
+cd aiaimarket
+cp .env.example .env          # fill it in — the same values as Vercel's
+docker compose up -d --build
+```
+
+Two containers come up: **app** (the shop) and **cron** (the scheduler).
+
+```bash
+curl -s localhost:3000/api/health
+# {"ok":true,"revision":"local","uptime":3}
+```
+
+> `.env`, not `.env.local`. Compose reads `.env` twice — once for the
+> `${...}` values in `docker-compose.yml`, once as the containers'
+> environment — and it does not look at `.env.local`, which is Next's own
+> convention for `npm run dev`. Keep both if you develop locally; they can
+> hold the same values.
+
+### The one thing to understand before rebuilding
+
+Anything called `NEXT_PUBLIC_*` is **compiled into the JavaScript the
+browser downloads**. It is not read from the container's environment at
+startup, and setting it in `.env` after the image is built changes nothing
+— the old string is already in the bundle.
+
+So: change a `NEXT_PUBLIC_*` value → `docker compose up -d --build`.
+Change anything else → `docker compose up -d` is enough.
+
+This also means an image is specific to one shop and one domain. A staging
+site is a separate build, not the same image with different settings.
+
+### The scheduler is not optional
+
+Four jobs ran on Vercel's cron and nothing outside Vercel runs them:
+
+| every | what | if it stops |
+|---|---|---|
+| 5 min | send queued messages | buyers are never told their order moved |
+| 1 hour | reconcile payments | paid orders stay unpaid |
+| 1 hour | release reservations | stock is held by orders nobody completed |
+| 1 hour | refresh analytics | the dashboard's figures quietly go stale |
+
+None of that errors. It just silently stops happening, which is why the
+`cron` container exists and why `CRON_SECRET` must be set — the scheduler
+refuses to start without one rather than be refused four times an hour for
+ever.
+
+```bash
+docker compose logs -f cron
+# cron ok   /api/cron/send-queued
+```
+
+### TLS and your domain
+
+Docker serves plain HTTP on port 3000. Put a reverse proxy in front of it
+for the certificate. Caddy is the shortest route — one file, certificates
+renewed automatically:
+
+```
+shop.example.tl {
+  reverse_proxy localhost:3000
+}
+```
+
+Point your domain's A record at the server, as in Step 4 below, and set
+`NEXT_PUBLIC_SITE_URL` to the `https://` address before you build.
+
+### Deploying a change
+
+Pushing to `main` runs the tests (`.github/workflows/verify.yml`) and, only
+if they pass, builds and publishes two images to this repository's own
+registry (`.github/workflows/deploy.yml`). Before the first run, set three
+**repository variables** under *Settings → Secrets and variables → Actions
+→ Variables* — variables, not secrets, because all three are in every
+visitor's browser anyway:
+
+```
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_SITE_URL
+```
+
+Then on the server:
+
+```bash
+docker compose pull && docker compose up -d
+curl -s https://your-domain/api/health     # check the revision changed
+```
+
+The workflow does not log in to your server — that would need an SSH key
+in the repository and a decision about who may push to `main`. Pulling is
+the command above; automate it with a cron entry or Watchtower if you want
+it hands-off.
+
+### Rolling back
+
+Every build is tagged with its commit, so a rollback is naming one:
+
+```bash
+APP_IMAGE=ghcr.io/altonfreitas/aiaimarket:a1b2c3d docker compose up -d
+```
+
+### What Docker does NOT do
+
+**The SQL is still yours to paste.** `supabase/run-all.sql` goes into the
+Supabase SQL editor by hand, exactly as in Step 1. That is deliberate —
+every file in this repo tolerates a database that has not had it yet — but
+it means a deploy is two acts, and the code half can land before the
+database half. Check Admin → Settings → Schema after any release that
+adds a `.sql` file.
 
 ---
 

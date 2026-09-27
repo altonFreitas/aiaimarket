@@ -1,0 +1,63 @@
+# ===========================================================================
+# The shop, running on your own machine.
+# ===========================================================================
+#   cp .env.example .env     # and fill it in
+#   docker compose up -d --build
+#
+# ONE FILE, TWO JOBS, and this is the bit that surprises people: Compose
+# reads `.env` for the ${...} substitutions below AND hands the same file
+# to the containers as their environment. `.env.local` is Next's own
+# convention and is what `npm run dev` reads; Compose does not look at it.
+# Keep both if you develop locally -- they can hold the same values.
+#
+# Supabase stays where it is. Only the Next server moves in here: the
+# database, the storage bucket and the auth roles are hosted, and this file
+# does not try to replace them.
+# ===========================================================================
+
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+      args:
+        # Compiled INTO the browser bundle, so they are build arguments and
+        # not environment. Changing one means rebuilding the image -- see
+        # the note at the top of the Dockerfile.
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?set it in .env}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set it in .env}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?set it in .env}
+        NEXT_PUBLIC_STORE_NAME: ${NEXT_PUBLIC_STORE_NAME:-Marketplace Timor-Leste}
+        NEXT_PUBLIC_STORE_TZ: ${NEXT_PUBLIC_STORE_TZ:-Asia/Dili}
+        APP_REVISION: ${APP_REVISION:-local}
+    image: ${APP_IMAGE:-aiai-shop:local}
+    # The secrets, read fresh every time the container starts. None of them
+    # is in the image.
+    env_file: [.env]
+    ports: ["${APP_PORT:-3000}:3000"]
+    restart: unless-stopped
+    healthcheck:
+      # node, not curl: the runtime image has node and deliberately has no
+      # shell tools. See src/app/api/health/route.ts for why this does not
+      # ask the database anything.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  cron:
+    build:
+      context: .
+      target: cron
+    image: ${CRON_IMAGE:-aiai-shop-cron:local}
+    environment:
+      # Inside the compose network, by service name. Never the public URL:
+      # a job that goes out to the internet and back in depends on DNS,
+      # TLS and the reverse proxy all being up to do something that never
+      # needed to leave the host.
+      APP_URL: http://app:3000
+    env_file: [.env]          # for CRON_SECRET
+    depends_on:
+      app: { condition: service_healthy }
+    restart: unless-stopped

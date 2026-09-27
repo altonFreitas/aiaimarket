@@ -1,0 +1,149 @@
+name: deploy
+
+# WHAT THIS DOES, AND WHAT IT DELIBERATELY DOES NOT.
+#
+# It builds the two container images and pushes them to this repository's
+# own registry (GitHub Container Registry -- free for the repo, nothing to
+# sign up for). It does NOT log in to a server and restart anything: that
+# needs a host, an SSH key in this repository's secrets, and a decision
+# about who may push to main, none of which belongs in a file written
+# before the host exists. Pulling is one command on the server, and
+# DEPLOY.md has it.
+#
+# ONLY AFTER verify.yml HAS PASSED, and that is the whole point of the
+# workflow_run trigger rather than a second `on: push`. Two workflows on
+# the same push race: the image would be built and published while the
+# tests that say whether it works were still running, and a red build
+# would still produce a green-looking image.
+
+on:
+  workflow_run:
+    workflows: ["verify"]
+    types: [completed]
+    branches: [main]
+  # And by hand, for a re-push of an image that was lost or for a first run.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false      # never cancel a half-pushed image
+
+jobs:
+  image:
+    # A failed or cancelled verify must not reach here. workflow_run fires
+    # on every conclusion, so this is the gate, not the trigger.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the default branch by default, which
+          # would build a DIFFERENT commit from the one that passed. Name
+          # the commit that was tested.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # NEXT_PUBLIC_* is compiled into the browser bundle, so a missing one
+      # does not fail the build -- it produces an image that starts, serves
+      # pages, and cannot reach Supabase, with the only clue in a browser
+      # console. Stop here instead.
+      - name: Check the values that get baked in
+        env:
+          URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SITE: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          missing=""
+          [ -n "$URL"  ] || missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -n "$KEY"  ] || missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          [ -n "$SITE" ] || missing="$missing NEXT_PUBLIC_SITE_URL"
+          if [ -n "$missing" ]; then
+            echo "::error::Set these as repository VARIABLES (Settings ->"\
+                 "Secrets and variables -> Actions -> Variables):$missing"
+            echo "They are public by design -- the anon key is in every"\
+                 "visitor's network tab -- so they are variables, not secrets."
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Provided by Actions; no token to create or rotate.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the images
+        id: names
+        run: |
+          repo=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          sha=$(echo "${{ github.event.workflow_run.head_sha || github.sha }}" | cut -c1-7)
+          echo "app=ghcr.io/$repo" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      # The server. Tagged with the commit as well as with latest, because
+      # "roll back" means naming a version, and `latest` cannot be named.
+      - name: Build and push the server
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          push: true
+          tags: |
+            ${{ steps.names.outputs.app }}:latest
+            ${{ steps.names.outputs.app }}:${{ steps.names.outputs.sha }}
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_STORE_NAME=${{ vars.NEXT_PUBLIC_STORE_NAME }}
+            NEXT_PUBLIC_STORE_TZ=${{ vars.NEXT_PUBLIC_STORE_TZ }}
+            APP_REVISION=${{ steps.names.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The scheduler. Same Dockerfile, different target: four lines of
+      # shell and curl, so it is small and changes almost never.
+      - name: Build and push the scheduler
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: cron
+          push: true
+          tags: |
+            ${{ steps.names.outputs.app }}-cron:latest
+            ${{ steps.names.outputs.app }}-cron:${{ steps.names.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Say what to pull
+        run: |
+          {
+            echo "### Images pushed"
+            echo ""
+            echo '```'
+            echo "${{ steps.names.outputs.app }}:${{ steps.names.outputs.sha }}"
+            echo "${{ steps.names.outputs.app }}-cron:${{ steps.names.outputs.sha }}"
+            echo '```'
+            echo ""
+            echo "On the server:"
+            echo ""
+            echo '```sh'
+            echo "docker compose pull && docker compose up -d"
+            echo '```'
+            echo ""
+            echo "Then check the deploy actually landed:"
+            echo ""
+            echo '```sh'
+            echo "curl -s https://YOUR-DOMAIN/api/health"
+            echo "# {\"ok\":true,\"revision\":\"${{ steps.names.outputs.sha }}\",...}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

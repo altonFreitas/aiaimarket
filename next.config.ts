@@ -13,6 +13,14 @@ const paymentOrigin = (process.env.PAYMENT_GATEWAY_ORIGIN || "").trim();
 const withPayment = (base: string) => (paymentOrigin ? `${base} ${paymentOrigin}` : base);
 
 const nextConfig: NextConfig = {
+  /* A SERVER THAT CAN BE COPIED INTO A CONTAINER ON ITS OWN.
+     `next build` normally leaves a .next that still needs the whole of
+     node_modules beside it -- about a gigabyte, most of it TypeScript,
+     ESLint and Tailwind, none of which runs in production. Standalone
+     traces what the server actually imports and writes .next/standalone
+     with a server.js and just those files, which is what the Dockerfile
+     copies. Vercel ignores this and builds the way it always has. */
+  output: "standalone",
   outputFileTracingRoot: path.join(__dirname),
   images: {
     // Product images are served from Supabase Storage

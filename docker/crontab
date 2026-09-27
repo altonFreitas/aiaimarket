@@ -1,0 +1,13 @@
+# The four jobs vercel.json schedules, on the same clocks.
+#
+# KEEP THIS AND vercel.json IN STEP. tests/deployment.test.ts fails if a
+# path or a schedule differs, or if an endpoint exists under
+# src/app/api/cron that neither file calls -- which is how a scheduled job
+# gets written, deployed, and never once run.
+#
+# UTC, like Vercel's. The jobs are all "every N", none is "at 9am", so the
+# shop's own timezone does not come into it.
+0 * * * * /usr/local/bin/cron.sh /api/cron/reconcile-payments
+30 * * * * /usr/local/bin/cron.sh /api/cron/release-reservations
+*/5 * * * * /usr/local/bin/cron.sh /api/cron/send-queued
+20 * * * * /usr/local/bin/cron.sh /api/cron/refresh-analytics
