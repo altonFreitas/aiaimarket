@@ -42,6 +42,13 @@ jobs:
       contents: read
       packages: write
 
+    # Named by the deploy job below, so the thing that is rolled out is the
+    # thing that was built rather than whatever :latest happens to be by
+    # the time it gets there.
+    outputs:
+      app: ${{ steps.names.outputs.app }}
+      sha: ${{ steps.names.outputs.sha }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -147,3 +154,161 @@ jobs:
             echo "# {\"ok\":true,\"revision\":\"${{ steps.names.outputs.sha }}\",...}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # -----------------------------------------------------------------------
+  # Onto the server
+  # -----------------------------------------------------------------------
+  # OPT-IN, AND SILENT UNTIL IT IS. Until DEPLOY_HOST is set this job does
+  # not run at all: publishing the image is useful on its own, and a repo
+  # with no server yet should not have a red workflow to remind it.
+  #
+  # WHAT IT DOES ON THE SERVER is the same three commands DEPLOY.md gives a
+  # person -- pull, up, check -- with two things a person doing it by hand
+  # would also do and a script usually forgets: it pins the exact commit
+  # rather than :latest, and it puts the previous one back if the new one
+  # does not answer.
+  deploy:
+    needs: image
+    if: vars.DEPLOY_HOST != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      packages: read
+
+    # The address it went to, on the run's page, so "which server did this
+    # reach" is never a question.
+    environment:
+      name: production
+      url: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+
+    steps:
+      # DEPLOY_HOST is a variable and can be read in `if` above; a secret
+      # cannot, so the pair is checked here instead. A host set without a
+      # key is a misconfiguration and should be loud, not skipped.
+      - name: Check the rest of the settings are there
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          [ -n "$KEY" ]   || missing="$missing DEPLOY_SSH_KEY"
+          [ -n "$KNOWN" ] || missing="$missing DEPLOY_KNOWN_HOSTS"
+          [ -n "${{ vars.DEPLOY_USER }}" ] || missing="$missing DEPLOY_USER(var)"
+          [ -n "${{ vars.DEPLOY_PATH }}" ] || missing="$missing DEPLOY_PATH(var)"
+          if [ -n "$missing" ]; then
+            echo "::error::DEPLOY_HOST is set, so this job runs -- but these are missing:$missing"
+            echo "DEPLOY.md, 'Deploying a change', lists all five and how to get them."
+            exit 1
+          fi
+
+      # KNOWN HOSTS, NOT StrictHostKeyChecking=no, and this is the whole
+      # reason DEPLOY_KNOWN_HOSTS exists. Turning the check off hands the
+      # deploy key and a root-ish shell to whatever answers on that address
+      # -- which on the first run of a hijacked DNS record is exactly what
+      # you would not notice. Get the value with:
+      #     ssh-keyscan -p 22 your.server.tl
+      - name: Trust the one server, and no other
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # EVERYTHING GOES IN ON stdin, values included. Passed as arguments
+      # to ssh instead -- which is the ordinary way to do this -- they
+      # become the remote shell's command line and are readable in the
+      # server's process list for as long as the deploy takes. The
+      # registry token above all.
+      - name: Write the deploy script
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            printf 'DEPLOY_PATH=%s\n'   "'${{ vars.DEPLOY_PATH }}'"
+            printf 'IMAGE=%s\n'         "'${{ needs.image.outputs.app }}'"
+            printf 'REVISION=%s\n'      "'${{ needs.image.outputs.sha }}'"
+            printf 'REGISTRY_USER=%s\n' "'${{ github.actor }}'"
+            printf 'REGISTRY_TOKEN=%s\n' "'$REGISTRY_TOKEN'"
+            cat <<'OUTER'
+          set -eu
+          cd "$DEPLOY_PATH"
+
+          # Which port the shop is published on, read from Docker rather
+          # than guessed: APP_PORT lives in the server's .env, which this
+          # script does not read (and must not -- it holds the keys).
+          shop_port() {
+            docker compose port app 3000 2>/dev/null | tail -1 | sed 's/.*://' || true
+          }
+          revision_now() {
+            p=$(shop_port)
+            [ -n "$p" ] || return 0
+            curl -fsS -m 5 "http://127.0.0.1:$p/api/health" 2>/dev/null \
+              | sed -n 's/.*"revision":"\([^"]*\)".*/\1/p' || true
+          }
+
+          # What is running before anything changes, so a deploy that does
+          # not come up can be put back. Empty on a first deploy, and then
+          # there is nothing to go back to.
+          PREVIOUS=$(revision_now)
+          echo "running now: ${PREVIOUS:-nothing}"
+
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+
+          export APP_IMAGE="$IMAGE:$REVISION"
+          export CRON_IMAGE="$IMAGE-cron:$REVISION"
+          docker compose pull
+          # --no-build: the server pulls, it does not compile. Building
+          # here would need the NEXT_PUBLIC_* values again and would take
+          # ten minutes on a small box.
+          docker compose up -d --no-build --remove-orphans
+
+          # DID IT ACTUALLY COME UP, or did something merely restart? This
+          # is the difference between a deploy and a green tick.
+          deployed=""
+          for _ in $(seq 1 30); do
+            if [ "$(revision_now)" = "$REVISION" ]; then deployed=1; break; fi
+            sleep 2
+          done
+          if [ -n "$deployed" ]; then
+            echo "deployed $REVISION"
+            exit 0
+          fi
+
+          echo "::error::$REVISION did not answer within 60s"
+          # Back to what was there, but only when that is a commit this
+          # registry has. A shop built by hand reports "local", and
+          # pulling ghcr.io/...:local would fail in a way that reads like
+          # a second unrelated problem.
+          case "$PREVIOUS" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+              if [ "$PREVIOUS" != "$REVISION" ]; then
+                echo "putting $PREVIOUS back"
+                export APP_IMAGE="$IMAGE:$PREVIOUS" CRON_IMAGE="$IMAGE-cron:$PREVIOUS"
+                docker compose up -d --no-build || true
+              fi
+              ;;
+            *) echo "nothing to roll back to (was: ${PREVIOUS:-nothing})" ;;
+          esac
+          exit 1
+          OUTER
+          } > /tmp/deploy.sh
+
+      - name: Pull and restart
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -p "${{ vars.DEPLOY_PORT || 22 }}" \
+              "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" \
+              bash -s < /tmp/deploy.sh
+
+      - name: Leave no key behind
+        if: always()
+        run: rm -f ~/.ssh/id_deploy /tmp/deploy.sh

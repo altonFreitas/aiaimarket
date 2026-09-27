@@ -297,12 +297,14 @@ Point your domain's A record at the server, as in Step 4 below, and set
 
 ### Deploying a change
 
-Pushing to `main` runs the tests (`.github/workflows/verify.yml`) and, only
-if they pass, builds and publishes two images to this repository's own
-registry (`.github/workflows/deploy.yml`). Before the first run, set three
-**repository variables** under *Settings → Secrets and variables → Actions
-→ Variables* — variables, not secrets, because all three are in every
-visitor's browser anyway:
+Push to `main`. The tests run (`.github/workflows/verify.yml`) and, only if
+they pass, `deploy.yml` builds two images, publishes them to this
+repository's own registry, and — once you have told it where your server is
+— pulls and restarts them there.
+
+**Three repository variables**, under *Settings → Secrets and variables →
+Actions → **Variables***. Variables, not secrets: all three are in every
+visitor's browser anyway.
 
 ```
 NEXT_PUBLIC_SUPABASE_URL
@@ -310,25 +312,70 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_SITE_URL
 ```
 
-Then on the server:
+That much publishes the images. To have them land on your server as well,
+add five more.
 
-```bash
-docker compose pull && docker compose up -d
-curl -s https://your-domain/api/health     # check the revision changed
+**Variables:**
+
+```
+DEPLOY_HOST    your.server.tl          # nothing deploys until this is set
+DEPLOY_USER    deploy
+DEPLOY_PATH    /srv/aiaimarket         # where docker-compose.yml and .env live
+DEPLOY_PORT    22                      # optional
 ```
 
-The workflow does not log in to your server — that would need an SSH key
-in the repository and a decision about who may push to `main`. Pulling is
-the command above; automate it with a cron entry or Watchtower if you want
-it hands-off.
+**Secrets** (*…→ Secrets*):
+
+```
+DEPLOY_SSH_KEY        the PRIVATE half of a key the server accepts
+DEPLOY_KNOWN_HOSTS    ssh-keyscan -p 22 your.server.tl
+```
+
+`DEPLOY_KNOWN_HOSTS` is not optional and is not paperwork. The alternative
+is turning host-key checking off, which hands your deploy key and a shell
+to whatever answers on that address — and on the first run after a hijacked
+DNS record, that is exactly what nobody notices.
+
+On the server, once:
+
+```sh
+adduser --disabled-password deploy
+usermod -aG docker deploy                       # so it can run compose
+mkdir -p ~deploy/.ssh && chmod 700 ~deploy/.ssh
+# paste the PUBLIC half into ~deploy/.ssh/authorized_keys
+```
+
+`DEPLOY_PATH` needs `docker-compose.yml` and a filled-in `.env` — clone the
+repo there, as in **Once** above. The server never builds, but Compose still
+reads the `NEXT_PUBLIC_*` values out of `.env` on every command, so they
+have to be there even though only the image was built with them.
+
+**What the deploy does, in order:** notes which revision is answering now;
+logs in to the registry; pulls the exact commit (not `:latest`); restarts;
+then waits up to a minute for `/api/health` to report the new revision. If
+it never does, it puts the previous one back and fails the run — because
+`docker compose up` succeeds the moment a container starts, which a broken
+image does too, a second before it dies.
+
+Nothing secret is passed as an argument to `ssh`: the whole script and its
+values go in on standard input, because arguments become the remote shell's
+command line and sit in the server's process list for as long as the deploy
+takes.
 
 ### Rolling back
 
-Every build is tagged with its commit, so a rollback is naming one:
+Every build is tagged with its commit, so a rollback is naming one. Both
+images — the deploy job moves them together, and leaving the scheduler on
+the newer one is how you get a half-rolled-back shop:
 
 ```bash
-APP_IMAGE=ghcr.io/altonfreitas/aiaimarket:a1b2c3d docker compose up -d
+APP_IMAGE=ghcr.io/altonfreitas/aiaimarket:a1b2c3d \
+CRON_IMAGE=ghcr.io/altonfreitas/aiaimarket-cron:a1b2c3d \
+docker compose up -d --no-build
 ```
+
+A deploy that fails its health check does this for you, to whatever was
+running before it.
 
 ### What Docker does NOT do
 

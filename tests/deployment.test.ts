@@ -33,7 +33,14 @@ const shell = (p: string) => read(p).split("\n")
   .filter((l) => !/^\s*#/.test(l)).join("\n");
 const CRON_SH = shell("docker/cron.sh");
 const ENTRY = shell("docker/cron-entrypoint.sh");
-const DEPLOY = read(".github/workflows/deploy.yml");
+/* Comments stripped, for the third time in this file and for the same
+   reason: the workflow explains at length why it does NOT turn host-key
+   checking off, so a guard reading the raw file found the explanation and
+   failed against a correct file. This takes out YAML comments and the
+   shell comments inside the embedded script together -- both are prose,
+   and a guard satisfied by prose is not a guard. */
+const DEPLOY = read(".github/workflows/deploy.yml").split("\n")
+  .filter((l) => !/^\s*#/.test(l)).join("\n");
 const NEXT_CONFIG = read("next.config.ts");
 /* COMMENTS STRIPPED, and not for tidiness. The route explains at length
    why it does NOT call Supabase, so a guard reading the raw file found the
@@ -302,5 +309,124 @@ describe("the deploy is gated on the tests passing", () => {
   it("builds the scheduler too, not only the server", () => {
     expect(DEPLOY).toMatch(/target: cron/);
     expect(DEPLOY).toMatch(/target: runtime/);
+  });
+});
+
+describe("the deploy onto the server", () => {
+  /* The job is opt-in: until DEPLOY_HOST is set it does not run, because
+     publishing the image is useful on its own and a repo with no server
+     yet should not carry a red workflow. What it does once it is on is
+     the three commands DEPLOY.md gives a person, plus the two things a
+     person would do and a script usually forgets. */
+  const job = DEPLOY.slice(DEPLOY.indexOf("  deploy:"));
+
+  it("has a deploy job at all, so this cannot pass by reading nothing", () => {
+    expect(job.length).toBeGreaterThan(500);
+    expect(job).toMatch(/needs: image/);
+  });
+
+  it("does not run until a server is named", () => {
+    expect(job).toMatch(/if: vars\.DEPLOY_HOST != ''/);
+  });
+
+  it("but is loud when a server is named and the rest is not", () => {
+    // A secret cannot be read in a job-level `if`, so the pair is checked
+    // in a step. Half-configured must fail, not skip.
+    expect(job).toMatch(/DEPLOY_SSH_KEY/);
+    expect(job).toMatch(/DEPLOY_KNOWN_HOSTS/);
+    expect(job).toMatch(/::error::/);
+  });
+
+  it("verifies the host key rather than trusting whatever answers", () => {
+    /* StrictHostKeyChecking=no hands the deploy key and a shell to
+       whatever is on that address -- which on a hijacked DNS record is
+       exactly what nobody notices. */
+    expect(job).not.toMatch(/StrictHostKeyChecking/);
+    // The file has to be WRITTEN. Naming it in a chmod is not the same
+    // thing, and was what an earlier version of this guard accepted.
+    expect(job).toMatch(/> ~\/\.ssh\/known_hosts/);
+  });
+
+  it("refuses to sit at a password prompt", () => {
+    // Without BatchMode a key that is not accepted hangs the job until it
+    // times out, with nothing in the log to say why.
+    expect(job).toMatch(/BatchMode=yes/);
+  });
+
+  it("puts nothing secret on the remote command line", () => {
+    /* Arguments to ssh become the remote shell's command line, readable
+       in the server's process list for as long as the deploy runs. The
+       script and its values go in on stdin instead. */
+    expect(job).toMatch(/bash -s < \/tmp\/deploy\.sh/);
+    expect(job).not.toMatch(/REGISTRY_TOKEN='\$REGISTRY_TOKEN'\s*\\?\s*\n?\s*bash/);
+  });
+
+  it("deploys the commit that was built, not :latest", () => {
+    // :latest cannot be named, so a deploy of it cannot be rolled back to
+    // or reasoned about afterwards.
+    expect(job).toMatch(/APP_IMAGE="\$IMAGE:\$REVISION"/);
+    expect(job).toMatch(/needs\.image\.outputs\.sha/);
+  });
+
+  it("does not compile on the server", () => {
+    // A build there would need the NEXT_PUBLIC_* values again and take
+    // ten minutes on a small box.
+    /* EVERY `compose up`, not just the first. There are two -- the
+       deploy and the rollback -- and one of them quietly building is the
+       failure this counts rather than matches. */
+    const ups = (job.match(/docker compose up/g) ?? []).length;
+    expect(ups).toBeGreaterThan(1);
+    expect((job.match(/--no-build/g) ?? []).length).toBe(ups);
+  });
+
+  it("checks the new revision is the one answering", () => {
+    /* THE DIFFERENCE BETWEEN A DEPLOY AND A GREEN TICK. `docker compose
+       up` succeeds when the container starts, which it does even when the
+       image is broken enough to crash a second later. */
+    // The LOOP, not the error message beside it: deleting the wait and
+    // keeping the message is exactly what a hurried edit does.
+    expect(job).toMatch(/for _ in \$\(seq 1 \d+\); do/);
+    expect(job).toMatch(/if \[ "\$\(revision_now\)" = "\$REVISION" \]; then/);
+    // And the check comes after the restart, or it is checking the old one.
+    expect(job.indexOf("docker compose up"))
+      .toBeLessThan(job.indexOf('if [ "$(revision_now)" = "$REVISION" ]'));
+    expect(job).toMatch(/did not answer/);
+  });
+
+  it("reads the port from Docker rather than assuming 3000", () => {
+    // APP_PORT lives in the server's .env, which this script must not
+    // read -- it holds the keys.
+    expect(job).toMatch(/docker compose port app 3000/);
+  });
+
+  it("puts the previous revision back when the new one does not answer", () => {
+    expect(job).toMatch(/PREVIOUS=\$\(revision_now\)/);
+    expect(job).toMatch(/putting \$PREVIOUS back/);
+  });
+
+  it("only rolls back to something the registry actually has", () => {
+    /* A shop built by hand reports "local"; pulling ghcr.io/...:local
+       fails in a way that reads like a second, unrelated problem on top
+       of the first. Seven hex characters, or nothing. */
+    expect(job).toMatch(/\[0-9a-f\]\[0-9a-f\]\[0-9a-f\]\[0-9a-f\]\[0-9a-f\]\[0-9a-f\]\[0-9a-f\]/);
+    expect(job).toMatch(/nothing to roll back to/);
+  });
+
+  it("fails the run when the deploy failed", () => {
+    // Under `set -eu`, and ending in exit 1 rather than falling off the
+    // end after the rollback.
+    expect(job).toMatch(/set -eu/);
+    /* The LAST statement of the script, after the rollback. `exit 1`
+       elsewhere in the job -- the settings check has one -- says nothing
+       about what happens when a deploy does not come up. */
+    const script = job.slice(job.indexOf("set -eu"), job.indexOf("OUTER\n"));
+    const statements = script.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    expect(statements[statements.length - 1]).toBe("exit 1");
+  });
+
+  it("leaves no key and no token behind", () => {
+    expect(job).toMatch(/docker logout ghcr\.io/);
+    expect(job).toMatch(/rm -f ~\/\.ssh\/id_deploy/);
+    expect(job).toMatch(/if: always\(\)/);
   });
 });
