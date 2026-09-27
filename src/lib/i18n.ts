@@ -602,6 +602,20 @@ export const STR: Record<string, [string,string,string]> = {
   applyFilters:["Aplika","Aplicar","Apply"],
   clearFilters:["Hamoos filtru","Limpar filtros","Clear filters"],
   filters:["Filtru","Filtros","Filters"],
+  /* THE CATALOGUE HEADER, on the reference's shape: a small kicker over a
+     headline over one line of description. The headline is the shop's own
+     tagline (Settings), so it says what this shop sells rather than what
+     some other shop sells. */
+  shopKicker:["SOSA HOTU","COMPRAR TUDO","SHOP ALL"],
+  shopSub:["Haree ropa, sapatu, asesóriu no sasán fitness.","Descubra roupa, calçado, acessórios e artigos de fitness.","Discover clothing, footwear, accessories and fitness essentials."],
+  /* "52 products found", not a bare number beside a word -- the bar is the
+     answer to what the filters just did. */
+  productsFound:["Hetan produtu {n}","{n} produtos encontrados","{n} products found"],
+  sortBy:["Ordena tuir","Ordenar por","Sort by"],
+  newBadge:["FOUN","NOVO","NEW"],
+  /* The empty result's second way out: the first clears the filters, this
+     one leaves them behind entirely. */
+  shopEverything:["Haree buat hotu","Ver tudo","Browse everything"],
   page:["Pájina","Página","Page"],
   pageOf:["husi","de","of"],
   prevPage:["Molok","Anterior","Previous"],

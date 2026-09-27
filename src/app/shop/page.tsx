@@ -5,6 +5,7 @@ import { categoryFilterIds } from "@/lib/nav";
 import { getLang } from "@/lib/lang";
 import { t } from "@/lib/i18n";
 import { listingMetadata } from "@/lib/listingMeta";
+import { taglineOf } from "@/lib/tagline";
 import { parseAttributeFilters } from "@/lib/attributeFilterParams";
 import { filtersFor, idsMatching } from "@/lib/data/attributeFilters";
 
@@ -69,7 +70,14 @@ export default async function ShopPage({
 
   return (
     <CatalogLayout
-      title={t("catalog", lang)}
+      /* THE HEADLINE IS THE SHOP'S OWN LINE, not the word "Catalog".
+         The reference puts SHOP ALL over "Fashion, Apparel & Fitness
+         Lifestyle" over one line of description -- and the middle one is
+         the thing a shop writes for itself, in Settings. A shop that has
+         not written one gets the word back, rather than an empty heading. */
+      kicker={t("shopKicker", lang)}
+      title={taglineOf(settings, lang) || t("catalog", lang)}
+      sub={t("shopSub", lang)}
       cats={cats}
       allProducts={allProducts}
       result={result}

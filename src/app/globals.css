@@ -392,8 +392,6 @@ input::placeholder,textarea::placeholder{font-size:var(--fs-sm);
    min-width:0 does NOT fix this: the automatic minimum size applies to the
    MAIN axis, which in a column container is vertical. */
 .wrap{max-width:var(--content-w);width:100%;margin:0 auto;padding:14px 12px 90px}
-.cols{display:block}
-.side{display:none}
 .crumb{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 .crumb a{text-decoration:none}
 .crumb a:hover{text-decoration:underline}
@@ -453,9 +451,6 @@ h1{font-size:20px;line-height:1.2;margin:0 0 4px;letter-spacing:-.02em;font-weig
 h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
 
-/* ---------- category rail / sidebar (C2,C3,C5) ---------- */
-.cat-rail{display:flex;gap:6px;overflow-x:auto;padding:0 0 10px;margin:0 0 6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.cat-rail::-webkit-scrollbar{display:none}
 .chip{flex:0 0 auto;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:7px 12px;font-size:13px;
   text-decoration:none;display:inline-flex;gap:6px;align-items:center;cursor:pointer}
 .chip .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
@@ -471,15 +466,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .chip.is-on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
 .chip.is-on .n{color:rgba(255,255,255,.7)}
 .chip.is-on:hover{background:var(--ink-3)}
-.side-list{list-style:none;margin:0;padding:0}
-.side-list a,.side-cat-btn{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;text-decoration:none;border-radius:var(--r-s);font-size:14px;
-  width:100%;border:0;background:transparent;color:inherit;font-family:inherit;text-align:left;cursor:pointer}
-.side-list a:hover,.side-cat-btn:hover{background:var(--line-2)}
-.side-list a[aria-current=true],.side-cat-btn[aria-current=true]{background:var(--ink);color:#fff;font-weight:600}
-.side-list .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.side-list a[aria-current=true] .n,.side-cat-btn[aria-current=true] .n{color:rgba(255,255,255,.7)}
-.side-list .sub-cat a{padding-left:22px;font-size:13px;color:var(--muted)}
-
 /* ---------- toolbar ---------- */
 .bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
 .bar select,.bar input[type=text]{height:34px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--card);padding:0 8px;font-size:13px}
@@ -565,9 +551,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .card .pr-row{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;margin-top:auto;min-height:23px}
 .card .pr-discount{font-family:var(--mono);font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--red)}
 .card .pr-original{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-decoration:line-through}
-.card .pr-pct{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--red);margin-left:4px}
 .card .mt{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;font-family:var(--mono);min-height:15px}
-.card .sold-by{font-size:10.5px;color:var(--muted-2);min-height:14px}
 /* The stock badge and the heart sit on one line in the corner of the photo.
    The badge used to place itself; it cannot any more, because "right after
    IN STOCK" depends on how wide IN STOCK is in the language being read --
@@ -1527,45 +1511,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   .hd-logo{position:static;transform:none}
   .hd-logo b{display:inline}
   .grid{grid-template-columns:repeat(3,1fr);gap:14px}
-  /* The rail runs to the viewport's LEFT EDGE.
-     .wrap centres its children inside --content-w, so on a wide screen
-     there is a margin the rail would otherwise start after. Rather than
-     negative-margin the grid back out (and then pad the text back in --
-     the previous approach, which shoved the rail's own text 240px inward
-     on a 1920px screen and overflowed it on top of the hero), the wrapper
-     simply stops centring on pages that have a rail. No vw arithmetic, so
-     no scrollbar-width drift and no horizontal overflow at any size. */
-  .wrap-rail{max-width:none;padding-left:0;padding-right:0}
-  .cols{display:grid;grid-template-columns:246px minmax(0,1fr);gap:22px;align-items:stretch}
-  .side-wrap{position:relative;display:flex;min-width:0}
-  /* No align-self:start here on purpose -- that would cancel .cols'
-     align-items:stretch above and put this back to shrink-wrapping its own
-     list items, which is the "floating box with a big empty gap under it"
-     problem this replaced. Left stretched, it reads as a continuous rail
-     next to the page content -- and position:sticky still pins the
-     category LIST near the top while the page scrolls, because sticky only
-     affects where a box's top edge sits, not how tall the box is. */
-  .side{display:flex;flex-direction:column;flex:1;min-width:0;
-    position:sticky;top:calc(var(--chrome-h) + 12px);
-    background:var(--card);border:0;border-radius:0;
-    border-right:1px solid var(--line);
-    box-shadow:none;margin:0;padding:14px 14px 18px 16px}
-  /* The content column keeps a gutter on the right so it does not run
-     into the window edge, and stops short of absurd line lengths on an
-     ultrawide monitor. */
-  .cols > :last-child{min-width:0;padding-right:16px;max-width:1560px}
-
-  /* Hover mega panel: anchored to the rail's right edge and overlaying the
-     page rather than pushing it sideways -- a menu that reflows the content
-     underneath it is disorienting to use. Desktop-only by virtue of living
-     in this media query; the rail itself is hidden on mobile, where the
-     .cat-rail strip is the category nav instead. */
-  .side-mega{position:absolute;left:100%;top:0;z-index:55;
-    width:min(760px, calc(100vw - 280px));
-    background:var(--card);border:1px solid var(--line);border-left:0;
-    border-radius:0 var(--r) var(--r) 0;box-shadow:var(--sh);
-    padding:16px 18px;animation:megaIn .12s ease-out}
-  .cat-rail{display:none}
   .nav{display:none}
   .ft{padding-bottom:16px}
   .hd-mob{display:none}
@@ -1639,20 +1584,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   .hero-slide-h{font-size:36px}
   .hero-slide-sub{font-size:15.5px;max-width:52ch}
 }
-/* ---------- catalog filters, pagination, ratings, reviews ---------- */
-/* The price filter is a form inside .bar, so it needs to keep the bar's
-   flex rhythm rather than starting a new row of its own on desktop. */
-.price-filter{display:flex;align-items:center;gap:5px;flex-wrap:nowrap}
-.price-filter-label{font-size:12px;color:var(--muted);font-family:var(--mono);
-  text-transform:uppercase;letter-spacing:.06em}
-.price-filter input{width:74px;height:34px;border:1px solid var(--line);border-radius:var(--r-s);
-  background:var(--card);padding:0 7px;font-size:13px;font-family:var(--mono)}
-/* Number spinners eat most of a 74px input on desktop and are useless on a
-   phone, where the numeric keypad is the real control. */
-.price-filter input::-webkit-outer-spin-button,
-.price-filter input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.price-filter input[type=number]{-moz-appearance:textfield;appearance:textfield}
-
 .pager{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:18px 0 4px}
 .pager-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 /* 38px minimum on every target: this is the primary way to move through a
@@ -2319,44 +2250,6 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
   padding:4px 10px;letter-spacing:-.01em;line-height:1.2;
   box-shadow:0 1px 4px rgba(0,0,0,.28)}
 
-/* ---------- category rail: heading + hover mega panel ---------- */
-/* These are outside the desktop media query because they only ever render
-   inside .side / .side-mega, which are themselves desktop-only. Keeping
-   them here avoids nesting a keyframes rule inside a media block. */
-@keyframes megaIn{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
-
-.side-hd{margin:0 0 6px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-
-.side-mega-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding-bottom:10px;margin-bottom:12px;border-bottom:1px solid var(--line-2)}
-.side-mega-hd a{font-size:17px;font-weight:700;text-decoration:none;color:var(--ink)}
-.side-mega-hd a:hover{text-decoration:underline}
-.side-mega-n{font-family:var(--mono);font-size:11px;color:var(--muted)}
-
-.side-mega-cols{list-style:none;margin:0 0 14px;padding:0;columns:3;column-gap:22px}
-.side-mega-cols li{break-inside:avoid;margin-bottom:5px}
-.side-mega-cols a{display:flex;justify-content:space-between;gap:8px;text-decoration:none;
-  font-size:13.5px;color:var(--ink-3);padding:3px 0}
-.side-mega-cols a:hover{color:var(--ink);text-decoration:underline}
-/* The third level, under the second. Indented and quieter, so the child
-   still reads as the heading of the group rather than as one more sibling
-   in a flat list of twenty. break-inside on the parent li already keeps a
-   group from being split across two columns. */
-.side-mega-sub{list-style:none;margin:2px 0 8px;padding:0 0 0 10px;
-  border-left:1px solid var(--line)}
-.side-mega-sub a{font-size:var(--fs-sm);color:var(--muted)}
-.side-mega-sub a:hover{color:var(--ink)}
-.side-mega-cols .n{font-family:var(--mono);font-size:11px;color:var(--muted-2)}
-
-.side-mega-prev{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.side-mega-card{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:4px}
-.side-mega-card img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;
-  border-radius:var(--r-s);border:1px solid var(--line-2);background:var(--line-2)}
-.side-mega-card-nm{font-size:12.5px;font-weight:600;line-height:1.25;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.side-mega-card-pr{font-size:12.5px;color:var(--ink-3)}
-.side-mega-card-pr b{color:var(--red)}
-
 /* ===== sales management dashboard ===================================== */
 
 /* Two-tier admin nav. The top row is the six domains; the sub row is the
@@ -2933,12 +2826,11 @@ span.stock-btn:hover{filter:none}
    rather than as a choice. */
 .empty-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center;margin-top:var(--sp-4)}
 
-/* The bar of category buttons that used to sit under the header, and its
-   mega panel, are gone with lib/nav.ts's audience roots -- see
-   components/Header.tsx. The shop's whole tree lives down the left of
-   /shop, reached from the icon beside the search box; a phone reaches the
-   same tree through MobileNav's sheet, which is why THAT panel's styles
-   (.side-mega-*) are still above and these are not. */
+/* The bar of category buttons that used to sit under the header is gone
+   with lib/nav.ts's audience roots -- see components/Header.tsx. The
+   shop's whole tree is reached from Categories in the header, from the
+   aisle cards at the top of /shop, and from MobileNav's sheet on a
+   phone. */
 
 /* ---------- homepage rails ---------- */
 /* A gap between the navigation bar and the hero. Both are near-black navy,
@@ -4077,32 +3969,7 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
 }
 
 /* ---------- generated catalogue filters ---------- */
-/* Built from the attributes a category's product types ask for -- see
-   components/AttributeFilters.tsx. Links rather than checkboxes, so a
-   filtered catalogue is a place that can be bookmarked and shared, and so
-   the page needs no JavaScript to filter at all. */
-.cat-side{display:flex;flex-direction:column;gap:var(--sp-3)}
 .filters{display:flex;flex-direction:column;gap:var(--sp-1)}
-.filters-head{display:flex;align-items:baseline;justify-content:space-between;
-  gap:var(--sp-2)}
-.filters-head h2{margin:0;font-size:var(--fs-body)}
-.filter-group{border-bottom:1px solid var(--line);padding-bottom:6px}
-.filter-group > summary{cursor:pointer;padding:6px 0;font-weight:600;
-  display:flex;align-items:center;gap:6px;font-size:var(--fs-sm)}
-.filter-group > summary::-webkit-details-marker{display:none}
-.filter-group ul{list-style:none;margin:0 0 4px;padding:0;
-  display:flex;flex-direction:column;gap:2px;
-  /* A colour list can be long. Scroll the group rather than the page. */
-  max-height:220px;overflow:auto}
-.filter-opt{display:flex;justify-content:space-between;gap:8px;
-  padding:5px 8px;border-radius:var(--r-s);text-decoration:none;
-  color:var(--ink);font-size:var(--fs-sm)}
-.filter-opt:hover{background:var(--surface-2)}
-/* The chosen ones, marked by more than colour: a tick as well, so it does
-   not depend on being able to tell the two backgrounds apart. */
-.filter-opt.is-on{background:var(--ink);color:#fff;font-weight:600}
-.filter-opt.is-on span:first-child::before{content:"\2713\00a0"}
-
 /* ---------- finishing the catalogue (/admin/migrate) ---------- */
 /* One row per category, because that is the unit of the decision -- see
    components/admin/MigrateAdmin.tsx. */
@@ -4629,3 +4496,182 @@ a.infocard:hover .infocard-arw{transform:translateX(3px)}
   background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,.04))}
 @media (prefers-reduced-motion:reduce){.hero-rail-item{transition:none}
   .hero-rail-item:hover{transform:none}}
+
+/* ===== the catalogue, on the reference's shape ========================
+   What stood here: a 246px column of category names down the left of
+   every catalogue page, a filter panel under it, and a bar above the grid
+   carrying sort AND price AND the in-stock tick. Three places to narrow
+   one catalogue, and a column of the shop's aisles taking a sixth of the
+   width for the whole session to answer a question -- "what else is
+   there" -- that a shopper asks once, at the start.
+
+   Now: the aisles are cards across the top, everything that narrows is in
+   one rail, and the bar above the grid answers how many and in what
+   order. The header's Categories menu already holds the whole tree, so
+   nothing was lost with the sidebar. ==================================== */
+
+/* The anchor the filter rail's close link returns to. */
+#shop-top{display:block;scroll-margin-top:100px}
+
+/* ---------- the header band ---------- */
+.shop-hd{margin:0 0 var(--sp-4)}
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;
+  font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted)}
+.crumbs a{color:var(--muted);text-decoration:none}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs [aria-current=page]{color:var(--ink)}
+.shop-kicker{margin:0;font-family:var(--mono);font-size:var(--fs-sm);
+  letter-spacing:.16em;color:var(--muted)}
+.shop-title{margin:2px 0 6px;font-size:clamp(26px,4.2vw,40px);line-height:1.08}
+.shop-sub{margin:0 0 var(--sp-3);color:var(--muted);font-size:var(--fs-body);max-width:62ch}
+
+/* ---------- the aisles, as cards ----------
+   A scroller on a phone and a row that fits on a desktop, from the one
+   set of rules: the strip always scrolls, and at 900px the items are told
+   to share the width instead of keeping their own. */
+.aisles{list-style:none;margin:0;padding:0 0 var(--sp-1);display:flex;gap:10px;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.aisles::-webkit-scrollbar{display:none}
+.aisles>li{flex:0 0 auto;min-width:0}
+.aisle{display:flex;align-items:center;gap:10px;min-width:190px;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:8px 10px;text-decoration:none;color:var(--ink);box-shadow:var(--sh-1);
+  transition:border-color .15s var(--ease),box-shadow .15s var(--ease)}
+.aisle:hover{border-color:var(--ink);box-shadow:var(--sh-2)}
+.aisle.is-on{background:var(--ink);border-color:var(--ink);color:#fff}
+.aisle-ph{flex:0 0 auto;width:44px;height:44px;border-radius:8px;
+  overflow:hidden;background:var(--line-2)}
+.aisle-ph img{width:100%;height:100%;object-fit:cover}
+.aisle-txt{display:flex;flex-direction:column;min-width:0}
+.aisle-nm{font-size:var(--fs-sm);font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aisle-n{font-family:var(--mono);font-size:var(--fs-caption);color:var(--muted)}
+.aisle.is-on .aisle-n{color:rgba(255,255,255,.72)}
+.aisle-go{margin-left:auto;color:var(--muted)}
+.aisle.is-on .aisle-go{color:rgba(255,255,255,.8)}
+@media(min-width:900px){
+  .aisles{overflow:visible}
+  .aisles>li{flex:1 1 0}
+  .aisle{min-width:0}
+}
+
+/* ---------- the two columns ---------- */
+.shop-cols{display:block}
+.shop-main{min-width:0}
+@media(min-width:1024px){
+  .shop-cols{display:grid;grid-template-columns:248px minmax(0,1fr);
+    gap:var(--sp-6);align-items:start}
+}
+
+/* ---------- the filter rail ----------
+   OFF-CANVAS ON A NARROW SCREEN, AND :target OPENS IT. The button in the
+   bar is a link to this element's id, so the filters open with JavaScript
+   switched off -- the same reason every filter inside is a link rather
+   than a checkbox. Following any of them navigates, which drops the hash
+   and closes the rail, which is also the behaviour you want.
+
+   visibility, not just the transform: a panel translated off-screen is
+   still in the tab order and still read out, so a shopper on a phone
+   would tab from the sort control into a drawer nobody had opened. */
+.frail{position:fixed;top:0;bottom:0;left:0;z-index:70;
+  width:min(330px,88vw);overflow-y:auto;
+  background:var(--card);border-right:1px solid var(--line);box-shadow:var(--sh-3);
+  padding:var(--sp-3) var(--sp-3) 90px;
+  visibility:hidden;transform:translateX(-102%);
+  transition:transform .2s var(--ease),visibility .2s var(--ease)}
+.frail:target{visibility:visible;transform:none}
+@media(min-width:1024px){
+  .frail{position:sticky;top:96px;left:auto;bottom:auto;
+    width:auto;max-height:calc(100vh - 116px);
+    visibility:visible;transform:none;box-shadow:none;
+    border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3)}
+  .frail-x{display:none}
+}
+.frail-hd{display:flex;align-items:center;gap:8px;margin:0 0 var(--sp-1)}
+.frail-hd h2{margin:0;font-size:var(--fs-body);letter-spacing:.04em}
+.frail-hd .btn-link{margin-left:auto;font-size:var(--fs-sm)}
+.frail-x{font-size:22px;line-height:1;color:var(--muted);text-decoration:none;padding:0 4px}
+.frail-x:hover{color:var(--ink)}
+
+.fgroup{border-top:1px solid var(--line)}
+.fgroup>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;
+  padding:9px 0;font-weight:700;font-size:var(--fs-sm)}
+.fgroup>summary::-webkit-details-marker{display:none}
+/* The +/- the reference draws, from the open state rather than an icon. */
+.fgroup>summary::after{content:"+";margin-left:auto;font-family:var(--mono);color:var(--muted)}
+.fgroup[open]>summary::after{content:"\2013"}
+
+.fopts{list-style:none;margin:0 0 var(--sp-2);padding:0;max-height:264px;overflow:auto}
+.fopts-sub{margin:2px 0 4px;padding-left:10px;max-height:none;overflow:visible}
+.fopt{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;
+  border-radius:var(--r-s);text-decoration:none;color:var(--ink);font-size:var(--fs-sm)}
+.fopt:hover{background:var(--line-2)}
+.fopt.is-on{background:var(--ink);color:#fff;font-weight:600}
+.fopt.is-on .hint{color:rgba(255,255,255,.75)}
+
+.fchips{list-style:none;margin:0 0 var(--sp-2);padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.fchip{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  font-size:var(--fs-sm);text-decoration:none;color:var(--ink)}
+.fchip:hover{border-color:var(--ink)}
+.fchip.is-on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.fchip.is-on .hint{color:rgba(255,255,255,.75)}
+
+/* The colour axis is drawn rather than spelled -- a row of dots is read
+   at a glance where a column of words is read a line at a time. The name
+   is still there for a screen reader and for a hover; a swatch on its own
+   names nothing. */
+.fswatches{list-style:none;margin:0 0 var(--sp-2);padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.fswatch{display:block;width:28px;height:28px;padding:2px;border-radius:var(--r-pill);
+  border:1px solid var(--line);background:var(--card)}
+.fswatch:hover{border-color:var(--ink)}
+.fswatch.is-on{border-color:var(--ink);box-shadow:0 0 0 2px var(--ink)}
+.fswatch-dot{display:block;width:100%;height:100%;border-radius:var(--r-pill);
+  background:var(--line-2);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+
+.fprice{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:0 0 var(--sp-2)}
+.fprice input{width:78px;height:36px;padding:0 8px;font-size:var(--fs-sm);
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s)}
+.fprice input::-webkit-outer-spin-button,
+.fprice input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.fprice input[type=number]{-moz-appearance:textfield;appearance:textfield}
+
+/* ---------- the bar above the grid ---------- */
+.shop-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 0 var(--sp-3);padding:0 0 var(--sp-2);border-bottom:1px solid var(--line)}
+.shop-found{margin:0;font-size:var(--fs-body);font-weight:700}
+.shop-filter-btn{margin-left:auto}
+.shop-sort{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.shop-sort-lb{font-size:var(--fs-sm);color:var(--muted)}
+.shop-sort select{height:36px;padding:0 8px;font-size:var(--fs-sm);
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s)}
+/* On a phone the count takes its own line and the two controls share the
+   next one -- Filters left, Sort right. Left to wrap on their own the
+   three landed as count+Filters, then Sort alone underneath and hard
+   against the right edge, which reads as a stray control. */
+@media(max-width:1023px){
+  .shop-found{flex:1 1 100%}
+  .shop-filter-btn{margin-left:0}
+}
+@media(min-width:1024px){ .shop-filter-btn{display:none} }
+
+/* ---------- what the reference's card says that ours did not ---------- */
+/* The brand, over the name. In this marketplace the brand is the shop
+   that stocks it -- the only one the catalogue actually knows. It read
+   "Sold by AITA STORE" under the price before: the same fact, three words
+   longer, in the place the eye reaches last. */
+.card-brand{font-family:var(--mono);font-size:var(--fs-caption);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--muted-2);min-height:14px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-new{background:var(--ink);color:#fff;font-family:var(--mono);font-size:10px;
+  letter-spacing:.06em;font-weight:700;padding:3px 6px;border-radius:4px}
+.card-colors{list-style:none;margin:2px 0 0;padding:0;display:flex;gap:5px}
+.card-color{width:12px;height:12px;border-radius:var(--r-pill);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.card-sizes{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+.card-size{font-family:var(--mono);font-size:10px;line-height:1.6;color:var(--muted);
+  border:1px solid var(--line);border-radius:4px;padding:0 5px}
+/* Struck through only when the ledger SAYS none -- never when it has said
+   nothing at all. See lib/data/cardFacts.ts. */
+.card-size.is-gone{color:var(--muted-2);opacity:.55;text-decoration:line-through}

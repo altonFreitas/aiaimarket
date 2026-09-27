@@ -93,7 +93,7 @@ describe("prices print in dollars, and say so", () => {
   const STOREFRONT = [
     "src/components/ProductCard.tsx", "src/components/BasketView.tsx",
     "src/components/ProductInteractive.tsx",
-    "src/components/Sidebar.tsx", "src/components/MobileNav.tsx",
+    "src/components/MobileNav.tsx",
   ];
 
   it("uses the one formatter", () => {

@@ -12,14 +12,26 @@ import HeartIcon from "./HeartIcon";
 import { toggleLoveAction } from "@/lib/actions/loves";
 import { useToast } from "@/components/Toast";
 import type { Product } from "@/lib/types";
+import type { CardFacts } from "@/lib/cardFacts";
 import type { Lang } from "@/lib/types";
 
 const BADGE = { in: ["b-in", "stockIn"], low: ["b-low", "stockLow"], out: ["b-out", "stockOut"] } as const;
 
 
 export default function ProductCard(
-  { p, lang, sellerName, flag }:
-  { p: Product; lang: Lang; sellerName?: string; flag?: string },
+  { p, lang, sellerName, flag, facts, isNew }:
+  {
+    p: Product; lang: Lang; sellerName?: string; flag?: string;
+    /* THE COLOURS AND SIZES THIS IS SOLD IN, read for the whole page at
+       once (lib/data/cardFacts.ts). Optional, and absent everywhere the
+       card is drawn outside a catalogue grid -- a homepage rail costs no
+       extra query and simply shows no rows. */
+    facts?: CardFacts;
+    /* Worked out on the server, not here: this component is a client one,
+       and asking the clock on both sides of the boundary is how a card
+       renders NEW on the server and not in the browser. */
+    isNew?: boolean;
+  },
 ) {
   const [cls, key] = BADGE[p.stock_status];
   const img = p.images?.[0] || placeholder(p.name);
@@ -115,9 +127,12 @@ export default function ProductCard(
             the card is what keeps it visible: the card lifts to z-index 3
             under the pointer, so a flag sitting outside it was painted over
             and vanished on exactly the card being looked at. */}
-        {(flag || pct != null) && (
+        {(flag || isNew || pct != null) && (
           <div className="card-flags">
             {flag && <span className="card-flag">{flag}</span>}
+            {/* Only when it is: see lib/cardBadges.ts. A shop where every
+                card says NEW has said nothing. */}
+            {isNew && !flag && <span className="card-new">{t("newBadge", lang)}</span>}
             {pct != null && <span className="card-deal">-{pct}%</span>}
           </div>
         )}
@@ -140,6 +155,14 @@ export default function ProductCard(
         />
       </div>
       <div className="body">
+        {/* WHO MADE IT, ABOVE WHAT IT IS. The reference puts the brand on
+            its own line over the name, and in this marketplace the brand
+            is the shop that stocks it -- the only one the catalogue
+            actually knows. It said "Sold by AITA STORE" under the price
+            before, which is the same fact three words longer and in the
+            place the eye reaches last. The blank keeps every card's body
+            the same height when a product has no seller on it. */}
+        <div className="card-brand">{sellerName || "\u00A0"}</div>
         <div className="nm">{p.name}</div>
         <div className="mt">
           {rating != null ? (
@@ -152,16 +175,51 @@ export default function ProductCard(
           {loc && rating != null ? <span aria-hidden="true">·</span> : null}
           {loc}
         </div>
-        <div className="sold-by">{sellerName ? `${t("soldBy", lang)} ${sellerName}` : "\u00A0"}</div>
         {pct != null ? (
+          /* No percentage here: it is already the red flag on the corner
+             of the photograph, and printing it twice on one card is the
+             same number arguing with itself. The struck-through list price
+             is what this row adds. */
           <div className="pr-row">
             <span className="pr-discount">{money(p.discount_price!)}</span>
             <span className="pr-original">{money(p.price)}</span>
-            <span className="pr-pct">-{pct}%</span>
           </div>
         ) : (
           <div className="pr">{money(p.price)}</div>
         )}
+        {/* THE COLOURS IT COMES IN, as dots.
+            Two or more only: one colour is not a choice, and a single dot
+            reads as a picker with nothing in it. A value that names no
+            drawable colour ("Natural", a supplier's code) gets no dot --
+            a black square meaning "not understood" is worse than nothing,
+            so the row is only drawn when something can be drawn. */}
+        {facts && facts.colors.filter((c) => c.swatch).length > 1 && (
+          <ul className="card-colors" aria-label={t("color", lang)}>
+            {facts.colors.filter((c) => c.swatch).map((c) => (
+              <li key={c.value} className="card-color" style={{ background: c.swatch! }}>
+                <span className="sr-only">{c.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* THE SIZES, AND WHICH ONES ARE THERE.
+            inStock === false is struck through; null is printed plainly,
+            because null means the ledger has never been told about this
+            product rather than that it has none. Saying "sold out" on
+            evidence nobody collected is the kind of promise this shop
+            does not make. */}
+        {facts && facts.sizes.length > 0 && (
+          <ul className="card-sizes" aria-label={t("size", lang)}>
+            {facts.sizes.map((s) => (
+              <li key={s.size}
+                className={"card-size" + (s.inStock === false ? " is-gone" : "")}>
+                {s.size}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <div className="card-add-slot">
           {p.stock_status !== "out" && (
             <button type="button" className="btn btn-sm btn-amber card-add" onClick={addToList}>

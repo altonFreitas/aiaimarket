@@ -79,3 +79,22 @@ export function pathOf(cats: readonly Category[], id: string): Category[] {
   }
   return out;
 }
+
+/** How many of these products sit anywhere in this category's subtree.
+ *
+ * THE WHOLE SUBTREE, and that is the entire reason this is a function
+ * rather than a filter written where it is needed. The tree is three deep
+ * in places -- Fitness & Wellness -> Sports Nutrition -> Protein -- and a
+ * count that stopped at the first level was missing most of what the
+ * aisle holds: the card said 3 over a page that listed 11.
+ *
+ * It lived twice, once in the aisle cards and once in the filter rail,
+ * which is how the two came to disagree in the first place. */
+export function countIn(
+  cats: readonly Category[],
+  products: readonly { category_id?: string | null }[],
+  id: string,
+): number {
+  const ids = new Set(descendantIds(cats, id));
+  return products.filter((p) => ids.has(p.category_id || "")).length;
+}

@@ -229,13 +229,13 @@ describe("both search paths say the same thing", () => {
 });
 
 describe("the shopper is told the number is a floor", () => {
-  const TOOLBAR = fs.readFileSync(
-    path.join(process.cwd(), "src/components/Toolbar.tsx"), "utf8");
+  const BAR = fs.readFileSync(
+    path.join(process.cwd(), "src/components/shop/ShopBar.tsx"), "utf8");
   const LAYOUT = fs.readFileSync(
     path.join(process.cwd(), "src/components/CatalogLayout.tsx"), "utf8");
 
   it('prints a "+" rather than a number the shop does not have', () => {
-    expect(TOOLBAR).toMatch(/\{count\}\{countCapped \? "\+" : ""\}/);
+    expect(BAR).toMatch(/\$\{count\}\$\{countCapped \? "\+" : ""\}/);
   });
 
   it("is actually given the flag", () => {

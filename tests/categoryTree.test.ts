@@ -103,7 +103,11 @@ describe("pathOf", () => {
 
 describe("nothing walks the tree one level deep any more", () => {
   it("has no [id, ...children] left in the storefront or the admin", () => {
-    for (const f of ["src/components/Sidebar.tsx", "src/components/CatRail.tsx",
+    /* The filter rail is not in this list because it no longer walks the
+       tree at all: it counts through countIn() here, which does. See
+       tests/catalogShell.test.ts, which checks that behaviour rather than
+       the import. */
+    for (const f of ["src/components/shop/CatalogHeader.tsx",
                      "src/components/admin/CategoriesAdmin.tsx", "src/lib/nav.ts"]) {
       expect(read(f), f).not.toMatch(/\[id, \.\.\.(cats|childrenOf)/);
       expect(read(f), f).toContain("descendantIds");
