@@ -505,48 +505,15 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
    photograph it was framing. The card keeps its ordinary hairline; the
    lift, the rounder corner and the shadow further down are what say "this
    one". */
-/* THE TILE IS THE CARD'S OWN WHITE, not a grey plate. Nothing of it is
-   meant to be seen: a photograph covers it. It shows through only where
-   the seller's file is transparent -- a cut-out shirt on no background --
-   and there the card's own colour is the one thing that cannot read as a
-   second colour, because the body below is already it. */
-.card .ph{aspect-ratio:1/1;background:var(--card);position:relative;overflow:hidden}
-/* TWO PRINTS OF THE ONE PHOTOGRAPH, STACKED.
-   Both fill the tile absolutely, so they lie exactly on top of each other
-   and the tile's own colour is never seen. */
-.card .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-/* BENEATH: the surround, and it comes out of the photograph.
-   The goods are held off the tile's edges (see .ph-goods), and something
-   has to fill the margin that leaves. No colour of ours can: a seller
-   photographs on white, on green, on a table, and any one colour we chose
-   would stand beside theirs as a second one -- a green cut-out in a grey
-   frame. Blurring the same picture up behind makes that margin the
-   photograph's own background instead. Green photograph, green margin, no
-   seam; and a picture with a transparent background gets a soft wash of
-   its own colours rather than a flat grey plate.
-
-   THE OVERSCALE IS NOT DECORATION. A blur samples past the edge of what it
-   is blurring, where there is nothing, so a print sized exactly to the
-   tile fades to transparent around its rim and lets the tile's colour back
-   in -- the very thing this rule exists to prevent. 1.3 pushes that soft
-   rim outside the tile, which clips it: 26px of cover on every side of the
-   172px tile a 390px phone draws, better than three times the radius.
-
-   AND THE BLUR IS SMALL ON PURPOSE. A big one looks softer but is worse at
-   the only job here, because it drags the colour of the goods out into the
-   margin: the seam between the photograph's own edge and the margin beside
-   it, measured across five grounds (green, white, transparent, pale grey,
-   the placeholder), runs 0-5 of 255 at 8px and 15-33 at 20px. Eight is
-   enough to smooth a busy ground and not enough to move it. */
-.card .ph .ph-wash{filter:blur(8px);transform:scale(1.3)}
-/* ON TOP: the goods, inset so they stop running under the wishlist heart.
-   The badges sit at 8px from the tile's edges and the picture filled it
-   corner to corner, so a shirt photographed to the edge of its frame came
-   right up against the heart -- two things touching that have nothing to
-   do with each other. The padding pulls the goods in; the badges stay
-   where they are, against the card rather than against the goods. */
-.card .ph .ph-goods{padding:14px 12px 10px;box-sizing:border-box;
-  background:var(--card);background-clip:content-box}
+.card .ph{aspect-ratio:1/1;background:var(--line-2);position:relative;overflow:hidden}
+/* CORNER TO CORNER, AND NOT INSET. The picture was pulled in from the
+   edges for a while so the goods could not run under the wishlist heart,
+   with a blurred print of itself filling the margin that left. Both are
+   gone: whatever colour stands in that margin is a colour the seller did
+   not upload, and a blurred one is worse than a flat one. The tile shows
+   the file and nothing else. Clearance from the heart is the
+   photographer's job, made at the time of shooting. */
+.card .ph img{width:100%;height:100%;object-fit:cover}
 /* The photo leans in when the pointer is on the card -- the frame stays put
    and the picture grows inside it, which is why .ph clips. Only where there
    is a real pointer to hover with, and only for someone who has not asked
@@ -554,12 +521,8 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
    strip the transition (see the global rule near the end of this file) and
    leave the jump without the ease, which is worse than not doing it. */
 @media (hover:hover) and (pointer:fine) and (prefers-reduced-motion: no-preference){
-  /* THE GOODS LEAN IN, NOT THE WASH. Hovering used to scale ".ph img",
-     which is now both prints -- and putting 1.07 on the wash would drop
-     the 1.4 it needs to keep its blurred rim outside the tile, so a grey
-     hairline appeared around a hovered card. */
-  .card .ph .ph-goods{transition:transform .45s cubic-bezier(.2,.6,.2,1)}
-  .card:hover .ph .ph-goods{transform:scale(1.07)}
+  .card .ph img{transition:transform .45s cubic-bezier(.2,.6,.2,1)}
+  .card:hover .ph img{transform:scale(1.07)}
 
   /* THE CARD ITSELF LIFTS UNDER THE POINTER.
      The photo leaning in said "this one" quietly; at a glance across a row
@@ -663,22 +626,7 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .b-in{background:var(--green-soft);color:var(--green)}
 .b-low{background:var(--amber-soft);color:var(--amber-ink)}
 .b-out{background:var(--red-soft);color:var(--red)}
-/* SOLD OUT FADES BOTH PRINTS BY THE SAME SUM, AND NOT WITH opacity.
-   This used to be grayscale(1) opacity(.65), which fades a layer by
-   letting the backdrop through -- and the two prints have different
-   backdrops. The goods sit on the wash, the wash sits on the tile, so the
-   same grey came out at 128 under the goods and 161 in the margin beside
-   them: a 33-step ring around every sold-out photograph, which is the very
-   fault this block exists to fix, in its own greyed-out corner.
-
-   contrast and brightness are arithmetic on each pixel instead, so they
-   land on the same number wherever the pixel is, and the two prints stay
-   the one tone. Together they lift a mid grey to about where .65 over
-   white had it. The blur stays named on the wash: filter is a single
-   property, and leaving it out would snap the surround into a sharp second
-   copy of the picture. */
-.card.is-out .ph .ph-goods{filter:grayscale(1) contrast(.65) brightness(1.35)}
-.card.is-out .ph .ph-wash{filter:grayscale(1) contrast(.65) brightness(1.35) blur(8px)}
+.card.is-out .ph img{filter:grayscale(1) opacity(.65)}
 .card-add-slot{min-height:36px;margin-top:4px}
 /* The bag sits beside the words rather than above or apart from them:
    flex + gap, centred as one unit, so the pair reads as a single label. */
