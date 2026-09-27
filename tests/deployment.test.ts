@@ -42,6 +42,9 @@ const ENTRY = shell("docker/cron-entrypoint.sh");
 const DEPLOY = read(".github/workflows/deploy.yml").split("\n")
   .filter((l) => !/^\s*#/.test(l)).join("\n");
 const NEXT_CONFIG = read("next.config.ts");
+const README = read("README.md");
+const DEPLOY_MD = read("DEPLOY.md");
+const ENV_EXAMPLE = read(".env.example");
 /* COMMENTS STRIPPED, and not for tidiness. The route explains at length
    why it does NOT call Supabase, so a guard reading the raw file found the
    explanation and failed against a correct file -- a guard that reads
@@ -428,5 +431,64 @@ describe("the deploy onto the server", () => {
     expect(job).toMatch(/docker logout ghcr\.io/);
     expect(job).toMatch(/rm -f ~\/\.ssh\/id_deploy/);
     expect(job).toMatch(/if: always\(\)/);
+  });
+});
+
+describe("the documentation says the two things an operator gets wrong", () => {
+  /* Both of these were asked out loud rather than guessed at, which is
+     how you know the doc did not answer them. A guard because prose rots
+     faster than code and nothing else would notice. */
+
+  it("warns that NEXT_PUBLIC_* is baked into the image", () => {
+    /* The failure it prevents: change NEXT_PUBLIC_SITE_URL in .env,
+       restart, and nothing happens -- the old string is already in the
+       JavaScript the browser downloads. Without this said out loud an
+       hour goes into looking for the bug. */
+    for (const [name, doc] of [["README.md", README], ["DEPLOY.md", DEPLOY_MD],
+                               ["Dockerfile", DOCKERFILE]] as const) {
+      expect(doc, name).toMatch(/NEXT_PUBLIC/);
+      expect(doc.toLowerCase(), `${name} says it is compiled in`)
+        .toMatch(/compiled into|baked/);
+    }
+  });
+
+  it("says where CRON_SECRET comes from, which is nowhere", () => {
+    /* Every other key in this file is issued by somebody -- Supabase,
+       Twilio, the bank. This one is invented, and a reader who does not
+       know that goes looking for a dashboard that has it. */
+    expect(ENV_EXAMPLE).toMatch(/openssl rand/);
+    const block = ENV_EXAMPLE.slice(
+      ENV_EXAMPLE.indexOf("CRON_SECRET") - 1400, ENV_EXAMPLE.indexOf("CRON_SECRET="));
+    expect(block, "how to make one, beside CRON_SECRET").toMatch(/openssl rand/);
+    /* BESIDE CRON_SECRET, not anywhere in the file. DEPLOY.md tells you
+       to generate SESSION_SECRET the same way several screens earlier, so
+       a guard that only looked for "openssl rand" passed while the answer
+       to this question was deleted. */
+    const where = DEPLOY_MD.indexOf("`CRON_SECRET` comes from");
+    expect(where, "DEPLOY.md says where CRON_SECRET comes from").toBeGreaterThan(-1);
+    expect(DEPLOY_MD.slice(where, where + 700)).toMatch(/openssl rand/);
+  });
+
+  it("names the Docker files in the README's layout, so it cannot rot", () => {
+    /* THE LAYOUT BLOCK, not the prose. A file named only in a sentence is
+       named wherever somebody last wrote about it; the tree is the map,
+       and a map missing a road is the thing worth failing on. */
+    /* Found by its HEADING, not by looking for a block that mentions
+       src/. The prose above it mentions src/ and supabase/ too -- and,
+       since this section added a table naming every Docker file, a
+       first-match search picked that prose up and passed while the tree
+       itself was missing all five. */
+    const after = README.slice(README.indexOf("## Project layout"));
+    const layout = after.slice(after.indexOf("```") + 3, after.indexOf("```", after.indexOf("```") + 3));
+    expect(layout, "the project layout block").toContain("src/");
+    for (const f of ["Dockerfile", "docker-compose.yml", "docker/",
+                     "verify.yml", "deploy.yml"]) {
+      expect(layout, f).toContain(f);
+    }
+  });
+
+  it("points at the file that holds the long version, as a link", () => {
+    // A link that resolves, not the words "see DEPLOY.md".
+    expect(README).toContain("[DEPLOY.md](./DEPLOY.md)");
   });
 });

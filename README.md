@@ -4,7 +4,7 @@ Real, database-backed implementation of **Part A** (Epics A–J) of
 *Marketplace Platform for Timor-Leste v1.0*. One shared catalog every visitor sees,
 built on the stack the spec's §5 specifies.
 
-**→ See [DEPLOY.md](./DEPLOY.md) to put this on your domain.**
+**→ See [DEPLOY.md](./DEPLOY.md) to put this on your domain**, on Vercel or on a server of your own.
 
 ## Stack
 
@@ -33,6 +33,65 @@ built on the stack the spec's §5 specifies.
 | J1–J4 | Tetun default + PT/EN, performance budget, graceful degradation |
 
 Part B (K–N) and the Won't-Have list (O1–O5) are deliberately not built.
+
+## Running it
+
+Two ways. [DEPLOY.md](./DEPLOY.md) has the walkthrough for both; the
+database is hosted Supabase either way, and `supabase/run-all.sql` is
+pasted into its SQL editor by hand.
+
+**Vercel** — import the repo, paste the environment variables, done. The
+four scheduled jobs come from `vercel.json`.
+
+**Your own server, in Docker** — the shop and its scheduler, two
+containers, restarting themselves:
+
+```sh
+cp .env.example .env     # the same values; fill it in
+docker compose up -d --build
+curl -s localhost:3000/api/health
+# {"ok":true,"revision":"local","uptime":3}
+```
+
+| File | What it is |
+|---|---|
+| `Dockerfile` | Four stages. The server is built from Next's standalone output — a `server.js` plus only the modules it imports, ~200MB rather than the gigabyte a normal `.next` needs beside it — and runs as a non-root user. The last stage is the scheduler. |
+| `docker-compose.yml` | `app` and `cron`. The scheduler waits for the shop's health check before its first run. |
+| `docker/` | The scheduler itself: busybox cron, four lines of shell, calling the same endpoints on the same clocks as `vercel.json`. |
+| `/api/health` | Liveness, and the commit the image was built from — which is how you tell whether the deploy you just pushed is the one answering. It deliberately does not call Supabase: a check that does restarts the app when the *database* is unwell. |
+
+Two things worth knowing before the first rebuild:
+
+- **`NEXT_PUBLIC_*` is compiled into the browser bundle.** Setting it on
+  the container afterwards changes nothing — the old string is already in
+  the JavaScript. Change one and rebuild; change anything else and
+  `docker compose up -d` is enough. An image is therefore specific to one
+  shop and one domain.
+- **`.env`, not `.env.local`.** Compose reads `.env` twice — for the
+  `${...}` values in `docker-compose.yml` and as the containers'
+  environment — and never looks at `.env.local`, which is Next's own
+  convention for `npm run dev`.
+
+**The scheduler is not optional.** Without it nothing errors: stock
+reservations never expire, queued messages are never sent, payments are
+never reconciled and the dashboard's figures quietly go stale. It refuses
+to start without `CRON_SECRET` rather than be refused four times an hour
+for ever.
+
+`CRON_SECRET` is not issued by anybody — you invent it (`openssl rand
+-base64 32`) and put it in `.env`. It is what stops somebody who finds the
+URL making your shop send every queued message, which costs money per SMS.
+
+### Continuous delivery
+
+Pushing to `main` runs the full gate — typecheck, lint, 2,600 tests, a
+production build, and a job that applies `run-all.sql` twice to a real
+Postgres (`.github/workflows/verify.yml`). Only if that passes does
+`deploy.yml` build the images, publish them to this repository's own
+registry, and — once `DEPLOY_HOST` and a deploy key are set — pull and
+restart them over SSH. It deploys the commit rather than `:latest`, waits
+for `/api/health` to report that revision, and puts the previous one back
+if it never does.
 
 ## Security model
 
@@ -78,6 +137,13 @@ supabase/
   payments.sql         card payment attempts
   promotions.sql       homepage promo tiles
   seed.sql             optional sample data
+  run-all.sql          every file above, in order — what you paste
+Dockerfile             the server image, and the scheduler's
+docker-compose.yml     the two containers
+docker/                the scheduler: crontab + two shell scripts
+.github/workflows/
+  verify.yml           the gate: tests, build, and run-all.sql on real Postgres
+  deploy.yml           build, publish, and roll out over SSH
 ```
 
 ## Marketplace layer (v2)

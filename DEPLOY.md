@@ -275,6 +275,20 @@ None of that errors. It just silently stops happening, which is why the
 refuses to start without one rather than be refused four times an hour for
 ever.
 
+**Where `CRON_SECRET` comes from: you make it up.** Nobody issues it. It is
+a password shared between the scheduler and the four endpoints, and they
+refuse anything that does not match — so that nobody who finds the URL can
+make your shop send every queued message (which costs money per SMS) or
+cancel the orders currently holding stock. Generate one and put it in
+`.env`:
+
+```sh
+openssl rand -base64 32
+```
+
+The same value goes in Vercel's environment variables if you run there
+instead; its cron sends it for you.
+
 ```bash
 docker compose logs -f cron
 # cron ok   /api/cron/send-queued
