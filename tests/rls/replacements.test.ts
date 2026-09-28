@@ -47,12 +47,19 @@ if (!RUN) {
  * another file is mid-way through writing. */
 const PREFIX = "RPL-";
 
-function product(ref: string, opts: { qty?: number; status?: string; audience?: string | null } = {}): string {
+/* NO `audience` OPTION, and that is not a tidy-up. It used to take one,
+   and supabase/drop-audience.sql removed products.audience -- so the
+   insert naming that column failed, silently, for every product the
+   search block seeded. Two of its three products never existed, and its
+   three tests failed against a function that was working correctly. A
+   fixture that cannot be inserted is worse than a missing test: it fails
+   loudly and points at the wrong thing. */
+function product(ref: string, opts: { qty?: number; status?: string } = {}): string {
   sql(`delete from stock_movements where product_id in (select id from products where ref = '${ref}')`);
   sql(`delete from products where ref = '${ref}'`);
-  sql(`insert into products (ref, name, slug, price, description, status, archived, qty, stock_status${opts.audience ? ", audience" : ""})
+  sql(`insert into products (ref, name, slug, price, description, status, archived, qty, stock_status)
        values ('${ref}', '${ref} item', '${ref.toLowerCase()}', 10, 'x',
-               '${opts.status ?? "approved"}', false, 0, 'out'${opts.audience ? `, '${opts.audience}'` : ""})`);
+               '${opts.status ?? "approved"}', false, 0, 'out')`);
   if (opts.qty) {
     sql(`insert into stock_movements (product_id, delta, reason)
          select id, ${opts.qty}, 'purchase_receipt' from products where ref = '${ref}'`);
@@ -221,8 +228,25 @@ describeDb("decrement_stock_on_confirm", () => {
   });
 
   it("gives the units back when a confirmed order is cancelled", () => {
-    sql(`update orders set status = 'cancelled', cancel_reason = 'test' where ref = '${PREFIX}DEC-A'`);
-    expect(qtyOf(REF)).toBe(6);
+    /* ITS OWN ARC, start to finish. This used to cancel the order the
+       test above had confirmed, and depended on that order still being
+       there -- which made it hostage to any other file in this folder
+       doing a blanket `delete from orders`. tests/rls/salesRollup.test.ts
+       does exactly that, because a rollup of every order cannot be
+       checked against a table somebody else is adding to.
+     *
+     * The failure that produced was worth nothing to anybody: this test
+       reporting 4 units where it wanted 6, on a run where nothing about
+       stock had changed. Six statements are cheaper than a test that
+       cries wolf. */
+    const p = product(`${REF}-C`, { qty: 6 });
+    const o = order(`${PREFIX}DEC-C`, p, 2);
+    sql(`select reserve_order_stock('${o}'::uuid)`);
+    sql(`update orders set status = 'confirmed' where id = '${o}'`);
+    expect(qtyOf(`${REF}-C`), "confirmed").toBe(4);
+
+    sql(`update orders set status = 'cancelled', cancel_reason = 'test' where id = '${o}'`);
+    expect(qtyOf(`${REF}-C`), "cancelled").toBe(6);
   });
 
   it("leaves a pre-order alone", () => {
@@ -293,35 +317,116 @@ describeDb("sync_order_items", () => {
 });
 
 describeDb("search_products", () => {
+  /* FIVE FILES DEFINE THIS ONE FUNCTION and supabase/search-sorts.sql is
+     the last word, so its body is what the database runs. Two of those
+     five have already been overtaken: audience-restock.sql added an
+     audience filter and drop-audience.sql removed it again, column and
+     all.
+   *
+   * THAT IS WHY THIS BLOCK IS REWRITTEN RATHER THAN REPAIRED. It tested
+   * the audience argument, so it had been failing ever since the column
+   * went -- not because the search was broken, but because its own
+   * fixture could not be inserted. A test that has been red long enough
+   * to be scenery is a test nobody reads the failure of.
+   *
+   * WHAT IS WORTH PROVING INSTEAD is what the LAST definition adds:
+   * 'popular' and 'deal'. They are the first thing to disappear if the
+   * order of the files ever slips, and they disappear QUIETLY -- an
+   * unknown sort name is not an error in this function, it is newest
+   * first. So each one is checked against the answer newest-first would
+   * have given, which is the only way the assertion can tell them apart.
+   *
+   * SCOPED WITH id_filter, not with a text query, wherever order matters.
+   * vitest runs these files in parallel against one database, so a sort
+   * assertion over "everything" reads whatever another file is halfway
+   * through inserting. id_filter is also the argument
+   * attribute-filters.sql added, so scoping this way exercises it. */
+
+  const M = `${PREFIX}SRCH-M`, P = `${PREFIX}SRCH-P`;
+  /* Most looked at, in the opposite order to newest. A and C are the pair
+     that tells 'popular' from the fallback; B and C tie on views and are
+     split by wa_clicks, which is the tiebreaker the file describes. */
+  const A = `${PREFIX}SRCH-A`, B = `${PREFIX}SRCH-B`, C = `${PREFIX}SRCH-C`;
+  /* Reduced most, as a FRACTION. D is half off five dollars; E is a fifth
+     off a hundred. By amount E wins and by fraction D does, so the two
+     readings cannot both pass. F is not on offer at all. */
+  const D = `${PREFIX}SRCH-D`, E = `${PREFIX}SRCH-E`, F = `${PREFIX}SRCH-F`;
+
+  const ids: Record<string, string> = {};
+  const only = (...refs: string[]) =>
+    `array[${refs.map((r) => `'${ids[r]}'::uuid`).join(",")}]`;
+  /** The refs a search returns, in the order it returned them. */
+  const search = (q: string, sort: string, filter: string) =>
+    sql(`select (product).ref from search_products(
+      ${q}, null, null, null, null, false, '${sort}', 50, 0, ${filter})`).rows;
+
   beforeAll(() => {
-    product(PREFIX + "SRCH-M", { qty: 5, audience: "men" });
-    product(PREFIX + "SRCH-W", { qty: 5, audience: "women" });
-    product(PREFIX + "SRCH-P", { qty: 5, status: "pending" });
+    for (const ref of [M, A, B, C, D, E, F]) ids[ref] = product(ref);
+    ids[P] = product(P, { status: "pending" });
+
+    // created_at ASCENDS through A, B, C while views DESCEND, so "newest
+    // first" gives exactly the reverse of "most looked at" and neither
+    // can be mistaken for the other.
+    sql(`update products set views = 30, wa_clicks = 0,
+           created_at = '2026-01-01T00:00:00Z' where ref = '${A}'`);
+    sql(`update products set views = 10, wa_clicks = 9,
+           created_at = '2026-01-02T00:00:00Z' where ref = '${B}'`);
+    sql(`update products set views = 10, wa_clicks = 1,
+           created_at = '2026-01-03T00:00:00Z' where ref = '${C}'`);
+
+    sql(`update products set price = 10, discount_price = 5,
+           created_at = '2026-01-01T00:00:00Z' where ref = '${D}'`);
+    sql(`update products set price = 500, discount_price = 400,
+           created_at = '2026-01-02T00:00:00Z' where ref = '${E}'`);
+    sql(`update products set price = 20, discount_price = null,
+           created_at = '2026-01-03T00:00:00Z' where ref = '${F}'`);
   });
 
   it("returns an approved product and hides an unapproved one", () => {
-    const rows = sql(`select (product).ref from search_products(
-      '${PREFIX}SRCH', null, null, null, null, false, 'new', 50, 0, null)`).rows;
-    expect(rows).toContain(`${PREFIX}SRCH-M`);
-    expect(rows).not.toContain(`${PREFIX}SRCH-P`);
+    // The moderation queue is only a queue if what is in it is not live.
+    const rows = search(`'${PREFIX}SRCH'`, "new", "null");
+    expect(rows).toContain(M);
+    expect(rows).not.toContain(P);
   });
 
-  it("filters by audience, which is what the later file added", () => {
-    /* audience-restock.sql replaced marketplace-v2.sql's version for this
-       one argument. It has to filter INSIDE the query -- filtering the page
-       after it comes back would leave the count and the page numbers
-       describing a different set than the one on screen. */
-    const men = sql(`select (product).ref from search_products(
-      '${PREFIX}SRCH', null, null, null, null, false, 'new', 50, 0, 'men')`).rows;
-    expect(men).toContain(`${PREFIX}SRCH-M`);
-    expect(men).not.toContain(`${PREFIX}SRCH-W`);
+  it("orders by what people looked at, which is what the last file added", () => {
+    /* search-sorts.sql is the last of the five definitions. If any other
+       one were, 'popular' would be an unknown sort -- and an unknown sort
+       here is not an error, it is newest first. Hence the second
+       assertion: it is the answer this would give if the sort had
+       silently gone, and it is the reverse. */
+    expect(search("''", "popular", only(A, B, C))).toEqual([A, B, C]);
+    expect(search("''", "new", only(A, B, C))).toEqual([C, B, A]);
   });
 
-  it("still searches by text with no audience given", () => {
-    // The original behaviour the replacement had to preserve.
-    const rows = sql(`select (product).ref from search_products(
-      '${PREFIX}SRCH-W', null, null, null, null, false, 'new', 50, 0, null)`).rows;
-    expect(rows).toContain(`${PREFIX}SRCH-W`);
+  it("breaks a tie on views with the people who pressed Order", () => {
+    // B and C have been looked at equally often. Somebody who pressed
+    // Order via WhatsApp wanted it more than somebody who looked.
+    expect(search("''", "popular", only(B, C))).toEqual([B, C]);
+  });
+
+  it("ranks a deal by how far off it is, not by how much off", () => {
+    /* $5 off $10 beats $100 off $500, and the shopper reading "-50%"
+       against "-20%" agrees. By amount the order would be [E, D]. */
+    expect(search("''", "deal", only(D, E, F))).toEqual([D, E, F]);
+  });
+
+  it("puts what is not on offer last, rather than at a discount of zero", () => {
+    // F is not a bad deal; it is not a deal. Sorted as zero it would come
+    // between the two real ones on any shop whose worst offer is negative
+    // -- and above nothing, which is where it belongs.
+    expect(search("''", "deal", only(F, D)).at(-1)).toBe(F);
+    expect(search("''", "deal", only(F, E)).at(-1)).toBe(F);
+  });
+
+  it("tells no attribute filter from a filter that matched nothing", () => {
+    /* The argument attribute-filters.sql added. Null means the shopper
+       ticked nothing; an EMPTY array means they ticked something and it
+       matched nothing, and the honest answer to that is no products
+       rather than every product in the shop. */
+    expect(search(`'${PREFIX}SRCH'`, "new", "array[]::uuid[]")).toEqual([]);
+    expect(search(`'${PREFIX}SRCH'`, "new", "null").length).toBeGreaterThan(3);
+    expect(search("''", "new", only(M))).toEqual([M]);
   });
 });
 

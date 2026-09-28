@@ -948,7 +948,13 @@ export const INTENDED_REPLACEMENTS: Record<string, readonly string[]> = {
   apply_stock_movement: [
     "stock-receipt.sql", "stock-ledger.sql", "audience-restock.sql",
   ],
-  // Catalogue search gains the audience filter.
+  /* Catalogue search, five times over: the audience filter arrives, the
+     attribute filter arrives, the audience filter LEAVES again with its
+     column, and the last word adds the 'popular' and 'deal' sorts. An
+     unknown sort name in this function is not an error -- it is newest
+     first -- so if search-sorts.sql ever stops being last, both sorts go
+     quietly and the search still answers. tests/rls/replacements.test.ts
+     checks each against the answer newest-first would have given. */
   search_products: ["marketplace-v2.sql", "audience-restock.sql", "attribute-filters.sql",
                     "drop-audience.sql", "search-sorts.sql"],
   // A refund counts when it has SETTLED, not when it was agreed.

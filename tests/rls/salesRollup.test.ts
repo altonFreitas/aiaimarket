@@ -228,9 +228,18 @@ describeDb("sales_daily says what buildSalesLines says", () => {
      * Asserting the string tested Postgres's formatter, and would have
      * gone on passing if the view had started ROUNDING a price -- which
      * is the one thing that change could have broken. */
+    /* SCOPED TO ITS DAY, and that is not tidiness. Two orders in this
+       fixture are completed shirts -- O1 on the 3rd and O4 on the 5th --
+       so the pair (status, category) matches TWO rows, and scalar() takes
+       whichever the plan returns first. It read the right one for as long
+       as the view happened to produce them in that order, and started
+       reading the other when the view changed. An assertion that depends
+       on a row order nothing asked for is a failure waiting for an
+       unrelated change to trigger it. */
     const [qty, net] = (scalar(
       `select qty || ' ' || net_sales from sales_daily
-        where status = 'completed' and category_id = '${C1}'`) ?? "").split(" ");
+        where status = 'completed' and category_id = '${C1}'
+          and day = '2026-09-03'`) ?? "").split(" ");
     expect(Number(qty)).toBe(1);
     expect(Number(net)).toBe(18);
   });
