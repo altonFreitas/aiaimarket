@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { rollupIsCurrent } from "@/lib/data/salesRollup";
+import { parseCount, rollupIsCurrent, type Freshness } from "@/lib/data/salesRollup";
 
 /* THE NET PROFIT THAT CHANGED WHEN YOU CHANGED THE RANGE.
  *
@@ -34,25 +34,31 @@ const ROLLUP_SQL = read("supabase/sales-rollup.sql")
 
 const t = (iso: string) => iso;
 
+/** A Freshness with the order counts UNANSWERED.
+ *
+ * That is the shape a shop still running the two-column
+ * analytics_freshness() returns, and it is what these cases are about: the
+ * clock half of the check, behaving exactly as it did before the counts
+ * existed. The counts get their own cases below, and a real database
+ * proves them in tests/rls/salesRollup.test.ts. */
+const clock = (refreshedAt: string | null, ordersChangedAt: string | null): Freshness =>
+  ({ refreshedAt, ordersChangedAt, ordersInBook: null, ordersInRollup: null });
+
 describe("whether the rollup may be trusted with money", () => {
   it("is current when it refreshed after the last order change", () => {
-    expect(rollupIsCurrent({
-      refreshedAt: t("2026-09-26T12:00:00Z"),
-      ordersChangedAt: t("2026-09-26T11:59:59Z"),
-    })).toBe(true);
+    expect(rollupIsCurrent(
+      clock(t("2026-09-26T12:00:00Z"), t("2026-09-26T11:59:59Z")))).toBe(true);
   });
 
   it("is not current when an order changed after it refreshed", () => {
-    expect(rollupIsCurrent({
-      refreshedAt: t("2026-09-26T12:00:00Z"),
-      ordersChangedAt: t("2026-09-26T12:00:01Z"),
-    })).toBe(false);
+    expect(rollupIsCurrent(
+      clock(t("2026-09-26T12:00:00Z"), t("2026-09-26T12:00:01Z")))).toBe(false);
   });
 
   it("counts an exact tie as current", () => {
     // The refresh read that change; it did not miss it by zero seconds.
     const same = t("2026-09-26T12:00:00Z");
-    expect(rollupIsCurrent({ refreshedAt: same, ordersChangedAt: same })).toBe(true);
+    expect(rollupIsCurrent(clock(same, same))).toBe(true);
   });
 
   it("refuses a rollup that has never refreshed", () => {
@@ -60,23 +66,102 @@ describe("whether the rollup may be trusted with money", () => {
        analytics-freshness.sql: the honest reading of "I cannot tell
        whether these are current" is not to put them on a card labelled
        net profit. */
-    expect(rollupIsCurrent({ refreshedAt: null, ordersChangedAt: t("2026-09-26T12:00:00Z") }))
-      .toBe(false);
-    expect(rollupIsCurrent({ refreshedAt: null, ordersChangedAt: null })).toBe(false);
+    expect(rollupIsCurrent(clock(null, t("2026-09-26T12:00:00Z")))).toBe(false);
+    expect(rollupIsCurrent(clock(null, null))).toBe(false);
   });
 
   it("trusts it on a shop with no orders at all", () => {
     // Nothing for it to be behind on, and an empty dashboard is the same
     // either way.
-    expect(rollupIsCurrent({ refreshedAt: t("2026-09-26T12:00:00Z"), ordersChangedAt: null }))
-      .toBe(true);
+    expect(rollupIsCurrent(clock(t("2026-09-26T12:00:00Z"), null))).toBe(true);
   });
 
   it("refuses a timestamp it cannot read rather than guessing", () => {
     for (const bad of ["", "not a date", "yesterday"]) {
-      expect([bad, rollupIsCurrent({
-        refreshedAt: t("2026-09-26T12:00:00Z"), ordersChangedAt: bad,
-      })]).toEqual([bad, false]);
+      expect([bad, rollupIsCurrent(clock(t("2026-09-26T12:00:00Z"), bad))])
+        .toEqual([bad, false]);
+    }
+  });
+
+  /* ------------------------------------------------------------------
+     AND THE HALF A CLOCK CANNOT SEE
+     ------------------------------------------------------------------
+     The check above was the whole of it once, and the shop reported the
+     same divergence anyway: home $102.20, Finance $259.43, with this
+     function saying `t`. It was telling the truth. The rollup had seen
+     every change the order book had; it simply held less than the order
+     book did, because it was built from order_items and an old trigger
+     had dropped lines from that table. A clock catches a rollup that is
+     BEHIND and nothing about a clock catches one that is SHORT.
+     ------------------------------------------------------------------ */
+
+  const counted = (book: number | null, rolled: number | null): Freshness => ({
+    // Refreshed a full minute AFTER the last change, so the clock half
+    // says current and only the counts can object.
+    refreshedAt: t("2026-09-26T12:01:00Z"),
+    ordersChangedAt: t("2026-09-26T12:00:00Z"),
+    ordersInBook: book, ordersInRollup: rolled,
+  });
+
+  it("refuses a rollup holding fewer orders than the book, however fresh", () => {
+    expect(rollupIsCurrent(counted(10, 4))).toBe(false);
+    // And the other way round, which is just as wrong and means the view
+    // has rows the order book does not.
+    expect(rollupIsCurrent(counted(4, 10))).toBe(false);
+  });
+
+  it("is current when both halves agree", () => {
+    expect(rollupIsCurrent(counted(10, 10))).toBe(true);
+    expect(rollupIsCurrent(counted(0, 0))).toBe(true);
+  });
+
+  it("does not read an unanswered count as a count of zero", () => {
+    /* A shop still running the two-column analytics_freshness() returns
+       neither number. Reading that as zero would make the two agree by
+       accident on every shop that has not migrated -- and reading it as a
+       mismatch would make every such shop fall back to the order book for
+       ever. Unanswered means the clock decides, as it did before. */
+    expect(rollupIsCurrent(counted(null, null))).toBe(true);
+    expect(rollupIsCurrent(counted(10, null))).toBe(true);
+    expect(rollupIsCurrent(counted(null, 10))).toBe(true);
+  });
+
+  it("still refuses on the clock when the counts happen to agree", () => {
+    // The two halves are AND, not OR: a rollup that is behind is behind
+    // even if nothing has been added since.
+    expect(rollupIsCurrent({
+      refreshedAt: t("2026-09-26T12:00:00Z"),
+      ordersChangedAt: t("2026-09-26T12:00:01Z"),
+      ordersInBook: 10, ordersInRollup: 10,
+    })).toBe(false);
+  });
+});
+
+describe("reading the counts off the wire", () => {
+  it("parses a bigint, which arrives as a string", () => {
+    /* PostgREST will not risk a count larger than a JavaScript number in a
+       JSON number, so it sends bigint as text. Number() on the object it
+       returns is a NaN waiting to happen. */
+    expect(parseCount("12")).toBe(12);
+    expect(parseCount(12)).toBe(12);
+    // A real zero is an answer and stays one.
+    expect(parseCount(0)).toBe(0);
+    expect(parseCount("0")).toBe(0);
+  });
+
+  it("says nothing rather than zero when there is no answer", () => {
+    /* undefined is a shop still running the two-column
+       analytics_freshness(); null is a shop whose sales_daily_orders does
+       not exist. Both mean "I cannot tell", and reading either as 0 would
+       make rollupIsCurrent compare it against a real order count and
+       refuse the rollup for ever. */
+    expect(parseCount(undefined)).toBeNull();
+    expect(parseCount(null)).toBeNull();
+  });
+
+  it("refuses something it cannot read rather than guessing", () => {
+    for (const bad of ["", "lots", {}, []]) {
+      expect([bad, parseCount(bad)]).toEqual([bad, null]);
     }
   });
 });
@@ -118,8 +203,8 @@ describe("what the database records", () => {
     /* Cancelling a month-old order changes the takings and moves no
        created_at. Proved against a real Postgres: the rollup went on
        reporting the cancelled sale as revenue. */
-    expect(SQL).toMatch(/max\(o\.updated_at\) from orders/);
-    expect(SQL).not.toMatch(/max\(o\.created_at\) from orders/);
+    expect(SQL).toMatch(/max\(o\.updated_at\)/);
+    expect(SQL).not.toMatch(/max\(o\.created_at\)/);
     expect(SQL).toMatch(/add column if not exists updated_at/);
     /* The WHOLE statement: a prefix match passed with the trigger renamed
        to orders_touch_updated_at_DISABLED, which installs nothing on
@@ -142,7 +227,21 @@ describe("what the database records", () => {
   it("re-runs safely", () => {
     expect(SQL).toMatch(/create table if not exists analytics_refresh/);
     expect(SQL).toMatch(/drop trigger if exists orders_touch_updated_at/);
-    expect(SQL).toMatch(/create or replace function analytics_freshness/);
+    /* analytics_freshness() IS DROPPED FIRST rather than replaced, and it
+       has to be: it gained two OUT columns (the order counts), and
+       Postgres refuses `create or replace` on a function whose return
+       type changed -- with an error that aborts the whole file. So the
+       claim is not "this says create or replace"; it is "running this
+       file twice leaves exactly one definition, whatever the last one
+       looked like". */
+    const at = SQL.indexOf("function analytics_freshness()");
+    expect(at, "the definition").toBeGreaterThan(-1);
+    const before = SQL.slice(0, at);
+    expect(
+      /create or replace function analytics_freshness/.test(SQL)
+      || /drop function if exists analytics_freshness\(\);/.test(before),
+      "replaced in place, or dropped first",
+    ).toBe(true);
   });
 
   it("creates the table before the refresh that writes to it", () => {

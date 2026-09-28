@@ -3,13 +3,14 @@ import { adminAttention, adminLoveStats, adminSellerLedgers } from "@/lib/data/a
 import { financeTables, cashSideTotals } from "@/lib/data/finance";
 import { profitAndLoss } from "@/lib/finance";
 import {
-  headlineMetrics, overviewSeries, rangeSpec, rangeWindow, RANGES, type RangeKey,
+  headlineMetrics, overviewSeries, rangeSpec, rangeWindow, totalsIn, RANGES,
+  type RangeKey,
 } from "@/lib/overview";
 import { stockOnHand, type KpiInput } from "@/lib/adminHomeKpis";
 import { adminSalesData, costMap, returnedUnits } from "@/lib/data/sales";
 import { adminProcurementData } from "@/lib/data/procurement";
 import {
-  buildSalesLines, isLive, LIVE_STATUSES, salesByCategory, todayIso,
+  buildSalesLines, isLive, LIVE_STATUSES, orderDate, salesByCategory, todayIso,
 } from "@/lib/sales";
 import {
   analyticsFreshness, rollupIsCurrent, rollupLines, rollupOrderCount, salesRollup,
@@ -101,8 +102,15 @@ export default async function AdminHomePage(
   const freshness = daily ? await analyticsFreshness() : null;
   const rollupCurrent = freshness ? rollupIsCurrent(freshness) : false;
 
+  /* FROM THE BEGINNING, not from an arbitrary number of days ago. This
+     read a 2000-day window, which is five and a half years -- long enough
+     that nothing showed up wrong on a young shop, and short enough that
+     the "all time" range and the ALL-TIME net profit below it would both
+     have quietly started at a moving date. A rollup is one row per day per
+     status per seller per category; the horizon was never what kept it
+     small. */
   const rollup = daily && rollupCurrent
-    ? await salesRollup(shiftDays(todayIso(), -2000), todayIso())
+    ? await salesRollup("1970-01-01", todayIso())
     : { ready: false, rows: [], orders: [] };
   const fromRollup = daily && rollupCurrent && rollup.ready;
 
@@ -185,25 +193,68 @@ export default async function AdminHomePage(
 
   const gp = metric("grossProfit");
 
-  /* HOW MANY ORDERS, not how many items. Counted from the same windowed
-     lines the money comes from, so the two cannot describe different sets
-     of orders -- one order of six shoes is one order here and six in
-     "quantity sold", which is the distinction the card is for. */
-  const ordersIn = (from: string, to: string) =>
+  /* HOW MANY ORDERS, not how many items -- one order of six shoes is one
+     order here and six in "quantity sold", which is the distinction the
+     card is for.
+   *
+   * REPORTED FROM THE SHOP: "the card says its only 4 in all time while
+   * theres 10 orders in all time in orders". Three separate things made
+   * that possible, and the first two were bugs:
+   *
+   *   THE TWO PATHS ASKED DIFFERENT QUESTIONS. The rollup branch counted
+   *   only the statuses that are still sales; the order-book branch
+   *   counted every status including cancelled. So the figure changed its
+   *   meaning depending on which source happened to answer, which is the
+   *   one thing a dashboard number must never do.
+   *
+   *   AN ORDER WITH NO READABLE LINES WAS NOT AN ORDER. sales_daily_orders
+   *   required a row in order_items, and an old version of the sync
+   *   trigger had dropped lines naming a deleted product -- so those
+   *   orders vanished from the count entirely. See supabase/sales-rollup.sql.
+   *
+   *   AND A CANCELLED ORDER IS STILL IN THE ORDER BOOK. That last
+   *   difference is real and stays: a cancelled sale is not revenue, and a
+   *   card sitting beside "money in" must not count it. What was wrong was
+   *   saying so nowhere, so the card now carries the number it left out.
+   *
+   * COUNTED FROM THE ORDERS THEMSELVES on both sides, never from lines: an
+   * order whose items are empty is still an order, and a set of lines can
+   * never see it. */
+  const isLiveStatus = (st: string) =>
+    (LIVE_STATUSES as readonly string[]).includes(st);
+  /* Loaded only when the rollup did not answer -- see `withOrders` above.
+     Empty on the rollup path, where rollup.orders is the exact count. */
+  const orderRows = fromRollup ? [] : sales?.orders ?? [];
+  const countOrders = (from: string, to: string, keep: (st: string) => boolean) =>
     fromRollup
       /* FROM ITS OWN VIEW, not from the rows above. sales_daily groups by
          seller and category, so an order holding a shirt and a football is
          a row in each and summing its `orders` column would count it
          twice. sales_daily_orders is grouped at the only grain where the
          answer is exact. */
-      ? rollupOrderCount(rollup.orders, from, to,
-          (st) => (LIVE_STATUSES as readonly string[]).includes(st))
-      : new Set(lines.filter((l) => l.date >= from && l.date <= to)
-          .map((l) => (l as { orderId?: string }).orderId ?? "")).size;
+      ? rollupOrderCount(rollup.orders, from, to, keep)
+      : orderRows.filter((o) => {
+          const d = orderDate(o);
+          return d >= from && d <= to && keep(o.status);
+        }).length;
+  const ordersIn = (from: string, to: string) => countOrders(from, to, isLiveStatus);
   const win = canSales ? rangeWindow(lines, pos, range, today) : null;
   const orderCount = win ? ordersIn(win.from, win.to) : 0;
   const orderCountPrev = win
     ? ordersIn(shiftDays(win.from, -win.days), shiftDays(win.to, -win.days)) : 0;
+  /* What the card is NOT counting, so it can say so. Written as "not a
+     live status" rather than as "cancelled" so that a status added later
+     is excluded from the count and from the sentence together. */
+  const ordersCancelled = win
+    ? countOrders(win.from, win.to, (st) => !isLiveStatus(st)) : 0;
+
+  /* THE WINDOW'S OWN TOTALS, for the one thing headlineMetrics cannot say.
+     Gross profit is computed over the lines that HAVE a cost, so its
+     margin has to be taken over that same revenue -- this card used to
+     divide it by ALL revenue, which on a shop with costs recorded for
+     three products out of nine reports a third of the real margin and
+     reads as a shop selling badly. */
+  const winTotals = canSales && win ? totalsIn(lines, pos, win) : null;
 
   const kpis: KpiInput = {
     sales: canSales && revenue
@@ -214,20 +265,26 @@ export default async function AdminHomePage(
           // is an unanswered question rather than an answer of nothing.
           value: gp.current,
           pct: gp.prev?.pct ?? null,
-          // Share of revenue kept. Null rather than 0 when nothing sold:
-          // "no margin" and "no sales to have a margin on" differ.
-          margin: revenue?.current && gp.current != null
-            ? gp.current / revenue.current : null,
+          /* Share of the COSTED revenue kept -- see winTotals above. Null
+             rather than 0 when nothing sold: "no margin" and "no sales to
+             have a margin on" differ. */
+          margin: winTotals?.margin ?? null,
+          // How much of the window's revenue that margin speaks for.
+          coverage: winTotals?.costCoverage ?? 0,
         }
       : null,
     orders: canSales && win
       ? {
           value: orderCount,
           pct: orderCountPrev ? (orderCount - orderCountPrev) / orderCountPrev : null,
+          cancelled: ordersCancelled,
         }
       : null,
     catalog: shelf
-      ? { value: shelf.value, units: shelf.units, live: shelf.live, priced: shelf.priced }
+      ? {
+          value: shelf.value, units: shelf.units, pricedUnits: shelf.pricedUnits,
+          live: shelf.live, priced: shelf.priced,
+        }
       : null,
     procurement: canProcurement && spend
       ? { value: spend.current ?? 0, pct: spend.prev?.pct ?? null } : null,

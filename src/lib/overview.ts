@@ -394,6 +394,21 @@ export interface Totals {
   /** Revenue minus the cost of the goods SOLD -- not minus purchases. Null
    * when no sold line carried a cost. */
   grossProfit: number | null;
+  /** grossProfit over the revenue it was computed on, which is NOT
+   * `revenue` when some lines have no cost recorded.
+   *
+   * IT MATTERS THAT THIS IS CARRIED RATHER THAN DIVIDED OUT LATER. The
+   * admin home used to print grossProfit / revenue, and those two have
+   * different bases: gross profit counts only the lines whose cost is
+   * known, while revenue counts them all. On a shop with a cost recorded
+   * for two products out of eight that understates the margin by the
+   * width of the gap, and reads as a shop selling badly rather than as a
+   * shop that has not finished filling in its costs. */
+  margin: number | null;
+  /** The share of revenue that had a cost behind it: 1 when every line was
+   * costed, 0 when none was. What `margin` is worth knowing alongside --
+   * a 40% margin over a tenth of the trade is a sample, not a figure. */
+  costCoverage: number;
 }
 
 /** Both sides over one date window, inclusive. */
@@ -411,6 +426,8 @@ export function totalsIn(
     purchaseCost: round2(bought.reduce((a, p) => a + poTotal(p), 0)),
     qtyPurchased: bought.reduce((a, p) => a + resaleQty(p), 0),
     grossProfit: sold.grossProfit == null ? null : round2(sold.grossProfit),
+    margin: sold.margin,
+    costCoverage: sold.costCoverage,
   };
 }
 

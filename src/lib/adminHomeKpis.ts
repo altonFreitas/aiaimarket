@@ -52,6 +52,22 @@ export interface Kpi {
   /** Where this figure is explained in full. Every card is a link; a
    * dashboard tile you cannot open is a poster. */
   href: string;
+  /** THE SENTENCE SAYING WHAT THIS FIGURE COUNTS, as an i18n key.
+   *
+   * ASKED FOR IN THOSE WORDS -- "make everything explainable" -- after the
+   * front page said 4 orders and the orders screen listed 10. Both were
+   * right. One counts orders that are still sales and the other lists the
+   * book; nothing on the page said so, and a figure whose rule is unstated
+   * cannot be checked, only believed.
+   *
+   * A KEY AND NOT A STRING, for the same reason every other label here is:
+   * the shop reads Tetun. And it lives beside the figure rather than in a
+   * source comment, because the person who needs it is the one looking at
+   * the card. */
+  explainKey: string;
+  /** Substituted into that sentence -- {n} and {pct}. Only the cards whose
+   * explanation depends on the data carry any. */
+  explainVars?: Record<string, string>;
 }
 
 /** A percentage against the period before, as text.
@@ -83,11 +99,19 @@ export function toneOf(pct: number | null, upIsGood = true): "good" | "bad" | "f
  * rather than quietly understating the total. A shop that has never filled
  * in a cost gets coverage 0 and a value of 0, which the caller renders as
  * "not known yet" rather than as "nothing on the shelves".
+ *
+ * TWO UNIT COUNTS, AND THE CARD NEEDS THE SECOND ONE. `units` is every
+ * unit on the shelves; `pricedUnits` is only the units the money covers.
+ * The card used to print the first beside the second's total -- "114 units
+ * - 3/9 priced" over $96.00 -- which invites the reader to divide and get
+ * eighty-four cents a unit for stock that averages several dollars. The
+ * note describes the figure above it or it is not a note, it is a second
+ * unrelated fact in a smaller font.
  */
 export function stockOnHand(
   products: readonly Product[], costs: ReadonlyMap<string, number>
-): { value: number; units: number; live: number; priced: number } {
-  let value = 0, units = 0, live = 0, priced = 0;
+): { value: number; units: number; pricedUnits: number; live: number; priced: number } {
+  let value = 0, units = 0, pricedUnits = 0, live = 0, priced = 0;
   for (const p of products) {
     if (p.archived || p.status !== "approved") continue;
     live++;
@@ -96,10 +120,11 @@ export function stockOnHand(
     const unit = costs.get(p.id);
     if (unit != null && Number.isFinite(unit)) {
       priced++;
+      pricedUnits += qty;
       value += qty * unit;
     }
   }
-  return { value: Math.round(value * 100) / 100, units, live, priced };
+  return { value: Math.round(value * 100) / 100, units, pricedUnits, live, priced };
 }
 
 export interface KpiInput {
@@ -110,10 +135,23 @@ export interface KpiInput {
    *
    * `value` is null when NO line in the window had a unit cost recorded --
    * which is not the same as no profit, and must not be rendered as one. */
-  grossProfit: { value: number | null; pct: number | null; margin: number | null } | null;
-  /** Orders placed in the window -- the count, not the money. */
-  orders: { value: number; pct: number | null } | null;
-  catalog: { value: number; units: number; live: number; priced: number } | null;
+  grossProfit: {
+    value: number | null; pct: number | null; margin: number | null;
+    /** The share of the window's revenue that had a cost behind it. The
+     * margin is computed over that share and not over all of it, so the
+     * card has to be able to say how big a share it was. */
+    coverage: number;
+  } | null;
+  /** Orders placed in the window -- the count, not the money.
+   *
+   * `cancelled` is how many orders in the same window are NOT in `value`
+   * because they were cancelled. Carried so the card can say why it
+   * disagrees with the orders screen, which lists every order there is. */
+  orders: { value: number; pct: number | null; cancelled: number } | null;
+  catalog: {
+    value: number; units: number; pricedUnits: number;
+    live: number; priced: number;
+  } | null;
   procurement: { value: number; pct: number | null } | null;
   /** Net profit after every expense the books carry. ALL TIME: the books
    * are not windowed, and the card says so rather than pretending. */
@@ -158,11 +196,12 @@ export function buildKpis(
       key: "sales", labelKey: "kpiRevenue", href: "/admin/sales",
       value: money(input.sales.value), basisKey: period,
       note: deltaText(input.sales.pct), tone: toneOf(input.sales.pct),
+      explainKey: "kpiWhyRevenue",
     });
   }
 
   if (input.grossProfit) {
-    const { value, pct, margin } = input.grossProfit;
+    const { value, pct, margin, coverage } = input.grossProfit;
     out.push({
       key: "grossProfit", labelKey: "kpiGrossProfit", href: "/admin/sales",
       /* NOT "$0.00" WHEN NOTHING WAS COSTED. Gross profit is revenue less
@@ -179,6 +218,13 @@ export function buildKpis(
          The change is still there when there is no margin to quote. */
       note: margin == null ? deltaText(pct) : `${(margin * 100).toFixed(1)}%`,
       tone: value == null ? "flat" : value > 0 ? "good" : value < 0 ? "bad" : "flat",
+      /* TWO SENTENCES, because a margin over part of the trade is a
+         different claim from a margin over all of it -- and which one this
+         is depends on the data, not on the code. Below 99.5% the card says
+         what share it covers; a rounding-error gap is not worth a
+         disclaimer. */
+      explainKey: coverage >= 0.995 ? "kpiWhyGrossProfit" : "kpiWhyGrossProfitPart",
+      explainVars: { pct: `${(coverage * 100).toFixed(0)}%` },
     });
   }
 
@@ -187,11 +233,18 @@ export function buildKpis(
       key: "orders", labelKey: "kpiOrders", href: "/admin/orders",
       value: String(input.orders.value), basisKey: period,
       note: deltaText(input.orders.pct), tone: toneOf(input.orders.pct),
+      /* THE QUESTION THAT STARTED THIS: "the card says 4 in all time while
+         there are 10 orders in all time in orders". The card counts orders
+         that are still sales; the orders screen lists the book. Both are
+         right and the difference has to be on the card, with the number
+         that accounts for it. */
+      explainKey: input.orders.cancelled > 0 ? "kpiWhyOrdersCancelled" : "kpiWhyOrders",
+      explainVars: { n: String(input.orders.cancelled) },
     });
   }
 
   if (input.catalog) {
-    const { value, units, live, priced } = input.catalog;
+    const { value, units, pricedUnits, live, priced } = input.catalog;
     out.push({
       key: "catalog", labelKey: "kpiStockValue", href: "/admin/stock",
       // A shop that has filled in no unit costs cannot be told what its
@@ -211,11 +264,21 @@ export function buildKpis(
          only covers the ones that do. An unexplained total on a dashboard
          is a number somebody has to go and verify, which is the same as
          not having it. */
+      /* THE UNITS THE MONEY COVERS, not every unit on the shelves. The
+         two are the same number only when every product has a cost
+         recorded, and when they are not the card was printing one beside
+         the other's total: "114 units - 3/9 priced" over $96.00, which
+         divides out to eighty-four cents a unit for stock that averages
+         several dollars. `units` is still reported by stockOnHand and is
+         still the right figure for a stock screen; it is the wrong figure
+         to put under this total. */
       note: !priced || !words ? null
         : priced < live
-          ? `${units} ${words.units} · ${priced}/${live} ${words.priced}`
+          ? `${pricedUnits} ${words.units} · ${priced}/${live} ${words.priced}`
           : `${units} ${words.units} · ${live} ${words.products}`,
       tone: "flat",
+      explainKey: priced < live ? "kpiWhyStockPart" : "kpiWhyStock",
+      explainVars: { n: String(live - priced) },
     });
   }
 
@@ -226,6 +289,7 @@ export function buildKpis(
       // Spending more is not bad on its own -- a growing shop buys more --
       // so this reports the change without passing judgement on it.
       note: deltaText(input.procurement.pct), tone: "flat",
+      explainKey: "kpiWhyPurchases",
     });
   }
 
@@ -244,6 +308,7 @@ export function buildKpis(
       // Here the verdict is on the figure itself, not on a change: a loss
       // is a loss whether or not last month was worse.
       tone: value > 0 ? "good" : value < 0 ? "bad" : "flat",
+      explainKey: "kpiWhyNetProfit",
     });
   }
 

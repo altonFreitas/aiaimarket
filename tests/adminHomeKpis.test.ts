@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   buildKpis, stockOnHand, deltaText, toneOf, basisKeyFor,
 } from "@/lib/adminHomeKpis";
+import { STR } from "@/lib/i18n";
 import type { Product } from "@/lib/types";
 
 /* ONE FIGURE FROM EACH AREA, ON THE FRONT PAGE.
@@ -84,9 +85,12 @@ describe("the comparison under each figure", () => {
 describe("the row itself", () => {
   const full = {
     sales: { value: 138.23, pct: -0.396 },
-    grossProfit: { value: 62.4 as number | null, pct: 0.08, margin: 0.451 as number | null },
-    orders: { value: 9, pct: 0.125 },
-    catalog: { value: 1420.5, units: 31, live: 24, priced: 21 },
+    grossProfit: {
+      value: 62.4 as number | null, pct: 0.08,
+      margin: 0.451 as number | null, coverage: 1,
+    },
+    orders: { value: 9, pct: 0.125, cancelled: 0 },
+    catalog: { value: 1420.5, units: 31, pricedUnits: 31, live: 24, priced: 21 },
     procurement: { value: 70, pct: 0.142 },
     finance: { value: 41.87, margin: 0.302 },
   };
@@ -126,6 +130,22 @@ describe("the row itself", () => {
     expect(k.note).toContain("21/24 priced");
   });
 
+  it("counts the units the money covers, not every unit on the shelf", () => {
+    /* THE BUG. `units` spans every live product and `value` spans only the
+       priced ones, so the note printed one beside the other's total:
+       "114 units - 3/9 priced" over $96.00, which divides out to eighty-
+       four cents a unit for stock that averages several dollars. The note
+       describes the figure above it or it is not a note. */
+    const k = buildKpis({
+      ...full,
+      catalog: { value: 96, units: 114, pricedUnits: 12, live: 9, priced: 3 },
+    }, WORDS).find((x) => x.key === "catalog")!;
+    expect(k.note).toBe("12 units · 3/9 priced");
+    expect(k.note).not.toContain("114");
+    // $96 over 12 units is $8 each, which the reader can now check.
+    expect(96 / 12).toBe(8);
+  });
+
   it("drops the units and the products when it has no words for them", () => {
     // Rather than printing an English sentence to a Tetun reader.
     const k = buildKpis(full).find((x) => x.key === "catalog")!;
@@ -158,10 +178,75 @@ describe("the row itself", () => {
   it("does not report an unpriced catalogue as an empty one", () => {
     /* "$0.00" reads as a shop with nothing on its shelves. A shop that has
        filled in no unit costs has not answered the question at all. */
-    const k = buildKpis({ ...full, catalog: { value: 0, units: 0, live: 12, priced: 0 } }, WORDS)
+    const k = buildKpis({
+      ...full, catalog: { value: 0, units: 0, pricedUnits: 0, live: 12, priced: 0 },
+    }, WORDS)
       .find((x) => x.key === "catalog")!;
     expect(k.value).toBe("—");
     expect(k.note).toBeNull();
+  });
+
+  it("gives every tile a sentence saying what it counts", () => {
+    /* ASKED FOR IN THOSE WORDS -- "make everything explainable" -- after
+       the front page said 4 orders and the orders screen listed 10. A
+       tile with no explanation is a number that can only be believed. */
+    for (const k of buildKpis(full, WORDS)) {
+      expect(k.explainKey, k.key).toBeTruthy();
+      expect(k.explainKey, k.key).toMatch(/^kpiWhy/);
+    }
+    expect(new Set(buildKpis(full, WORDS).map((k) => k.explainKey)).size)
+      .toBe(buildKpis(full, WORDS).length);
+  });
+
+  it("says how many orders it left out, and only when it left any out", () => {
+    /* THE REPORT: "the card says its only 4 in all time while theres 10
+       orders in all time in orders". A cancelled order is not revenue and
+       must not be counted beside one; what was wrong was saying so
+       nowhere. */
+    const clean = buildKpis(full, WORDS).find((x) => x.key === "orders")!;
+    expect(clean.explainKey).toBe("kpiWhyOrders");
+
+    const some = buildKpis(
+      { ...full, orders: { value: 4, pct: null, cancelled: 6 } }, WORDS)
+      .find((x) => x.key === "orders")!;
+    expect(some.explainKey).toBe("kpiWhyOrdersCancelled");
+    expect(some.explainVars?.n).toBe("6");
+  });
+
+  it("says what share of the trade its margin speaks for", () => {
+    /* Gross profit counts only the lines whose cost is known. A margin
+       quoted from a third of the trade with nothing saying so is a
+       sample presented as a figure. */
+    const whole = buildKpis(full, WORDS).find((x) => x.key === "grossProfit")!;
+    expect(whole.explainKey).toBe("kpiWhyGrossProfit");
+
+    const part = buildKpis({
+      ...full, grossProfit: { value: 62.4, pct: 0.08, margin: 0.451, coverage: 0.34 },
+    }, WORDS).find((x) => x.key === "grossProfit")!;
+    expect(part.explainKey).toBe("kpiWhyGrossProfitPart");
+    expect(part.explainVars?.pct).toBe("34%");
+
+    /* A rounding-error gap is not worth a disclaimer: 99.6% covered is
+       covered, and a tile that hedges on every load teaches the reader to
+       stop reading it. */
+    const nearly = buildKpis({
+      ...full, grossProfit: { value: 62.4, pct: 0.08, margin: 0.451, coverage: 0.996 },
+    }, WORDS).find((x) => x.key === "grossProfit")!;
+    expect(nearly.explainKey).toBe("kpiWhyGrossProfit");
+  });
+
+  it("says how many products the stock total could not price", () => {
+    const k = buildKpis({
+      ...full,
+      catalog: { value: 96, units: 114, pricedUnits: 12, live: 9, priced: 3 },
+    }, WORDS).find((x) => x.key === "catalog")!;
+    expect(k.explainKey).toBe("kpiWhyStockPart");
+    expect(k.explainVars?.n).toBe("6");
+    // And the plain sentence once every product has a cost.
+    expect(buildKpis({
+      ...full,
+      catalog: { value: 96, units: 12, pricedUnits: 12, live: 3, priced: 3 },
+    }, WORDS).find((x) => x.key === "catalog")!.explainKey).toBe("kpiWhyStock");
   });
 
   it("passes no judgement on spending more", () => {
@@ -177,6 +262,108 @@ describe("the row itself", () => {
       .find((x) => x.key === "finance")!;
     expect(loss.tone).toBe("bad");
     expect(buildKpis(full, WORDS).find((x) => x.key === "finance")!.tone).toBe("good");
+  });
+});
+
+describe("the sentences under the figures", () => {
+  /** Every explanation buildKpis can choose, whatever the data. */
+  const KEYS = [
+    "kpiWhyTitle",
+    "kpiWhyRevenue", "kpiWhyGrossProfit", "kpiWhyGrossProfitPart",
+    "kpiWhyOrders", "kpiWhyOrdersCancelled",
+    "kpiWhyStock", "kpiWhyStockPart", "kpiWhyPurchases", "kpiWhyNetProfit",
+  ];
+
+  it("has all of them in the string table", () => {
+    // t() returns the key itself for one that does not exist, so a missing
+    // sentence renders as "kpiWhyOrders" on the shop's front page.
+    for (const k of KEYS) expect(Object.keys(STR), k).toContain(k);
+  });
+
+  it("keeps the placeholder in every language of a sentence that has one", () => {
+    /* A translation that drops {n} loses the number silently: the sentence
+       still reads, and the one fact that made it worth putting on the card
+       is gone. Checked per language, not on the English. */
+    const withVar: Record<string, string> = {
+      kpiWhyGrossProfitPart: "{pct}",
+      kpiWhyOrdersCancelled: "{n}",
+      kpiWhyStockPart: "{n}",
+    };
+    for (const [key, token] of Object.entries(withVar)) {
+      for (const [i, text] of (STR as Record<string, string[]>)[key].entries()) {
+        expect(text, `${key}[${i}]`).toContain(token);
+      }
+    }
+  });
+
+  it("puts no placeholder in a sentence nothing fills", () => {
+    // The other way round: a {n} left in a sentence buildKpis passes no
+    // vars for prints the braces to the shop.
+    const plain = KEYS.filter((k) => !/Part$|Cancelled$/.test(k));
+    for (const key of plain) {
+      for (const [i, text] of (STR as Record<string, string[]>)[key].entries()) {
+        expect(text, `${key}[${i}]`).not.toMatch(/\{[a-z]+\}/);
+      }
+    }
+  });
+
+  it("is rendered on the page, once per tile, tied to its tile", () => {
+    const HOME = fs.readFileSync(
+      path.join(process.cwd(), "src/components/admin/AdminHome.tsx"), "utf8")
+      // Comments are prose. A guard that a comment can satisfy is a guard
+      // that passes when somebody writes about the fix instead of making it.
+      .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    expect(HOME).toMatch(/fill\(t\(k\.explainKey, lang\), k\.explainVars\)/);
+    // Tied to the tile, so a screen reader hears it as part of the link
+    // rather than having to find the list and match it up by label.
+    expect(HOME).toMatch(/aria-describedby=\{"kpi-why-" \+ k\.key\}/);
+    expect(HOME).toMatch(/id=\{"kpi-why-" \+ k\.key\}/);
+  });
+});
+
+describe("the figures the page hands to the row", () => {
+  /* Comments stripped first, every time. Four separate guards in this
+     project have been satisfied by a comment mentioning the thing they
+     were meant to check. */
+  const PAGE = fs.readFileSync(
+    path.join(process.cwd(), "src/app/admin/page.tsx"), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+  it("asks both sources the same question about how many orders", () => {
+    /* THE BUG. The rollup branch filtered to the statuses that count as
+       sales; the order-book branch counted every status including
+       cancelled. So the figure changed its meaning depending on which
+       source happened to answer -- and which one answers depends on
+       whether a cron has run. */
+    expect(PAGE).toMatch(/rollupOrderCount\(rollup\.orders, from, to, keep\)/);
+    expect(PAGE).toMatch(/keep\(o\.status\)/);
+    // One predicate, passed in, rather than one written into each branch.
+    expect(PAGE).not.toMatch(/rollupOrderCount\([^)]*LIVE_STATUSES/);
+  });
+
+  it("counts orders from the orders, never from their lines", () => {
+    /* An order with nothing readable in its items is still an order, and
+       a set of lines can never see it. That is half of why the card said
+       4 while the orders screen listed 10. */
+    expect(PAGE).toMatch(/orderRows\.filter/);
+    expect(PAGE).toMatch(/orderDate\(o\)/);
+    expect(PAGE).not.toMatch(/new Set\(\s*lines\b/);
+  });
+
+  it("takes the margin over the revenue the profit was computed on", () => {
+    /* gross profit counts only the lines whose cost is known, so dividing
+       it by ALL revenue mixes two bases and understates the margin by the
+       width of the gap. */
+    expect(PAGE).toMatch(/margin: winTotals\?\.margin/);
+    expect(PAGE).not.toMatch(/gp\.current\s*\/\s*revenue/);
+  });
+
+  it("reads the rollup from the beginning, not from a moving horizon", () => {
+    /* The card underneath says ALL TIME. A read that started 2000 days
+       ago would have made that a lie the day the shop turned five and a
+       half. */
+    expect(PAGE).toMatch(/salesRollup\("1970-01-01", todayIso\(\)\)/);
+    expect(PAGE).not.toMatch(/salesRollup\(shiftDays/);
   });
 });
 
@@ -203,9 +390,9 @@ describe("the page hands over only what the account may see", () => {
 describe("the range picker changes what the figures cover", () => {
   const full = {
     sales: { value: 138.23, pct: -0.396 },
-    grossProfit: { value: 62.4, pct: 0.08, margin: 0.451 },
-    orders: { value: 9, pct: 0.125 },
-    catalog: { value: 1420.5, units: 31, live: 24, priced: 21 },
+    grossProfit: { value: 62.4, pct: 0.08, margin: 0.451, coverage: 1 },
+    orders: { value: 9, pct: 0.125, cancelled: 0 },
+    catalog: { value: 1420.5, units: 31, pricedUnits: 31, live: 24, priced: 21 },
     procurement: { value: 70, pct: 0.142 },
     finance: { value: 41.87, margin: 0.302 },
   };
@@ -254,7 +441,7 @@ describe("gross profit with nothing costed", () => {
        screen reported $0.00 against a month that took $138 in, which says
        "you made nothing" where the truth is "nobody has told me". */
     const k = buildKpis(
-      { ...base, grossProfit: { value: null, pct: null, margin: null } }, WORDS)
+      { ...base, grossProfit: { value: null, pct: null, margin: null, coverage: 0 } }, WORDS)
       .find((x) => x.key === "grossProfit")!;
     expect(k.value).toBe("—");
     expect(k.tone).toBe("flat");
@@ -263,7 +450,7 @@ describe("gross profit with nothing costed", () => {
   it("still reports a real zero as zero", () => {
     // Sold at exactly cost is a fact, and different from not knowing.
     const k = buildKpis(
-      { ...base, grossProfit: { value: 0, pct: null, margin: 0 } }, WORDS)
+      { ...base, grossProfit: { value: 0, pct: null, margin: 0, coverage: 1 } }, WORDS)
       .find((x) => x.key === "grossProfit")!;
     expect(k.value).toBe("$0.00");
   });

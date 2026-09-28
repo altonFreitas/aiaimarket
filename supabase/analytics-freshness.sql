@@ -78,23 +78,94 @@ comment on table analytics_refresh is
 -- ---------------------------------------------------------------------------
 -- THE ONE QUESTION THE DASHBOARD ASKS
 --
--- Both halves in a single round trip, and as a function so the comparison
--- is not assembled from two reads that could straddle a refresh.
+-- Every part in a single round trip, and as a function so the comparison is
+-- not assembled from separate reads that could straddle a refresh.
+--
 -- ---------------------------------------------------------------------------
-create or replace function analytics_freshness()
-returns table (refreshed_at timestamptz, orders_changed_at timestamptz)
-language sql
+-- WHY A TIMESTAMP IS NOT ENOUGH, learned the hard way
+-- ---------------------------------------------------------------------------
+-- The first version of this function returned the two timestamps alone, and
+-- the shop reported the same divergence again: home $102.20, Finance
+-- $259.43, with this function reporting `t` -- current.
+--
+-- It was telling the truth. The rollup HAD seen every change the order book
+-- had; it simply could not see all of what it had seen, because it was
+-- built from order_items -- a derived table that an early version of
+-- sync_order_items() had dropped lines from, and that no later migration
+-- put back. Measured: orders.items totalled 257 and the rollup totalled
+-- 100, with both timestamps in agreement.
+--
+-- A clock catches a rollup that is BEHIND. Nothing about a clock catches a
+-- rollup that is INCOMPLETE. So the counts travel with the timestamps: how
+-- many orders the book holds, and how many the rollup accounts for. They
+-- are equal by construction now that sales_daily_orders is built from
+-- `orders` itself -- and a guard that can only fire when something else has
+-- already broken is exactly the guard worth having, because the thing it
+-- watches for has happened once.
+--
+-- BOTH ARE CHEAP. count(*) on orders is one aggregate over a table the
+-- dashboard is refusing to read in full, and sales_daily_orders is one row
+-- per day per status -- hundreds of rows for years of trading.
+--
+-- plpgsql RATHER THAN sql, and not a style choice: this file is applied
+-- BEFORE sales-rollup.sql, so sales_daily_orders does not exist the first
+-- time this runs. A `language sql` body is parsed at creation and would
+-- fail; a plpgsql body is not, which lets the missing view be handled as
+-- what it is -- an unknown, not an error.
+-- ---------------------------------------------------------------------------
+
+-- The return type gains two columns, and Postgres will not replace a
+-- function whose OUT parameters have changed. Dropped rather than renamed,
+-- so a shop re-running this file lands on one definition instead of two.
+drop function if exists analytics_freshness();
+
+create function analytics_freshness()
+returns table (refreshed_at timestamptz, orders_changed_at timestamptz,
+               orders_in_book bigint, orders_in_rollup bigint)
+language plpgsql
 security definer
 set search_path = public
 stable
 as $$
-  select
-    (select r.refreshed_at from analytics_refresh r where r.view_name = 'sales_daily'),
-    (select max(o.updated_at) from orders o);
-$$;
+begin
+  select r.refreshed_at into refreshed_at
+    from analytics_refresh r where r.view_name = 'sales_daily';
+
+  -- One pass for both: the newest change and how many orders there are.
+  select max(o.updated_at), count(*) into orders_changed_at, orders_in_book
+    from orders o;
+
+  begin
+    select coalesce(sum(d.orders), 0) into orders_in_rollup
+      from sales_daily_orders d;
+  exception when undefined_table then
+    -- The rollup has not been installed. NULL, meaning "no answer", which
+    -- the dashboard reads as "nothing to compare" rather than as zero --
+    -- zero would say the rollup holds no orders, which is a different and
+    -- much more alarming claim.
+    orders_in_rollup := null;
+  end;
+
+  return next;
+end $$;
 
 comment on function analytics_freshness is
-  'When the sales rollup last ran, and when an order last changed. The dashboard refuses to read money out of the rollup when the second is later than the first.';
+  'When the sales rollup last ran, when an order last changed, and how many orders each side accounts for. The dashboard refuses to read money out of the rollup unless the refresh is newer than the last change AND the two counts agree.';
+
+-- ---------------------------------------------------------------------------
+-- AND NOBODY REACHES IT WITH THE PUBLIC KEY
+-- ---------------------------------------------------------------------------
+-- RLS ON, WITH NO POLICY, which is deny-by-default and is the point: the
+-- service-role client the admin screens use bypasses RLS entirely, so a
+-- table with row security and no policy is readable by exactly the caller
+-- that should read it and by nobody else.
+--
+-- Caught by tests/rls/rls.test.ts, which fails on any public table without
+-- row security -- and it was right to. The revokes below are a grant-level
+-- answer and this is the row-level one; the pair is what every other table
+-- in this schema carries, and a table that is the odd one out is the one
+-- somebody later grants access to by accident.
+alter table analytics_refresh enable row level security;
 
 -- The storefront must never reach any of this: every row is the shop's
 -- takings. The admin screens read it with the service-role client.

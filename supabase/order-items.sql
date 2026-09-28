@@ -162,11 +162,36 @@ create trigger trg_sync_order_items
   for each row execute function sync_order_items();
 
 -- ---------------------------------------------------------------------------
--- 4. Backfill
+-- 4. Backfill, and the repair
 -- ---------------------------------------------------------------------------
 -- Every order already in the table, turned into lines. Without this the
 -- new queries would report that every seller's history began the day this
 -- ran -- which is the earnings bug again, wearing a different hat.
+--
+-- IT ALSO REPAIRS THE LINES THE FIRST VERSION THREW AWAY, and that is not a
+-- theoretical tidy-up. This block used to carry the trigger's original
+-- guard:
+--
+--     and (nullif(i->>'seller_id','') is null or exists (select 1 from sellers ...))
+--     and (nullif(i->>'product_id','') is null or exists (select 1 from products ...))
+--
+-- so a line naming a product or a seller that no longer existed was not
+-- inserted at all. supabase/legal-currency-tax.sql fixed the TRIGGER -- it
+-- nulls the unknown reference and keeps the line -- but a trigger only fires
+-- on new writes. Every line already dropped stayed dropped, and re-running
+-- this file could not bring it back, because this query refused it on
+-- exactly the same grounds. A shop re-running the SQL to fix its numbers got
+-- "order_items backfill: 0 line(s)" and no repair.
+--
+-- What that costs: those lines are invisible to seller earnings, to the
+-- payout ledger and to per-line fulfilment, while the buyer's own order
+-- still shows them. Nulling the reference instead keeps the line and loses
+-- only the attribution -- which is the same end state ON DELETE SET NULL
+-- produces when the row disappears the other way round.
+--
+-- SAFE TO RE-RUN, still: on conflict do nothing, and the conflict is the
+-- (order, product, size) unique index. Lines already present are left
+-- exactly as they are, fulfilment_status included.
 
 do $$
 declare n bigint;
@@ -175,9 +200,13 @@ begin
     order_id, product_id, seller_id, name, size, qty,
     unit_price, cost, commission_rate, created_at
   )
+  -- The subselects resolve to null when the reference names nothing, which
+  -- is what sync_order_items() does. Written the same way on purpose: two
+  -- writers of one table that disagree about what a line IS will eventually
+  -- disagree about what the shop earned.
   select o.id,
-         nullif(i->>'product_id', '')::uuid,
-         nullif(i->>'seller_id', '')::uuid,
+         (select p.id from products p where p.id = nullif(i->>'product_id', '')::uuid),
+         (select s.id from sellers  s where s.id = nullif(i->>'seller_id',  '')::uuid),
          coalesce(i->>'name', ''),
          coalesce(i->>'size', ''),
          (i->>'qty')::int,
@@ -188,10 +217,6 @@ begin
     from orders o
     cross join lateral jsonb_array_elements(o.items) i
    where coalesce((i->>'qty')::int, 0) > 0
-     and (nullif(i->>'seller_id', '') is null
-          or exists (select 1 from sellers s where s.id = (i->>'seller_id')::uuid))
-     and (nullif(i->>'product_id', '') is null
-          or exists (select 1 from products p where p.id = (i->>'product_id')::uuid))
   on conflict do nothing;
   get diagnostics n = row_count;
   raise notice 'order_items backfill: % line(s)', n;

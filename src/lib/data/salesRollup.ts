@@ -252,9 +252,20 @@ export interface Freshness {
   refreshedAt: string | null;
   /** When an order was last placed OR changed. Null on a shop with none. */
   ordersChangedAt: string | null;
+  /** How many orders the order book holds, and how many the rollup
+   * accounts for.
+   *
+   * BOTH NULL ON A SHOP WHOSE analytics_freshness() PREDATES THEM, which
+   * is every shop on the day this ships and the SQL has not been pasted
+   * yet. Null means "not answered", and the check below then behaves
+   * exactly as it did before the columns existed -- a missing answer must
+   * never be read as a count of zero. */
+  ordersInBook: number | null;
+  ordersInRollup: number | null;
 }
 
-/** Whether the rollup has seen every change the order book has.
+/** Whether the rollup has seen every change the order book has, and holds
+ * all of it.
  *
  * FALSE WHEN NOTHING IS KNOWN, deliberately. A shop that has not applied
  * supabase/analytics-freshness.sql gets null for the refresh time, and the
@@ -263,9 +274,26 @@ export interface Freshness {
  *
  * True on a shop with no orders at all: there is nothing for the rollup to
  * be behind on, and an empty dashboard is the same either way.
+ *
+ * THE COUNTS ARE THE SECOND HALF, and they are here because the first half
+ * was not enough. This function used to compare the two timestamps alone,
+ * and on the shop that reported the bug it returned true while the rollup
+ * held $100 of a $257 order book: it was built from order_items, which
+ * drops any line naming a deleted product, so it was not behind -- it was
+ * short. A clock cannot see that. Comparing how many orders each side
+ * accounts for can, and costs one aggregate.
  */
 export function rollupIsCurrent(f: Freshness): boolean {
   if (!f.refreshedAt) return false;
+
+  /* EVERY ORDER IN THE BOOK, OR THE FIGURES ARE NOT THE SHOP'S FIGURES.
+     Checked before the clock, because a rollup missing orders is wrong
+     however recently it ran. Skipped when either side is null: an older
+     analytics_freshness() does not return these, and a shop that has not
+     installed the rollup at all has nothing to count. */
+  if (f.ordersInBook != null && f.ordersInRollup != null
+      && f.ordersInBook !== f.ordersInRollup) return false;
+
   /* NULL means no orders exist. An empty or unreadable string means
      something came back that this cannot make sense of -- which is not
      the same thing, and must not be read as "nothing to be behind on". */
@@ -280,19 +308,62 @@ export function rollupIsCurrent(f: Freshness): boolean {
  * same statement -- assembled from two separate reads they could straddle
  * a refresh and report a state that never existed. */
 export async function analyticsFreshness(): Promise<Freshness> {
+  const UNKNOWN: Freshness = {
+    refreshedAt: null, ordersChangedAt: null,
+    ordersInBook: null, ordersInRollup: null,
+  };
   try {
     const sb = supabaseAdmin();
     const { data, error } = await sb.rpc("analytics_freshness");
-    if (error || !data) return { refreshedAt: null, ordersChangedAt: null };
+    if (error || !data) return UNKNOWN;
     const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
-    if (!row) return { refreshedAt: null, ordersChangedAt: null };
+    if (!row) return UNKNOWN;
     return {
       refreshedAt: row.refreshed_at ? String(row.refreshed_at) : null,
       ordersChangedAt: row.orders_changed_at ? String(row.orders_changed_at) : null,
+      /* ABSENT IS NOT ZERO. A shop still running the two-column version of
+         analytics_freshness() returns neither key, and reading that as
+         "the book holds no orders" would make the counts agree by accident
+         on every shop that has not migrated. */
+      ordersInBook: parseCount(row.orders_in_book),
+      ordersInRollup: parseCount(row.orders_in_rollup),
     };
   } catch {
     /* The function does not exist yet. Unknown, which rollupIsCurrent
        reads as "do not trust it with money". */
-    return { refreshedAt: null, ordersChangedAt: null };
+    return UNKNOWN;
   }
+}
+
+/** A count from PostgREST, or null when there was not one.
+ *
+ * NULL FOR ABSENT AND FOR UNREADABLE, and never zero for either. Three
+ * things arrive at this function and only one of them is a number:
+ *
+ *   a count, which bigint sends as a STRING over the wire -- PostgREST
+ *   will not risk a value larger than a JavaScript number in a JSON
+ *   number -- so this parses rather than casts;
+ *
+ *   undefined, from a shop still running the two-column
+ *   analytics_freshness(). "The question was not asked";
+ *
+ *   and SQL null, from a shop whose sales_daily_orders does not exist.
+ *   "There is no rollup to count."
+ *
+ * Reading either of those last two as 0 turns "I do not know" into "the
+ * rollup holds nothing", which rollupIsCurrent would then compare against
+ * a real order count and refuse the rollup for ever. Exported so that
+ * behaviour is provable without a database; nothing else calls it. */
+export function parseCount(raw: unknown): number | null {
+  if (raw == null) return null;
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  /* NOT Number(raw) ON ANYTHING ELSE. Number("") is 0 and Number([]) is 0,
+     so an empty cell and an empty array would both come back as a count of
+     nothing -- which is the exact reading this function exists to refuse.
+     Only a string is worth parsing, and only a non-blank one. */
+  if (typeof raw !== "string") return null;
+  const text = raw.trim();
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
 }

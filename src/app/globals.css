@@ -2607,6 +2607,27 @@ h2{font-size:15px;margin:22px 0 10px;letter-spacing:-.005em;font-weight:700}
 .kpi-bad{color:var(--red)}
 .kpi-flat{color:var(--muted)}
 
+/* WHAT EACH FIGURE COUNTS. Folded, so the row stays a row: six sentences
+   printed on six tiles is a paragraph where a dashboard should be. A
+   <details> and not a tooltip, because a tooltip does not exist on a
+   phone and this shop is run from one. */
+.kpi-why{flex:0 0 auto;margin-top:calc(var(--sp-2) * -1)}
+.kpi-why>summary{font-size:var(--fs-caption);color:var(--muted);cursor:pointer;
+  padding:var(--sp-1) 0;list-style:none;display:inline-flex;align-items:center;gap:6px}
+.kpi-why>summary::-webkit-details-marker{display:none}
+/* The chevron, drawn rather than an image so it turns with the fold. */
+.kpi-why>summary::before{content:"";width:6px;height:6px;flex:0 0 auto;
+  border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+  transform:rotate(-45deg);transition:transform .15s ease}
+.kpi-why[open]>summary::before{transform:rotate(45deg)}
+.kpi-why>summary:hover{color:var(--ink)}
+.kpi-why>summary:focus-visible{outline:2px solid var(--ink-3);outline-offset:2px}
+.kpi-why dl{display:grid;gap:var(--sp-2);margin:var(--sp-1) 0 0;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.kpi-why dt{font-size:var(--fs-caption);letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);font-family:var(--mono)}
+.kpi-why dd{margin:2px 0 0;font-size:var(--fs-sm);color:var(--muted);line-height:1.45}
+
 /* The three panels. They share the leftover height rather than each taking
    what its contents want, which is the whole trick of fitting a screen. */
 .dash-grid{display:grid;gap:var(--sp-3);grid-template-columns:1fr}

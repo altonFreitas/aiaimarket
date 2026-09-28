@@ -2,7 +2,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { DATABASE_URL, sql, scalar } from "./db";
 import { buildSalesLines, LIVE_STATUSES, returnKey } from "@/lib/sales";
 import { headlineMetrics, overviewSeries } from "@/lib/overview";
-import { rollupLines, rollupOrderCount, type DayOrders, type RollupRow } from "@/lib/data/salesRollup";
+import {
+  rollupIsCurrent, rollupLines, rollupOrderCount,
+  type DayOrders, type RollupRow,
+} from "@/lib/data/salesRollup";
 import { STORE_TZ } from "@/lib/tz";
 import fs from "node:fs";
 import path from "node:path";
@@ -216,11 +219,20 @@ describeDb("sales_daily says what buildSalesLines says", () => {
   });
 
   it("nets a return out of the day it was sold on", () => {
-    // Three shirts sold, two returned: one shirt of revenue, not three.
-    const row = scalar(
+    /* Three shirts sold, two returned: one shirt of revenue, not three.
+     *
+     * COMPARED AS NUMBERS, not as the text psql prints. The view used to
+     * read order_items, whose unit_price is numeric(10,2), so this came
+     * back "18.00"; it reads orders.items now and the price arrives at
+     * whatever scale the snapshot holds, so the same money prints "18".
+     * Asserting the string tested Postgres's formatter, and would have
+     * gone on passing if the view had started ROUNDING a price -- which
+     * is the one thing that change could have broken. */
+    const [qty, net] = (scalar(
       `select qty || ' ' || net_sales from sales_daily
-        where status = 'completed' and category_id = '${C1}'`);
-    expect(row).toBe("1 18.00");
+        where status = 'completed' and category_id = '${C1}'`) ?? "").split(" ");
+    expect(Number(qty)).toBe(1);
+    expect(Number(net)).toBe(18);
   });
 
   it("says how much of the cost figure is real", () => {
@@ -390,5 +402,188 @@ describeDb("the dashboard reads the same either way", () => {
         where day = '2026-09-03' and status = 'completed'`)[0];
     expect(Number(summedWrongly.n)).toBeGreaterThan(Number(exact.n));
     expect(Number(exact.n)).toBe(1);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+   ONE LEDGER, OR THE TWO SCREENS DISAGREE ABOUT THE TAKINGS
+   ---------------------------------------------------------------------------
+   REPORTED FROM THE SHOP: admin home said net profit $102.20 and Settings ->
+   Finance said $259.43. Both screens run the same profitAndLoss() over the
+   same commission, delivery fees, refunds and expenses. Only the LINES
+   differed -- Finance flattens orders.items, the rollup read order_items --
+   and those are not the same ledger, because sync_order_items() drops any
+   line naming a product or a seller that no longer exists.
+
+   So the rollup is built from orders.items now. This block is the proof,
+   and it reproduces a shop MIGRATED BEFORE THE TRIGGER WAS FIXED: the line
+   is in orders.items and absent from order_items, which is the state every
+   such shop is still in, because legal-currency-tax.sql fixed the trigger
+   for new writes and nothing restored the old lines.
+
+   Reproduced by deleting the row rather than by defeating the trigger. The
+   trigger is right now; what this file has to prove is that the dashboard
+   no longer depends on it having always been right.
+
+   It runs last and reseeds, because the fixture above is a different shop.
+   ------------------------------------------------------------------------ */
+
+describeDb("the rollup reads the ledger the Finance screen reads", () => {
+  const O_GHOST = "b0000000-0000-0000-0000-0000000000a1";
+  const O_EMPTY = "b0000000-0000-0000-0000-0000000000a2";
+  const O_LATER = "b0000000-0000-0000-0000-0000000000a3";
+  /** A uuid that names no row in `products` -- a product sold and later
+   * deleted, which is the ordinary way a shop tidies its catalogue. */
+  const DEAD = "a0000000-0000-0000-0000-0000000000ff";
+
+  beforeAll(() => {
+    sql(`delete from order_return_items; delete from order_returns;
+         delete from order_items; delete from orders;`);
+    sql(`insert into orders (id, ref, buyer_name, buyer_phone, items, subtotal, fee,
+                             total, status, mode, pay_method, created_at) values
+      ('${O_GHOST}','G1','Ana','+6701',
+       '[{"product_id":"${DEAD}","name":"Sapatu","qty":2,"price":50,"cost":20,"size":"40"}]'::jsonb,
+       100,0,100,'completed','delivery','cod','2026-09-10T03:00:00Z'),
+      /* NO LINES AT ALL. Still an order: it has a ref, a buyer and a place
+         in the order book, and the front page used to pretend it did not
+         exist. */
+      ('${O_EMPTY}','G2','Beto','+6702',
+       '[]'::jsonb, 0,0,0,'confirmed','delivery','cod','2026-09-10T03:00:00Z')`);
+    /* THE SHOP THAT REPORTED THIS, reproduced: the line is in the order
+       book and gone from order_items. Deleted here because the trigger no
+       longer drops it -- which is the point. The damage was done by a
+       version of the trigger that is not in the database any more, and the
+       rows it lost are still lost on every shop migrated before the fix. */
+    sql(`delete from order_items where order_id = '${O_GHOST}'`);
+    sql(`select refresh_sales_daily()`);
+  });
+
+  it("starts from a line the order book has and order_items has not", () => {
+    // The premise, asserted rather than assumed: if the seeding above ever
+    // stops producing this state, everything below passes for nothing.
+    expect(scalar(
+      `select count(*)::text from order_items where order_id = '${O_GHOST}'`)).toBe("0");
+    expect(scalar(
+      `select jsonb_array_length(items)::text from orders where id = '${O_GHOST}'`)).toBe("1");
+  });
+
+  it("re-running the backfill puts the lost line back", () => {
+    /* THE OTHER HALF OF THE FIX. The dashboard no longer reads
+       order_items, but seller earnings, the payout ledger and per-line
+       fulfilment still do -- so the rows have to come back, and the only
+       thing a shop can run is the SQL. This is that re-run, and it used to
+       insert nothing at all: the backfill refused the line on the same
+       grounds the old trigger had. */
+    expect(scalar(
+      `select count(*)::text from order_items where order_id = '${O_GHOST}'`)).toBe("0");
+    const file = fs.readFileSync(
+      path.join(process.cwd(), "supabase/order-items.sql"), "utf8");
+    const at = file.indexOf("-- 4. Backfill");
+    expect(at, "the backfill block").toBeGreaterThan(-1);
+    const block = file.slice(at, file.indexOf("end $$;", at) + "end $$;".length);
+    const r = sql(block);
+    expect(r.ok, r.error).toBe(true);
+    expect(scalar(
+      `select count(*)::text from order_items where order_id = '${O_GHOST}'`)).toBe("1");
+    // The attribution is what is lost, not the line.
+    expect(scalar(
+      `select coalesce(product_id::text, 'null') from order_items
+        where order_id = '${O_GHOST}'`)).toBe("null");
+    expect(Number(scalar(
+      `select qty * unit_price from order_items where order_id = '${O_GHOST}'`))).toBe(100);
+    // And back to the broken state, so the tests after this one still
+    // describe the shop this block is about.
+    sql(`delete from order_items where order_id = '${O_GHOST}'`);
+  });
+
+  it("counts the money the order book has and order_items has not", () => {
+    /* $100 -- two pairs at fifty. Built from order_items this row did not
+       exist at all, and every figure on the front page was short by it
+       while Finance reported it in full. */
+    expect(Number(scalar(
+      `select coalesce(sum(net_sales), 0) from sales_daily`))).toBe(100);
+    expect(Number(scalar(
+      `select coalesce(sum(cost), 0) from sales_daily`))).toBe(40);
+  });
+
+  it("gives buildSalesLines' answer, line for line", () => {
+    const orders = json<Order>(`select * from orders`);
+    const lines = buildSalesLines(orders, {
+      products: json<Product>(`select * from products`),
+      categories: json<Category>(`select * from categories`),
+      sellers: json<Seller>(`select * from sellers`),
+      costs: new Map(), returns: new Map(),
+    });
+    const book = lines.filter((l) => l.status !== "cancelled")
+      .reduce((a, l) => a + l.netSales, 0);
+    expect(Number(scalar(
+      `select coalesce(sum(net_sales), 0) from sales_daily
+        where status <> 'cancelled'`))).toBe(book);
+    expect(book, "the fixture has money in it").toBeGreaterThan(0);
+  });
+
+  it("counts an order with no readable lines as an order", () => {
+    /* THE SECOND HALF OF THE SAME BUG. sales_daily_orders carried
+       `where exists (select 1 from order_items ...)`, so the front page
+       said four orders while /admin/orders listed ten. */
+    expect(Number(scalar(
+      `select coalesce(sum(orders), 0) from sales_daily_orders`)))
+      .toBe(Number(scalar(`select count(*) from orders`)));
+    expect(Number(scalar(
+      `select orders from sales_daily_orders where grain like '%|confirmed'`))).toBe(1);
+  });
+
+  it("reports both counts, so the dashboard can see it has fallen behind", () => {
+    /* A TIMESTAMP CANNOT SEE AN INCOMPLETE ROLLUP. The old freshness check
+       compared refresh time against orders.updated_at, and on the shop
+       that reported this bug it said `t` -- current -- while the rollup
+       held 100 of the order book's 257. So the count travels with it. */
+    const f = json<{ orders_in_book: string; orders_in_rollup: string }>(
+      `select orders_in_book, orders_in_rollup from analytics_freshness()`)[0];
+    expect(Number(f.orders_in_book)).toBe(2);
+    expect(Number(f.orders_in_rollup)).toBe(2);
+  });
+
+  it("calls the rollup stale when it holds fewer orders than the book", () => {
+    sql(`insert into orders (id, ref, buyer_name, buyer_phone, items, subtotal, fee,
+                             total, status, mode, pay_method, created_at) values
+      ('${O_LATER}','G3','Caio','+6703',
+       '[{"product_id":"${DEAD}","name":"Sapatu","qty":1,"price":50}]'::jsonb,
+       50,0,50,'completed','delivery','cod','2026-09-10T03:00:00Z')`);
+    /* THE TIMESTAMPS ARE MADE TO AGREE ON PURPOSE. Without this the new
+       order would be caught by the old check too, and this test would
+       pass with the count comparison deleted. Pushed into the future, the
+       only thing left that can notice is the count. */
+    sql(`update analytics_refresh set refreshed_at = now() + interval '1 hour'
+          where view_name = 'sales_daily'`);
+
+    const f = json<{
+      refreshed_at: string; orders_changed_at: string;
+      orders_in_book: string; orders_in_rollup: string;
+    }>(`select refreshed_at, orders_changed_at, orders_in_book, orders_in_rollup
+          from analytics_freshness()`)[0];
+
+    expect(Date.parse(f.refreshed_at) >= Date.parse(f.orders_changed_at),
+      "the timestamps alone say it is current").toBe(true);
+    expect(rollupIsCurrent({
+      refreshedAt: f.refreshed_at, ordersChangedAt: f.orders_changed_at,
+      ordersInBook: Number(f.orders_in_book),
+      ordersInRollup: Number(f.orders_in_rollup),
+    })).toBe(false);
+
+    // And current again the moment it catches up.
+    sql(`select refresh_sales_daily()`);
+    sql(`update analytics_refresh set refreshed_at = now() + interval '1 hour'
+          where view_name = 'sales_daily'`);
+    const g = json<{
+      refreshed_at: string; orders_changed_at: string;
+      orders_in_book: string; orders_in_rollup: string;
+    }>(`select refreshed_at, orders_changed_at, orders_in_book, orders_in_rollup
+          from analytics_freshness()`)[0];
+    expect(rollupIsCurrent({
+      refreshedAt: g.refreshed_at, ordersChangedAt: g.orders_changed_at,
+      ordersInBook: Number(g.orders_in_book),
+      ordersInRollup: Number(g.orders_in_rollup),
+    })).toBe(true);
   });
 });

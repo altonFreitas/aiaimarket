@@ -1,8 +1,8 @@
 -- ---------------------------------------------------------------------------
 -- The dashboard's arithmetic, done once a day instead of once a page load
 -- ---------------------------------------------------------------------------
--- Run AFTER order-items.sql (which creates the rows this reads), returns.sql
--- and sales.sql. Safe to re-run.
+-- Run AFTER schema.sql, returns.sql, sales.sql and analytics-freshness.sql.
+-- Safe to re-run.
 --
 -- WHAT WAS ACTUALLY WRONG, measured before writing any of this. The admin
 -- dashboard read up to 20,000 orders and aggregated them in JavaScript, and
@@ -18,14 +18,66 @@
 -- the column list saves 1 MB of that, because the lines ARE the payload.
 --
 -- So the fix is not an index and not a narrower select. It is to stop
--- shipping the lines: this view is ~one row per day per status per seller
+-- SHIPPING the lines: this view is ~one row per day per status per seller
 -- per category, which for two years of trading is hundreds of rows rather
 -- than tens of thousands of orders.
 --
--- IT READS order_items, NOT orders.items. Those rows already exist --
--- sync_order_items has built them at placement since order-items.sql -- so
--- the expensive half, exploding the jsonb, is already materialised and has
--- been all along. Nothing here re-parses anything.
+-- ---------------------------------------------------------------------------
+-- IT READS orders.items, AND THAT IS THE WHOLE POINT
+-- ---------------------------------------------------------------------------
+-- The first version of this file read `order_items` instead, on the
+-- reasoning that the expensive half -- exploding the jsonb -- was already
+-- materialised there by sync_order_items(). The reasoning was sound and the
+-- result was wrong, and here is the bug it caused, reported from the shop:
+--
+--     admin home      net profit  $102.20
+--     Settings ->     net profit  $259.43
+--     Finance
+--
+-- Both screens run the SAME arithmetic (profitAndLoss, from the same
+-- commission, delivery fees, refunds and expenses). Only the LINES differed:
+-- Finance flattens orders.items, this view read order_items -- and those are
+-- not the same ledger.
+--
+-- order_items is DERIVED from orders.items by a trigger, and the first
+-- version of that trigger, and of its backfill, dropped any line naming a
+-- product or a seller that no longer existed:
+--
+--     and (nullif(i->>'seller_id','') is null or exists (select 1 from sellers ...))
+--     and (nullif(i->>'product_id','') is null or exists (select 1 from products ...))
+--
+-- supabase/legal-currency-tax.sql has since fixed the trigger -- it nulls
+-- the unknown reference and keeps the line. But a trigger only fires on new
+-- writes. Every line already dropped stayed dropped, and re-running
+-- supabase/order-items.sql could not bring it back, because its backfill
+-- refused the same lines on the same grounds. That backfill is repaired in
+-- the same change as this file, so a shop that runs the SQL again gets its
+-- lines returned to order_items -- which is what the seller earnings and
+-- the payout ledger read.
+--
+-- Measured on a real Postgres, reproducing a shop migrated before that fix:
+--
+--     orders.items         total  257.00     <- what Finance reports
+--     sales_daily          total  100.00     <- what the dashboard reported
+--     analytics_freshness()        t         <- and it called that current
+--
+-- REPAIRING THE DATA IS NOT ENOUGH, which is why this file changed too. A
+-- repair fixes the rows that exist today; it does not stop a derived table
+-- drifting from the order book again, and it cannot, because the dashboard
+-- would still be reading a copy. So the rollup is built from orders.items,
+-- the column both screens already treat as authoritative and the one the
+-- buyer's own order is printed from. The two sources cannot disagree about
+-- which lines exist, because there is only one set of lines.
+--
+-- THE COST IS ONE jsonb EXPLOSION PER REFRESH, once a day, inside the
+-- database -- the half that was never the bottleneck. Nothing extra crosses
+-- the wire.
+--
+-- EVERY EXPRESSION BELOW MIRRORS buildSalesLines() IN src/lib/sales.ts, line
+-- for line: the same returns netting, the same cost precedence, the same
+-- list-price reconstruction, the same "a seller id naming no seller is the
+-- shop's own". tests/rls/salesRollup.test.ts pins the two against each other
+-- on a real database, including the deleted-product case above.
 -- ---------------------------------------------------------------------------
 
 -- ---------------------------------------------------------------------------
@@ -55,6 +107,38 @@ with returned as (
     join order_returns r on r.id = ri.return_id
    where ri.product_id is not null
    group by ri.product_id, r.order_id
+), line as (
+  /* ONE ROW PER ORDER LINE, straight out of the snapshot. The same
+     flattening buildSalesLines() does, expressed once here.
+   *
+   * jsonb_typeof GUARDS THE EXPLOSION. jsonb_array_elements() raises on
+   * anything that is not an array, and one order carrying `null` or `{}`
+   * in `items` would take the whole view down with it -- which on this
+   * file means the migration aborts and the shop has no dashboard.
+   *
+   * THE UUID CASTS ARE GUARDED FOR THE SAME REASON. `::uuid` on a value
+   * that is not one raises, and a single imported or hand-repaired order
+   * would cost every figure on the page. A product_id that is not a uuid
+   * names no product, which is exactly what a failed lookup means in
+   * buildSalesLines -- so it resolves to null here rather than throwing. */
+  select
+    o.id                                                       as order_id,
+    o.created_at                                               as created_at,
+    o.status                                                   as status,
+    case when i->>'product_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+         then (i->>'product_id')::uuid end                     as product_id,
+    case when i->>'seller_id'  ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+         then (i->>'seller_id')::uuid end                      as seller_id,
+    -- Number(x) || 0, in SQL. A line with no qty or no price is a line
+    -- worth nothing, not a line that stops the view building.
+    coalesce(nullif(i->>'qty', '')::numeric, 0)                as sold_qty,
+    coalesce(nullif(i->>'price', '')::numeric, 0)              as unit_price,
+    -- Null means "not recorded", and stays distinguishable from "cost
+    -- nothing" all the way to the margin.
+    nullif(i->>'cost', '')::numeric                            as snapshot_cost
+    from orders o
+    cross join lateral jsonb_array_elements(
+      case when jsonb_typeof(o.items) = 'array' then o.items else '[]'::jsonb end) i
 )
 select
   /* THE KEY, AS A COLUMN. A concurrent refresh needs a unique index, and
@@ -64,14 +148,23 @@ select
      materialised as a column that is never null, and the nullable
      seller_id and category_id stay beside it for readers, where null keeps
      meaning "the shop's own" and "uncategorised". */
-  (o.created_at at time zone 'Asia/Dili')::date::text
-    || '|' || o.status
-    || '|' || coalesce(oi.seller_id::text, '')
+  (l.created_at at time zone 'Asia/Dili')::date::text
+    || '|' || l.status
+    || '|' || coalesce(s.id::text, '')
     || '|' || coalesce(p.category_id::text, '')
-    || '|' || (coalesce(oi.cost, pc.cost_price) is not null)::text as grain,
-  (o.created_at at time zone 'Asia/Dili')::date          as day,
-  o.status                                               as status,
-  oi.seller_id                                           as seller_id,
+    || '|' || (coalesce(l.snapshot_cost, pc.cost_price) is not null)::text as grain,
+  (l.created_at at time zone 'Asia/Dili')::date          as day,
+  l.status                                               as status,
+  /* s.id, NOT l.seller_id. A SELLER ID THAT NAMES NO SELLER IS THE
+     MARKETPLACE'S OWN -- products.seller_id has been NOT NULL since
+     schema.sql and defaults to settings.seller_id, so the shop's own
+     catalogue carries a real uuid that matches no row in `sellers`.
+     Reported as-is it becomes a group of its own, and since the label
+     falls back to "Store's own" for want of a store name, the seller
+     table prints TWO rows both called "Store's own" with the shop's
+     takings split between them. buildSalesLines resolves it to null; so
+     does this, by taking the id from the JOIN rather than from the line. */
+  s.id                                                   as seller_id,
   p.category_id                                          as category_id,
   /* WHETHER THESE LINES HAD A COST AT ALL, and part of the grain rather
      than a summary of it.
@@ -86,43 +179,44 @@ select
      .
      Split into the grain, every row is wholly one or the other, and a row
      with no cost reports cost as absent rather than as zero. */
-  (coalesce(oi.cost, pc.cost_price) is not null)         as has_cost,
-  count(distinct o.id)                                   as orders,
+  (coalesce(l.snapshot_cost, pc.cost_price) is not null)  as has_cost,
+  count(distinct l.order_id)                             as orders,
   -- NET OF RETURNS, and floored at zero. A return larger than the order is
   -- a data error, and it must not become negative revenue that quietly
   -- cancels out a real sale somewhere else in the total. Same rule as
   -- buildSalesLines() in src/lib/sales.ts, which this has to agree with.
-  sum(greatest(oi.qty - least(oi.qty, greatest(coalesce(rt.qty, 0), 0)), 0))
+  sum(greatest(l.sold_qty - least(l.sold_qty, greatest(coalesce(rt.qty, 0), 0)), 0))
                                                          as qty,
-  sum(greatest(oi.qty - least(oi.qty, greatest(coalesce(rt.qty, 0), 0)), 0)
-      * oi.unit_price)                                   as net_sales,
-  -- THE SNAPSHOT WINS. order_items.cost is what the goods cost when they
-  -- were sold; product_costs is today's, and is the fallback only so that
-  -- orders placed before costs were ever recorded still report something.
-  sum(greatest(oi.qty - least(oi.qty, greatest(coalesce(rt.qty, 0), 0)), 0)
-      * coalesce(oi.cost, pc.cost_price, 0))             as cost,
+  sum(greatest(l.sold_qty - least(l.sold_qty, greatest(coalesce(rt.qty, 0), 0)), 0)
+      * l.unit_price)                                    as net_sales,
+  -- THE SNAPSHOT WINS. The line's own `cost` is what the goods cost when
+  -- they were sold; product_costs is today's, and is the fallback only so
+  -- that orders placed before costs were ever recorded still report
+  -- something.
+  sum(greatest(l.sold_qty - least(l.sold_qty, greatest(coalesce(rt.qty, 0), 0)), 0)
+      * coalesce(l.snapshot_cost, pc.cost_price, 0))     as cost,
   -- How many of those lines had no cost at all. A margin computed over
   -- lines that are half-costed is a lie with a decimal point, so the
   -- reader can see how much of the figure is real.
-  sum(case when oi.cost is null and pc.cost_price is null then 1 else 0 end)
+  sum(case when l.snapshot_cost is null and pc.cost_price is null then 1 else 0 end)
                                                          as lines_without_cost,
   -- The list price the line was sold against, reconstructed the way
   -- buildSalesLines does: the order line has no list price of its own, and
   -- greatest() stops a later price CUT manufacturing a negative discount
   -- out of an old order.
-  sum(greatest(oi.qty - least(oi.qty, greatest(coalesce(rt.qty, 0), 0)), 0)
-      * (greatest(oi.unit_price, coalesce(p.price, oi.unit_price)) - oi.unit_price))
+  sum(greatest(l.sold_qty - least(l.sold_qty, greatest(coalesce(rt.qty, 0), 0)), 0)
+      * (greatest(l.unit_price, coalesce(p.price, l.unit_price)) - l.unit_price))
                                                          as discount,
   count(*)                                               as lines
-  from order_items oi
-  join orders   o  on o.id = oi.order_id
-  left join products p  on p.id = oi.product_id
-  left join product_costs pc on pc.product_id = oi.product_id
-  left join returned rt on rt.order_id = oi.order_id and rt.product_id = oi.product_id
+  from line l
+  left join products p  on p.id = l.product_id
+  left join sellers  s  on s.id = l.seller_id
+  left join product_costs pc on pc.product_id = l.product_id
+  left join returned rt on rt.order_id = l.order_id and rt.product_id = l.product_id
  group by 1, 2, 3, 4, 5, 6;
 
 comment on materialized view sales_daily is
-  'One row per shop-day, order status, seller and category, netted for returns. What the admin dashboard reads instead of the order book. Refreshed by refresh_sales_daily(); see /api/cron/refresh-analytics.';
+  'One row per shop-day, order status, seller and category, netted for returns. Built from orders.items -- the same ledger the Finance screen flattens -- so the two cannot disagree. Refreshed by refresh_sales_daily(); see /api/cron/refresh-analytics.';
 
 -- REQUIRED FOR A CONCURRENT REFRESH, which is the only kind worth having:
 -- a plain REFRESH takes an exclusive lock and the dashboard blocks behind
@@ -146,6 +240,16 @@ create index if not exists sales_daily_day on sales_daily (day desc);
 --
 -- So it gets its own view at the only grain where the answer is exact. Day
 -- and status, which is what the dashboard's order-count card asks for.
+--
+-- EVERY ORDER, INCLUDING ONE WITH NO LINES. This used to carry
+--
+--     where exists (select 1 from order_items oi where oi.order_id = o.id)
+--
+-- which is the second half of the bug at the top of this file: an order
+-- whose lines the sync trigger had skipped was not merely mis-valued, it
+-- was not an order at all. The shop counted four orders on the front page
+-- and listed ten on the orders screen. An order is an order; what it
+-- contains is the other view's question.
 -- ---------------------------------------------------------------------------
 drop materialized view if exists sales_daily_orders;
 
@@ -154,13 +258,12 @@ select
   (o.created_at at time zone 'Asia/Dili')::date::text || '|' || o.status  as grain,
   (o.created_at at time zone 'Asia/Dili')::date                           as day,
   o.status                                                                as status,
-  count(distinct o.id)                                                    as orders
+  count(*)                                                                as orders
   from orders o
- where exists (select 1 from order_items oi where oi.order_id = o.id)
  group by 1, 2, 3;
 
 comment on materialized view sales_daily_orders is
-  'Distinct orders per shop-day and status. Separate from sales_daily because that view''s grain makes an order count non-additive.';
+  'Orders per shop-day and status, all of them. Separate from sales_daily because that view''s grain makes an order count non-additive, and unconditional because an order with no readable lines is still an order.';
 
 create unique index if not exists sales_daily_orders_grain
   on sales_daily_orders (grain);

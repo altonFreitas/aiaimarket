@@ -133,20 +133,59 @@ export default function AdminHome({
       </nav>
 
       {tiles.length > 0 && (
-        <div className="kpi-row">
-          {tiles.map((k) => (
-            <Link key={k.key} href={k.href} className={"kpi " + (ACCENT[k.key] ?? "")}>
-              <span className="kpi-label">{t(k.labelKey, lang)}</span>
-              <b className="kpi-value">{k.value}</b>
-              <span className={"kpi-note kpi-" + k.tone}>
-                {k.note ?? "—"}
-              </span>
-              {/* What this figure measures. The whole reason the row can be
-                  trusted -- see the note at the top of this file. */}
-              <span className="kpi-basis">{t(k.basisKey, lang)}</span>
-            </Link>
-          ))}
-        </div>
+        <>
+          <div className="kpi-row">
+            {tiles.map((k) => (
+              <Link
+                key={k.key}
+                href={k.href}
+                className={"kpi " + (ACCENT[k.key] ?? "")}
+                /* THE TILE POINTS AT ITS OWN EXPLANATION, so a screen
+                   reader hears what the figure counts as part of the
+                   link rather than having to find the list below and
+                   match it up by label. */
+                aria-describedby={"kpi-why-" + k.key}
+              >
+                <span className="kpi-label">{t(k.labelKey, lang)}</span>
+                <b className="kpi-value">{k.value}</b>
+                <span className={"kpi-note kpi-" + k.tone}>
+                  {k.note ?? "—"}
+                </span>
+                {/* What this figure measures. The whole reason the row can be
+                    trusted -- see the note at the top of this file. */}
+                <span className="kpi-basis">{t(k.basisKey, lang)}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* WHAT EACH FIGURE COUNTS, IN A SENTENCE.
+              ASKED FOR IN THOSE WORDS after the front page said 4 orders
+              and the orders screen listed 10. Both were right: one counts
+              orders that are still sales, the other lists the book. The
+              difference was nowhere on the page, and a number whose rule
+              is unstated can only be believed, not checked.
+
+              BELOW THE ROW AND FOLDED, not on the faces of the tiles. Six
+              sentences on six cards is a paragraph where a dashboard
+              should be; folded, it is one line until somebody has a
+              question. <details> rather than a tooltip because a tooltip
+              does not exist on a phone, and this shop is run from one.
+
+              Open by DEFAULT it is not -- but the content is in the page
+              either way, which is what makes aria-describedby above work
+              and what puts it in a printout. */}
+          <details className="kpi-why">
+            <summary>{t("kpiWhyTitle", lang)}</summary>
+            <dl>
+              {tiles.map((k) => (
+                <div key={k.key} id={"kpi-why-" + k.key}>
+                  <dt>{t(k.labelKey, lang)}</dt>
+                  <dd>{fill(t(k.explainKey, lang), k.explainVars)}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        </>
       )}
 
       <div className="dash-grid">

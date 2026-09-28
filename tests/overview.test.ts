@@ -102,13 +102,15 @@ describe("gross profit is not revenue minus purchases", () => {
 describe("the sales-to-purchase ratio", () => {
   it("is revenue over spend", () => {
     expect(salesToPurchaseRatio(
-      { revenue: 300, purchaseCost: 100, qtySold: 0, qtyPurchased: 0, grossProfit: null }
+      { revenue: 300, purchaseCost: 100, qtySold: 0, qtyPurchased: 0,
+        grossProfit: null, margin: null, costCoverage: 0 }
     )).toBe(3);
   });
 
   it("is null rather than infinity in a month with no buying", () => {
     expect(salesToPurchaseRatio(
-      { revenue: 300, purchaseCost: 0, qtySold: 0, qtyPurchased: 0, grossProfit: null }
+      { revenue: 300, purchaseCost: 0, qtySold: 0, qtyPurchased: 0,
+        grossProfit: null, margin: null, costCoverage: 0 }
     )).toBeNull();
   });
 });
