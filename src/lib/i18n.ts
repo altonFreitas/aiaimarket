@@ -125,7 +125,7 @@ export const STR: Record<string, [string,string,string]> = {
   newArrivalsSub:["Sasán foun, foin tama.","Stock novo, acabado de chegar.","Fresh stock, just added."],
   viewAll:["Haree hotu","Ver tudo","View all"],
   categoryPicks:["Eskolla populár agora.","Escolhas populares agora.","Popular picks right now."],
-  bestSellers:["Sasán Fa'an barak liu","Mais Vendidos","Best Sellers"],
+  bestSellers:["Sasán fa'an barak liu","Mais Vendidos","Best Sellers"],
   bestSellersSub:["Kliente sira nia favoritu.","Favoritos dos clientes.","Customer favourites."],
   viewAllBestSellers:["Haree hotu sasán ne'ebé fa'an barak liu","Ver todos os mais vendidos","View all best sellers"],
   bestSellerBadge:["FA'AN BARAK LIU","MAIS VENDIDO","BEST SELLER"],
