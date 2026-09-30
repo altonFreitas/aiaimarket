@@ -8,6 +8,7 @@ update settings set
   tagline_tet = 'Sasán loos, folin klaru, entrega iha Dili.',
   tagline_pt  = 'Produtos reais, preços claros, entrega em Díli.',
   tagline_en  = 'Real stock, clear prices, delivered in Dili.',
+  tagline_id  = 'Stok nyata, harga jelas, diantar di Dili.',
   wa_number = '+67077123456',
   hours = 'Segunda–Sábadu · 08:00–18:00',
   municipality = 'Dili', post = 'Vera Cruz', suku = 'Caicoli',

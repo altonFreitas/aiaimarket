@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { parseNum, normalizeNumText } from "@/lib/numberInput";
+import { taglineOf } from "@/lib/tagline";
+import type { Settings } from "@/lib/types";
 
 /* THE SETTINGS THAT WERE SAVED AND NEVER READ.
  *
@@ -191,5 +193,119 @@ describe("the quantity picker will not ask for more than the shelf holds", () =>
        click, and two bindings of one name in one scope is how a shadow
        becomes a bug. The rule is what matters and it is unchanged. */
     expect(PI).toMatch(/setQty\(\(q\) => Math\.min\(q, n\)\)/);
+  });
+});
+
+
+/* THE HEADLINE THAT STAYED IN TETUN.
+ *
+ * Reported from a live shop: switch the language to Indonesian and
+ * /id/shop showed an Indonesian breadcrumb, an Indonesian kicker and an
+ * Indonesian description over a Tetun headline.
+ *
+ * The headline is the shop's TAGLINE, which is not a translated interface
+ * string -- it is a particular shop's own words, one column per language.
+ * Indonesian was added to lib/i18n.ts and there was no fourth column, so
+ * taglineOf() fell back to Tetun exactly as designed. The fix is the
+ * column, and a column is only fixed when the whole chain carries it: the
+ * migration adds it, the grant lets anon read it, the storefront's select
+ * asks for it, the form writes it, and taglineOf reads it. Every one of
+ * those was missed at least once for the nine columns above.
+ */
+describe("the shop's own line reaches a reader in every language", () => {
+  const MIGRATION = read("supabase/tagline-indonesian.sql");
+  const ACTION = code("src/lib/actions/settings.ts");
+  const FORM = code("src/components/admin/SettingsAdmin.tsx");
+  const TAGLINE = code("src/lib/tagline.ts");
+
+  it("adds the column and grants it to the browser's key", () => {
+    // Added without a grant is worse than not added: settings is read with
+    // column-by-column grants, and one ungranted column fails the WHOLE
+    // select -- the shop would lose its name and its bank details.
+    expect(MIGRATION).toMatch(/add column if not exists tagline_id/);
+    expect(MIGRATION).toMatch(/grant select \(tagline_id\) on settings to anon/);
+  });
+
+  it("is safe to paste twice, like every other file in that folder", () => {
+    expect(MIGRATION).toMatch(/add column if not exists/);
+    // The backfill has to be idempotent too: a second run must not
+    // overwrite a line the shop wrote in between.
+    expect(MIGRATION).toMatch(/where coalesce\(tagline_id, ''\) = ''/);
+  });
+
+  it("only writes the demo line into a shop still carrying the demo line", () => {
+    /* A shop that wrote its own tagline gets an empty box to fill in its
+       own words, not a sentence about Dili it never wrote. Matched on the
+       exact string seed.sql writes. */
+    const seeded = /tagline_tet\s*=\s*'([^']+)'/.exec(read("supabase/seed.sql"))?.[1];
+    expect(seeded, "seed.sql sets a Tetun tagline").toBeTruthy();
+    expect(MIGRATION).toContain(`and tagline_tet = '${seeded}'`);
+  });
+
+  it("asks for it separately, so an un-migrated shop keeps its legal facts", () => {
+    /* Folding it into SETTINGS_PUBLIC_EXTRAS would mean a shop that has
+       not pasted this file loses its legal facts, currency and tax rate
+       as well -- over a headline. Its own tier loses only the headline. */
+    const extras = /const SETTINGS_PUBLIC_EXTRAS =\s*([\s\S]*?);/.exec(PUBLIC)?.[1] ?? "";
+    expect(extras, "not folded in with the nine").not.toContain("tagline_id");
+    expect(PUBLIC).toMatch(/const SETTINGS_TAGLINE_ID = ", tagline_id";/);
+    expect(PUBLIC).toMatch(/SETTINGS_CORE \+ SETTINGS_PUBLIC_EXTRAS \+ SETTINGS_TAGLINE_ID/);
+    // And the tier below it still asks for the nine.
+    expect(PUBLIC).toMatch(/\.select\(SETTINGS_CORE \+ SETTINGS_PUBLIC_EXTRAS\)/);
+  });
+
+  it("saves it, and drops only it on a shop that lacks the column", () => {
+    // Naming a column the database does not have fails the whole save, so
+    // this one rides in the optional bag that writeTolerating can drop --
+    // the other three taglines still save.
+    expect(ACTION).toMatch(/tagline_tet: string; tagline_pt: string; tagline_en: string;/);
+    expect(ACTION).toMatch(/tagline_id\?: string;/);
+    expect(ACTION).toMatch(/tagline_id: tagline_id \?\? "",/);
+  });
+
+  it("gives every language a box, so the column is fillable", () => {
+    // The reason there were three columns and no fourth: nothing wrote
+    // them. A column nobody can fill is not a feature.
+    for (const col of ["tagline_tet", "tagline_pt", "tagline_en", "tagline_id"]) {
+      expect(FORM, col).toContain(`${col}: settings.${col} || ""`);
+      expect(FORM, `${col} has a field`).toContain(`field("${col}"`);
+    }
+  });
+
+  it("reads the column that matches the reader", () => {
+    expect(TAGLINE).toMatch(/lang === "id" \? settings\.tagline_id/);
+  });
+});
+
+describe("taglineOf", () => {
+  const S = (over: Partial<Settings>) => ({
+    tagline_tet: "Sasán loos.", tagline_pt: "Produtos reais.",
+    tagline_en: "Real stock.", tagline_id: "Stok nyata.",
+    ...over,
+  } as Settings);
+
+  it("answers in the language asked for", () => {
+    expect(taglineOf(S({}), "tet")).toBe("Sasán loos.");
+    expect(taglineOf(S({}), "pt")).toBe("Produtos reais.");
+    expect(taglineOf(S({}), "en")).toBe("Real stock.");
+    expect(taglineOf(S({}), "id")).toBe("Stok nyata.");
+  });
+
+  it("falls back to Tetum for a language the shop left blank", () => {
+    // A shop that filled in one language has said something; a blank line
+    // loses it for no reason.
+    expect(taglineOf(S({ tagline_id: "" }), "id")).toBe("Sasán loos.");
+  });
+
+  it("falls back on a shop that has not run the migration at all", () => {
+    // No column means undefined, not "", and undefined must not render as
+    // the string "undefined" across the top of the catalogue.
+    const noColumn = S({});
+    delete (noColumn as { tagline_id?: string }).tagline_id;
+    expect(taglineOf(noColumn, "id")).toBe("Sasán loos.");
+  });
+
+  it("returns empty rather than undefined when nothing is set", () => {
+    expect(taglineOf(S({ tagline_tet: "", tagline_id: "" }), "id")).toBe("");
   });
 });

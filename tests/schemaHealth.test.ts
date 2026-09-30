@@ -130,6 +130,8 @@ const EVERYTHING = snap([
   "products.highlights",
   // site-chrome.sql -- the face and the strip the shop can choose.
   "settings.heading_font", "settings.incentives_off",
+  // tagline-indonesian.sql -- the shop's own line in the fourth language.
+  "settings.tagline_id",
   // message-queue.sql -- what makes a queued message claimable by the cron
   // that drains it.
   "notifications.claimed_at", "customer_alerts.attempts",

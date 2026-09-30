@@ -72,7 +72,7 @@ const BEST_SELLER_WINDOW_DAYS = 120;
 const DEFAULT_SETTINGS: Settings = {
   id: 0, // 0 signals "not configured yet"
   store_name: "Loja",
-  tagline_tet: "", tagline_pt: "", tagline_en: "",
+  tagline_tet: "", tagline_pt: "", tagline_en: "", tagline_id: "",
   wa_number: "", hours: "",
   municipality: "", post: "", suku: "", landmark: "",
   pickup: true, commission_rate: 10, seller_registration_enabled: true, banks: [], wallets: [], zones: [],
@@ -115,6 +115,17 @@ const SETTINGS_PUBLIC_EXTRAS =
      its bank details over a font. */
   ", heading_font, incentives_off, incentive_text";
 
+/* THE FOURTH TAGLINE, ASKED FOR SEPARATELY.
+ *
+ * It belongs with the extras above and is NOT in that string, on purpose.
+ * One column the database has not been granted fails the whole select, and
+ * the fallback below is all-or-nothing -- so folding this in would mean a
+ * shop that has not pasted tagline-indonesian.sql loses its legal facts,
+ * its currency and its tax rate as well, over a headline. Its own tier
+ * costs one extra round trip on such a shop, once, behind the cache, and
+ * loses only the thing that is actually missing. */
+const SETTINGS_TAGLINE_ID = ", tagline_id";
+
 /** Never throws: a missing or unreachable settings row must not take the
  * whole site down. Callers check `settings.id === 0` to show the setup
  * banner. */
@@ -123,10 +134,24 @@ async function getSettingsUncached(): Promise<Settings> {
     const sb = supabaseAnon();
     const full = await sb
       .from("settings")
-      .select(SETTINGS_CORE + SETTINGS_PUBLIC_EXTRAS)
+      .select(SETTINGS_CORE + SETTINGS_PUBLIC_EXTRAS + SETTINGS_TAGLINE_ID)
       .eq("id", 1)
       .single();
     if (!full.error && full.data) return full.data as unknown as Settings;
+
+    /* Everything but the Indonesian tagline. A shop that has run the
+       legal, chrome and money migrations but not tagline-indonesian.sql
+       keeps all of them; the headline falls back to Tetum until it pastes
+       that one file, which is what the admin's schema health panel tells
+       it to do. */
+    const noTagline = await sb
+      .from("settings")
+      .select(SETTINGS_CORE + SETTINGS_PUBLIC_EXTRAS)
+      .eq("id", 1)
+      .single();
+    if (!noTagline.error && noTagline.data) {
+      return noTagline.data as unknown as Settings;
+    }
 
     /* A DATABASE THAT HAS NOT CAUGHT UP IS NOT A BROKEN SHOP.
      *

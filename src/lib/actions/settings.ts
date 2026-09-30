@@ -25,6 +25,11 @@ function period(v: unknown, max: number): number | null {
 
 export async function saveSettings(input: {
   store_name: string; wa_number: string; hours: string;
+  /* The shop's own line, one per language. The first three have existed
+     since schema.sql so they save with the rest; tagline_id is optional
+     below, because supabase/tagline-indonesian.sql may not have been run. */
+  tagline_tet: string; tagline_pt: string; tagline_en: string;
+  tagline_id?: string;
   municipality: string; post: string; suku: string; landmark: string;
   pickup: boolean; commission_rate: number; seller_registration_enabled: boolean;
   restock_alert_pct?: number;
@@ -57,7 +62,7 @@ export async function saveSettings(input: {
     legal_address, legal_registration, legal_retention_years,
     legal_return_days, legal_refund_days, display_currency,
     tax_rate, tax_label, tax_included, stale_days,
-    heading_font, incentives_off, incentive_text, ...core
+    heading_font, incentives_off, incentive_text, tagline_id, ...core
   } = input;
 
   /* THE COLUMNS EVERY SHOP HAS, and the ones it may not.
@@ -93,6 +98,10 @@ export async function saveSettings(input: {
        rename would sit in the column for ever, hiding nothing. */
     incentives_off: (incentives_off ?? []).filter((k) => INCENTIVE_KEYS.has(k)),
     incentive_text: cleanIncentiveText(incentive_text),
+    /* From supabase/tagline-indonesian.sql. Optional for the same reason
+       as everything above it: on a shop that has not run that file this
+       is dropped and the other three taglines still save. */
+    tagline_id: tagline_id ?? "",
   };
 
   const { error } = await writeTolerating(optional, (extra) =>

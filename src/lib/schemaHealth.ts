@@ -180,6 +180,10 @@ export const SCHEMA_FEATURES: readonly FeatureCheck[] = [
     columns: [["settings", "heading_font"], ["settings", "incentives_off"]],
   },
   {
+    file: "tagline-indonesian.sql", labelKey: "featTaglineIndonesian",
+    columns: [["settings", "tagline_id"]],
+  },
+  {
     file: "product-highlights.sql", labelKey: "featHighlights",
     columns: [["products", "highlights"]],
   },
@@ -657,6 +661,10 @@ export const SCHEMA_ORDER: readonly string[] = [
   // AFTER legal-currency-tax.sql, whose column-by-column grant pattern on
   // settings it follows and extends.
   "site-chrome.sql",
+  // Anywhere after schema.sql: one column on settings and a grant for it.
+  // Before seed.sql, so a fresh database that runs both has the column by
+  // the time the seed writes the demo shop's Indonesian line into it.
+  "tagline-indonesian.sql",
   "harden-rls.sql",
   "patch-audit-hardening.sql",
 
