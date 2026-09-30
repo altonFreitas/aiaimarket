@@ -23,6 +23,16 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
 
   const [f, setF] = useState({
     store_name: settings.store_name || "",
+    /* THE SHOP'S OWN LINE, ONE BOX PER LANGUAGE.
+       There was no box at all: these columns were seeded by SQL and
+       nothing wrote them, so the headline on the storefront was whatever
+       the last person to open the SQL editor typed. That is also why
+       adding Indonesian to the interface left /id/shop with a Tetun
+       headline -- there was nowhere to put the Indonesian one. */
+    tagline_tet: settings.tagline_tet || "",
+    tagline_pt: settings.tagline_pt || "",
+    tagline_en: settings.tagline_en || "",
+    tagline_id: settings.tagline_id || "",
     wa_number: settings.wa_number || "",
     hours: settings.hours || "",
     municipality: settings.municipality || "",
@@ -117,6 +127,13 @@ export default function SettingsAdmin({ lang, settings }: { lang: Lang; settings
       <div className="panel">
         <h3>{t("storeName", lang)}</h3>
         {field("store_name", t("storeName", lang))}
+        {/* One per language, named in that language rather than in the
+            admin's: somebody typing the Portuguese line wants to see
+            "Português", not "Tagline (PT)" while reading Tetun. */}
+        {field("tagline_tet", `${t("tagline", lang)} · Tetun`, t("taglineHint", lang))}
+        {field("tagline_pt", `${t("tagline", lang)} · Português`)}
+        {field("tagline_en", `${t("tagline", lang)} · English`)}
+        {field("tagline_id", `${t("tagline", lang)} · Bahasa Indonesia`)}
         {field("wa_number", t("waNumber", lang), "+670 …")}
         {field("hours", t("hours", lang))}
         <div className="two">

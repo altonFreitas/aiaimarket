@@ -519,6 +519,12 @@ export const STR: Record<string, [string,string,string,string]> = {
   moveUp:["Sa'e","Subir","Move up","Naikkan"],
   moveDown:["Tun","Descer","Move down","Turunkan"],
   hiddenEmpty:["Subar (mamuk)","Oculta (vazia)","Hidden (empty)","Tersembunyi (kosong)"],
+  /* The shop's own line on the storefront, one per language. Not an
+     interface string: this is what a particular shop says about itself,
+     which is why it is a column and not a row in this table. */
+  tagline:["Loja nia liafuan","A frase da loja","Shop tagline","Slogan toko"],
+  taglineHint:["Liafuan ida ne'ebé sai iha pájina uma-laran no iha katálogu. Husik mamuk atu uza liafuan Tetun nian.","A frase que aparece na página inicial e no catálogo. Deixe em branco para usar a versão em tétum.","The line shown on the home page and over the catalogue. Leave a language blank to fall back to the Tetum one.","Kalimat yang tampil di beranda dan di atas katalog. Biarkan kosong untuk memakai versi Tetun."],
+  featTaglineIndonesian:["Loja nia liafuan iha lian Indonézia","A frase da loja em indonésio","The shop's tagline in Indonesian","Slogan toko dalam bahasa Indonesia"],
   storeName:["Naran loja","Nome da loja","Store name","Nama toko"],
   waNumber:["Númeru WhatsApp","Número WhatsApp","WhatsApp number","Nomor WhatsApp"],
   hours:["Oras loke","Horário","Opening hours","Jam buka"],

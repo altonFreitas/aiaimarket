@@ -444,6 +444,9 @@ export interface Settings {
   tagline_tet: string;
   tagline_pt: string;
   tagline_en: string;
+  /** Optional: a shop that has not run supabase/tagline-indonesian.sql
+   * has no such column, and taglineOf() falls back. */
+  tagline_id?: string;
   wa_number: string;
   hours: string;
   municipality: string;

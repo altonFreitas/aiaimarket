@@ -14,6 +14,9 @@ create table if not exists settings (
   tagline_tet   text default '',
   tagline_pt    text default '',
   tagline_en    text default '',
+  -- The fourth language (src/lib/locale.ts). A shop created before
+  -- tagline-indonesian.sql gets this column from that file instead.
+  tagline_id    text default '',
   wa_number     text not null default '',                  -- +670 format
   hours         text default '',
   municipality  text default '',
@@ -441,7 +444,7 @@ create policy settings_public_read on settings for select using (true);
 -- privileges are a second, independent layer that Postgres also enforces.
 revoke select on settings from anon, authenticated;
 grant select (
-  id, seller_id, store_name, tagline_tet, tagline_pt, tagline_en, wa_number,
+  id, seller_id, store_name, tagline_tet, tagline_pt, tagline_en, tagline_id, wa_number,
   hours, municipality, post, suku, landmark, pickup, banks, wallets, zones, updated_at,
   seller_registration_enabled
 ) on settings to anon, authenticated;
