@@ -150,7 +150,7 @@ describe("the dialog", () => {
 describe("the dialog does not describe tracking that is not there", () => {
   it("says so, in each optional category", () => {
     expect(UI).toMatch(/t\("cookieNoneYet", lang\)/);
-    const m = /cookieNoneYet:\["([^"]*)","([^"]*)","([^"]*)"\]/.exec(I18N);
+    const m = /cookieNoneYet:\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\]/.exec(I18N);
     expect(m, "cookieNoneYet").not.toBeNull();
     for (const one of m!.slice(1)) expect(one.length).toBeGreaterThan(0);
   });

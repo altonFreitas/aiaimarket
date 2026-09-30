@@ -34,12 +34,13 @@ describe("listingMetadata", () => {
     expect(tet.robots).toBeUndefined();
   });
 
-  it("names the other two languages as alternates", () => {
+  it("names every other language as an alternate", () => {
     const m = listingMetadata({ title: "Catalog", path: "/shop", searchParams: {}, lang: "en" });
     expect(m.alternates?.languages).toEqual({
       tet: "/tet/shop",
       "pt-TL": "/pt/shop",
       en: "/en/shop",
+      id: "/id/shop",
       "x-default": "/tet/shop",
     });
   });

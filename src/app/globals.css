@@ -341,7 +341,12 @@ input::placeholder,textarea::placeholder{font-size:var(--fs-sm);
   background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--r-s);
   box-shadow:var(--sh);overflow:hidden;animation:megaDown .12s ease-out}
 .lang-menu button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;
-  padding:11px 12px;background:transparent;border:0;cursor:pointer;font-size:14px;color:var(--ink);text-align:left}
+  padding:11px 12px;background:transparent;border:0;cursor:pointer;font-size:14px;color:var(--ink);text-align:left;
+  /* "Bahasa Indonesia" is twice the width of "Tetun". Without this the
+     longest name wraps onto two lines and that one row stands a head
+     taller than the rest; the menu is shrink-to-fit, so it simply widens
+     to hold it instead. */
+  white-space:nowrap}
 .lang-menu button:hover{background:var(--line-2)}
 .lang-menu button[aria-checked=true]{font-weight:700;background:var(--amber-soft);color:var(--amber-ink)}
 .lang-code{font-family:var(--mono);font-size:11px;color:var(--muted)}

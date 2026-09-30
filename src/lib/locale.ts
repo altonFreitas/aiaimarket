@@ -1,6 +1,6 @@
 import type { Lang } from "./types";
 
-/* THREE LANGUAGES, THREE URLS.
+/* FOUR LANGUAGES, FOUR URLS.
  *
  * 1,023 translated strings across Tetun, Portuguese and English were doing
  * ZERO search work, because all three rendered at one URL behind a cookie.
@@ -8,6 +8,14 @@ import type { Lang } from "./types";
  * reach the other two at all -- for a shop serving a Tetun and Portuguese
  * speaking market with an English-speaking diaspora, the single largest
  * missed channel in the project.
+ *
+ * INDONESIAN IS THE FOURTH, and on the numbers it is not a minor one:
+ * Bahasa Indonesia is read by a large share of Timorese schooled before
+ * 1999, by the shop's Indonesian suppliers, and by the West Timor and
+ * Indonesian visitors who are already buying here. It is a locale like the
+ * other three -- its own prefix, its own canonical, its own hreflang --
+ * because half-adding it (a switch entry with no URL) is the exact bug
+ * this file was written to fix.
  *
  * WHY A PREFIX AND NOT A DIRECTORY MOVE. The obvious implementation is to
  * move every public route into src/app/[lang]/, which is also a rewrite of
@@ -26,7 +34,7 @@ import type { Lang } from "./types";
  * switch all need this, and it reads nothing.
  */
 
-export const LOCALES = ["tet", "pt", "en"] as const;
+export const LOCALES = ["tet", "pt", "en", "id"] as const;
 
 /** The one served when nothing says otherwise. Tetun, because that is what
  * most of this shop's buyers read. */
@@ -34,15 +42,18 @@ export const DEFAULT_LOCALE: Lang = "tet";
 
 /** BCP 47 for the hreflang attribute, which is not the same thing as the
  * cookie value: "tet" is right for Tetun, "pt-TL" says Portuguese as
- * written in Timor-Leste rather than in Portugal or Brazil. */
+ * written in Timor-Leste rather than in Portugal or Brazil. "id" is the
+ * current code for Indonesian -- "in" is the pre-1989 one and browsers no
+ * longer send it, so the cookie value and the hreflang agree here. */
 export const HREFLANG: Record<Lang, string> = {
   tet: "tet",
   pt: "pt-TL",
   en: "en",
+  id: "id",
 };
 
 export function isLocale(value: string | undefined | null): value is Lang {
-  return value === "tet" || value === "pt" || value === "en";
+  return value === "tet" || value === "pt" || value === "en" || value === "id";
 }
 
 /** Paths that never carry a locale.

@@ -183,10 +183,10 @@ describe("what the row shows", () => {
 
   it("does not print '1 items'", () => {
     expect(OH).toMatch(/o\.items\.length === 1 \? "ohItems1" : "ohItems"/);
-    const one = /ohItems1:\["([^"]*)","([^"]*)","([^"]*)"\]/.exec(I18N)!;
+    const one = /ohItems1:\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\]/.exec(I18N)!;
     expect(one[3]).toBe("{n} item");
     expect(one[2]).toBe("{n} artigo");
-    const many = /ohItems:\["([^"]*)","([^"]*)","([^"]*)"\]/.exec(I18N)!;
+    const many = /ohItems:\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\]/.exec(I18N)!;
     expect(many[3]).toBe("{n} items");
   });
 

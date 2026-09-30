@@ -172,13 +172,13 @@ describe("the payment methods", () => {
   });
 });
 
-describe("the cart's wording exists in all three languages", () => {
-  it("says the same thing in Tetun, Portuguese and English", () => {
+describe("the cart's wording exists in all four languages", () => {
+  it("says the same thing in Tetun, Portuguese, English and Indonesian", () => {
     for (const key of ["each", "cartSuggested", "cartFreeZone",
                        "cartDeliveryFrom", "cartDeliveryAtCheckout"]) {
-      const m = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N);
+      const m = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N);
       expect(m, key).not.toBeNull();
-      for (const one of [m![1], m![2], m![3]]) expect(one.length, key).toBeGreaterThan(0);
+      for (const one of [m![1], m![2], m![3], m![4]]) expect(one.length, key).toBeGreaterThan(0);
     }
   });
 
@@ -188,8 +188,8 @@ describe("the cart's wording exists in all three languages", () => {
     // EVERY language, not any one of them: arrayContaining passed here
     // with {zone} gutted out of both Tetun and Portuguese.
     for (const [key, hole] of [["cartFreeZone", "{zone}"], ["cartDeliveryFrom", "{fee}"]]) {
-      const all = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N)!.slice(1);
-      expect(all, key).toHaveLength(3);
+      const all = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N)!.slice(1);
+      expect(all, key).toHaveLength(4);
       for (const one of all) expect([key, one], key).toEqual([key, expect.stringContaining(hole)]);
     }
   });

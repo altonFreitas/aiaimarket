@@ -31,11 +31,25 @@ describe("the string table", () => {
     expect(dupes).toEqual([]);
   });
 
-  it("gives every key all three languages", () => {
+  it("gives every key all four languages", () => {
+    // Tetun, Portuguese, English, Indonesian -- and in that order, because
+    // t() indexes the tuple positionally. A key with three strings compiles
+    // only through an `as`, and renders Tetun to a reader who asked for
+    // Indonesian rather than throwing, so nothing but this notices it.
     const wrong = Object.entries(STR)
-      .filter(([, v]) => !Array.isArray(v) || v.length !== 3)
+      .filter(([, v]) => !Array.isArray(v) || v.length !== 4)
       .map(([k]) => k);
     expect(wrong).toEqual([]);
+  });
+
+  it("answers in the language asked for", () => {
+    // t() indexes the tuple positionally, so an off-by-one here is silent:
+    // every screen renders, in the wrong language. One key with four
+    // visibly different strings pins each column to its language.
+    expect(t("home", "tet")).toBe("Uma");
+    expect(t("home", "pt")).toBe("Início");
+    expect(t("home", "en")).toBe("Home");
+    expect(t("home", "id")).toBe("Beranda");
   });
 
   it("leaves no translation empty", () => {

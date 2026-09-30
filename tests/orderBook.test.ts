@@ -79,12 +79,12 @@ describe("the period chips", () => {
     }
   });
 
-  it("can name every preset, and the same-range note, in all three languages", () => {
+  it("can name every preset, and the same-range note, in all four languages", () => {
     for (const p of PERIOD_PRESETS) {
       expect([p, `range_${p}` in STR]).toEqual([p, true]);
-      expect([p, STR[`range_${p}`].filter(Boolean).length]).toEqual([p, 3]);
+      expect([p, STR[`range_${p}`].filter(Boolean).length]).toEqual([p, 4]);
     }
-    expect(STR.periodSameAs.filter(Boolean).length).toBe(3);
+    expect(STR.periodSameAs.filter(Boolean).length).toBe(4);
     // The note is useless without both slots.
     for (const s of STR.periodSameAs) {
       expect(s).toContain("{a}");
@@ -221,14 +221,14 @@ describe("the flags", () => {
       .toEqual([1, 1, 1, 1, 2]);
   });
 
-  it("can name every flag and sort, in all three languages", () => {
+  it("can name every flag and sort, in all four languages", () => {
     for (const f of ORDER_FLAGS) {
       expect([f, `flag_${f}` in STR]).toEqual([f, true]);
-      expect([f, STR[`flag_${f}`].filter(Boolean).length]).toEqual([f, 3]);
+      expect([f, STR[`flag_${f}`].filter(Boolean).length]).toEqual([f, 4]);
     }
     for (const s of ORDER_SORTS) {
       expect([s, `sort_${s}` in STR]).toEqual([s, true]);
-      expect([s, STR[`sort_${s}`].filter(Boolean).length]).toEqual([s, 3]);
+      expect([s, STR[`sort_${s}`].filter(Boolean).length]).toEqual([s, 4]);
     }
     for (const m of PAY_METHODS) {
       expect([m, `pm_${m}` in STR]).toEqual([m, true]);

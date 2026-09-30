@@ -175,7 +175,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumb) }}
         />
       )}
-      <Crumb homeLabel={t("catalog", lang)} steps={[
+      <Crumb homeLabel={t("home", lang)} navLabel={t("breadcrumb", lang)} steps={[
         ...trail.map((c) => ({ label: c.name, href: `/c/${c.slug}` })),
         { label: p.name },
       ]} />

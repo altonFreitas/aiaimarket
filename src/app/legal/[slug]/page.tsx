@@ -5,7 +5,8 @@ import { getLang } from "@/lib/lang";
 import { localeMetadata } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import {
-  LEGAL_DOCS, LEGAL_MOVED, pick, fillLegal, hasPlaceholders, legalVars, type LegalSlug,
+  LEGAL_DOCS, LEGAL_MOVED, pick, fillLegal, hasPlaceholders, legalVars,
+  type LegalSlug, type LegalText,
 } from "@/lib/legal";
 
 const SLUGS: LegalSlug[] = ["terms", "returns"];
@@ -51,7 +52,7 @@ export default async function LegalPage(
 
   const [lang, settings] = await Promise.all([getLang(), getSettings()]);
   const vars = legalVars(settings);
-  const fill = (three: [string, string, string]) => fillLegal(pick(three, lang), vars);
+  const fill = (text: LegalText) => fillLegal(pick(text, lang), vars);
 
   return (
     <div className="wrap legal">

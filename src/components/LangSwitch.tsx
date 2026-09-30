@@ -11,18 +11,20 @@ const NAMES: Record<Lang, string> = {
   tet: "Tetun",
   pt: "Português",
   en: "English",
+  id: "Bahasa Indonesia",
 };
 
-const ORDER: Lang[] = ["tet", "pt", "en"];
+const ORDER: Lang[] = ["tet", "pt", "en", "id"];
 
-/** One button, not three.
+/** One button, not four.
  *
- * Three side-by-side buttons cost about 90px of a header that also holds a
- * logo, a search box, an account button and a basket -- and two of the
- * three are always the wrong answer, sitting there being ignored. A single
- * control showing the language in use, opening the other two on demand,
- * costs a third of that and says more: TET|PT|EN never made clear which of
- * the three you were actually reading. */
+ * Four side-by-side buttons cost well over 100px of a header that also
+ * holds a logo, a search box, an account button and a basket -- and three
+ * of the four are always the wrong answer, sitting there being ignored. A
+ * single control showing the language in use, opening the rest on demand,
+ * costs a fraction of that and says more: TET|PT|EN never made clear which
+ * of them you were actually reading, and adding a fourth to that row would
+ * have made it worse rather than just longer. */
 export default function LangSwitch({ current }: { current: Lang }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,7 +78,7 @@ export default function LangSwitch({ current }: { current: Lang }) {
     <div className="lang" ref={box}>
       <button type="button" className="lang-btn" disabled={pending}
         aria-haspopup="menu" aria-expanded={open}
-        aria-label="Lian / Idioma / Language"
+        aria-label="Lian / Idioma / Language / Bahasa"
         onClick={() => setOpen((o) => !o)}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="1.8" aria-hidden="true">

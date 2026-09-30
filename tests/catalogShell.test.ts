@@ -35,6 +35,8 @@ const BAR = code("src/components/shop/ShopBar.tsx");
 const HEADER = code("src/components/shop/CatalogHeader.tsx");
 const SHOP = code("src/app/shop/page.tsx");
 const CATPAGE = code("src/app/c/[slug]/page.tsx");
+const CRUMB = code("src/components/Crumb.tsx");
+const PDP = code("src/app/p/[slug]/page.tsx");
 
 function rule(sel: string): string {
   const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -61,6 +63,40 @@ describe("the permanent category sidebar is gone", () => {
     for (const c of ["CatalogHeader", "FilterRail", "ShopBar"]) {
       expect(LAYOUT, c).toContain(c);
     }
+  });
+});
+
+describe("the trail back is the same one the product page draws", () => {
+  /* It was not. The catalogue header had its own copy -- the word "Home",
+     then slashes -- while /p/ used <Crumb>'s house icon and chevrons, so
+     walking from a category into a product changed the shape of the trail
+     underneath you. */
+  it("draws it with Crumb rather than its own markup", () => {
+    expect(HEADER).toContain("<Crumb");
+    expect(HEADER, "a hand-rolled trail is the thing that drifted")
+      .not.toMatch(/<nav className="crumbs"/);
+  });
+
+  it("shows a house rather than the word for it", () => {
+    // The word had to be translated four ways to say what the picture
+    // says once -- and in the uppercase mono the trail is set in, "HOME"
+    // was also the widest thing on the line.
+    expect(HEADER, 'the crumb must not print t("home")')
+      .not.toMatch(/>\{t\("home", lang\)\}</);
+    expect(CRUMB, "the house itself").toMatch(/<path d="M3 11l9-8 9 8"/);
+  });
+
+  it("still names the home link for a screen reader", () => {
+    // An icon with no accessible name is a link that announces as "link".
+    expect(HEADER).toMatch(/homeLabel=\{t\("home", lang\)\}/);
+    expect(CRUMB).toMatch(/aria-label=\{homeLabel\}/);
+  });
+
+  it("gives the trail a name of its own, not the home link's", () => {
+    // They were the same string, so the nav landmark announced whatever
+    // the home link did -- on /p/ that was "Catalog".
+    expect(CRUMB).toMatch(/aria-label=\{navLabel \|\| homeLabel\}/);
+    for (const f of [HEADER, PDP]) expect(f).toContain('navLabel={t("breadcrumb", lang)}');
   });
 });
 

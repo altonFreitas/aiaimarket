@@ -167,7 +167,7 @@ describe("both screens with a stepper use the same one", () => {
     expect(STEPPER).toMatch(/const atCap = capped && !soldOut && line\.qty >= cap;/);
   });
 
-  it("says why the button is grey, in all three languages", () => {
+  it("says why the button is grey, in all four languages", () => {
     /* A standing statement of the ceiling, not the stockCap* messages that
        answer somebody who just asked for more than there is: in a cart the
        line sits at the ceiling without anybody having overreached, and
@@ -176,9 +176,9 @@ describe("both screens with a stepper use the same one", () => {
     expect(STEPPER).not.toContain("{q}");
     const I18N = read("src/lib/i18n.ts");
     for (const key of ["onlyNLeft", "onlyNLeftSize"]) {
-      const m = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N);
+      const m = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N);
       expect(m, key).not.toBeNull();
-      for (const one of [m![1], m![2], m![3]]) {
+      for (const one of [m![1], m![2], m![3], m![4]]) {
         expect(one, key).toContain("{n}");
       }
     }
