@@ -45,7 +45,10 @@ export interface TemplateVars {
   url: string;
 }
 
-type Trio = [tet: string, pt: string, en: string];
+/* Four languages now, so no longer a trio -- the name is kept because it
+   is what the renderer below calls the tuple it indexes, and renaming it
+   would touch more lines than it explains. */
+type Trio = [tet: string, pt: string, en: string, id: string];
 
 /** `{ref}`, `{store}`, `{total}` and `{url}` are substituted.
  *
@@ -67,35 +70,41 @@ const MESSAGES: Record<NotifyEvent, Trio> = {
     "{store}: simu ona enkomenda {ref}, {total}. Haree:\n{url}",
     "{store}: recebemos a encomenda {ref}, {total}. Acompanhe:\n{url}",
     "{store}: order {ref} received, {total}. Track it:\n{url}",
+    "{store}: pesanan {ref} diterima, {total}. Lacak:\n{url}",
   ],
   confirmed: [
     "Enkomenda {ref} konfirmadu ona. Ami prepara hela. Haree:\n{url}",
     "Encomenda {ref} confirmada. Estamos a preparar. Acompanhe:\n{url}",
     "Order {ref} confirmed. We're getting it ready. Track it:\n{url}",
+    "Pesanan {ref} dikonfirmasi. Sedang kami siapkan. Lacak:\n{url}",
   ],
   out: [
     "Enkomenda {ref} iha dalan ona ba ita. Haree:\n{url}",
     "Encomenda {ref} saiu para entrega. Acompanhe:\n{url}",
     "Order {ref} is on its way to you. Track it:\n{url}",
+    "Pesanan {ref} sedang dalam perjalanan. Lacak:\n{url}",
   ],
   arrived: [
     "Ami to'o ona ho enkomenda {ref}. Ami bolu ita agora.\n{url}",
     "Chegamos com a encomenda {ref}. Vamos ligar-lhe.\n{url}",
     "We've arrived with order {ref}. We're calling you now.\n{url}",
+    "Kami tiba dengan pesanan {ref}. Kami telepon sekarang.\n{url}",
   ],
   completed: [
     "Obrigadu! Enkomenda {ref} kompletu ona. Avalia iha ne'e:\n{url}",
     "Obrigado! Encomenda {ref} entregue. Avalie aqui:\n{url}",
     "Thank you! Order {ref} is complete. Leave a review:\n{url}",
+    "Terima kasih! Pesanan {ref} selesai. Beri ulasan:\n{url}",
   ],
   cancelled: [
     "Enkomenda {ref} kansela ona. Kontaktu ami se presiza.\n{url}",
     "Encomenda {ref} cancelada. Contacte-nos se precisar.\n{url}",
     "Order {ref} has been cancelled. Contact us if you need to.\n{url}",
+    "Pesanan {ref} dibatalkan. Hubungi kami bila perlu.\n{url}",
   ],
 };
 
-const LANG_INDEX: Record<Lang, 0 | 1 | 2> = { tet: 0, pt: 1, en: 2 };
+const LANG_INDEX: Record<Lang, 0 | 1 | 2 | 3> = { tet: 0, pt: 1, en: 2, id: 3 };
 
 export function renderNotification(event: NotifyEvent, lang: Lang, vars: TemplateVars): string {
   const trio = MESSAGES[event];

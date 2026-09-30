@@ -27,18 +27,20 @@ const I18N = raw("src/lib/i18n.ts");
 const CRON = code("src/app/api/cron/send-queued/route.ts");
 const QUEUE_SQL = raw("supabase/message-queue.sql");
 
-/** The three strings behind one i18n key: Tetun, Portuguese, English.
+/** The four strings behind one i18n key: Tetun, Portuguese, English,
+ * Indonesian.
  *
  * A helper because the loose version of these assertions -- one regex
  * spanning the whole entry -- passes when only ONE language still says the
  * thing. Two mutations proved it: emptying the Tetun fix-instruction left
  * the Portuguese and English copies for the regex to find, and the shop
  * whose own language it is would have been the one told nothing. */
-function trio(key: string): [string, string, string] {
-  const m = new RegExp(key + ':\\["((?:[^"\\\\]|\\\\.)*)","((?:[^"\\\\]|\\\\.)*)","((?:[^"\\\\]|\\\\.)*)"\\]')
+function everyLanguage(key: string): [string, string, string, string] {
+  const q = '"((?:[^"\\\\]|\\\\.)*)"';
+  const m = new RegExp(key + ':\\[' + [q, q, q, q].join(",") + '\\]')
     .exec(I18N);
   expect(m, "the i18n entry for " + key).not.toBeNull();
-  return [m![1], m![2], m![3]];
+  return [m![1], m![2], m![3], m![4]];
 }
 
 /** The whole <p> element that mentions `needle`, opening tag included.
@@ -289,10 +291,10 @@ describe("the screen stops saying every message has been sent", () => {
     /* IN ALL THREE LANGUAGES. One regex across the whole entry passed with
        the Tetun copy gutted, leaving the shop whose own language it is the
        only one not told what to change. */
-    for (const one of trio("announceNoOrigin")) {
+    for (const one of everyLanguage("announceNoOrigin")) {
       expect(one).toContain("NEXT_PUBLIC_SITE_URL");
     }
-    for (const one of trio("announceNoTable")) {
+    for (const one of everyLanguage("announceNoTable")) {
       expect(one).toContain("customer-alerts.sql");
     }
   });
@@ -307,13 +309,14 @@ describe("the screen stops saying every message has been sent", () => {
     expect(element(PANEL, "announceNoRecipients")).not.toContain("var(--red)");
   });
 
-  it("says the same thing in all three languages", () => {
+  it("says the same thing in all four languages", () => {
     for (const key of ["announceTitle", "announceNoOrigin", "announceNoTable",
                        "announceNoRecipients", "announceReady", "announceDraftNote"]) {
-      const [tet, pt, en] = trio(key);
+      const [tet, pt, en, id] = everyLanguage(key);
       expect(tet.length, key + " tet").toBeGreaterThan(0);
       expect(pt.length, key + " pt").toBeGreaterThan(0);
       expect(en.length, key + " en").toBeGreaterThan(0);
+      expect(id.length, key + " id").toBeGreaterThan(0);
     }
   });
 });

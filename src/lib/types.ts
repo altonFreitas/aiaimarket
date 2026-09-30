@@ -8,7 +8,7 @@ export type PayMethod = "cod" | "cop" | "bank" | "wallet" | "fiar" | "card";
 export type PayStatus = "unpaid" | "deposit" | "paid" | "refunded";
 export type OrderStatus =
   | "new" | "confirmed" | "preparing" | "out" | "arrived" | "completed" | "cancelled";
-export type Lang = "tet" | "pt" | "en";
+export type Lang = "tet" | "pt" | "en" | "id";
 
 export type SellerType = "individual" | "business";
 export type SellerStatus = "pending" | "approved" | "rejected" | "suspended";

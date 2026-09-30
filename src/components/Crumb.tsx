@@ -16,18 +16,30 @@ export interface CrumbStep {
  * `.crumb` would have quietly re-dressed "TOP PRODUCTS" and "REVENUE" on
  * the sales screens.
  *
+ * THE FIRST STEP IS AN ICON, NOT THE WORD. A house is read at a glance in
+ * every language this shop speaks, and the word for it was the one crumb
+ * that had to be translated four ways to say what the picture says once.
+ * It keeps its accessible name, so a screen reader still hears "Home" --
+ * the word is removed from the eye, not from the page.
+ *
  * THE LAST STEP IS NOT A LINK. It is the page you are on, and a link to
  * here is a link that does nothing. Marked aria-current so a screen reader
  * says the same thing the styling does.
  *
  * Server-rendered: it is links and an SVG, and holds no state.
  */
-export default function Crumb({ steps, homeLabel }: {
+export default function Crumb({ steps, homeLabel, navLabel }: {
   steps: CrumbStep[];
+  /** The home link's accessible name -- the word the icon stands in for,
+   * in the reader's language. */
   homeLabel: string;
+  /** What the trail itself is called, for a screen reader listing the
+   * page's landmarks. Falls back to the home label, which is what this
+   * took before it could tell the two apart. */
+  navLabel?: string;
 }) {
   return (
-    <nav className="crumbs" aria-label={homeLabel}>
+    <nav className="crumbs" aria-label={navLabel || homeLabel}>
       <Link className="crumbs-home" href="/" aria-label={homeLabel}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

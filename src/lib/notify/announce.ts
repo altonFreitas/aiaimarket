@@ -35,23 +35,25 @@ const MAX_RECIPIENTS = 500;
 
 export type AlertKind = "new_product" | "discount";
 
-/* The messages, in the shop's three languages. Short on purpose: an SMS is
+/* The messages, in the shop's four languages. Short on purpose: an SMS is
    billed per 160 characters, and a link that survives is worth more than an
    adjective that does not. */
-const BODY: Record<AlertKind, [string, string, string]> = {
+const BODY: Record<AlertKind, [string, string, string, string]> = {
   new_product: [
     "{store}: sasan foun — {name}, {price}. Haree: {url}",
     "{store}: novidade — {name}, {price}. Ver: {url}",
     "{store}: new in — {name}, {price}. See it: {url}",
+    "{store}: barang baru — {name}, {price}. Lihat: {url}",
   ],
   discount: [
     "{store}: folin tun — {name} agora {price} (antes {was}). {url}",
     "{store}: desconto — {name} agora {price} (antes {was}). {url}",
     "{store}: price drop — {name} now {price} (was {was}). {url}",
+    "{store}: harga turun — {name} kini {price} (sebelumnya {was}). {url}",
   ],
 };
 
-const LANG_INDEX: Record<Lang, number> = { tet: 0, pt: 1, en: 2 };
+const LANG_INDEX: Record<Lang, number> = { tet: 0, pt: 1, en: 2, id: 3 };
 
 function render(
   kind: AlertKind, lang: Lang,

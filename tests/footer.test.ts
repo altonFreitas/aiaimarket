@@ -188,12 +188,12 @@ describe("a placeholder looks like a hint, not an answer", () => {
   });
 });
 
-describe("the new wording exists in all three languages", () => {
-  it("says the same thing in Tetun, Portuguese and English", () => {
+describe("the new wording exists in all four languages", () => {
+  it("says the same thing in Tetun, Portuguese, English and Indonesian", () => {
     for (const key of ["help", "information", "footWaTitle", "footWaBody", "footWaMsg"]) {
-      const m = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N);
+      const m = new RegExp(key + ':\\["([^"]*)","([^"]*)","([^"]*)","([^"]*)"\\]').exec(I18N);
       expect(m, key).not.toBeNull();
-      for (const one of [m![1], m![2], m![3]]) {
+      for (const one of [m![1], m![2], m![3], m![4]]) {
         expect(one.length, key).toBeGreaterThan(0);
       }
     }

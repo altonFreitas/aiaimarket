@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import Crumb, { type CrumbStep } from "@/components/Crumb";
 import { placeholder } from "@/lib/placeholder";
 import { countIn, descendantIds } from "@/lib/categoryTree";
 import { t } from "@/lib/i18n";
@@ -54,29 +55,31 @@ export default function CatalogHeader({
     if (trail.length > 6) break;
   }
 
+  /* THE SAME TRAIL THE PRODUCT PAGE DRAWS, from the same component.
+     This had its own copy -- the word "Home", then slashes -- while /p/
+     used <Crumb>'s house icon and chevrons, so walking from a category
+     into a product changed the shape of the trail underneath you for no
+     reason. One component, one shape, and the icon needs no translating
+     into four languages. */
+  const steps: CrumbStep[] = trail.length
+    ? [
+        { label: t("catalog", lang), href: "/shop" },
+        ...trail.map((c, i) => ({
+          label: c.name,
+          // The last one is where you already are, so it gets no link.
+          href: i === trail.length - 1 ? undefined : `/c/${c.slug}`,
+        })),
+      ]
+    /* No category open: the page itself is the only step. A crumb is text,
+       and `title` is a node -- on /shop it is the shop's own tagline, with
+       the word "Catalog" behind it, and on /search a string this builds.
+       Anything richer than a string belongs in the <h1>, not here. */
+    : [{ label: (kicker || typeof title !== "string") ? t("catalog", lang) : title }];
+
   return (
     <header className="shop-hd">
-      <nav className="crumbs" aria-label="Breadcrumb">
-        <Link href="/">{t("home", lang)}</Link>
-        <span aria-hidden="true">/</span>
-        {trail.length ? (
-          <>
-            <Link href="/shop">{t("catalog", lang)}</Link>
-            {trail.map((c, i) => (
-              <span key={c.id} style={{ display: "contents" }}>
-                <span aria-hidden="true">/</span>
-                {i === trail.length - 1 ? (
-                  <span aria-current="page">{c.name}</span>
-                ) : (
-                  <Link href={`/c/${c.slug}`}>{c.name}</Link>
-                )}
-              </span>
-            ))}
-          </>
-        ) : (
-          <span aria-current="page">{kicker ? t("catalog", lang) : title}</span>
-        )}
-      </nav>
+      <Crumb steps={steps} homeLabel={t("home", lang)}
+        navLabel={t("breadcrumb", lang)} />
 
       {kicker && <p className="shop-kicker">{kicker}</p>}
       <h1 className="shop-title">{title}</h1>

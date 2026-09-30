@@ -81,13 +81,13 @@ describe("normalizeZones", () => {
 });
 
 describe("every zone can actually be named", () => {
-  it("has a translation for each id, in all three languages", () => {
+  it("has a translation for each id, in all four languages", () => {
     // This is the invariant the bug violated. If an id has no key here, the
     // checkout renders the key itself at a shopper.
     for (const id of ZONE_IDS) {
       const key = zoneLabelKey(id);
       expect([id, key in STR]).toEqual([id, true]);
-      expect([id, STR[key].filter(Boolean).length]).toEqual([id, 3]);
+      expect([id, STR[key].filter(Boolean).length]).toEqual([id, 4]);
     }
   });
 

@@ -13,7 +13,7 @@ export function clientLang(): Lang {
   try {
     const m = document.cookie.match(/(?:^|;\s*)lang=([^;]*)/);
     const v = m?.[1];
-    return v === "pt" || v === "en" ? v : "tet";
+    return v === "pt" || v === "en" || v === "id" ? v : "tet";
   } catch {
     return "tet";
   }

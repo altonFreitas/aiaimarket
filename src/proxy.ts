@@ -97,11 +97,20 @@ export const config = {
   matcher: [
     "/admin/:path*",
     "/seller/:path*",
-    // Every locale-prefixed URL, so the prefix can be taken off before
-    // routing. Narrow on purpose: this runs on every matched request, and
-    // matching everything to rewrite a handful of paths would put the proxy
-    // in front of every asset in the application.
-    "/tet/:path*", "/pt/:path*", "/en/:path*",
-    "/tet", "/pt", "/en",
+    /* Every locale-prefixed URL, so the prefix can be taken off before
+       routing. Narrow on purpose: this runs on every matched request, and
+       matching everything to rewrite a handful of paths would put the
+       proxy in front of every asset in the application.
+
+       WRITTEN OUT, NOT BUILT FROM LOCALES. Next reads this array at build
+       time and will not evaluate anything -- a .map() over LOCALES here
+       compiles and then matches nothing. Which makes this the one place a
+       new language is silently half-added: lib/locale.ts can know about
+       it, the string table can be complete, the switch can offer it, and
+       /id/shop still renders Tetun because the rewrite above never ran.
+       That is exactly what happened when Indonesian was added, so
+       tests/locale.test.ts now holds this list to LOCALES. */
+    "/tet/:path*", "/pt/:path*", "/en/:path*", "/id/:path*",
+    "/tet", "/pt", "/en", "/id",
   ],
 };

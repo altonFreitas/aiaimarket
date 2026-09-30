@@ -353,13 +353,13 @@ describe("runway", () => {
 });
 
 describe("the chart of accounts", () => {
-  it("can name every account, in all three languages", () => {
+  it("can name every account, in all four languages", () => {
     // The invariant the delivery zones violated: an id with no translation
     // renders as the raw key at whoever is reading the screen.
     for (const a of EXPENSE_ACCOUNTS) {
       expect([a, accountLabelKey(a) in STR]).toEqual([a, true]);
       expect([a, accountHintKey(a) in STR]).toEqual([a, true]);
-      expect([a, STR[accountLabelKey(a)].filter(Boolean).length]).toEqual([a, 3]);
+      expect([a, STR[accountLabelKey(a)].filter(Boolean).length]).toEqual([a, 4]);
     }
   });
 

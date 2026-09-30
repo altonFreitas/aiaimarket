@@ -30,7 +30,7 @@ built on the stack the spec's §5 specifies.
 | G1–G5 | Per-product payment methods incl. *fiar*, conditional bank reveal, proof upload, manual payment status, USD centavos |
 | H1–H5 | Municipality→Posto→Suku→Aldeia + mandatory landmark, fee zones, pickup |
 | I1–I7 | Customer dashboard by ref+phone: timeline, summary, payment panel, editable address, contact, cancellation |
-| J1–J4 | Tetun default + PT/EN, performance budget, graceful degradation |
+| J1–J4 | Tetun default + PT/EN/ID, performance budget, graceful degradation |
 
 Part B (K–N) and the Won't-Have list (O1–O5) are deliberately not built.
 
@@ -111,7 +111,8 @@ if it never does.
   open assumption — it blocks nothing else, but it blocks Epic G being correct).
 - Check the address hierarchy against how buyers in your municipalities really describe location.
 - **Have a native Tetun speaker review the strings in `src/lib/i18n.ts`** — they're a solid
-  first draft, not verified copy.
+  first draft, not verified copy. The same goes for the Indonesian column, which was added
+  last and has had no native review at all.
 - Move to the Supabase paid tier so the project never auto-pauses.
 
 ## Project layout
@@ -126,7 +127,7 @@ src/
       search.ts        catalog search: Postgres FTS, with an in-memory fallback
     payments/          card gateway orchestration (see supabase/payments.sql)
     supabase/          three clients: browser, server, admin
-    i18n.ts            Tetun / Portuguese / English strings
+    i18n.ts            Tetun / Portuguese / English / Indonesian strings
     session.ts         signed admin cookie
   proxy.ts             /admin route guard
 supabase/

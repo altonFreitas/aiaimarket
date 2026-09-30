@@ -326,23 +326,23 @@ describe("both directions over time", () => {
 });
 
 describe("the vocabularies", () => {
-  it("can name every customer reason, in all three languages", () => {
+  it("can name every customer reason, in all four languages", () => {
     // The invariant the delivery zones violated: an id with no translation
     // renders as the raw key at whoever is reading the screen.
     for (const r of RETURN_REASONS) {
       expect([r, returnReasonKey(r) in STR]).toEqual([r, true]);
-      expect([r, STR[returnReasonKey(r)].filter(Boolean).length]).toEqual([r, 3]);
+      expect([r, STR[returnReasonKey(r)].filter(Boolean).length]).toEqual([r, 4]);
     }
   });
 
-  it("can name every supplier reason and status, in all three languages", () => {
+  it("can name every supplier reason and status, in all four languages", () => {
     for (const r of SUPPLIER_RETURN_REASONS) {
       expect([r, supplierReasonKey(r) in STR]).toEqual([r, true]);
-      expect([r, STR[supplierReasonKey(r)].filter(Boolean).length]).toEqual([r, 3]);
+      expect([r, STR[supplierReasonKey(r)].filter(Boolean).length]).toEqual([r, 4]);
     }
     for (const s of SUPPLIER_RETURN_STATUSES) {
       expect([s, supplierStatusKey(s) in STR]).toEqual([s, true]);
-      expect([s, STR[supplierStatusKey(s)].filter(Boolean).length]).toEqual([s, 3]);
+      expect([s, STR[supplierStatusKey(s)].filter(Boolean).length]).toEqual([s, 4]);
     }
   });
 

@@ -34,7 +34,7 @@ function siteOrigin(): string {
 }
 
 function asLang(v: string | null | undefined): Lang {
-  return v === "pt" || v === "en" ? v : "tet";
+  return v === "pt" || v === "en" || v === "id" ? v : "tet";
 }
 
 /** Queues one notification and immediately tries to send it.

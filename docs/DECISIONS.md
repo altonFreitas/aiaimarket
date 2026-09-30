@@ -69,7 +69,7 @@ re-derive. Do not paste the reasoning; move the pointer.
 | The cart is `localStorage`, never a cookie — it belongs to the browser, not to the account | `src/lib/useBasket.ts` |
 | "Not yet known" and "empty" are different cart states, so the cart never flashes empty mid-purchase | `src/lib/useBasket.ts` — `useSyncExternalStore` |
 | No web fonts on the storefront; the system stack, for data frugality | `src/app/globals.css` |
-| Language is a cookie, and one URL serves all three | `src/lib/lang.ts` |
+| Each language has its own URL prefix, stripped in the proxy; the cookie is only the fallback | `src/lib/locale.ts`, `src/proxy.ts` |
 | The bare listing is canonical; every sorted, filtered or paged view is `noindex,follow` | `src/lib/listingMeta.ts` |
 | Search result pages are never indexed | `src/lib/listingMeta.ts` — `searchMetadata()` |
 | Every JSON-LD payload is escaped through one function, because `JSON.stringify` does not escape `<` | `src/lib/jsonLd.ts` |

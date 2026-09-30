@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { STR, t } from "@/lib/i18n";
+import type { Lang } from "@/lib/types";
 
 const ROOT = path.join(__dirname, "..");
 const SOURCE = fs.readFileSync(path.join(ROOT, "src", "lib", "i18n.ts"), "utf8");
@@ -31,11 +32,33 @@ describe("the string table", () => {
     expect(dupes).toEqual([]);
   });
 
-  it("gives every key all three languages", () => {
+  it("gives every key all four languages", () => {
+    // Tetun, Portuguese, English, Indonesian -- and in that order, because
+    // t() indexes the tuple positionally. A key with three strings compiles
+    // only through an `as`, and renders Tetun to a reader who asked for
+    // Indonesian rather than throwing, so nothing but this notices it.
     const wrong = Object.entries(STR)
-      .filter(([, v]) => !Array.isArray(v) || v.length !== 3)
+      .filter(([, v]) => !Array.isArray(v) || v.length !== 4)
       .map(([k]) => k);
     expect(wrong).toEqual([]);
+  });
+
+  it("answers in the language asked for", () => {
+    /* t() indexes the tuple positionally, so an off-by-one is silent:
+       every screen renders, in the wrong language.
+
+       Against the TABLE, not against fixed prose. The first draft of this
+       asserted t("home", "tet") === "Uma" and was broken within the hour
+       by a Tetun spelling correction on main -- a test that fails when the
+       translation improves is a test that teaches people to edit tests. */
+    const columns: [Lang, number][] = [["tet", 0], ["pt", 1], ["en", 2], ["id", 3]];
+    for (const [lang, i] of columns) {
+      // A key whose four strings are all different, so a swapped pair
+      // cannot satisfy this by coincidence.
+      expect([lang, t("home", lang)]).toEqual([lang, STR.home[i]]);
+      expect([lang, t("stockOut", lang)]).toEqual([lang, STR.stockOut[i]]);
+    }
+    expect(new Set(STR.home).size, "home says something different in each").toBe(4);
   });
 
   it("leaves no translation empty", () => {
