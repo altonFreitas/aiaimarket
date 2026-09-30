@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { STR, t } from "@/lib/i18n";
+import type { Lang } from "@/lib/types";
 
 const ROOT = path.join(__dirname, "..");
 const SOURCE = fs.readFileSync(path.join(ROOT, "src", "lib", "i18n.ts"), "utf8");
@@ -43,13 +44,21 @@ describe("the string table", () => {
   });
 
   it("answers in the language asked for", () => {
-    // t() indexes the tuple positionally, so an off-by-one here is silent:
-    // every screen renders, in the wrong language. One key with four
-    // visibly different strings pins each column to its language.
-    expect(t("home", "tet")).toBe("Uma");
-    expect(t("home", "pt")).toBe("Início");
-    expect(t("home", "en")).toBe("Home");
-    expect(t("home", "id")).toBe("Beranda");
+    /* t() indexes the tuple positionally, so an off-by-one is silent:
+       every screen renders, in the wrong language.
+
+       Against the TABLE, not against fixed prose. The first draft of this
+       asserted t("home", "tet") === "Uma" and was broken within the hour
+       by a Tetun spelling correction on main -- a test that fails when the
+       translation improves is a test that teaches people to edit tests. */
+    const columns: [Lang, number][] = [["tet", 0], ["pt", 1], ["en", 2], ["id", 3]];
+    for (const [lang, i] of columns) {
+      // A key whose four strings are all different, so a swapped pair
+      // cannot satisfy this by coincidence.
+      expect([lang, t("home", lang)]).toEqual([lang, STR.home[i]]);
+      expect([lang, t("stockOut", lang)]).toEqual([lang, STR.stockOut[i]]);
+    }
+    expect(new Set(STR.home).size, "home says something different in each").toBe(4);
   });
 
   it("leaves no translation empty", () => {
